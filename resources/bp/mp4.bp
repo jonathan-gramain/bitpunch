@@ -1,0 +1,417 @@
+/*
+ * ISO 14496-1 media format (MP4)
+ *
+ * Reference: http://xhelmboyx.tripod.com/formats/mp4-layout.txt
+ */
+
+type u8  byte[1] : integer(signed=false, endian=big);
+type u16 byte[2] : integer(signed=false, endian=big);
+type u32 byte[4] : integer(signed=false, endian=big);
+type u64 byte[8] : integer(signed=false, endian=big);
+
+type timestamp32 u32;
+type timestamp64 u64;
+
+type ATOM byte[4] : string;
+
+struct BOX_HDR {
+    u32 size;
+    ATOM atom;
+};
+
+struct BOX {
+    BOX_HDR hdr;
+
+    if (hdr.atom == "free" ||
+        hdr.atom == "skip") {
+        byte[] free_space;
+    }
+
+    if (hdr.atom == "ftyp") {
+        struct {
+            ATOM major_brand;
+            u32 major_brand_version;
+            ATOM[] compatible_brands;
+        } ftyp;
+    }
+
+    if (hdr.atom == "uuid") {
+        byte[] uuid_bytes;
+    }
+
+    if (hdr.atom == "mdat") {
+        byte[] media_data;
+    }
+
+    if (hdr.atom == "moov") {
+        BOX_MOOV[] moov_boxes;
+    }
+
+    byte[] trailer;
+
+    span hdr.size;
+    key hdr.atom;
+};
+
+struct TRANSFORM {
+   u32 scale;
+   u32 rotate;
+   u32 angle;
+};
+
+struct BOX_MOOV {
+    BOX_HDR hdr;
+
+    if (hdr.atom == "mvhd") {
+        struct {
+            u8 version;
+            u8[3] flags;
+            if (version == 0) {
+                struct {
+                    timestamp32 created;
+                    timestamp32 modified;
+                    u32 timescale;
+                    u32 duration;
+                } v0;
+            }
+            if (version == 1) {
+                struct {
+                    timestamp64 created;
+                    timestamp64 modified;
+                    u32 timescale;
+                    u64 duration;
+                } v1;
+            }
+            u32 playback_speed;
+            u16 user_volume;
+            u16[5] reserved;
+            TRANSFORM width;
+            TRANSFORM height;
+            u32 left;
+            u32 top;
+            u32 divider;
+        } mvhd;
+    }
+
+    if (hdr.atom == "trak") {
+        BOX_TRAK[] trak_boxes;
+    }
+
+    byte[] trailer;
+
+    span hdr.size;
+    key hdr.atom;
+};
+
+struct BOX_TRAK {
+    BOX_HDR hdr;
+
+    if (hdr.atom == "tkhd") {
+        struct {
+            u8 version;
+            u8[3] flags;
+            if (version == 0) {
+                struct {
+                    timestamp32 created;
+                    timestamp32 modified;
+                    u32 track_id;
+                    u32[2] reserved;
+                    u32 duration;
+                } v0;
+            }
+            if (version == 1) {
+                struct {
+                    timestamp64 created;
+                    timestamp64 modified;
+                    u32 track_id;
+                    u32[2] reserved;
+                    u64 duration;
+                } v1;
+            }
+            u32 reserved1;
+            u16 video_layer;
+            u16 alternate_track_id;
+            u16 audio_volume;
+            u16 reserved2;
+            TRANSFORM width;
+            TRANSFORM height;
+            u32 left;
+            u32 top;
+            u32 divider;
+            u32 frame_width;
+            u32 frame_height;
+        } tkhd;
+    }
+
+    if (hdr.atom == "edts") {
+        BOX_EDTS[] edts_boxes;
+    }
+
+    if (hdr.atom == "mdia") {
+        BOX_MDIA[] mdia_boxes;
+    }
+
+    byte[] trailer;
+
+    span hdr.size;
+    key hdr.atom;
+};
+
+struct BOX_EDTS {
+    BOX_HDR hdr;
+
+    if (hdr.atom == "elst") {
+        struct {
+            u8 version;
+            u8[3] flags;
+            u32 nb_edits;
+            if (version == 0) {
+                struct {
+                    u32 length;
+                    u32 start_time;
+                } v0;
+            }
+            if (version == 1) {
+                struct {
+                    u64 length;
+                    u64 start_time;
+                } v1;
+            }
+            u32 playback_speed;
+        } elst;
+    }
+
+    byte[] trailer;
+
+    span hdr.size;
+    key hdr.atom;
+};
+
+
+struct BOX_MDIA {
+    BOX_HDR hdr;
+
+    if (hdr.atom == "mdhd") {
+        struct {
+            u8 version;
+            u8[3] flags;
+            if (version == 0) {
+                struct {
+                    timestamp32 created;
+                    timestamp32 modified;
+                    u32 timescale;
+                    u32 duration;
+                } v0;
+            }
+            if (version == 1) {
+                struct {
+                    timestamp64 created;
+                    timestamp64 modified;
+                    u32 timescale;
+                    u64 duration;
+                } v1;
+            }
+        } mdhd;
+    }
+
+    if (hdr.atom == "hdlr") {
+        struct {
+            u8 version;
+            u8[3] flags;
+            ATOM quicktime_type;
+            ATOM subtype_media;
+            ATOM manufacturer;
+            u32[2] unused;
+        } hdlr;
+    }
+
+    if (hdr.atom == "minf") {
+        BOX_MINF[] minf_boxes;
+    }
+
+    byte[] trailer;
+
+    span hdr.size;
+    key hdr.atom;
+};
+
+struct BOX_MINF {
+    BOX_HDR hdr;
+
+    if (hdr.atom == "vmhd") {
+        struct {
+            u8 version;
+            u8[3] flags;
+        } vmhd;
+    }
+
+    if (hdr.atom == "smhd") {
+        struct {
+            u8 version;
+            u8[3] flags;
+        } smhd;
+    }
+
+    if (hdr.atom == "dinf") {
+        BOX_DINF[] dinf_boxes;
+    }
+
+    if (hdr.atom == "stbl") {
+        BOX_STBL[] stbl_boxes;
+    }
+
+    byte[] trailer;
+
+    span hdr.size;
+    key hdr.atom;
+};
+
+struct BOX_DINF {
+    BOX_HDR hdr;
+
+    if (hdr.atom == "dref") {
+        struct {
+            u8 version;
+            u8[3] flags;
+        } dref;
+    }
+
+    byte[] trailer;
+
+    span hdr.size;
+    key hdr.atom;
+};
+
+struct BOX_STBL {
+    BOX_HDR hdr;
+
+    if (hdr.atom == "stsd") {
+        struct {
+            u8 version;
+            u8[3] flags;
+            u32 number_of_descriptions;
+            BOX_STSD[] stsd_boxes;
+        } stsd;
+    }
+
+    if (hdr.atom == "stts") {
+        struct DURATION {
+            u32 frame_count;
+            u32 duration;
+        };
+        struct {
+            u8 version;
+            u8[3] flags;
+            u32 number_of_durations;
+            DURATION[number_of_durations] durations;
+        } stts;
+    }
+
+    if (hdr.atom == "stss") {
+        struct KEY_FRAME {
+            u32 framing_time;
+        };
+        struct {
+            u8 version;
+            u8[3] flags;
+            u32 number_of_key_frames;
+            KEY_FRAME[number_of_key_frames] key_frames;
+        } stss;
+    }
+
+    if (hdr.atom == "ctts") {
+        struct {
+            u8 version;
+            u8[3] flags;
+        } ctts;
+    }
+
+    if (hdr.atom == "stsc") {
+        struct BLOCK {
+            u32 block_id;
+            u32 number_of_frames;
+            u32 description_id;
+        };
+        struct {
+            u8 version;
+            u8[3] flags;
+            u32 number_of_blocks;
+            BLOCK[number_of_blocks] blocks;
+        } stsc;
+    }
+
+    if (hdr.atom == "stsz") {
+        struct {
+            u8 version;
+            u8[3] flags;
+            u32 frame_byte_size_for_all;
+            u32 number_of_frame_sizes;
+            u32[number_of_frame_sizes] frame_sizes;
+        } stsz;
+    }
+
+    if (hdr.atom == "stco") {
+        struct {
+            u8 version;
+            u8[3] flags;
+            u32 number_of_block_offsets;
+            u32[number_of_block_offsets] block_offsets;
+        } stco;
+    }
+
+    byte[] trailer;
+
+    span hdr.size;
+    key hdr.atom;
+};
+
+struct BOX_STSD {
+    BOX_HDR hdr;
+
+    byte[6] skip;
+    u16 data_ref_key;
+    u16 encoding_version;
+    u16 encoding_revision_level;
+    u32 encoding_vendor;
+    if (hdr.atom == "mp4v" ||
+        hdr.atom == "avc1" ||
+        hdr.atom == "encv" ||
+        hdr.atom == "s263") {
+        struct {
+            u32 temporal_quality;
+            u32 spatial_quality;
+            u16 frame_pixel_width;
+            u16 frame_pixel_height;
+            u32 resolution_horizontal;
+            u32 resolution_vertical;
+            u32 data_size;
+            u16 frame_count;
+            u8 encoder_name_len;
+            byte[31] encoder_name: string;
+            u16 pixel_depth;
+            u16 color_table_id;
+        } video;
+    }
+
+    if (hdr.atom == "mp4a" ||
+        hdr.atom == "enca" ||
+        hdr.atom == "samr" ||
+        hdr.atom == "sawb") {
+        struct {
+            u16 channels;
+            u16 sample_size;
+            u16 compression_id;
+            u16 packet_size;
+            u16 sample_rate;
+        } audio;
+    }
+
+    byte[] trailer;
+
+    span hdr.size;
+    key hdr.atom;
+};
+
+file {
+     BOX[] boxes;
+}

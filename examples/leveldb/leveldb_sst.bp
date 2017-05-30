@@ -1,0 +1,50 @@
+/*
+ * LevelDB by Google, Inc.
+ *
+ * SST Table format
+ *
+ * https://github.com/google/leveldb/blob/master/doc/table_format.md
+ */
+
+type u32 byte[4]: integer(signed=false, endian=little);
+
+type varint byte[]: varint();
+
+file {
+    byte[] contents;
+    Footer footer;
+
+    struct BlockTrailer {
+        byte blocktype: integer(signed=false);
+        u32 crc;
+    };
+
+    struct Block {
+        if (trailer.blocktype == 0) { // uncompressed
+            byte[] data;
+        }
+        if (trailer.blocktype == 1) {
+            // with upcoming filter support, we will be able to
+            // uncompress and browse compressed data transparently
+            byte[] compressed_data;
+        }
+        BlockTrailer trailer;
+    };
+
+    struct BlockHandle {
+        varint offset;
+        varint size;
+
+        ?rawblock => contents[offset:
+                              offset + size + sizeof(BlockTrailer)];
+        ?block (Block) => ?rawblock;
+    };
+
+    struct Footer {
+        BlockHandle metaindex_handle;
+        BlockHandle index_handle;
+        byte[] padding;
+        byte[8] magic;
+        span 48;
+    };
+}

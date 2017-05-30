@@ -1,0 +1,31 @@
+/*
+ * LevelDB by Google, Inc.
+ *
+ * Index block in SST Table format (usually snappy-encoded)
+ *
+ * https://github.com/google/leveldb/blob/master/doc/table_format.md
+ */
+
+type u32 byte[4]: integer(signed=false, endian=little);
+
+type varint byte[]: varint();
+
+struct BlockHandle {
+    varint offset;
+    varint size;
+};
+
+struct IndexEntry {
+    varint key_shared_size;
+    varint key_non_shared_size;
+    varint value_size;
+    byte[key_non_shared_size] key_non_shared;
+    byte[value_size] value;
+    ?data_block (BlockHandle) => value;
+};
+
+file {
+    IndexEntry[] entries;
+    u32[nb_restarts] restarts;
+    u32 nb_restarts;
+}

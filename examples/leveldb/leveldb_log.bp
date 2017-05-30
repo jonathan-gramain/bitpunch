@@ -1,0 +1,38 @@
+/*
+ * LevelDB log format:
+ * https://github.com/google/leveldb/blob/master/doc/log_format.md
+ *
+ * One interesting characteristic is that blocks are fixed-sized 32KB,
+ * except the last block which can be truncated. This forces the browse
+ * code to skip to the tail block whenever there is less than 32KB to
+ * read from the file.
+ *
+ * Otherwise it's a pretty straightforward format.
+ */
+
+type u8 byte: integer(signed=false);
+type u16 byte[2]: integer(signed=false, endian=little);
+type u32 byte[4]: integer(signed=false, endian=little);
+
+file {
+    LogBlock[] head_blocks;
+    LogTailBlock tail_block;
+}
+
+struct LogBlock {
+       Record[] records;
+       byte[] trailer;
+       span 32768;
+};
+
+struct LogTailBlock {
+       Record[] records;
+};
+
+struct Record {
+       u32 checksum;
+       u16 length;
+       u8 rtype;
+       byte[length] data: string;
+       minspan 7;
+};

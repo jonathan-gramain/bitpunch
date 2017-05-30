@@ -1,0 +1,13 @@
+/*
+ * A parser for simple line-oriented dictionaries, such as those found
+ * in /usr/share/dict.
+ */
+
+struct Word {
+    byte[] word: string(boundary='\n');
+    key word;
+};
+
+file {
+     Word[] words;
+}

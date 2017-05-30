@@ -1,0 +1,21 @@
+/*
+ * Example bitpunch schema file for a simple key-value database format
+ *
+ * Records are appended one after the other until the end of file is
+ * reached.
+ */
+
+type u32 byte[4] : integer(signed=false, endian=big);
+
+struct DumbDBValue {
+    byte flags : integer(signed=false);
+    u32 key_size;
+    byte[key_size] key_data: string;
+    u32 value_size;
+    byte[value_size] value_data;
+    key key_data;
+};
+
+file {
+    DumbDBValue[] values;
+}

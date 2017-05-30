@@ -1,0 +1,18 @@
+type u8  byte[1] : integer(signed=false, endian=big);
+type u16 byte[2] : integer(signed=false, endian=big);
+type u32 byte[4] : integer(signed=false, endian=big);
+type u64 byte[8] : integer(signed=false, endian=big);
+
+struct RadioCode {
+       byte[5] foo;
+       byte[] codename: string(boundary='\0');
+       byte[] padding;
+       byte[3] bar;
+       key codename;
+       span sizeof (foo) + 8 + sizeof (bar);
+};
+
+file {
+     u32 n_codes;
+     RadioCode[n_codes] codes;
+}

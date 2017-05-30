@@ -1,0 +1,40 @@
+===============
+
+Invalid array size type:
+
+u32[1 == 2] contents;
+
+
+===============
+
+Test that contents get a static span size:
+
+
+byte[sizeof (MYTYPE)] contents;
+...
+
+struct MYTYPE {
+    byte[sizeof (OTHERTYPE)] foo;
+};
+
+struct OTHERTYPE {
+    struct INNERTYPE {
+        byte[42] bar;
+    };
+    byte[sizeof (INNERTYPE)] baz;
+};
+
+===============
+
+Test that contents get a static span size:
+
+
+byte[sizeof (MYTYPE)] contents;
+...
+
+struct MYTYPE {
+    byte[sizeof (bar)] foo;
+    byte[42]           bar;
+};
+
+===============

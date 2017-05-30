@@ -1,0 +1,8 @@
+*.[od]
+*~
+build
+__pycache__
+*.pyc
+GPATH
+GTAGS
+GRTAGS
