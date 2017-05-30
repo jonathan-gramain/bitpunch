@@ -79,7 +79,7 @@ not even allow to install the software.
 ### Other
 
 For random ideas that came along the way, or more code-specific stuff,
-see [Haystack](#Haystack) below or github issues.
+see [Haystack](#haystack) below or github issues.
 
 
 
