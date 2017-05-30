@@ -28,6 +28,12 @@
  *
  *      @(#)queue.h     8.5 (Berkeley) 8/20/94
  * $FreeBSD$
+ *
+ * Changes by Jonathan Gramain <jonathan.gramain@gmail.com>:
+ *
+ * - modify implementation of STAILQ and TAILQ so that we can copy the
+ *   head of the queues while keeping them sane, at the expense of a
+ *   few more tests
  */
 
 #ifndef _SYS_QUEUE_H_
