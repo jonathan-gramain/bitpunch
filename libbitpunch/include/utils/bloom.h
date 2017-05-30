@@ -29,8 +29,8 @@
  * DAMAGE.
  */
 
-#ifndef __INDEX_H__
-#define __INDEX_H__
+#ifndef __BLOOM_H__
+#define __BLOOM_H__
 
 #include "utils/port.h"
 
@@ -104,4 +104,4 @@ bloom_book_lookup_word(struct bloom_book *book,
 }
 
 
-#endif /*__INDEX_H__*/
+#endif /*__BLOOM_H__*/

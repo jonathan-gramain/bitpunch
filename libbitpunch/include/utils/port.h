@@ -101,4 +101,4 @@ static inline int log2_i(unsigned long n)
         }                                       \
     } while (0)
 
-#endif
+#endif /* __PORT_H__ */
