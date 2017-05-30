@@ -12,7 +12,7 @@ with minimal changes.
 
 - python 2.x (tested with 2.7)
 
-- python modules readline, hexdump (pip install readline hexdump)
+- python modules readline, hexdump, kmd (pip install readline hexdump kmd)
 
 ### Development dependencies
 
@@ -25,6 +25,8 @@ with minimal changes.
 - flex
 
 - bison
+
+- python distutils
 
 #### Testing
 
