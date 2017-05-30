@@ -29,6 +29,6 @@ setup (name = 'bitpunch',
        package_data = {'': ['resources/__init__.py',
                             'resources/bp/__init__.py',
                             'resources/bp/*.bp']},
-       packages = ['bitpunch', 'bitpunch.model', 'nestedcmd'],
+       packages = ['nestedcmd', 'bitpunch.model', 'bitpunch', 'bitpunch_cli'],
        py_modules = [],
        ext_modules = [model])

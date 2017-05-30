@@ -32,10 +32,6 @@ from widespread or esoteric formats.
 - Because it's so cool to explore all the crap that is in your
   favorite .mp4 videos using the CLI! :)
 
-## License
-
-BSD
-
 ## Development status
 
 alpha
@@ -107,3 +103,12 @@ After having written a prototype C parser for .mp4 files, I wanted to
 create a syntax to describe more easily how such file should be
 parsed, and the scope then quickly turned into making a general
 purpose tool instead of restricting it to .mp4.
+
+## License
+
+- The libbitpunch C library and the bitpunch Python package (the
+  Python bindings) are distributed under a New BSD License.
+
+- The bitpunch Command-Line tool and its helper Python package
+  "nestedcmd" are distributed under a GPL v3 license.
+
