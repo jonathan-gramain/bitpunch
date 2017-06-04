@@ -16,8 +16,7 @@ like raw byte arrays.
 They would typically be used for compression/decompression or
 encryption/decryption.
 
-### Provide a library of .bp files for the most widespread binary file
-    formats
+### Provide a library of .bp files for the most widespread binary file formats
 
 This will allow those files to be manipulated directly without having
 to write custom .bp files.
