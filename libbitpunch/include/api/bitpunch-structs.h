@@ -90,7 +90,8 @@ enum bf_open_type {
     BF_OPEN_TYPE_UNSET = 0,
     BF_OPEN_TYPE_FILEPATH,
     BF_OPEN_TYPE_FILE_DESCRIPTOR,
-    BF_OPEN_TYPE_BUFFER,
+    BF_OPEN_TYPE_USER_BUFFER,
+    BF_OPEN_TYPE_OWN_BUFFER,
 };
 
 struct bitpunch_binary_file_hdl {

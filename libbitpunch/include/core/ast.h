@@ -47,11 +47,15 @@ ast_node_is_rexpr(const struct ast_node *node);
 int
 ast_node_is_container(const struct ast_node *node);
 int
+ast_node_is_origin_container(const struct ast_node *node);
+int
 ast_node_is_byte_container(const struct ast_node *node);
 int
 ast_node_is_slice_container(const struct ast_node *node);
 int
 ast_node_is_item(const struct ast_node *node);
+int
+ast_node_has_interpreter(const struct ast_node *node);
 int64_t
 ast_node_get_min_span_size(const struct ast_node *node);
 int

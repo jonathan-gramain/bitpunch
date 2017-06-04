@@ -141,6 +141,7 @@ interpreter_lookup(const char *name)
 void interpreter_declare_binary_integer(void);
 void interpreter_declare_string(void);
 void interpreter_declare_varint(void);
+void interpreter_declare_snappy(void);
 
 void
 interpreter_declare_std(void)
@@ -148,6 +149,7 @@ interpreter_declare_std(void)
     interpreter_declare_binary_integer();
     interpreter_declare_string();
     interpreter_declare_varint();
+    interpreter_declare_snappy();
 }
 
 static int

@@ -684,6 +684,7 @@ box_construct(struct box *o_box,
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_FILTERED:
         o_box->u.array_generic.n_items = -1;
         break ;
     default:
@@ -703,9 +704,9 @@ box_dump_internal(const struct box *box, FILE *out, int indent)
             (indent + box->depth_level) * 4, "");
     box_dump_abs_dpath(box, out);
     fprintf(out,
-            ": [[[[[%"PRIi64"..%"PRIi64"(min)]..%"PRIi64"(used)]"
-            "..%"PRIi64"(maxspan)]..%"PRIi64"(avail)]"
-            "..%"PRIi64"(from parent)]\n",
+            ": [[[[[%"PRIi64"..%"PRIi64"(minspan)]..%"PRIi64"(used)]"
+            "..%"PRIi64"(maxspan)]..%"PRIi64"(slack)]"
+            "..%"PRIi64"(parent)]\n",
             box->start_offset_used,
             box->end_offset_min_span, box->end_offset_used,
             box->end_offset_max_span, box->end_offset_slack,
@@ -935,6 +936,7 @@ box_new_slice_box(struct tracker *slice_start,
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_FILTERED:
         slice_node = AST_NODE_BYTE_SLICE;
         break ;
     default:
@@ -1083,6 +1085,47 @@ box_new_as_box(struct box *parent_box,
     return as_box;
 }
 
+static struct bitpunch_binary_file_hdl *
+create_data_hdl_from_buffer(
+    const char *data, size_t data_size,
+    const struct bitpunch_binary_file_hdl *parent_hdl)
+{
+    struct bitpunch_binary_file_hdl *data_hdl;
+
+    data_hdl = new_safe(struct bitpunch_binary_file_hdl);
+    data_hdl->bf_open_type = BF_OPEN_TYPE_OWN_BUFFER;
+    data_hdl->bf_data = data;
+    data_hdl->bf_data_length = data_size;
+    data_hdl->box_cache = parent_hdl->box_cache;
+    return data_hdl;
+}
+
+struct box *
+box_new_filter_box(struct box *unfiltered_box,
+                   const char *filtered_data,
+                   size_t filtered_size,
+                   struct browse_state *bst)
+{
+    struct bitpunch_binary_file_hdl *filtered_data_hdl;
+    struct box *box;
+    bitpunch_status_t bt_ret;
+
+    box = new_safe(struct box);
+    bt_ret = box_construct(box, NULL, AST_NODE_FILTERED, 0, 0u, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        free(box);
+        return NULL;
+    }
+    box->unfiltered_box = unfiltered_box;
+    filtered_data_hdl = create_data_hdl_from_buffer(
+        filtered_data, filtered_size, unfiltered_box->file_hdl);
+    box->file_hdl = filtered_data_hdl;
+    box->end_offset_slack = (int64_t)filtered_size;
+    box->end_offset_max_span = (int64_t)filtered_size;
+    box->end_offset_used = (int64_t)filtered_size;
+    return box;
+}
+
 static void
 box_free(struct box *box)
 {
@@ -1095,6 +1138,10 @@ box_free(struct box *box)
             box_destroy_index_cache_by_key(box);
         }
         box_destroy_mark_offsets_repo(box);
+        break ;
+    case AST_NODE_TYPE_FILTERED:
+        (void)bitpunch_close_binary_file(
+            (struct bitpunch_binary_file_hdl *)box->file_hdl);
         break ;
     default:
         break ;
@@ -1700,6 +1747,7 @@ tracker_reset_track_path(struct tracker *tk)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_FILTERED:
         tk->cur = track_path_from_array_index(-1);
         break ;
     default:
@@ -2192,6 +2240,7 @@ box_get_end_path(struct box *box, struct track_path *end_pathp,
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_FILTERED:
         bt_ret = box_get_n_items_internal(box, &n_items, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
@@ -2289,6 +2338,7 @@ tracker_compute_item_offset(struct tracker *tk,
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_FILTERED:
         return tracker_goto_nth_item_internal(tk, tk->cur.u.array.index,
                                               bst);
     case AST_NODE_TYPE_ARRAY_SLICE:
@@ -3499,16 +3549,15 @@ box_iter_statements_next_internal(struct box *box,
 }
 
 static bitpunch_status_t
-box_lookup_statement_internal(struct box *box,
-                              enum statement_type stmt_type,
-                              const char *stmt_name,
-                              const struct named_statement **stmtp,
-                              struct browse_state *bst)
+box_lookup_statement_recur(struct box *box,
+                           const struct block_stmt_list *stmt_lists,
+                           enum statement_type stmt_type,
+                           const char *stmt_name,
+                           const struct named_statement **stmtp,
+                           struct browse_state *bst)
 {
-    const struct block_stmt_list *stmt_lists;
     const struct named_statement *stmt;
 
-    stmt_lists = &box->node->u.block_def.block_stmt_list;
     switch (stmt_type) {
     case STATEMENT_TYPE_FIELD:
         stmt = (const struct named_statement *)
@@ -3527,25 +3576,50 @@ box_lookup_statement_internal(struct box *box,
         int cond_eval;
         bitpunch_status_t bt_ret;
 
-        if (NULL != stmt->name && 0 == strcmp(stmt_name, stmt->name)) {
-            bt_ret = evaluate_conditional_internal(stmt->stmt.cond, box,
-                                                   &cond_eval, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                tracker_error_add_box_context(box, bst,
-                                              "when evaluating condition");
-                return bt_ret;
-            }
-            if (cond_eval) {
-                if (NULL != stmtp) {
-                    *stmtp = stmt;
+        if (NULL != stmt->name) {
+            if (0 == strcmp(stmt_name, stmt->name)) {
+                bt_ret = evaluate_conditional_internal(stmt->stmt.cond, box,
+                                                       &cond_eval, bst);
+                if (BITPUNCH_OK != bt_ret) {
+                    tracker_error_add_box_context(box, bst,
+                                                  "when evaluating condition");
+                    return bt_ret;
                 }
-                return BITPUNCH_OK;
+                if (cond_eval) {
+                    if (NULL != stmtp) {
+                        *stmtp = stmt;
+                    }
+                    return BITPUNCH_OK;
+                }
+            }
+        } else {
+            const struct field *field;
+
+            field = (const struct field *)stmt;
+            assert(AST_NODE_TYPE_BLOCK_DEF == field->field_type->type);
+            bt_ret = box_lookup_statement_recur(
+                box, &field->field_type->u.block_def.block_stmt_list,
+                stmt_type, stmt_name, stmtp, bst);
+            if (BITPUNCH_NO_ITEM != bt_ret) {
+                return bt_ret;
             }
         }
         stmt = (const struct named_statement *)
             TAILQ_NEXT(&stmt->stmt, list);
     }
     return BITPUNCH_NO_ITEM;
+}
+
+static bitpunch_status_t
+box_lookup_statement_internal(struct box *box,
+                              enum statement_type stmt_type,
+                              const char *stmt_name,
+                              const struct named_statement **stmtp,
+                              struct browse_state *bst)
+{
+    return box_lookup_statement_recur(
+        box, &box->node->u.block_def.block_stmt_list, stmt_type, stmt_name,
+        stmtp, bst);
 }
 
 static bitpunch_status_t
@@ -4930,7 +5004,7 @@ item_read_value__bytes(const struct ast_node *item_node,
     return BITPUNCH_OK;
 }
 
-static bitpunch_status_t
+bitpunch_status_t
 item_read_value__interpreter(const struct ast_node *item_node,
                              struct box *scope,
                              int64_t item_offset,
@@ -5805,7 +5879,8 @@ box_array_slice_get_ancestor_array(struct box *box)
     array_box = box->parent_box;
     while (AST_NODE_TYPE_ARRAY != array_box->node->type &&
            AST_NODE_TYPE_BYTE_ARRAY != array_box->node->type &&
-           AST_NODE_TYPE_AS_BYTES != array_box->node->type) {
+           AST_NODE_TYPE_AS_BYTES != array_box->node->type &&
+           AST_NODE_TYPE_FILTERED != array_box->node->type) {
         array_box = array_box->parent_box;
         /* An array slice box shall always have a real array ancestor. */
         assert(NULL != array_box);
@@ -6210,7 +6285,15 @@ browse_setup_backends__item__block(struct ast_node *node)
     memset(b_item, 0, sizeof (*b_item));
 
     if (NULL != node->u.item.interpreter) {
-        b_item->read_value = item_read_value__interpreter;
+        const struct interpreter *interpreter;
+
+        interpreter =
+            node->u.item.interpreter->u.interpreter_rcall.interpreter;
+        if (interpreter->semantic_type == EXPR_VALUE_TYPE_BYTES) {
+            b_item->read_value = item_read_value__container;
+        } else {
+            b_item->read_value = item_read_value__interpreter;
+        }
     } else {
         b_item->read_value = item_read_value__container;
     }
@@ -6295,7 +6378,15 @@ browse_setup_backends__item__array(struct ast_node *node)
     memset(b_item, 0, sizeof (*b_item));
 
     if (NULL != node->u.item.interpreter) {
-        b_item->read_value = item_read_value__interpreter;
+        const struct interpreter *interpreter;
+
+        interpreter =
+            node->u.item.interpreter->u.interpreter_rcall.interpreter;
+        if (interpreter->semantic_type == EXPR_VALUE_TYPE_BYTES) {
+            b_item->read_value = item_read_value__container;
+        } else {
+            b_item->read_value = item_read_value__interpreter;
+        }
     } else {
         b_item->read_value = item_read_value__container;
     }
@@ -6435,7 +6526,15 @@ browse_setup_backends__item__byte_array(struct ast_node *node)
     memset(b_item, 0, sizeof (*b_item));
 
     if (NULL != node->u.item.interpreter) {
-        b_item->read_value = item_read_value__interpreter;
+        const struct interpreter *interpreter;
+
+        interpreter =
+            node->u.item.interpreter->u.interpreter_rcall.interpreter;
+        if (interpreter->semantic_type == EXPR_VALUE_TYPE_BYTES) {
+            b_item->read_value = item_read_value__bytes;
+        } else {
+            b_item->read_value = item_read_value__interpreter;
+        }
     } else {
         b_item->read_value = item_read_value__bytes;
     }
@@ -6650,6 +6749,51 @@ browse_setup_backends__tracker__as_bytes(struct ast_node *node)
         tracker_goto_nth_item_with_key__default;
 }
 
+static void
+browse_setup_backends__item__filtered(struct ast_node *node)
+{
+    struct item_backend *b_item = NULL;
+
+    b_item = &node->u.item.b_item;
+    memset(b_item, 0, sizeof (*b_item));
+
+    b_item->read_value = item_read_value__bytes;
+}
+
+static void
+browse_setup_backends__box__filtered(struct ast_node *node)
+{
+    struct box_backend *b_box = NULL;
+
+    b_box = &node->u.container.b_box;
+    memset(b_box, 0, sizeof (*b_box));
+
+    b_box->compute_slack_size = NULL; // set at construction
+    b_box->compute_max_span_size = NULL; // set at construction
+    b_box->compute_used_size = NULL; // set at construction
+    b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
+    b_box->get_n_items = box_get_n_items__as_bytes;
+}
+
+static void
+browse_setup_backends__tracker__filtered(struct ast_node *node)
+{
+    struct tracker_backend *b_tk = NULL;
+
+    b_tk = &node->u.container.b_tk;
+    memset(b_tk, 0, sizeof (*b_tk));
+
+    b_tk->get_item_key = tracker_get_item_key__array_generic;
+    b_tk->compute_item_size = tracker_compute_item_size__item_box;
+    b_tk->goto_first_item = tracker_goto_first_item__byte_array_generic;
+    b_tk->goto_next_item = tracker_goto_next_item__byte_array_generic;
+    b_tk->goto_nth_item = tracker_goto_nth_item__byte_array_generic;
+    b_tk->goto_next_item_with_key =
+        tracker_goto_next_item_with_key__default;
+    b_tk->goto_nth_item_with_key =
+        tracker_goto_nth_item_with_key__default;
+}
+
 int
 browse_setup_backends(struct ast_node *node)
 {
@@ -6687,6 +6831,11 @@ browse_setup_backends(struct ast_node *node)
         browse_setup_backends__item__as_bytes(node);
         browse_setup_backends__box__as_bytes(node);
         browse_setup_backends__tracker__as_bytes(node);
+        break ;
+    case AST_NODE_TYPE_FILTERED:
+        browse_setup_backends__item__filtered(node);
+        browse_setup_backends__box__filtered(node);
+        browse_setup_backends__tracker__filtered(node);
         break ;
     default:
         break ;

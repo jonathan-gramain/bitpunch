@@ -1745,6 +1745,7 @@ DataContainer_box_to_python_object(struct DataTreeObject *dtree,
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_FILTERED:
         return DataArray_bytes_box_to_python_object(dtree, box);
     default:
         PyErr_Format(PyExc_ValueError,
@@ -2590,7 +2591,7 @@ Tracker_bf_getbuffer(TrackerObject *exporter,
         view->obj = NULL;
         return -1;
     }
-    buf = exporter->dtree->binary_file->bf_data + item_offset;
+    buf = tk->box->file_hdl->bf_data + item_offset;
     len = item_size;
     return PyBuffer_FillInfo(view, (PyObject *)exporter,
                              (void *)buf, (Py_ssize_t)len,
@@ -2665,7 +2666,7 @@ DataContainer_bf_getbuffer(DataContainerObject *exporter,
         tracker_error_destroy(tk_err);
         return -1;
     }
-    buf = exporter->dtree->binary_file->bf_data + box_get_start_offset(box);
+    buf = box->file_hdl->bf_data + box_get_start_offset(box);
     len = end_offset - box_get_start_offset(box);
     return PyBuffer_FillInfo(view, (PyObject *)exporter,
                              (void *)buf, (Py_ssize_t)len,
@@ -2952,6 +2953,7 @@ box_to_shallow_PyObject(DataTreeObject *dtree, struct box *box,
         return res;
 
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_FILTERED:
         dcont = (DataContainerObject *)DataContainer_new(&DataContainerType,
                                                          NULL, NULL);
         if (NULL == dcont) {

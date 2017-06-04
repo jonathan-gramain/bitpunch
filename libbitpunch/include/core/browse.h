@@ -63,6 +63,7 @@ TAILQ_HEAD(box_tailq, box);
 
 struct box {
     struct box *parent_box;
+    struct box *unfiltered_box;
     const struct ast_node *node;
     const struct bitpunch_binary_file_hdl *file_hdl;
 

@@ -364,7 +364,7 @@ bitpunch_load_binary_file_from_buffer(const char *data, size_t data_size,
     assert(NULL != binary_filep);
 
     bf = new_safe(struct bitpunch_binary_file_hdl);
-    bf->bf_open_type = BF_OPEN_TYPE_BUFFER;
+    bf->bf_open_type = BF_OPEN_TYPE_USER_BUFFER;
 
     bf->bf_data = data;
     bf->bf_data_length = data_size;
@@ -398,7 +398,10 @@ bitpunch_close_binary_file(struct bitpunch_binary_file_hdl *bf)
             return -1;
         }
         break ;
-    case BF_OPEN_TYPE_BUFFER:
+    case BF_OPEN_TYPE_USER_BUFFER:
+        break ;
+    case BF_OPEN_TYPE_OWN_BUFFER:
+        free((char *)bf->bf_data);
         break ;
     default:
         assert(0);

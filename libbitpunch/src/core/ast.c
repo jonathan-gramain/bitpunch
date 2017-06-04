@@ -107,11 +107,10 @@ static int
 check_duplicate_type_name(const struct named_type *named_type,
                           const struct list_of_visible_refs *visible_refs);
 static int
-check_duplicate_field_names_int(
-    const struct statement_list *check_list,
-    const struct block_stmt_list *lookup_in_lists);
+chain_duplicate_statements_in(const struct statement_list *in_list,
+                              const struct statement_list *toplevel_list);
 static int
-check_duplicate_field_names(const struct block_stmt_list *stmt_lists);
+chain_duplicate_statements(const struct block_stmt_list *stmt_lists);
 static int
 resolve_node_types(struct ast_node **node_p,
                    const struct list_of_visible_refs *visible_refs,
@@ -216,6 +215,9 @@ static int
 resolve_expr_operator_addrof(struct ast_node **expr_p,
                              struct list_of_visible_refs *visible_refs);
 static int
+resolve_expr_operator_filter(struct ast_node **expr_p,
+                             struct list_of_visible_refs *visible_refs);
+static int
 resolve_expr_file(struct ast_node **expr_p,
                   struct list_of_visible_refs *visible_refs);
 static int
@@ -250,6 +252,12 @@ resolve_link(struct link *link,
 
 static int
 resolve2_block(struct ast_node *block);
+static const struct ast_node *
+link_get_target_type(const struct link *link);
+static int
+link_check_duplicates(struct link *link);
+static int
+links_check_duplicates(struct statement_list *link_list);
 static int
 resolve2_stmt_list_generic(struct statement_list *stmt_list);
 static int
@@ -274,6 +282,8 @@ static int
 resolve2_expr_operator_sizeof(struct ast_node **expr_p);
 static int
 resolve2_expr_operator_addrof(struct ast_node **expr_p);
+static int
+resolve2_expr_operator_filter(struct ast_node **expr_p);
 static int
 resolve2_expr_fcall(struct ast_node **expr_p);
 static int
@@ -584,7 +594,7 @@ resolve_stmt_lists_types(struct block_stmt_list *stmt_lists,
                                               &visible_refs)) {
         return -1;
     }
-    if (-1 == check_duplicate_field_names(stmt_lists)) {
+    if (-1 == chain_duplicate_statements(stmt_lists)) {
         return -1;
     }
     TAILQ_FOREACH(stmt, &stmt_lists->field_list, list) {
@@ -662,39 +672,75 @@ check_duplicate_type_name(const struct named_type *named_type,
     return 0;
 }
 
-static int
-check_duplicate_field_names_int(
-    const struct statement_list *check_list,
-    const struct block_stmt_list *lookup_in_lists)
+static struct named_statement *
+find_unchained_statement_by_name(const struct statement_list *in_list,
+                                 const char *identifier)
 {
-    const struct statement *stmt;
-    const struct field *iter;
-    const struct named_statement *looked_up;
+    struct statement *stmt;
+    struct named_statement *nstmt;
 
-    TAILQ_FOREACH(stmt, check_list, list) {
-        iter = (const struct field *)stmt;
-        if (NULL == iter->nstmt.name) {
+    TAILQ_FOREACH(stmt, in_list, list) {
+        nstmt = (struct named_statement *)stmt;
+        if (NULL == nstmt->name) {
+            struct field *field;
+
+            // recurse in anonymous struct/union fields
+            field = (struct field *)nstmt;
+            assert(AST_NODE_TYPE_BLOCK_DEF == field->field_type->type);
+            nstmt = find_unchained_statement_by_name(
+                &field->field_type->u.block_def.block_stmt_list.field_list,
+                identifier);
+            if (NULL != nstmt) {
+                return nstmt;
+            }
+        } else if (0 == strcmp(identifier, nstmt->name)
+                   && NULL == nstmt->next_sibling) {
+            return nstmt;
+        }
+    }
+    return NULL;
+}
+
+static int
+chain_duplicate_statements_in(const struct statement_list *in_list,
+                              const struct statement_list *toplevel_list)
+{
+    struct statement *stmt;
+    struct named_statement *iter;
+    struct named_statement *unchained;
+
+    TAILQ_FOREACH(stmt, in_list, list) {
+        iter = (struct named_statement *)stmt;
+        if (NULL == iter->name) {
+            const struct field *field;
+
             // recurse in anonymous struct/union
-            assert(AST_NODE_TYPE_BLOCK_DEF == iter->field_type->type);
-            if (-1 == check_duplicate_field_names_int(
-                    &iter->field_type->u.block_def.block_stmt_list
-                    .field_list, lookup_in_lists)) {
+            field = (const struct field *)stmt;
+            assert(AST_NODE_TYPE_BLOCK_DEF == field->field_type->type);
+            if (-1 == chain_duplicate_statements_in(
+                    &field->field_type
+                    ->u.block_def.block_stmt_list.field_list,
+                    toplevel_list)) {
                 return -1;
             }
         } else {
-            looked_up = find_statement_by_name(STATEMENT_TYPE_FIELD,
-                                               iter->nstmt.name,
-                                               lookup_in_lists);
-            assert(NULL != looked_up);
-            if (looked_up != (const struct named_statement *)iter) {
-                semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                               &iter->nstmt.stmt.loc,
-                               "duplicate field name \"%s\"",
-                               iter->nstmt.name);
-                semantic_error(SEMANTIC_LOGLEVEL_INFO,
-                               &looked_up->stmt.loc,
-                               "already declared here");
-                return -1;
+            unchained = find_unchained_statement_by_name(toplevel_list,
+                                                         iter->name);
+            assert(NULL != unchained);
+            if (unchained != iter) {
+                if (NULL == unchained->stmt.cond) {
+                    semantic_error(
+                        SEMANTIC_LOGLEVEL_WARNING,
+                        &unchained->stmt.loc,
+                        "unconditional duplicate statement");
+                }
+                if (NULL == iter->stmt.cond) {
+                    semantic_error(
+                        SEMANTIC_LOGLEVEL_WARNING,
+                        &iter->stmt.loc,
+                        "unconditional duplicate statement");
+                }
+                unchained->next_sibling = iter;
             }
         }
     }
@@ -702,10 +748,17 @@ check_duplicate_field_names_int(
 }
 
 static int
-check_duplicate_field_names(const struct block_stmt_list *stmt_lists)
+chain_duplicate_statements(const struct block_stmt_list *stmt_lists)
 {
-    return check_duplicate_field_names_int(&stmt_lists->field_list,
-                                           stmt_lists);
+    if (-1 == chain_duplicate_statements_in(&stmt_lists->field_list,
+                                            &stmt_lists->field_list)) {
+        return -1;
+    }
+    if (-1 == chain_duplicate_statements_in(&stmt_lists->link_list,
+                                            &stmt_lists->link_list)) {
+        return -1;
+    }
+    return 0;
 }
 
 static int
@@ -796,6 +849,7 @@ resolve_node_types_int(struct ast_node *node,
     case AST_NODE_TYPE_OP_LNOT:
     case AST_NODE_TYPE_OP_BWNOT:
     case AST_NODE_TYPE_OP_ADDROF:
+    case AST_NODE_TYPE_OP_FILTER:
         return resolve_node_types_operator(node, 1, visible_refs,
                                            RESOLVE_EXPECT_EXPRESSION,
                                            resolved_typep);
@@ -1315,6 +1369,10 @@ resolve_expr(struct ast_node **expr_p,
         /* first resolve pass */
         ret = resolve_expr_operator_addrof(expr_p, visible_refs);
         break ;
+    case AST_NODE_TYPE_OP_FILTER:
+        /* first resolve pass */
+        ret = resolve_expr_operator_filter(expr_p, visible_refs);
+        break ;
     case AST_NODE_TYPE_EXPR_FILE:
         ret = resolve_expr_file(expr_p, visible_refs);
         break ;
@@ -1440,7 +1498,7 @@ resolve_expr_identifier(struct ast_node **expr_p,
     const struct ast_node *resolved_block;
 
     /* try to match identifier with an existing field */
-    if (*(*expr_p)->u.identifier == '?') {
+    if ((*expr_p)->u.identifier[0] == '?') {
         const struct link *resolved_link;
 
         if (-1 == lookup_link((*expr_p)->u.identifier + 1, visible_refs,
@@ -1642,6 +1700,63 @@ resolve_expr_operator_addrof(struct ast_node **expr_p,
     return 0;
 }
 
+/**
+ * @brief first resolve pass of filter (unary *) operator
+ *
+ * The first pass focuses on resolving data types and dpaths of addrof
+ * argument expression. Second pass will compute static address or
+ * set it to dynamic, as this requires all dpaths to be resolved
+ * first.
+ */
+static int
+resolve_expr_operator_filter(struct ast_node **expr_p,
+                             struct list_of_visible_refs *visible_refs)
+{
+    struct op op;
+    struct ast_node *target;
+    const struct interpreter *interpreter;
+
+    if (-1 == resolve_expr(&(*expr_p)->u.op.operands[0], visible_refs)) {
+        return -1;
+    }
+    if (-1 == resolve2_expr(&(*expr_p)->u.op.operands[0])) {
+        return -1;
+    }
+    op = (*expr_p)->u.op;
+    target = op.operands[0]->u.rexpr.static_check_info.target_item;
+    if (NULL == target
+        || EXPR_DPATH_TYPE_NONE == op.operands[0]->u.rexpr.dpath_type) {
+        semantic_error(
+            SEMANTIC_LOGLEVEL_ERROR, &(*expr_p)->loc,
+            "invalid use of filter (*) operator on non-dpath node of type "
+            "'%s'",
+            ast_node_type_str(op.operands[0]->type));
+        return -1;
+    }
+    assert(ast_node_is_item(target));
+    if (!ast_node_has_interpreter(target)
+        || AST_NODE_TYPE_REXPR_OP_FILTER == op.operands[0]->type
+        || AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE == op.operands[0]->type) {
+        semantic_error(
+            SEMANTIC_LOGLEVEL_ERROR, &(*expr_p)->loc,
+            "filter (*) operand has no attached interpreter");
+        return -1;
+    }
+    interpreter =
+        target->u.item.interpreter->u.interpreter_rcall.interpreter;
+    ast_node_clear(*expr_p);
+    (*expr_p)->type = AST_NODE_TYPE_REXPR_OP_FILTER;
+    (*expr_p)->u.rexpr.value_type = interpreter->semantic_type;
+    (*expr_p)->u.rexpr.dpath_type =
+        (EXPR_VALUE_TYPE_BYTES == interpreter->semantic_type ?
+         EXPR_DPATH_TYPE_CONTAINER : EXPR_DPATH_TYPE_NONE);
+    (*expr_p)->u.rexpr.static_check_info.target_item = target;
+    (*expr_p)->u.rexpr_op.op = op;
+    /* filter has specific expression evaluator */
+    (*expr_p)->u.rexpr_op.evaluator = NULL;
+    return 0;
+}
+
 static int
 resolve_expr_fcall(struct ast_node **expr_p,
                    struct list_of_visible_refs *visible_refs)
@@ -1823,6 +1938,8 @@ op_type_ast2rexpr(enum ast_node_type type)
         return AST_NODE_TYPE_REXPR_OP_SIZEOF;
     case AST_NODE_TYPE_OP_ADDROF:
         return AST_NODE_TYPE_REXPR_OP_ADDROF;
+    case AST_NODE_TYPE_OP_FILTER:
+        return AST_NODE_TYPE_REXPR_OP_FILTER;
     case AST_NODE_TYPE_OP_SUBSCRIPT:
         return AST_NODE_TYPE_REXPR_OP_SUBSCRIPT;
     case AST_NODE_TYPE_OP_SUBSCRIPT_SLICE:
@@ -2242,6 +2359,58 @@ resolve2_stmt_list_generic(struct statement_list *stmt_list)
     return 0;
 }
 
+static const struct ast_node *
+link_get_target_type(const struct link *link)
+{
+    if (NULL != link->as_type) {
+        return link->as_type;
+    }
+    return link->dst_expr->u.rexpr.static_check_info.target_item;
+}
+
+static int
+link_check_duplicates(struct link *link)
+{
+    const struct ast_node *dst_item;
+    struct link *next_link;
+    const struct ast_node *next_dst_item;
+
+    dst_item = link_get_target_type(link);
+    for (next_link = (struct link *)link->nstmt.next_sibling;
+         NULL != next_link;
+         next_link = (struct link *)next_link->nstmt.next_sibling) {
+        next_dst_item = link_get_target_type(next_link);
+        if (dst_item != next_dst_item) {
+            if (dst_item->type == next_dst_item->type) {
+                if (AST_NODE_TYPE_BYTE_ARRAY == dst_item->type) {
+                    continue ;
+                }
+            }
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &next_link->nstmt.stmt.loc,
+                "different target types across duplicate link names");
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &link->nstmt.stmt.loc,
+                "first declaration here");
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int
+links_check_duplicates(struct statement_list *link_list)
+{
+    struct statement *stmt;
+
+    TAILQ_FOREACH(stmt, link_list, list) {
+        if (-1 == link_check_duplicates((struct link *)stmt)) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
 static int
 resolve2_stmt_lists(struct block_stmt_list *stmt_lists)
 {
@@ -2268,6 +2437,9 @@ resolve2_stmt_lists(struct block_stmt_list *stmt_lists)
         return -1;
     }
     if (-1 == resolve2_stmt_list_generic(&stmt_lists->link_list)) {
+        return -1;
+    }
+    if (-1 == links_check_duplicates(&stmt_lists->link_list)) {
         return -1;
     }
     /* resolve2 pass on references of all nested blocks */
@@ -2397,6 +2569,9 @@ resolve2_expr(struct ast_node **expr_p)
     case AST_NODE_TYPE_REXPR_OP_ADDROF:
         ret = resolve2_expr_operator_addrof(expr_p);
         break ;
+    case AST_NODE_TYPE_REXPR_OP_FILTER:
+        ret = resolve2_expr_operator_filter(expr_p);
+        break ;
     case AST_NODE_TYPE_REXPR_OP_FCALL:
         ret = resolve2_expr_fcall(expr_p);
         break ;
@@ -2499,7 +2674,6 @@ resolve2_expr_link(struct ast_node **expr_p)
 {
     int ret;
     const struct link *link;
-    struct ast_node *target_item;
     struct ast_node *dst_item;
 
     //FIXME is it necessary?
@@ -2521,14 +2695,22 @@ resolve2_expr_link(struct ast_node **expr_p)
     link = (*expr_p)->u.rexpr_link.link;
     dst_item = link->dst_expr->u.rexpr.static_check_info.target_item;
     if (NULL != link->as_type) {
-        target_item = link->as_type;
         (*expr_p)->u.rexpr.value_type =
-            expr_value_type_from_item_node(target_item);
+            expr_value_type_from_item_node(link->as_type);
         (*expr_p)->u.rexpr.dpath_type = EXPR_DPATH_TYPE_CONTAINER;
     } else {
         (*expr_p)->u.rexpr.static_check_info.target_item = dst_item;
         (*expr_p)->u.rexpr.value_type = link->dst_expr->u.rexpr.value_type;
-        (*expr_p)->u.rexpr.dpath_type = link->dst_expr->u.rexpr.dpath_type;
+        if (NULL == link->nstmt.next_sibling) {
+            (*expr_p)->u.rexpr.dpath_type =
+                link->dst_expr->u.rexpr.dpath_type;
+        } else {
+            // TODO: We may optimize with EXPR_DPATH_TYPE_ITEM
+            // whenever all duplicate links use item type, though this
+            // requires post-processing when all types have been
+            // resolved. Container type is more universal.
+            (*expr_p)->u.rexpr.dpath_type = EXPR_DPATH_TYPE_CONTAINER;
+        }
     }
     return 0;
 }
@@ -2696,9 +2878,6 @@ resolve2_expr_operator_sizeof(struct ast_node **expr_p)
         }
         allow_dynamic_span = TRUE;
         break ;
-        /* already checked by resolve_expr_operator_sizeof() */
-        assert(0);
-        /*NOT REACHED*/
     }
 
     if (! allow_dynamic_span
@@ -2720,6 +2899,15 @@ resolve2_expr_operator_sizeof(struct ast_node **expr_p)
 
 static int
 resolve2_expr_operator_addrof(struct ast_node **expr_p)
+{
+    if (-1 == resolve2_expr(&(*expr_p)->u.rexpr_op.op.operands[0])) {
+        return -1;
+    }
+    return 0;
+}
+
+static int
+resolve2_expr_operator_filter(struct ast_node **expr_p)
 {
     if (-1 == resolve2_expr(&(*expr_p)->u.rexpr_op.op.operands[0])) {
         return -1;
@@ -3122,6 +3310,9 @@ setup_global_track_backends(void)
     if (-1 == setup_track_backends(AST_NODE_AS_BYTES)) {
         return -1;
     }
+    if (-1 == setup_track_backends(AST_NODE_FILTERED)) {
+        return -1;
+    }
     return 0;
 }
 
@@ -3279,6 +3470,7 @@ ast_node_is_rexpr(const struct ast_node *node)
     case AST_NODE_TYPE_REXPR_OP_BWNOT:
     case AST_NODE_TYPE_REXPR_OP_SIZEOF:
     case AST_NODE_TYPE_REXPR_OP_ADDROF:
+    case AST_NODE_TYPE_REXPR_OP_FILTER:
     case AST_NODE_TYPE_REXPR_FIELD:
     case AST_NODE_TYPE_REXPR_MEMBER:
     case AST_NODE_TYPE_REXPR_BUILTIN:
@@ -3304,6 +3496,20 @@ ast_node_is_container(const struct ast_node *node)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_FILTERED:
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
+int
+ast_node_is_origin_container(const struct ast_node *node)
+{
+    switch (node->type) {
+    case AST_NODE_TYPE_BLOCK_DEF:
+    case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE_ARRAY:
         return TRUE;
     default:
         return FALSE;
@@ -3317,6 +3523,7 @@ ast_node_is_byte_container(const struct ast_node *node)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_FILTERED:
         return TRUE;
     default:
         return FALSE;
@@ -3346,10 +3553,18 @@ ast_node_is_item(const struct ast_node *node)
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_FILTERED:
         return TRUE;
     default:
         return FALSE;
     }
+}
+
+int
+ast_node_has_interpreter(const struct ast_node *node)
+{
+    return (ast_node_is_origin_container(node)
+            && NULL != node->u.item.interpreter);
 }
 
 int64_t
@@ -3593,6 +3808,7 @@ dump_ast_recur(const struct ast_node *node, int depth,
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_FILTERED:
         fprintf(stream, "\n%*s\\_ static node (%s)\n",
                 (depth + 1) * INDENT_N_SPACES, "",
                 ast_node_type_str(node->type));
@@ -3653,6 +3869,7 @@ dump_ast_recur(const struct ast_node *node, int depth,
     case AST_NODE_TYPE_OP_BWNOT:
     case AST_NODE_TYPE_OP_SIZEOF:
     case AST_NODE_TYPE_OP_ADDROF:
+    case AST_NODE_TYPE_OP_FILTER:
         fprintf(stream, "\n");
         dump_ast_recur(node->u.op.operands[0], depth + 1, visible_refs,
                        stream);
@@ -3780,6 +3997,7 @@ dump_ast_recur(const struct ast_node *node, int depth,
     case AST_NODE_TYPE_REXPR_OP_BWNOT:
     case AST_NODE_TYPE_REXPR_OP_SIZEOF:
     case AST_NODE_TYPE_REXPR_OP_ADDROF:
+    case AST_NODE_TYPE_REXPR_OP_FILTER:
         /*TODO: more details on resolved operators (eg. expr type) */
         fprintf(stream, "\n");
         dump_ast_recur(node->u.rexpr_op.op.operands[0], depth + 1,
@@ -3883,6 +4101,7 @@ dump_ast_type(const struct ast_node *node, int depth,
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_FILTERED:
     case AST_NODE_TYPE_CONDITIONAL:
     case AST_NODE_TYPE_OP_EQ:
     case AST_NODE_TYPE_OP_NE:
@@ -3908,6 +4127,7 @@ dump_ast_type(const struct ast_node *node, int depth,
     case AST_NODE_TYPE_OP_BWNOT:
     case AST_NODE_TYPE_OP_SIZEOF:
     case AST_NODE_TYPE_OP_ADDROF:
+    case AST_NODE_TYPE_OP_FILTER:
     case AST_NODE_TYPE_OP_SUBSCRIPT:
     case AST_NODE_TYPE_OP_SUBSCRIPT_SLICE:
     case AST_NODE_TYPE_OP_MEMBER:
@@ -3936,6 +4156,7 @@ dump_ast_type(const struct ast_node *node, int depth,
     case AST_NODE_TYPE_REXPR_OP_BWNOT:
     case AST_NODE_TYPE_REXPR_OP_SIZEOF:
     case AST_NODE_TYPE_REXPR_OP_ADDROF:
+    case AST_NODE_TYPE_REXPR_OP_FILTER:
     case AST_NODE_TYPE_REXPR_FIELD:
     case AST_NODE_TYPE_REXPR_MEMBER:
     case AST_NODE_TYPE_REXPR_BUILTIN:

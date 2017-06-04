@@ -77,6 +77,7 @@
 #define AST_NODE_ARRAY_SLICE &shared_ast_node_array_slice
 #define AST_NODE_BYTE_SLICE &shared_ast_node_byte_slice
 #define AST_NODE_AS_BYTES &shared_ast_node_as_bytes
+#define AST_NODE_FILTERED &shared_ast_node_filtered
 
 #include "utils/queue.h"
 
@@ -149,6 +150,7 @@
     extern struct ast_node shared_ast_node_array_slice;
     extern struct ast_node shared_ast_node_byte_slice;
     extern struct ast_node shared_ast_node_as_bytes;
+    extern struct ast_node shared_ast_node_filtered;
 
     enum ast_node_flag {
         ASTFLAG_IS_SPAN_EXPR                = (1<<0),
@@ -187,6 +189,7 @@
             AST_NODE_TYPE_ARRAY_SLICE,
             AST_NODE_TYPE_BYTE_SLICE,
             AST_NODE_TYPE_AS_BYTES,
+            AST_NODE_TYPE_FILTERED,
             AST_NODE_TYPE_CONDITIONAL,
             AST_NODE_TYPE_OP_EQ,
             AST_NODE_TYPE_OP_NE,
@@ -212,6 +215,7 @@
             AST_NODE_TYPE_OP_BWNOT,
             AST_NODE_TYPE_OP_SIZEOF,
             AST_NODE_TYPE_OP_ADDROF,
+            AST_NODE_TYPE_OP_FILTER,
             AST_NODE_TYPE_OP_SUBSCRIPT,
             AST_NODE_TYPE_OP_SUBSCRIPT_SLICE,
             AST_NODE_TYPE_OP_MEMBER,
@@ -244,6 +248,7 @@
             AST_NODE_TYPE_REXPR_OP_BWNOT,
             AST_NODE_TYPE_REXPR_OP_SIZEOF,
             AST_NODE_TYPE_REXPR_OP_ADDROF,
+            AST_NODE_TYPE_REXPR_OP_FILTER,
             AST_NODE_TYPE_REXPR_FIELD,
             AST_NODE_TYPE_REXPR_MEMBER,
             AST_NODE_TYPE_REXPR_BUILTIN,
@@ -422,6 +427,7 @@
 
     struct named_statement {
         struct statement stmt; // inherits
+        struct named_statement *next_sibling;
         char *name;
     };
 
@@ -547,6 +553,9 @@
     };
     struct ast_node shared_ast_node_as_bytes = {
         .type = AST_NODE_TYPE_AS_BYTES,
+    };
+    struct ast_node shared_ast_node_filtered = {
+        .type = AST_NODE_TYPE_FILTERED,
     };
 
     static struct ast_node *
@@ -820,6 +829,9 @@ expr:
     }
   | '&' expr %prec OP_ARITH_UNARY_OP {
         $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_ADDROF, $2, NULL, &@1);
+    }
+  | '*' expr %prec OP_ARITH_UNARY_OP {
+        $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_FILTER, $2, NULL, &@1);
     }
   | expr "||" expr {
         $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_LOR, $1, $3, &@2);
@@ -1676,6 +1688,7 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_ARRAY_SLICE: return "slice";
     case AST_NODE_TYPE_BYTE_SLICE: return "byte slice";
     case AST_NODE_TYPE_AS_BYTES: return "as bytes";
+    case AST_NODE_TYPE_FILTERED: return "filtered";
     case AST_NODE_TYPE_CONDITIONAL: return "conditional";
     case AST_NODE_TYPE_REXPR_NATIVE: return "native type";
     case AST_NODE_TYPE_OP_FCALL:
@@ -1734,6 +1747,8 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_REXPR_OP_SIZEOF: return "operator 'sizeof'";
     case AST_NODE_TYPE_OP_ADDROF:
     case AST_NODE_TYPE_REXPR_OP_ADDROF: return "operator 'addr of'";
+    case AST_NODE_TYPE_OP_FILTER:
+    case AST_NODE_TYPE_REXPR_OP_FILTER: return "operator 'filter'";
     case AST_NODE_TYPE_OP_SUBSCRIPT:
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT: return "array subscript";
     case AST_NODE_TYPE_OP_SUBSCRIPT_SLICE:

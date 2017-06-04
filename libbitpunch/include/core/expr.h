@@ -112,6 +112,17 @@ expr_dpath_to_container(enum expr_dpath_type type,
                         union expr_dpath dpath,
                         union expr_dpath *dpathp,
                         struct browse_state *bst);
+bitpunch_status_t
+expr_dpath_to_item(enum expr_dpath_type type,
+                   union expr_dpath dpath,
+                   union expr_dpath *dpathp,
+                   struct browse_state *bst);
+bitpunch_status_t
+expr_dpath_to_dpath(enum expr_dpath_type src_type,
+                    union expr_dpath src_dpath,
+                    enum expr_dpath_type dst_type,
+                    union expr_dpath *dst_dpathp,
+                    struct browse_state *bst);
 struct box *
 expr_dpath_get_parent_box(enum expr_dpath_type type,
                           union expr_dpath dpath);

@@ -54,6 +54,11 @@ struct box *
 box_new_as_box(struct box *parent_box,
                struct ast_node *as_type, int64_t box_offset,
                struct browse_state *bst);
+struct box *
+box_new_filter_box(struct box *unfiltered_box,
+                   const char *filtered_data,
+                   size_t filtered_size,
+                   struct browse_state *bst);
 
 bitpunch_status_t
 box_get_n_items_internal(struct box *box, int64_t *n_itemsp,
@@ -110,5 +115,14 @@ tracker_read_item_value_internal(struct tracker *tk,
 bitpunch_status_t
 tracker_reverse_direction_internal(struct tracker *tk,
                                    struct browse_state *bst);
+
+bitpunch_status_t
+item_read_value__interpreter(const struct ast_node *item_node,
+                             struct box *scope,
+                             int64_t item_offset,
+                             int64_t item_size,
+                             enum expr_value_type *typep,
+                             union expr_value *valuep,
+                             struct browse_state *bst);
 
 #endif /* __BROWSE_INTERNAL_H__ */
