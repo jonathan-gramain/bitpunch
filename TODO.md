@@ -2,19 +2,41 @@
 
 ## Short term
 
-### Filters
+### Scriptable filters
 
 Filters are an extension or generalization of interpreters.
 
 Unlike current interpreters which are replacing the view of a raw byte
 array by a meaningful representation (most commonly char strings and
-integers), filters would expose new byte arrays generated from
-existing byte arrays defined in raw binary contents, and allow to
-track the generated contents in turn using the bitpunch syntax just
-like raw byte arrays.
+integers), filters expose new byte arrays generated from existing byte
+arrays defined in raw binary contents, and allow to track the
+generated contents in turn using the bitpunch syntax just like raw
+byte arrays.
 
-They would typically be used for compression/decompression or
+They can typically be used for compression/decompression or
 encryption/decryption.
+
+Filters now can only be implemented as C code in the main library,
+they should be scriptable in the .bp file itself (e.g. with Python
+support in the first step).
+
+
+### Views
+
+Views are merging different parts of a file (or filtered contents)
+together as a single extent of bytes.
+
+This can typically be used to access contents encapsulated in a
+transport stream.
+
+A view provides custom methods to access some range of bytes
+(generalizes the 'struct bintool_binary_file_hdl' type).
+
+BP syntax TBD (probably with one or more builtin functions).
+
+### Dpath query language
+
+Define a syntax a la XPath to query a set of dpaths from an expression
 
 ### Provide a library of .bp files for the most widespread binary file formats
 
@@ -69,6 +91,17 @@ lead to error during browse (typically stack overflow).
 CLI command + API call to do a complete sanity check of a file (can be
 implemented by forcing a browse through all structures and gathering
 errors encountered in a list)
+
+### Byte search
+
+Add ability to search for some sequence of bytes inside a particular
+set of dpath expressions, and return at which dpath and which offsets
+they are found.
+
+### RegExp
+
+Add support for regexp matching operator in expressions
+
 
 ### Decent build system
 
