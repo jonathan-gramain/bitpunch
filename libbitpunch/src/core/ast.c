@@ -438,12 +438,13 @@ find_statement_by_name(enum statement_type stmt_type,
             // recurse in anonymous struct/union fields
             assert(STATEMENT_TYPE_FIELD == stmt_type);
             field = (struct field *)nstmt;
-            assert(AST_NODE_TYPE_BLOCK_DEF == field->field_type->type);
-            nstmt = find_statement_by_name(
-                STATEMENT_TYPE_FIELD, identifier,
-                &field->field_type->u.block_def.block_stmt_list);
-            if (NULL != nstmt) {
-                return nstmt;
+            if (AST_NODE_TYPE_BLOCK_DEF == field->field_type->type) {
+                nstmt = find_statement_by_name(
+                    STATEMENT_TYPE_FIELD, identifier,
+                    &field->field_type->u.block_def.block_stmt_list);
+                if (NULL != nstmt) {
+                    return nstmt;
+                }
             }
         } else if (0 == strcmp(identifier, nstmt->name)) {
             return nstmt;
@@ -594,9 +595,6 @@ resolve_stmt_lists_types(struct block_stmt_list *stmt_lists,
                                               &visible_refs)) {
         return -1;
     }
-    if (-1 == chain_duplicate_statements(stmt_lists)) {
-        return -1;
-    }
     TAILQ_FOREACH(stmt, &stmt_lists->field_list, list) {
         field = (struct field *)stmt;
         if (-1 == resolve_node_types(&field->field_type, &visible_refs,
@@ -604,6 +602,13 @@ resolve_stmt_lists_types(struct block_stmt_list *stmt_lists,
                                       RESOLVE_EXPECT_TYPEDEF))) {
             return -1;
         }
+        if (NULL == field->nstmt.name
+            && AST_NODE_TYPE_BLOCK_DEF != field->field_type->type) {
+            stmt->stmt_flags |= FIELD_FLAG_HIDDEN;
+        }
+    }
+    if (-1 == chain_duplicate_statements(stmt_lists)) {
+        return -1;
     }
     /* resolve types of all nested blocks */
     STAILQ_FOREACH(block_def, &stmt_lists->block_def_list, stmt_list) {
@@ -686,12 +691,13 @@ find_unchained_statement_by_name(const struct statement_list *in_list,
 
             // recurse in anonymous struct/union fields
             field = (struct field *)nstmt;
-            assert(AST_NODE_TYPE_BLOCK_DEF == field->field_type->type);
-            nstmt = find_unchained_statement_by_name(
-                &field->field_type->u.block_def.block_stmt_list.field_list,
-                identifier);
-            if (NULL != nstmt) {
-                return nstmt;
+            if (AST_NODE_TYPE_BLOCK_DEF == field->field_type->type) {
+                nstmt = find_unchained_statement_by_name(
+                    &field->field_type->u.block_def.block_stmt_list.field_list,
+                    identifier);
+                if (NULL != nstmt) {
+                    return nstmt;
+                }
             }
         } else if (0 == strcmp(identifier, nstmt->name)
                    && NULL == nstmt->next_sibling) {
@@ -716,12 +722,13 @@ chain_duplicate_statements_in(const struct statement_list *in_list,
 
             // recurse in anonymous struct/union
             field = (const struct field *)stmt;
-            assert(AST_NODE_TYPE_BLOCK_DEF == field->field_type->type);
-            if (-1 == chain_duplicate_statements_in(
-                    &field->field_type
-                    ->u.block_def.block_stmt_list.field_list,
-                    toplevel_list)) {
-                return -1;
+            if (AST_NODE_TYPE_BLOCK_DEF == field->field_type->type) {
+                if (-1 == chain_duplicate_statements_in(
+                        &field->field_type
+                        ->u.block_def.block_stmt_list.field_list,
+                        toplevel_list)) {
+                    return -1;
+                }
             }
         } else {
             unchained = find_unchained_statement_by_name(toplevel_list,

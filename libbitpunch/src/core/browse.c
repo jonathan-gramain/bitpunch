@@ -2593,9 +2593,9 @@ tracker_goto_nth_item_with_key_internal(struct tracker *tk,
 
 
 static void
-tracker_set_field_int__block(struct tracker *tk,
-                             const struct field *field,
-                             struct browse_state *bst)
+tracker_set_field_internal__block(struct tracker *tk,
+                                  const struct field *field,
+                                  struct browse_state *bst)
 {
     DPRINT("TK set field "ANSI_COLOR_GREEN"%s"ANSI_COLOR_RESET" on:\n",
            field->nstmt.name);
@@ -2619,7 +2619,7 @@ tracker_goto_field_internal(struct tracker *tk,
     assert(flat || NULL != to_field->nstmt.name);
 
     if (flat && 0 == (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
-        tracker_set_field_int__block(tk, to_field, bst);
+        tracker_set_field_internal__block(tk, to_field, bst);
         return BITPUNCH_OK;
     }
     assert(0 == (tk->flags & TRACKER_REVERSED));
@@ -4383,14 +4383,16 @@ tracker_goto_item_int__block(struct tracker *tk,
     const struct statement *stmt;
 
     DBG_TRACKER_DUMP(tk);
-    if (flat || NULL != field->nstmt.name) {
-        tracker_set_field_int__block(tk, field, bst);
+    if (flat || NULL != field->nstmt.name
+        || 0 != (field->nstmt.stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
+        tracker_set_field_internal__block(tk, field, bst);
         return BITPUNCH_OK;
     }
     // recurse into anonymous struct's fields
+    assert(AST_NODE_TYPE_BLOCK_DEF == field->field_type->type);
     xtk = tracker_dup(tk);
     do {
-        tracker_set_field_int__block(xtk, field, bst);
+        tracker_set_field_internal__block(xtk, field, bst);
         bt_ret = tracker_enter_item_internal(xtk, bst);
         if (BITPUNCH_OK != bt_ret) {
             tracker_delete(xtk);
@@ -4407,8 +4409,17 @@ tracker_goto_item_int__block(struct tracker *tk,
     } while (NULL == field->nstmt.name);
     tracker_set(tk, xtk);
     tracker_delete(xtk);
-    tracker_set_field_int__block(tk, field, bst);
+    tracker_set_field_internal__block(tk, field, bst);
     return BITPUNCH_OK;
+}
+
+static int
+tracker_in_anonymous_block(struct tracker *tk)
+{
+    return (NULL != tk->box->parent_box
+            && AST_NODE_TYPE_BLOCK_DEF == tk->box->parent_box->node->type
+            && NULL != tk->box->track_path.u.block.field
+            && NULL == tk->box->track_path.u.block.field->nstmt.name);
 }
 
 static bitpunch_status_t
@@ -4422,7 +4433,7 @@ tracker_goto_first_item_int__block(struct tracker *tk, int flat,
     DBG_TRACKER_DUMP(tk);
     if (!flat && NULL != tk->cur.u.block.field) {
         // return to base, non-anonymous level
-        while (NULL != tk->cur.u.block.field->anon_parent) {
+        while (tracker_in_anonymous_block(tk)) {
             bt_ret = tracker_return_internal(tk, bst);
             assert(BITPUNCH_OK == bt_ret);
         }
@@ -4450,7 +4461,8 @@ tracker_goto_first_item_int__block(struct tracker *tk, int flat,
         }
         stit = box_iter_statements(tk->box, STATEMENT_TYPE_FIELD, 0);
     }
-    bt_ret = box_iter_statements_next_internal(tk->box, &stit, &stmt, bst);
+    bt_ret = box_iter_statements_next_internal(tk->box,
+                                               &stit, &stmt, bst);
     if (BITPUNCH_OK != bt_ret) {
         if (BITPUNCH_NO_ITEM == bt_ret) {
             bt_ret = tracker_set_end(tk, bst);
@@ -4510,7 +4522,7 @@ tracker_goto_next_item_int__block(struct tracker *tk, int flat,
         if (BITPUNCH_NO_ITEM != bt_ret) {
             break ;
         }
-        if (!flat && NULL != tk->cur.u.block.field->anon_parent) {
+        if (!flat && tracker_in_anonymous_block(tk)) {
             // return from anonymous struct's field list
             bt_ret = tracker_return_internal(tk, bst);
             assert(BITPUNCH_OK == bt_ret);
@@ -4533,16 +4545,32 @@ static bitpunch_status_t
 tracker_goto_first_item__block(struct tracker *tk,
                                struct browse_state *bst)
 {
+    bitpunch_status_t bt_ret;
+
     DBG_TRACKER_DUMP(tk);
-    return tracker_goto_first_item_int__block(tk, FALSE, bst);
+    // skip hidden fields
+    do {
+        bt_ret = tracker_goto_first_item_int__block(tk, FALSE, bst);
+    } while (BITPUNCH_OK == bt_ret
+             && 0 != (tk->cur.u.block.field->nstmt.stmt.stmt_flags
+                      & FIELD_FLAG_HIDDEN));
+    return bt_ret;
 }
 
 static bitpunch_status_t
 tracker_goto_next_item__block(struct tracker *tk,
                               struct browse_state *bst)
 {
+    bitpunch_status_t bt_ret;
+
     DBG_TRACKER_DUMP(tk);
-    return tracker_goto_next_item_int__block(tk, FALSE, bst);
+    // skip hidden fields
+    do {
+        bt_ret = tracker_goto_next_item_int__block(tk, FALSE, bst);
+    } while (BITPUNCH_OK == bt_ret
+             && 0 != (tk->cur.u.block.field->nstmt.stmt.stmt_flags
+                      & FIELD_FLAG_HIDDEN));
+    return bt_ret;
 }
 
 static bitpunch_status_t
@@ -4583,8 +4611,8 @@ tracker_goto_named_item__block(struct tracker *tk, const char *name,
     DBG_TRACKER_DUMP(tk);
     bt_ret = tracker_goto_first_item_int__block(tk, FALSE, bst);
     while (BITPUNCH_OK == bt_ret) {
-        assert(NULL != tk->cur.u.block.field->nstmt.name);
-        if (0 == strcmp(tk->cur.u.block.field->nstmt.name, name)) {
+        if (NULL != tk->cur.u.block.field->nstmt.name
+            && 0 == strcmp(tk->cur.u.block.field->nstmt.name, name)) {
             return BITPUNCH_OK;
         }
         bt_ret = tracker_goto_next_item_int__block(tk, FALSE, bst);

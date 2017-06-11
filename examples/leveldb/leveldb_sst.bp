@@ -10,6 +10,12 @@ type u32 byte[4]: integer(signed=false, endian=little);
 
 type varint byte[]: varint();
 
+struct DataBlock {
+    DataBlockEntry[] entries;
+    u32[nb_restarts] restarts;
+    u32 nb_restarts;
+};
+
 struct DataBlockEntry {
     varint key_shared_size;
     varint key_non_shared_size;
@@ -19,14 +25,8 @@ struct DataBlockEntry {
 };
 
 struct IndexBlockEntry {
-    DataBlockEntry p;
-    ?data_block_handle (BlockHandle) => p.value;
-};
-
-struct DataBlock {
-    DataBlockEntry[] entries;
-    u32[nb_restarts] restarts;
-    u32 nb_restarts;
+    DataBlockEntry;
+    ?data_block_handle (BlockHandle) => value;
 };
 
 struct BlockTrailer {
@@ -41,7 +41,7 @@ struct StoredBlock {
     }
     if (trailer.blocktype == 1) {
         byte[] data: snappy;
-        ?raw_block (byte[]) => *data;
+        ?raw_block => *data;
     }
     ?data_block (DataBlock) => ?raw_block;
     BlockTrailer trailer;
@@ -60,7 +60,7 @@ struct BlockHandle {
 struct Footer {
     BlockHandle metaindex_handle;
     BlockHandle index_handle;
-    byte[] padding;
+    byte[];
     byte[8] magic;
     span 48;
 };

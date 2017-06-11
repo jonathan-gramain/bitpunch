@@ -433,11 +433,11 @@
 
     enum field_flag {
         FIELD_FLAG_SLACK_TRAILER = (1<<0),
+        FIELD_FLAG_HIDDEN        = (1<<1),
     };
     struct field {
         struct named_statement nstmt; // inherits
         struct ast_node *field_type;
-        struct field *anon_parent;
     };
 
     struct match {
@@ -1311,22 +1311,6 @@ block_stmt_list:
                                stmt_list);
         }
     }
-  | block_stmt_list basic_type array_decl_list
-    field_nonempty_list opt_interpreter_call ';' {
-        struct ast_node *full_type;
-        struct statement *stmt;
-        struct field *field;
-
-        $$ = $1;
-        full_type = make_full_type($basic_type,
-                                   $array_decl_list,
-                                   $opt_interpreter_call);
-        TAILQ_FOREACH(stmt, &$field_nonempty_list, list) {
-            field = (struct field *)stmt;
-            field->field_type = full_type;
-        }
-        TAILQ_CONCAT(&$$.field_list, &$field_nonempty_list, list);
-    }
   | block_stmt_list named_block_def array_decl_list
     field_list opt_interpreter_call ';' {
         struct ast_node *full_type;
@@ -1364,53 +1348,48 @@ block_stmt_list:
         }
     }
 
-  | block_stmt_list adhoc_block_def array_decl_list
+  | block_stmt_list type array_decl_list
     field_list opt_interpreter_call ';' {
         struct ast_node *full_type;
         struct statement *stmt;
         struct field *field;
 
         $$ = $1;
-        full_type = make_full_type($adhoc_block_def,
+        full_type = make_full_type($type,
                                    $array_decl_list,
                                    $opt_interpreter_call);
-        STAILQ_INSERT_TAIL(&$$.block_def_list, $adhoc_block_def,
-                           stmt_list);
+        if ($type->type == AST_NODE_TYPE_BLOCK_DEF) {
+            STAILQ_INSERT_TAIL(&$$.block_def_list, $type, stmt_list);
+        }
         if (!TAILQ_EMPTY(&$field_list)) {
             TAILQ_FOREACH(stmt, &$field_list, list) {
                 field = (struct field *)stmt;
                 field->field_type = full_type;
             }
             TAILQ_CONCAT(&$$.field_list, &$field_list, list);
-        } else if (NULL != $array_decl_list) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR,
-                &$adhoc_block_def->loc,
-                "anonymous block cannot be declared as an array value type");
-            YYERROR;
-        } else if (!TAILQ_EMPTY(&$adhoc_block_def->u.block_def
-                                 .block_stmt_list.link_list)) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR,
-                &TAILQ_FIRST(&$adhoc_block_def->u.block_def
-                              .block_stmt_list.link_list)->loc,
-                "anonymous block cannot contain links");
-            YYERROR;
         } else {
-            struct statement *stmt;
-            struct field *child_field;
-
             // anonymous block
+            if (NULL != $array_decl_list) {
+                semantic_error(
+                    SEMANTIC_LOGLEVEL_ERROR, &$type->loc,
+                    "anonymous field cannot be declared as an "
+                    "array value type");
+                YYERROR;
+            }
+            if (!TAILQ_EMPTY(&$type->u.block_def
+                             .block_stmt_list.link_list)) {
+                semantic_error(
+                    SEMANTIC_LOGLEVEL_ERROR,
+                    &TAILQ_FIRST(&$type->u.block_def
+                                 .block_stmt_list.link_list)->loc,
+                    "anonymous field cannot contain links");
+                YYERROR;
+            }
             field = new_safe(struct field);
             field->nstmt.stmt.loc = @$;
             field->field_type = full_type;
             TAILQ_INSERT_TAIL(&$$.field_list, (struct statement *)field,
                               list);
-            TAILQ_FOREACH(stmt, &$adhoc_block_def->u.block_def
-                          .block_stmt_list.field_list, list) {
-                child_field = (struct field *)stmt;
-                child_field->anon_parent = field;
-            }
         }
     }
 
