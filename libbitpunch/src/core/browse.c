@@ -4478,26 +4478,26 @@ tracker_goto_next_item_int__block(struct tracker *tk, int flat,
 
     DBG_TRACKER_DUMP(tk);
     reversed = (0 != (tk->flags & TRACKER_REVERSED));
-    /* union: no offset change */
-    if (0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)
-        && BLOCK_TYPE_STRUCT == tk->box->node->u.block_def.type) {
-        int64_t item_size;
-
-        bt_ret = tracker_get_item_size_internal(tk, &item_size, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            DBG_TRACKER_CHECK_STATE(tk);
-            return bt_ret;
-        }
-        DBG_TRACKER_CHECK_STATE(tk);
-        if (reversed) {
-            tk->item_offset -= item_size;
-        } else {
-            tk->item_offset += item_size;
-        }
-    }
-    tracker_reset_item(tk);
     DBG_TRACKER_CHECK_STATE(tk);
     while (TRUE) {
+        /* union: no offset change */
+        if (0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)
+            && BLOCK_TYPE_STRUCT == tk->box->node->u.block_def.type) {
+            int64_t item_size;
+
+            bt_ret = tracker_get_item_size_internal(tk, &item_size, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                DBG_TRACKER_CHECK_STATE(tk);
+                return bt_ret;
+            }
+            DBG_TRACKER_CHECK_STATE(tk);
+            if (reversed) {
+                tk->item_offset -= item_size;
+            } else {
+                tk->item_offset += item_size;
+            }
+        }
+        tracker_reset_item(tk);
         if (reversed) {
             stit = box_riter_statements_from(
                 tk->box, (const struct statement *)tk->cur.u.block.field, 0);
