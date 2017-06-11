@@ -701,8 +701,8 @@
 %left  OP_SUBSCRIPT OP_FCALL '.'
 %left  OP_BRACKETS
 
-%type <ast_node> g_integer g_boolean g_identifier g_literal native_type_def block param_value
-%type <ast_nodep> g_integerp g_booleanp g_identifierp g_literalp expr twin_index opt_twin_index adhoc_struct_def adhoc_union_def adhoc_block_def adhoc_basic_type_def adhoc_type_def array_decl array_decl_list interpreter_call opt_interpreter_call
+%type <ast_node> g_integer g_boolean g_identifier g_literal native_type block param_value
+%type <ast_nodep> g_integerp g_booleanp g_identifierp g_literalp expr twin_index opt_twin_index adhoc_struct_def adhoc_union_def adhoc_block_def basic_type type array_decl array_decl_list interpreter_call opt_interpreter_call
 %type <file_block> file_block
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
 %type <named_typep> type_decl type_def type_expr opt_type_cast named_struct_def named_union_def named_block_def named_type_def
@@ -971,7 +971,7 @@ func_param:
     }
 
 
-native_type_def:
+native_type:
     KW_BYTE {
         memset(&$$, 0, sizeof ($$));
         $$.type = AST_NODE_TYPE_BYTE_ARRAY;
@@ -1058,20 +1058,20 @@ type_decl:
     }
 
 type_def:
-    adhoc_type_def array_decl_list opt_interpreter_call {
+    type array_decl_list opt_interpreter_call {
         struct ast_node *full_type;
 
-        full_type = make_full_type($adhoc_type_def,
+        full_type = make_full_type($type,
                                    $array_decl_list,
                                    $opt_interpreter_call);
         $$ = new_safe(struct named_type);
-        $$->loc = @adhoc_type_def;
+        $$->loc = @type;
         $$->name = NULL;
         $$->type = full_type;
-        /* $adhoc_type_def is a inner type so at end of chain thus
+        /* $type is a inner type so at end of chain thus
          * we can just point at it */
-        if ($adhoc_type_def->type == AST_NODE_TYPE_BLOCK_DEF) {
-            $$->inner_block_def = $adhoc_type_def;
+        if ($type->type == AST_NODE_TYPE_BLOCK_DEF) {
+            $$->inner_block_def = $type;
         } else {
             $$->inner_block_def = NULL;
         }
@@ -1103,14 +1103,14 @@ type_expr:
         $$ = $2;
     }
 
-adhoc_basic_type_def:
-    native_type_def {
-        $$ = dup_safe(&$native_type_def);
+basic_type:
+    native_type {
+        $$ = dup_safe(&$native_type);
     }
   | g_identifierp
 
-adhoc_type_def:
-    adhoc_basic_type_def
+type:
+    basic_type
   | adhoc_block_def
 
 named_type_def:
@@ -1311,14 +1311,14 @@ block_stmt_list:
                                stmt_list);
         }
     }
-  | block_stmt_list adhoc_basic_type_def array_decl_list
+  | block_stmt_list basic_type array_decl_list
     field_nonempty_list opt_interpreter_call ';' {
         struct ast_node *full_type;
         struct statement *stmt;
         struct field *field;
 
         $$ = $1;
-        full_type = make_full_type($adhoc_basic_type_def,
+        full_type = make_full_type($basic_type,
                                    $array_decl_list,
                                    $opt_interpreter_call);
         TAILQ_FOREACH(stmt, &$field_nonempty_list, list) {
