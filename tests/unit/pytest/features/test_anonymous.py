@@ -76,6 +76,53 @@ data_file_anonymous = """
 """
 
 
+
+spec_file_anonymous_in_trailer = """
+
+type u8 byte: integer(signed=false);
+type u32 byte[4]: integer(endian=little, signed=false);
+
+struct Foo {
+    u32 a;
+};
+
+struct Bar {
+    u8 b;
+    byte[3]; // hidden field
+};
+
+struct SlackBody {
+    struct {
+        byte[2];
+        byte[] data;
+    };
+};
+
+struct Trailer {
+    byte[4];
+    struct {
+        u32 c;
+    };
+    u32 d;
+};
+
+file {
+    Foo;
+    Bar;
+    SlackBody;
+    Trailer;
+}
+
+"""
+
+data_file_anonymous_in_trailer = """
+01 00 00 00
+02 00 00 00
+"some useless data"
+03 00 00 00
+04 00 00 00
+"""
+
 @pytest.fixture(
     scope='module',
     params=[{
@@ -87,6 +134,9 @@ data_file_anonymous = """
     }, {
         'spec': spec_file_hidden_field,
         'data': data_file_anonymous,
+    }, {
+        'spec': spec_file_anonymous_in_trailer,
+        'data': data_file_anonymous_in_trailer,
     }])
 def params_anonymous(request):
     return conftest.make_testcase(request.param)
@@ -95,7 +145,7 @@ def params_anonymous(request):
 def test_anonymous(params_anonymous):
     params = params_anonymous
     dtree = params['dtree']
+    assert dtree.d == 4
+    assert dtree.c == 3
     assert dtree.a == 1
     assert dtree.b == 2
-    assert dtree.c == 3
-    assert dtree.d == 4

@@ -4406,7 +4406,8 @@ tracker_goto_item_int__block(struct tracker *tk,
             return bt_ret;
         }
         field = (const struct field *)stmt;
-    } while (NULL == field->nstmt.name);
+    } while (NULL == field->nstmt.name
+             && 0 == (field->nstmt.stmt.stmt_flags & FIELD_FLAG_HIDDEN));
     tracker_set(tk, xtk);
     tracker_delete(xtk);
     tracker_set_field_internal__block(tk, field, bst);
