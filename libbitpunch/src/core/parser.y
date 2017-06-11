@@ -1598,8 +1598,8 @@ parser_location_make_span(struct parser_location *dest_loc,
  * been printed if @out_buf_size was big enough
  */
 static size_t
-snprint_location(const struct parser_location *loc,
-                 char *out_buf, size_t out_buf_size)
+bitpunch_parser_print_location(const struct parser_location *loc,
+                               FILE *out)
 {
     const char *schema_end;
     const char *line_start;
@@ -1620,11 +1620,11 @@ snprint_location(const struct parser_location *loc,
         if (NULL == line_end)
             line_end = schema_end;
     }
-    return snprintf(out_buf, out_buf_size, "%.*s\n%*s\n",
-                    (int)(line_end - line_start), line_start,
-                    (int)(loc->end_offset
-                          - (line_start - loc->parser_ctx->parser_data)),
-                    "^");
+    return fprintf(out, "%.*s\n%*s\n",
+                   (int)(line_end - line_start), line_start,
+                   (int)(loc->end_offset
+                         - (line_start - loc->parser_ctx->parser_data)),
+                   "^");
 }
 
 const char *semantic_loglevel2str(enum semantic_loglevel lvl)
@@ -1647,9 +1647,6 @@ void semantic_error(enum semantic_loglevel lvl,
     va_list ap;
 
     if (NULL != loc) {
-        char err_location_buf[ERRBUF_MAXSIZE];
-
-        snprint_location(loc, err_location_buf, sizeof (err_location_buf));
         if (NULL != loc->parser_ctx->parser_filepath) {
             fprintf(stderr, "%s in %s at line %d:\n",
                     semantic_loglevel2str(lvl),
@@ -1658,7 +1655,7 @@ void semantic_error(enum semantic_loglevel lvl,
             fprintf(stderr, "%s at line %d:\n",
                     semantic_loglevel2str(lvl), loc->last_line);
         }
-        fputs(err_location_buf, stderr);
+        bitpunch_parser_print_location(loc, stderr);
     } else {
         fprintf(stderr, "%s: ", semantic_loglevel2str(lvl));
     }
