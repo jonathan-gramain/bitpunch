@@ -179,20 +179,20 @@ def spec_sst_index():
     return """
     type u32 byte[4]: integer(signed=false, endian=little);
 
-    type varint byte[]: varint();
+    type VarInt byte[]: varint();
 
     struct BlockHandle {
-        varint offset;
-        varint size;
+        VarInt offset;
+        VarInt size;
     };
 
     struct IndexEntry {
-        varint key_shared_size;
-        varint key_non_shared_size;
-        varint value_size;
+        VarInt key_shared_size;
+        VarInt key_non_shared_size;
+        VarInt value_size;
         byte[key_non_shared_size] key_non_shared;
         byte[value_size] value;
-        ?data_block (BlockHandle) => value;
+        ?data_block => value: BlockHandle;
     };
 
     file {

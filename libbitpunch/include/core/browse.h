@@ -93,6 +93,7 @@ struct box {
         COMPUTING_MAX_SLACK_OFFSET = (1u<<1),
         BOX_CACHED                 = (1u<<2),
         BOX_REVERSED               = (1u<<3),
+        BOX_FILTER                 = (1u<<4),
     } flags;
     union {
         struct box_block {
@@ -349,14 +350,6 @@ tracker_enter_slice(struct tracker *tk, struct tracker *slice_end,
 bitpunch_status_t
 tracker_return(struct tracker *tk,
                struct tracker_error **errp);
-bitpunch_status_t
-tracker_track_link(struct tracker *tk, const char *link_name,
-                   struct tracker **tkp,
-                   struct tracker_error **errp);
-bitpunch_status_t
-box_track_link(struct box *box, const char *link_name,
-               struct tracker **tkp,
-               struct tracker_error **errp);
 int
 tracker_get_abs_dpath(const struct tracker *tk,
                       char *dpath_expr_buf, int buf_size);
@@ -491,10 +484,15 @@ box_iter_links_next(struct box *box, tlink_iterator *it,
                     struct tracker_error **errp);
 
 bitpunch_status_t
-box_evaluate_link_target(struct box *box, const char *link_name,
-                         enum expr_dpath_type *dpath_typep,
-                         union expr_dpath *eval_dpathp,
-                         struct tracker_error **errp);
+box_evaluate_link_dpath(struct box *box, const char *link_name,
+                        enum expr_dpath_type *dpath_typep,
+                        union expr_dpath *eval_dpathp,
+                        struct tracker_error **errp);
+bitpunch_status_t
+box_evaluate_link_value(struct box *box, const char *link_name,
+                        enum expr_value_type *value_typep,
+                        union expr_value *eval_valuep,
+                        struct tracker_error **errp);
 
 /* error reporting */
 

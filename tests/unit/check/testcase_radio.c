@@ -144,20 +144,42 @@ static void testcase_radio_teardown(void)
     }
 }
 
-static void check_codename_item(struct radio_source_info *info,
-                                struct tracker *tk,
-                                int code_idx)
+static void check_codename_value(struct radio_source_info *info,
+                                 enum expr_value_type type,
+                                 union expr_value value,
+                                 int code_idx,
+                                 int is_raw_dpath)
 {
     const char *codename;
     int64_t expect_size;
+
+    codename = radio_codenames[code_idx];
+    expect_size = strlen(codename);
+
+    if (is_raw_dpath) {
+        ck_assert_int_eq(type, EXPR_VALUE_TYPE_BYTES);
+        ck_assert_int_eq(value.bytes.len, expect_size);
+        ck_assert(0 == memcmp(value.bytes.buf,
+                              codename, value.bytes.len));
+    } else {
+        ck_assert_int_eq(type, EXPR_VALUE_TYPE_STRING);
+        ck_assert_int_eq(value.string.len, expect_size);
+        ck_assert(0 == memcmp(value.string.str,
+                              codename, value.string.len));
+    }
+}
+
+static void check_codename_item(struct radio_source_info *info,
+                                struct tracker *tk,
+                                int code_idx,
+                                int is_raw_dpath)
+{
     bitpunch_status_t bt_ret;
     int64_t code_offset;
     int64_t expect_offset;
     enum expr_value_type type;
     union expr_value value;
 
-    codename = radio_codenames[code_idx];
-    expect_size = strlen(codename);
     expect_offset = info->codename_offset[code_idx];
 
     if (NULL != tk->item_node) {
@@ -166,10 +188,6 @@ static void check_codename_item(struct radio_source_info *info,
         bt_ret = box_read_value(tk->box, &type, &value, NULL);
     }
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-    ck_assert_int_eq(type, EXPR_VALUE_TYPE_STRING);
-    ck_assert_int_eq(value.string.len, expect_size);
-    ck_assert(0 == memcmp(value.string.str, codename, value.string.len));
-
     if (NULL != tk->item_node) {
         bt_ret = tracker_get_item_offset(tk, &code_offset, NULL);
         ck_assert_int_eq(bt_ret, BITPUNCH_OK);
@@ -178,6 +196,7 @@ static void check_codename_item(struct radio_source_info *info,
     }
     ck_assert_int_eq(code_offset, expect_offset);
 
+    check_codename_value(info, type, value, code_idx, is_raw_dpath);
 }
 
 static void check_codename_entry(struct radio_source_info *info,
@@ -186,7 +205,7 @@ static void check_codename_entry(struct radio_source_info *info,
 {
     const char *codename;
     int64_t expect_size;
-    struct tracker *tk2, *tk3;
+    struct tracker *tk2;
     bitpunch_status_t bt_ret;
     enum expr_value_type type;
     union expr_value value;
@@ -199,24 +218,21 @@ static void check_codename_entry(struct radio_source_info *info,
     bt_ret = tracker_enter_item(tk2, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     if (info->codename_is_link) {
-        bt_ret = tracker_track_link(tk2, "codename", &tk3, NULL);
-        if (BITPUNCH_OK == bt_ret) {
-            tracker_delete(tk2);
-            tk2 = tk3;
-        }
+        bt_ret = box_evaluate_link_value(tk2->box, "codename",
+                                         &type, &value, NULL);
+        ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+        check_codename_value(info, type, value, code_idx, FALSE);
     } else {
         bt_ret = tracker_goto_named_item(tk2, "codename", NULL);
+        ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+        check_codename_item(info, tk2, code_idx, FALSE);
     }
-    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-
     bt_ret = tracker_get_item_key(tk, &type, &value, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     ck_assert_int_eq(type, EXPR_VALUE_TYPE_STRING);
     ck_assert_int_eq(value.string.len, expect_size);
-    ck_assert(0 == memcmp(value.string.str, codename, value.string.len));
-
-    check_codename_item(info, tk2, code_idx);
-
+    ck_assert(0 == memcmp(value.string.str,
+                          codename, value.string.len));
     tracker_delete(tk2);
 }
 
@@ -387,7 +403,7 @@ void testcase_radio_launch_test_slices(struct radio_source_info *info)
     bt_ret = tracker_return(tk, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
 
-    /* slice [:7] */
+    /* slice [..7] */
     bt_ret = tracker_goto_nth_item(tk_end, 7, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
 
@@ -407,7 +423,7 @@ void testcase_radio_launch_test_slices(struct radio_source_info *info)
     bt_ret = tracker_return(tk, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
 
-    /* slice [5:10] */
+    /* slice [5..10] */
     bt_ret = tracker_goto_nth_item(tk, 5, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
 
@@ -456,7 +472,7 @@ static void check_goto_dpath(struct radio_source_info *info,
     bt_ret = tracker_goto_abs_dpath(tk, dpath_expr, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
 
-    check_codename_item(info, tk, code_idx);
+    check_codename_item(info, tk, code_idx, info->codename_is_link);
 }
 
 void testcase_radio_launch_test_dpath(struct radio_source_info *info)
@@ -578,7 +594,7 @@ void testcase_radio_launch_test_slice_dpath(struct radio_source_info *info)
             end_str[0] = '\0';
         }
         snprintf(dpath_expr, sizeof (dpath_expr),
-                 "codes[%s:%s]", start_str, end_str);
+                 "codes[%s..%s]", start_str, end_str);
 
         bt_ret = tracker_goto_abs_dpath(tk, dpath_expr, NULL);
         ck_assert_int_eq(bt_ret, BITPUNCH_OK);
@@ -608,7 +624,7 @@ void testcase_radio_launch_test_slice_dpath(struct radio_source_info *info)
                 end_str[0] = '\0';
             }
             snprintf(dpath_expr, sizeof (dpath_expr),
-                     "codes[%s:%s]", start_str, end_str);
+                     "codes[%s..%s]", start_str, end_str);
 
             bt_ret = tracker_goto_abs_dpath(tk, dpath_expr, NULL);
             ck_assert_int_eq(bt_ret, BITPUNCH_OK);
@@ -631,7 +647,7 @@ void testcase_radio_launch_test_slice_dpath(struct radio_source_info *info)
                          "%d", idx_end);
             }
             snprintf(dpath_expr, sizeof (dpath_expr),
-                     "codes[%s:%s]", start_str, end_str);
+                     "codes[%s..%s]", start_str, end_str);
 
             bt_ret = tracker_goto_abs_dpath(tk, dpath_expr, NULL);
             ck_assert_int_eq(bt_ret, BITPUNCH_OK);

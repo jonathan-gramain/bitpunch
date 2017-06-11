@@ -109,15 +109,15 @@
     TAILQ_HEAD(statement_list, statement);
 
     struct block_stmt_list {
-        struct named_type_list named_type_list;
-        struct ast_node_list block_def_list;
+        struct named_type_list *named_type_list;
+        struct ast_node_list *block_def_list;
 
-        struct statement_list field_list;
-        struct statement_list link_list;
-        struct statement_list span_list;
-        struct statement_list key_list;
-        struct statement_list last_stmt_list;
-        struct statement_list match_list;
+        struct statement_list *field_list;
+        struct statement_list *link_list;
+        struct statement_list *span_list;
+        struct statement_list *key_list;
+        struct statement_list *last_stmt_list;
+        struct statement_list *match_list;
     };
 
     typedef int
@@ -166,11 +166,6 @@
         ASTFLAG_HAS_FOOTER                  = (1<<10),
     };
 
-    struct rexpr_static_check_info {
-        /** expression item type, or NULL if not applicable */
-        struct ast_node *target_item;
-    };
-
     struct ast_node {
         /* when changing this enum, don't forget to update
          * ast_node_type_str() */
@@ -180,8 +175,8 @@
             AST_NODE_TYPE_BOOLEAN,
             AST_NODE_TYPE_STRING,
             AST_NODE_TYPE_IDENTIFIER,
-            AST_NODE_TYPE_INTERPRETER_CALL,
-            AST_NODE_TYPE_INTERPRETER_RCALL,
+            AST_NODE_TYPE_FILTER,
+            AST_NODE_TYPE_TYPENAME,
             AST_NODE_TYPE_BLOCK_DEF,
             AST_NODE_TYPE_ARRAY,
             AST_NODE_TYPE_BYTE,
@@ -219,6 +214,7 @@
             AST_NODE_TYPE_OP_SUBSCRIPT,
             AST_NODE_TYPE_OP_SUBSCRIPT_SLICE,
             AST_NODE_TYPE_OP_MEMBER,
+            AST_NODE_TYPE_OP_SET_FILTER,
             AST_NODE_TYPE_OP_FCALL,
             AST_NODE_TYPE_EXPR_FILE,
             AST_NODE_TYPE_EXPR_SELF,
@@ -249,6 +245,8 @@
             AST_NODE_TYPE_REXPR_OP_SIZEOF,
             AST_NODE_TYPE_REXPR_OP_ADDROF,
             AST_NODE_TYPE_REXPR_OP_FILTER,
+            AST_NODE_TYPE_REXPR_INTERPRETER,
+            AST_NODE_TYPE_REXPR_AS_TYPE,
             AST_NODE_TYPE_REXPR_FIELD,
             AST_NODE_TYPE_REXPR_MEMBER,
             AST_NODE_TYPE_REXPR_BUILTIN,
@@ -268,13 +266,13 @@
             struct expr_value_string string;
             char *identifier;
             const char *operator;
-            struct interpreter_call {
-                char *identifier;
-                struct param_list param_list;
-                struct ast_node *source;
-            } interpreter_call;
+            struct filter {
+                struct ast_node *filter_type;
+                struct param_list *param_list;
+                struct ast_node *target;
+            } filter;
             struct item_node {
-                struct ast_node *interpreter;
+                struct ast_node *filter;
                 struct item_backend b_item;
                 int64_t min_span_size; /* minimum size */
             } item;
@@ -283,6 +281,10 @@
                 struct box_backend b_box;
                 struct tracker_backend b_tk;
             } container;
+            struct type_name {
+                struct item_node item; /* inherits */
+                const char *name;
+            } type_name;
             struct block_def {
                 struct container_node container; /* inherits */
                 enum block_type {
@@ -326,7 +328,7 @@
             struct fcall {
                 struct ast_node *object;
                 struct ast_node *func;
-                struct func_param_list func_params;
+                struct func_param_list *func_params;
             } op_fcall;
             struct file_attr {
                 struct ast_node *attr_name;
@@ -334,11 +336,15 @@
             struct rexpr {
                 enum expr_value_type value_type;
                 enum expr_dpath_type dpath_type;
-                struct rexpr_static_check_info static_check_info;
-            } rexpr; /* virtual, not instanciable */
-            struct interpreter_rcall /* resolved call */ {
+                /** expression item type, or NULL if not applicable */
+                struct ast_node *target_item;
+            } rexpr; /* base, not instanciable */
+            struct rexpr_filter {
                 struct rexpr rexpr; /* inherits */
-                struct ast_node *source;
+                struct ast_node *target;
+            } rexpr_filter; /* base, not instanciable */
+            struct rexpr_interpreter {
+                struct rexpr_filter rexpr_filter; /* inherits */
                 const struct interpreter *interpreter;
                 interpreter_read_func_t read_func;
                 interpreter_write_func_t write_func;
@@ -346,7 +352,11 @@
                 /* cannot declare the following array but that's how
                  * it will be interpreted */
                 /* struct ast_node params[]; */
-            } interpreter_rcall;
+            } rexpr_interpreter;
+            struct rexpr_as_type {
+                struct rexpr_filter rexpr_filter; /* inherits */
+                struct ast_node *as_type;
+            } rexpr_as_type;
             struct rexpr_native {
                 struct rexpr rexpr; /* inherits */
                 union expr_value value;
@@ -391,7 +401,7 @@
                 const struct expr_builtin_fn *builtin;
                 struct ast_node *object;
                 int n_func_params;
-                struct func_param_list func_params;
+                struct func_param_list *func_params;
             } rexpr_op_fcall;
             struct rexpr_file {
                 struct rexpr rexpr; /* inherits */
@@ -415,7 +425,7 @@
         STAILQ_ENTRY(param) list;
         struct parser_location loc;
         char *name;
-        struct ast_node value;
+        struct ast_node *value;
     };
 
     struct statement {
@@ -447,7 +457,6 @@
 
     struct link {
         struct named_statement nstmt; // inherits
-        struct ast_node *as_type;
         struct ast_node *dst_expr;
     };
 
@@ -561,7 +570,7 @@
     static struct ast_node *
     make_full_type(struct ast_node *base_type,
                    struct ast_node *array_chain,
-                   struct ast_node *interpreter)
+                   struct ast_node *filter_chain)
     {
         struct ast_node *full_type;
         struct ast_node *array;
@@ -575,10 +584,15 @@
             array->u.array.value_type = full_type;
             full_type = array_chain;
         }
-        if (NULL != interpreter) {
-            interpreter->u.interpreter_call.source = full_type;
+        if (NULL != filter_chain) {
+            struct ast_node *filter;
+
+            for (filter = filter_chain; NULL != filter->u.filter.target;
+                 filter = filter->u.filter.target) {
+            }
+            filter->u.filter.target = full_type;
             assert(ast_node_is_item(full_type));
-            full_type->u.item.interpreter = interpreter;
+            full_type->u.item.filter = filter_chain;
         }
         return full_type;
     }
@@ -603,28 +617,36 @@
     init_block_stmt_list(struct block_stmt_list *dst)
     {
         memset(dst, 0, sizeof (*dst));
-        STAILQ_INIT(&dst->named_type_list);
-        STAILQ_INIT(&dst->block_def_list);
-        TAILQ_INIT(&dst->field_list);
-        TAILQ_INIT(&dst->match_list);
-        TAILQ_INIT(&dst->link_list);
-        TAILQ_INIT(&dst->span_list);
-        TAILQ_INIT(&dst->key_list);
-        TAILQ_INIT(&dst->last_stmt_list);
+        dst->named_type_list = new_safe(struct named_type_list);
+        dst->block_def_list = new_safe(struct ast_node_list);
+        dst->field_list = new_safe(struct statement_list);
+        dst->link_list = new_safe(struct statement_list);
+        dst->span_list = new_safe(struct statement_list);
+        dst->key_list = new_safe(struct statement_list);
+        dst->last_stmt_list = new_safe(struct statement_list);
+        dst->match_list = new_safe(struct statement_list);
+        STAILQ_INIT(dst->named_type_list);
+        STAILQ_INIT(dst->block_def_list);
+        TAILQ_INIT(dst->field_list);
+        TAILQ_INIT(dst->link_list);
+        TAILQ_INIT(dst->span_list);
+        TAILQ_INIT(dst->key_list);
+        TAILQ_INIT(dst->last_stmt_list);
+        TAILQ_INIT(dst->match_list);
     }
 
     static int
     merge_block_stmt_list(struct block_stmt_list *dst,
                           struct block_stmt_list *src)
     {
-        STAILQ_CONCAT(&dst->named_type_list, &src->named_type_list);
-        STAILQ_CONCAT(&dst->block_def_list, &src->block_def_list);
-        TAILQ_CONCAT(&dst->field_list, &src->field_list, list);
-        TAILQ_CONCAT(&dst->link_list, &src->link_list, list);
+        STAILQ_CONCAT(dst->named_type_list, src->named_type_list);
+        STAILQ_CONCAT(dst->block_def_list, src->block_def_list);
+        TAILQ_CONCAT(dst->field_list, src->field_list, list);
+        TAILQ_CONCAT(dst->link_list, src->link_list, list);
 
-        TAILQ_CONCAT(&dst->span_list, &src->span_list, list);
-        TAILQ_CONCAT(&dst->key_list, &src->key_list, list);
-        TAILQ_CONCAT(&dst->last_stmt_list, &src->last_stmt_list, list);
+        TAILQ_CONCAT(dst->span_list, src->span_list, list);
+        TAILQ_CONCAT(dst->key_list, src->key_list, list);
+        TAILQ_CONCAT(dst->last_stmt_list, src->last_stmt_list, list);
         return 0;
     }
 
@@ -649,23 +671,22 @@
     int boolean;
     char *ident;
     struct expr_value_string literal;
-    struct ast_node ast_node;
-    struct ast_node *ast_nodep;
-    struct named_type *named_typep;
-    struct param *paramp;
-    struct param_list param_list;
-    struct field *fieldp;
+    struct ast_node *ast_node;
+    struct named_type *named_type;
+    struct param *param;
+    struct param_list *param_list;
+    struct field *field;
     struct block_stmt_list block_stmt_list;
-    struct statement_list statement_list;
+    struct statement_list *statement_list;
     struct file_block file_block;
-    struct match *matchp;
-    struct link *linkp;
-    struct span_stmt *span_stmtp;
-    struct key_stmt *key_stmtp;
-    struct func_param *func_paramp;
-    struct func_param_list func_param_list;
+    struct match *match;
+    struct link *link;
+    struct span_stmt *span_stmt;
+    struct key_stmt *key_stmt;
+    struct func_param *func_param;
+    struct func_param_list *func_param_list;
     struct subscript_index subscript_index;
-    struct last_stmt *last_stmtp;
+    struct last_stmt *last_stmt;
 }
 
 %token TOK_ERROR
@@ -673,9 +694,9 @@
 %token <integer> INTEGER
 %token <literal> LITERAL
 %token <boolean> KW_TRUE KW_FALSE
-%token KW_TYPE KW_BYTE KW_STRUCT KW_UNION KW_FILE KW_MATCH KW_SPAN KW_MINSPAN KW_MAXSPAN KW_IF KW_ELSE KW_KEY KW_SELF KW_LAST
+%token KW_TYPE KW_STRUCT KW_UNION KW_FILE KW_MATCH KW_SPAN KW_MINSPAN KW_MAXSPAN KW_IF KW_ELSE KW_KEY KW_SELF KW_LAST
 
-%token <ast_node_type> '|' '^' '&' '>' '<' '+' '-' '*' '/' '%' '!' '~' '.'
+%token <ast_node_type> '|' '^' '&' '>' '<' '+' '-' '*' '/' '%' '!' '~' '.' ':'
 %token <ast_node_type> TOK_LOR "||"
 %token <ast_node_type> TOK_LAND "&&"
 %token <ast_node_type> TOK_EQ "=="
@@ -685,6 +706,7 @@
 %token <ast_node_type> TOK_LSHIFT "<<"
 %token <ast_node_type> TOK_RSHIFT ">>"
 %token <ast_node_type> TOK_LINK "=>"
+%token <ast_node_type> TOK_RANGE ".."
 %token <ast_node_type> OP_SIZEOF
 
 %left  "||"
@@ -698,26 +720,26 @@
 %left  '+' '-'
 %left  '*' '/' '%'
 %right OP_ARITH_UNARY_OP '!' '~' OP_SIZEOF
+%left  ':'
 %left  OP_SUBSCRIPT OP_FCALL '.'
 %left  OP_BRACKETS
 
-%type <ast_node> g_integer g_boolean g_identifier g_literal native_type block param_value
-%type <ast_nodep> g_integerp g_booleanp g_identifierp g_literalp expr twin_index opt_twin_index adhoc_struct_def adhoc_union_def adhoc_block_def basic_type type array_decl array_decl_list interpreter_call opt_interpreter_call
+%type <ast_node> g_integer g_boolean g_identifier g_literal block param_value expr twin_index opt_twin_index adhoc_struct_def adhoc_union_def adhoc_block_def type type_name array_decl array_decl_list filter opt_filters
 %type <file_block> file_block
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
-%type <named_typep> type_decl type_def type_expr opt_type_cast named_struct_def named_union_def named_block_def named_type_def
-%type <paramp> param
+%type <named_type> type_decl type_def named_struct_def named_union_def named_block_def named_type_def
+%type <param> param
 %type <param_list> opt_param_list param_list param_nonempty_list
-%type <fieldp> field
+%type <field> field
 %type <statement_list> field_list field_nonempty_list
-%type <func_paramp> func_param
+%type <func_param> func_param
 %type <func_param_list> func_params func_param_nonempty_list
-%type <matchp> match_stmt
-%type <linkp> link_stmt
-%type <span_stmtp> span_stmt
-%type <key_stmtp> key_stmt
+%type <match> match_stmt
+%type <link> link_stmt
+%type <span_stmt> span_stmt
+%type <key_stmt> key_stmt
 %type <subscript_index> key_expr opt_key_expr
-%type <last_stmtp> last_stmt
+%type <last_stmt> last_stmt
 %locations
 
 %token START_DEF_FILE START_EXPR
@@ -733,75 +755,59 @@ start:
 
 g_integer:
     INTEGER {
-        memset(&$$, 0, sizeof ($$));
-        $$.type = AST_NODE_TYPE_INTEGER;
-        $$.loc = @$;
-        $$.u.integer = $1;
+        $$ = new_safe(struct ast_node);
+        $$->type = AST_NODE_TYPE_INTEGER;
+        $$->loc = @$;
+        $$->u.integer = $1;
     }
 g_boolean:
     KW_TRUE {
-        memset(&$$, 0, sizeof ($$));
-        $$.type = AST_NODE_TYPE_BOOLEAN;
-        $$.loc = @$;
-        $$.u.boolean = 1;
+        $$ = new_safe(struct ast_node);
+        $$->type = AST_NODE_TYPE_BOOLEAN;
+        $$->loc = @$;
+        $$->u.boolean = 1;
     }
   | KW_FALSE {
-        memset(&$$, 0, sizeof ($$));
-        $$.type = AST_NODE_TYPE_BOOLEAN;
-        $$.loc = @$;
-        $$.u.boolean = 0;
+        $$ = new_safe(struct ast_node);
+        $$->type = AST_NODE_TYPE_BOOLEAN;
+        $$->loc = @$;
+        $$->u.boolean = 0;
     }
 g_identifier:
     IDENTIFIER {
-        memset(&$$, 0, sizeof ($$));
-        $$.type = AST_NODE_TYPE_IDENTIFIER;
-        $$.loc = @$;
-        $$.u.identifier = $1;
+        $$ = new_safe(struct ast_node);
+        $$->type = AST_NODE_TYPE_IDENTIFIER;
+        $$->loc = @$;
+        $$->u.identifier = $1;
     }
 g_literal:
     LITERAL {
-        memset(&$$, 0, sizeof ($$));
-        $$.type = AST_NODE_TYPE_STRING;
-        $$.loc = @$;
-        $$.u.string.str = $1.str;
-        $$.u.string.len = $1.len;
+        $$ = new_safe(struct ast_node);
+        $$->type = AST_NODE_TYPE_STRING;
+        $$->loc = @$;
+        $$->u.string.str = $1.str;
+        $$->u.string.len = $1.len;
     }
   | g_literal LITERAL {
       int64_t new_len;
 
       // concatenate consecutive string literals
       $$ = $1;
-      new_len = $$.u.string.len + $2.len;
-      $$.u.string.str = realloc_safe((char *)$$.u.string.str, new_len);
-      memcpy((char *)$$.u.string.str + $$.u.string.len, $2.str, $2.len);
-      $$.u.string.len = new_len;
+      new_len = $$->u.string.len + $2.len;
+      $$->u.string.str = realloc_safe((char *)$$->u.string.str, new_len);
+      memcpy((char *)$$->u.string.str + $$->u.string.len, $2.str, $2.len);
+      $$->u.string.len = new_len;
     }
-
-g_integerp: g_integer {
-    $$ = dup_safe(&$g_integer);
-}
-
-g_booleanp: g_boolean {
-    $$ = dup_safe(&$g_boolean);
-}
-
-g_identifierp: g_identifier {
-    $$ = dup_safe(&$g_identifier);
-}
-
-g_literalp: g_literal {
-    $$ = dup_safe(&$g_literal);
-}
 
 start_expr: expr {
     memcpy(out_param, &$expr, sizeof($expr));
 }
 
 expr:
-    g_integerp
-  | g_booleanp
-  | g_identifierp
-  | g_literalp
+    g_integer
+  | g_boolean
+  | g_identifier
+  | g_literal
   | KW_FILE {
         $$ = new_safe(struct ast_node);
         $$->type = AST_NODE_TYPE_EXPR_FILE;
@@ -887,8 +893,12 @@ expr:
   | expr '%' expr {
         $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_MOD, $1, $3, &@2);
     }
-  | expr '.' g_identifierp {
+  | expr '.' g_identifier {
         $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_MEMBER, $1, $3, &@2);
+    }
+  | expr ':' filter {
+        $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_SET_FILTER, $1, $3, &@2);
+        $3->u.filter.target = $1;
     }
   | expr '[' key_expr ']' %prec OP_SUBSCRIPT {
         $$ = new_safe(struct ast_node);
@@ -898,7 +908,7 @@ expr:
         $$->u.op_subscript.index = $3;
     }
   | expr '['
-    opt_key_expr ':' opt_key_expr ']' %prec OP_SUBSCRIPT {
+    opt_key_expr TOK_RANGE opt_key_expr ']' %prec OP_SUBSCRIPT {
         $$ = new_safe(struct ast_node);
         $$->type = AST_NODE_TYPE_OP_SUBSCRIPT_SLICE;
         parser_location_make_span(&$$->loc, &@2, &@6);
@@ -948,7 +958,8 @@ twin_index:
 
 func_params:
     /* empty */ {
-        STAILQ_INIT(&$$);
+        $$ = new_safe(struct func_param_list);
+        STAILQ_INIT($$);
     }
   | func_param_nonempty_list {
         $$ = $func_param_nonempty_list;
@@ -956,12 +967,13 @@ func_params:
 
 func_param_nonempty_list:
     func_param {
-      STAILQ_INIT(&$$);
-      STAILQ_INSERT_TAIL(&$$, $func_param, list);
+        $$ = new_safe(struct func_param_list);
+        STAILQ_INIT($$);
+        STAILQ_INSERT_TAIL($$, $func_param, list);
     }
   | func_param_nonempty_list ',' func_param {
         $$ = $1;
-        STAILQ_INSERT_TAIL(&$$, $func_param, list);
+        STAILQ_INSERT_TAIL($$, $func_param, list);
     }
 
 func_param:
@@ -971,25 +983,6 @@ func_param:
     }
 
 
-native_type:
-    KW_BYTE {
-        memset(&$$, 0, sizeof ($$));
-        $$.type = AST_NODE_TYPE_BYTE_ARRAY;
-        $$.loc = @$;
-        $$.u.byte_array.size = new_safe(struct ast_node);
-        $$.u.byte_array.size->type = AST_NODE_TYPE_INTEGER;
-        $$.u.byte_array.size->loc = @$;
-        $$.u.byte_array.size->u.integer = 1;
-        $$.u.item.min_span_size = SPAN_SIZE_UNDEF;
-    }
-  | KW_BYTE array_decl {
-        memset(&$$, 0, sizeof ($$));
-        $$.type = AST_NODE_TYPE_BYTE_ARRAY;
-        $$.loc = @$;
-        $$.u.byte_array.size = $array_decl;
-        $$.u.item.min_span_size = SPAN_SIZE_UNDEF;
-    }
-
 schema:
     block_stmt_list file_block block_stmt_list {
         struct statement *stmt, *tstmt;
@@ -998,7 +991,7 @@ schema:
         if (-1 == merge_block_stmt_list(&$1, &$3)) {
             YYERROR;
         }
-        TAILQ_FOREACH_SAFE(stmt, &$1.field_list, list, tstmt) {
+        TAILQ_FOREACH_SAFE(stmt, $1.field_list, list, tstmt) {
             field = (struct field *)stmt;
             semantic_error(SEMANTIC_LOGLEVEL_WARNING, &stmt->loc,
                            "top-level field declared outside file{} block");
@@ -1006,7 +999,7 @@ schema:
             free(field);
         }
         /* ignore fields outside file{} */
-        TAILQ_INIT(&$1.field_list);
+        TAILQ_INIT($1.field_list);
         if (-1 == merge_block_stmt_list(&$file_block.root
                                         ->u.block_def.block_stmt_list,
                                         &$1)) {
@@ -1026,22 +1019,22 @@ file_block: KW_FILE '{' block_stmt_list '}' {
         $$.root->type = AST_NODE_TYPE_BLOCK_DEF;
         $$.root->loc = @$;
         $$.root->u.block_def.type = BLOCK_TYPE_STRUCT;
-        if (TAILQ_EMPTY(&$block_stmt_list.field_list)) {
+        if (TAILQ_EMPTY($block_stmt_list.field_list)) {
             semantic_error(SEMANTIC_LOGLEVEL_WARNING, &@$,
                            "file block has zero field");
         }
-        if (!TAILQ_EMPTY(&$block_stmt_list.span_list)) {
+        if (!TAILQ_EMPTY($block_stmt_list.span_list)) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR,
-                &TAILQ_FIRST(&$block_stmt_list.span_list)->loc,
+                &TAILQ_FIRST($block_stmt_list.span_list)->loc,
                 "file block cannot have span information "
                 "(it's always the whole file)");
             YYERROR;
         }
-        if (!TAILQ_EMPTY(&$block_stmt_list.key_list)) {
+        if (!TAILQ_EMPTY($block_stmt_list.key_list)) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR,
-                &TAILQ_FIRST(&$block_stmt_list.key_list)->loc,
+                &TAILQ_FIRST($block_stmt_list.key_list)->loc,
                 "file block cannot have key information");
             YYERROR;
         }
@@ -1051,19 +1044,19 @@ file_block: KW_FILE '{' block_stmt_list '}' {
     }
 
 type_decl:
-    KW_TYPE IDENTIFIER type_expr ';' {
-        $$ = $type_expr;
+    KW_TYPE IDENTIFIER type_def ';' {
+        $$ = $type_def;
         $$->loc = @IDENTIFIER;
         $$->name = $IDENTIFIER;
     }
 
 type_def:
-    type array_decl_list opt_interpreter_call {
+    type array_decl_list opt_filters {
         struct ast_node *full_type;
 
         full_type = make_full_type($type,
                                    $array_decl_list,
-                                   $opt_interpreter_call);
+                                   $opt_filters);
         $$ = new_safe(struct named_type);
         $$->loc = @type;
         $$->name = NULL;
@@ -1077,12 +1070,12 @@ type_def:
         }
         $$->inner_named_type = NULL;
     }
-  | named_type_def array_decl_list opt_interpreter_call {
+  | named_type_def array_decl_list opt_filters {
         struct ast_node *full_type;
 
         full_type = make_full_type($named_type_def->type,
                                    $array_decl_list,
-                                   $opt_interpreter_call);
+                                   $opt_filters);
         $$ = new_safe(struct named_type);
         $$->loc = @named_type_def;
         $$->name = NULL;
@@ -1097,21 +1090,20 @@ type_def:
         $$->inner_named_type = $named_type_def;
     }
 
-type_expr:
-    type_def
-  | '(' type_expr ')' {
-        $$ = $2;
-    }
-
-basic_type:
-    native_type {
-        $$ = dup_safe(&$native_type);
-    }
-  | g_identifierp
-
 type:
-    basic_type
+    type_name
   | adhoc_block_def
+
+type_name:
+    g_identifier {
+        char *identifier;
+
+        identifier = $g_identifier->u.identifier;
+        $$ = $g_identifier;
+        $$->type = AST_NODE_TYPE_TYPENAME;
+        memset(&$$->u.item, 0, sizeof($$->u.item));
+        $$->u.type_name.name = identifier;
+}
 
 named_type_def:
     named_block_def
@@ -1129,14 +1121,14 @@ named_struct_def:
         $$ = new_safe(struct named_type);
         $$->loc = @IDENTIFIER;
         $$->name = $IDENTIFIER;
-        $$->type = dup_safe(&$block);
+        $$->type = dup_safe($block);
         $$->type->loc = @IDENTIFIER;
         $$->type->u.block_def.type = BLOCK_TYPE_STRUCT;
     }
 
 adhoc_struct_def:
     KW_STRUCT block {
-        $$ = dup_safe(&$block);
+        $$ = dup_safe($block);
         $$->loc = @KW_STRUCT;
         $$->u.block_def.type = BLOCK_TYPE_STRUCT;
     }
@@ -1146,39 +1138,45 @@ named_union_def:
         $$ = new_safe(struct named_type);
         $$->loc = @IDENTIFIER;
         $$->name = $IDENTIFIER;
-        $$->type = dup_safe(&$block);
+        $$->type = dup_safe($block);
         $$->type->loc = @IDENTIFIER;
         $$->type->u.block_def.type = BLOCK_TYPE_UNION;
     }
 
 adhoc_union_def:
     KW_UNION block {
-        $$ = dup_safe(&$block);
+        $$ = dup_safe($block);
         $$->loc = @KW_UNION;
         $$->u.block_def.type = BLOCK_TYPE_UNION;
     }
 
-opt_interpreter_call:
+opt_filters:
     /* empty */ {
         $$ = NULL;
     }
-  | ':' interpreter_call {
-        $$ = $interpreter_call;
+  | opt_filters[target] ':' filter {
+        $$ = $filter;
+        $$->u.filter.target = $target;
     }
 
-interpreter_call:
-    IDENTIFIER opt_param_list {
+filter:
+    type_name array_decl_list opt_param_list {
+        struct ast_node *full_type;
+
+        full_type = make_full_type($type_name,
+                                   $array_decl_list,
+                                   NULL);
         $$ = new_safe(struct ast_node);
-        $$->type = AST_NODE_TYPE_INTERPRETER_CALL;
-        $$->loc = @IDENTIFIER;
-        $$->u.interpreter_call.identifier = $IDENTIFIER;
-        $$->u.interpreter_call.param_list = $opt_param_list;
-        $$->u.interpreter_call.source = NULL;
+        $$->type = AST_NODE_TYPE_FILTER;
+        $$->loc = @type_name;
+        $$->u.filter.filter_type = full_type;
+        $$->u.filter.param_list = $opt_param_list;
     }
 
 opt_param_list:
     /* empty */ {
-        STAILQ_INIT(&$$);
+        $$ = new_safe(struct param_list);
+        STAILQ_INIT($$);
     }
   | '(' param_list ')' {
         $$ = $param_list;
@@ -1186,18 +1184,20 @@ opt_param_list:
 
 param_list:
     /* empty */ {
-        STAILQ_INIT(&$$);
+        $$ = new_safe(struct param_list);
+        STAILQ_INIT($$);
     }
   | param_nonempty_list
 
 param_nonempty_list:
     param {
-      STAILQ_INIT(&$$);
-      STAILQ_INSERT_TAIL(&$$, $param, list);
+      $$ = new_safe(struct param_list);
+      STAILQ_INIT($$);
+      STAILQ_INSERT_TAIL($$, $param, list);
     }
   | param_nonempty_list ',' param {
         $$ = $1;
-        STAILQ_INSERT_TAIL(&$$, $param, list);
+        STAILQ_INSERT_TAIL($$, $param, list);
     }
 
 param:
@@ -1217,12 +1217,12 @@ param_value:
 
 block:
     '{' block_stmt_list '}' {
-        memset(&$$, 0, sizeof ($$));
-        $$.type = AST_NODE_TYPE_BLOCK_DEF;
-        $$.loc = @$;
-        $$.u.block_def.type = BLOCK_TYPE_UNDEF;
-        $$.u.block_def.block_stmt_list = $block_stmt_list;
-        $$.u.item.min_span_size = SPAN_SIZE_UNDEF;
+        $$ = new_safe(struct ast_node);
+        $$->type = AST_NODE_TYPE_BLOCK_DEF;
+        $$->loc = @$;
+        $$->u.block_def.type = BLOCK_TYPE_UNDEF;
+        $$->u.block_def.block_stmt_list = $block_stmt_list;
+        $$->u.item.min_span_size = SPAN_SIZE_UNDEF;
     }
 
 if_block:
@@ -1235,19 +1235,19 @@ if_block:
         cond->loc = @$;
         cond->u.conditional.cond_expr = $expr;
 
-        TAILQ_FOREACH(stmt, &$block_stmt_list.field_list, list) {
+        TAILQ_FOREACH(stmt, $block_stmt_list.field_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
-        TAILQ_FOREACH(stmt, &$block_stmt_list.link_list, list) {
+        TAILQ_FOREACH(stmt, $block_stmt_list.link_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
-        TAILQ_FOREACH(stmt, &$block_stmt_list.span_list, list) {
+        TAILQ_FOREACH(stmt, $block_stmt_list.span_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
-        TAILQ_FOREACH(stmt, &$block_stmt_list.key_list, list) {
+        TAILQ_FOREACH(stmt, $block_stmt_list.key_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
-        TAILQ_FOREACH(stmt, &$block_stmt_list.last_stmt_list, list) {
+        TAILQ_FOREACH(stmt, $block_stmt_list.last_stmt_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
         $$ = $block_stmt_list;
@@ -1258,19 +1258,19 @@ if_block:
         cond->u.conditional.cond_expr = $expr;
         cond->flags |= ASTFLAG_REVERSE_COND;
 
-        TAILQ_FOREACH(stmt, &$opt_else_block.field_list, list) {
+        TAILQ_FOREACH(stmt, $opt_else_block.field_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
-        TAILQ_FOREACH(stmt, &$opt_else_block.link_list, list) {
+        TAILQ_FOREACH(stmt, $opt_else_block.link_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
-        TAILQ_FOREACH(stmt, &$opt_else_block.span_list, list) {
+        TAILQ_FOREACH(stmt, $opt_else_block.span_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
-        TAILQ_FOREACH(stmt, &$opt_else_block.key_list, list) {
+        TAILQ_FOREACH(stmt, $opt_else_block.key_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
-        TAILQ_FOREACH(stmt, &$opt_else_block.last_stmt_list, list) {
+        TAILQ_FOREACH(stmt, $opt_else_block.last_stmt_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
         if (-1 == merge_block_stmt_list(&$$, &$opt_else_block)) {
@@ -1300,19 +1300,19 @@ block_stmt_list:
     }
   | block_stmt_list type_decl {
         $$ = $1;
-        STAILQ_INSERT_TAIL(&$$.named_type_list, $type_decl, list);
+        STAILQ_INSERT_TAIL($$.named_type_list, $type_decl, list);
         if (NULL != $type_decl->inner_named_type) {
-            STAILQ_INSERT_TAIL(&$$.named_type_list,
+            STAILQ_INSERT_TAIL($$.named_type_list,
                                $type_decl->inner_named_type, list);
         }
         if (NULL != $type_decl->inner_block_def) {
-            STAILQ_INSERT_TAIL(&$$.block_def_list,
+            STAILQ_INSERT_TAIL($$.block_def_list,
                                $type_decl->inner_block_def,
                                stmt_list);
         }
     }
   | block_stmt_list named_block_def array_decl_list
-    field_list opt_interpreter_call ';' {
+    field_list opt_filters ';' {
         struct ast_node *full_type;
         struct statement *stmt;
         struct field *field;
@@ -1320,11 +1320,11 @@ block_stmt_list:
         $$ = $1;
         full_type = make_full_type($named_block_def->type,
                                    $array_decl_list,
-                                   $opt_interpreter_call);
-        STAILQ_INSERT_TAIL(&$$.block_def_list, $named_block_def->type,
+                                   $opt_filters);
+        STAILQ_INSERT_TAIL($$.block_def_list, $named_block_def->type,
                            stmt_list);
-        STAILQ_INSERT_TAIL(&$$.named_type_list, $named_block_def, list);
-        if (TAILQ_EMPTY(&$field_list)) {
+        STAILQ_INSERT_TAIL($$.named_type_list, $named_block_def, list);
+        if (TAILQ_EMPTY($field_list)) {
             if (NULL != $array_decl_list) {
                 semantic_error(
                     SEMANTIC_LOGLEVEL_WARNING,
@@ -1332,24 +1332,24 @@ block_stmt_list:
                     "useless array declaration: "
                     "does not belong to block type");
             }
-            if (NULL != $opt_interpreter_call) {
+            if (NULL != $opt_filters) {
                 semantic_error(
                     SEMANTIC_LOGLEVEL_WARNING,
-                    &$opt_interpreter_call->loc,
-                    "useless interpreter declaration: "
+                    &$opt_filters->loc,
+                    "useless filter declaration: "
                     "does not belong to block type");
             }
         } else {
-            TAILQ_FOREACH(stmt, &$field_list, list) {
+            TAILQ_FOREACH(stmt, $field_list, list) {
                 field = (struct field *)stmt;
                 field->field_type = full_type;
             }
-            TAILQ_CONCAT(&$$.field_list, &$field_list, list);
+            TAILQ_CONCAT($$.field_list, $field_list, list);
         }
     }
 
   | block_stmt_list type array_decl_list
-    field_list opt_interpreter_call ';' {
+    field_list opt_filters ';' {
         struct ast_node *full_type;
         struct statement *stmt;
         struct field *field;
@@ -1357,30 +1357,24 @@ block_stmt_list:
         $$ = $1;
         full_type = make_full_type($type,
                                    $array_decl_list,
-                                   $opt_interpreter_call);
+                                   $opt_filters);
         if ($type->type == AST_NODE_TYPE_BLOCK_DEF) {
-            STAILQ_INSERT_TAIL(&$$.block_def_list, $type, stmt_list);
+            STAILQ_INSERT_TAIL($$.block_def_list, $type, stmt_list);
         }
-        if (!TAILQ_EMPTY(&$field_list)) {
-            TAILQ_FOREACH(stmt, &$field_list, list) {
+        if (!TAILQ_EMPTY($field_list)) {
+            TAILQ_FOREACH(stmt, $field_list, list) {
                 field = (struct field *)stmt;
                 field->field_type = full_type;
             }
-            TAILQ_CONCAT(&$$.field_list, &$field_list, list);
+            TAILQ_CONCAT($$.field_list, $field_list, list);
         } else {
             // anonymous block
-            if (NULL != $array_decl_list) {
-                semantic_error(
-                    SEMANTIC_LOGLEVEL_ERROR, &$type->loc,
-                    "anonymous field cannot be declared as an "
-                    "array value type");
-                YYERROR;
-            }
-            if (!TAILQ_EMPTY(&$type->u.block_def
-                             .block_stmt_list.link_list)) {
+            if (AST_NODE_TYPE_BLOCK_DEF == $type->type
+                && !TAILQ_EMPTY($type->u.block_def
+                                .block_stmt_list.link_list)) {
                 semantic_error(
                     SEMANTIC_LOGLEVEL_ERROR,
-                    &TAILQ_FIRST(&$type->u.block_def
+                    &TAILQ_FIRST($type->u.block_def
                                  .block_stmt_list.link_list)->loc,
                     "anonymous field cannot contain links");
                 YYERROR;
@@ -1388,45 +1382,45 @@ block_stmt_list:
             field = new_safe(struct field);
             field->nstmt.stmt.loc = @$;
             field->field_type = full_type;
-            TAILQ_INSERT_TAIL(&$$.field_list, (struct statement *)field,
+            TAILQ_INSERT_TAIL($$.field_list, (struct statement *)field,
                               list);
         }
     }
 
   | block_stmt_list match_stmt ';' {
         $$ = $1;
-        TAILQ_INSERT_TAIL(&$$.match_list,
+        TAILQ_INSERT_TAIL($$.match_list,
                           (struct statement *)$match_stmt, list);
     }
 
   | block_stmt_list span_stmt ';' {
         $$ = $1;
-        TAILQ_INSERT_TAIL(&$$.span_list,
+        TAILQ_INSERT_TAIL($$.span_list,
                           (struct statement *)$span_stmt, list);
     }
   | block_stmt_list key_stmt ';' {
         $$ = $1;
-        if (!TAILQ_EMPTY(&$$.key_list)) {
+        if (!TAILQ_EMPTY($$.key_list)) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR,
                            &$key_stmt->stmt.loc,
                            "multiple key statements not supported");
             semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                           &TAILQ_FIRST(&$$.key_list)->loc,
+                           &TAILQ_FIRST($$.key_list)->loc,
                            "first key statement here");
             YYERROR;
         }
-        TAILQ_INSERT_TAIL(&$$.key_list,
+        TAILQ_INSERT_TAIL($$.key_list,
                           (struct statement *)$key_stmt, list);
     }
   | block_stmt_list link_stmt ';' {
         $$ = $1;
-        TAILQ_INSERT_TAIL(&$$.link_list,
+        TAILQ_INSERT_TAIL($$.link_list,
                           (struct statement *)$link_stmt, list);
     }
 
   | block_stmt_list last_stmt ';' {
         $$ = $1;
-        TAILQ_INSERT_TAIL(&$$.last_stmt_list,
+        TAILQ_INSERT_TAIL($$.last_stmt_list,
                           (struct statement *)$last_stmt, list);
     }
 
@@ -1439,18 +1433,20 @@ block_stmt_list:
 
 field_list:
     /* empty */ {
-        TAILQ_INIT(&$$);
+        $$ = new_safe(struct statement_list);
+        TAILQ_INIT($$);
     }
   | field_nonempty_list
 
 field_nonempty_list:
     field {
-        TAILQ_INIT(&$$);
-        TAILQ_INSERT_TAIL(&$$, (struct statement *)$field, list);
+        $$ = new_safe(struct statement_list);
+        TAILQ_INIT($$);
+        TAILQ_INSERT_TAIL($$, (struct statement *)$field, list);
     }
   | field_nonempty_list ',' field {
         $$ = $1;
-        TAILQ_INSERT_TAIL(&$$, (struct statement *)$field, list);
+        TAILQ_INSERT_TAIL($$, (struct statement *)$field, list);
     }
 
 field:
@@ -1518,16 +1514,8 @@ key_stmt:
         $$->key_expr = $expr;
     }
 
-opt_type_cast:
-    /* empty */ {
-        $$ = NULL;
-    }
-  | '(' type_expr ')' {
-        $$ = $type_expr;
-    }
-
 link_stmt:
-    IDENTIFIER opt_type_cast TOK_LINK expr {
+    IDENTIFIER TOK_LINK expr {
         if (*$IDENTIFIER != '?') {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR, &@$,
                            "defining a link requires the member name to "
@@ -1537,11 +1525,6 @@ link_stmt:
         $$ = new_safe(struct link);
         $$->nstmt.stmt.loc = @$;
         $$->nstmt.name = $IDENTIFIER + 1;
-        if (NULL != $opt_type_cast) {
-            $$->as_type = $opt_type_cast->type;
-        } else {
-            $$->as_type = NULL;
-        }
         $$->dst_expr = $expr;
     }
 
@@ -1655,8 +1638,8 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_BOOLEAN: return "boolean";
     case AST_NODE_TYPE_STRING: return "string";
     case AST_NODE_TYPE_IDENTIFIER: return "identifier";
-    case AST_NODE_TYPE_INTERPRETER_CALL: return "interpreter call";
-    case AST_NODE_TYPE_INTERPRETER_RCALL: return "interpreter rcall";
+    case AST_NODE_TYPE_FILTER: return "filter";
+    case AST_NODE_TYPE_TYPENAME: return "typename";
     case AST_NODE_TYPE_BLOCK_DEF: return "block def";
     case AST_NODE_TYPE_ARRAY: return "array";
     case AST_NODE_TYPE_BYTE: return "byte";
@@ -1711,6 +1694,9 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_REXPR_OP_DIV: return "operator 'divide'";
     case AST_NODE_TYPE_OP_MOD:
     case AST_NODE_TYPE_REXPR_OP_MOD: return "operator 'modulo'";
+    case AST_NODE_TYPE_OP_SET_FILTER: return "operator 'set filter'";
+    case AST_NODE_TYPE_REXPR_INTERPRETER: return "operator 'interpreter'";
+    case AST_NODE_TYPE_REXPR_AS_TYPE: return "as type";
     case AST_NODE_TYPE_OP_UPLUS:
     case AST_NODE_TYPE_REXPR_OP_UPLUS: return "unary 'plus'";
     case AST_NODE_TYPE_OP_UMINUS:

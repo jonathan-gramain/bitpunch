@@ -41,8 +41,8 @@
 #include PATH_TO_PARSER_TAB_H
 
 #define INTERPRETER_RCALL_BASE_SIZE                     \
-    offsetof(struct ast_node, u.interpreter_rcall) \
-    + sizeof (struct interpreter_rcall)
+    offsetof(struct ast_node, u.rexpr_interpreter)      \
+    + sizeof (struct rexpr_interpreter)
 
 #define INTERPRETER_RCALL_PARAM(rcall, n)               \
     ((struct ast_node *) (                         \
@@ -91,12 +91,20 @@ interpreter_declare_std(void);
 
 struct ast_node *
 interpreter_rcall_build(const struct interpreter *interpreter,
-                        const struct ast_node *interpreter_call);
+                        const struct ast_node *filter);
 
 static inline struct ast_node *
 interpreter_rcall_get_params(const struct ast_node *rcall) {
     return INTERPRETER_RCALL_PARAM(rcall, 0);
 }
+
+bitpunch_status_t
+interpreter_rcall_read_value(const struct ast_node *interpreter,
+                             const char *item_data,
+                             int64_t item_size,
+                             enum expr_value_type *typep,
+                             union expr_value *valuep,
+                             struct browse_state *bst);
 
 /* following declarations match definitions in interpreter_*.c
  * files */

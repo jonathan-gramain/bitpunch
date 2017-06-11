@@ -120,22 +120,48 @@ binary_integer_rcall_build(struct ast_node *rcall,
     assert(param_values[REF_ENDIAN].type == AST_NODE_TYPE_IDENTIFIER ||
            param_values[REF_ENDIAN].type == AST_NODE_TYPE_NONE);
 
-    data_source = call->u.interpreter_call.source;
-    if (data_source->type != AST_NODE_TYPE_BYTE_ARRAY) {
+    assert(AST_NODE_TYPE_FILTER == call->type);
+    data_source = call->u.filter.target;
+    assert(NULL != data_source);
+    if (ast_node_is_rexpr(data_source)) {
+        if (!ast_node_is_rexpr_to_item(data_source)) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &call->loc,
+                "integer interpreter only supports expressions resolving "
+                "to dpath items (not \"%s\")",
+                ast_node_type_str(data_source->type));
+            return -1;
+        }
+        data_source = data_source->u.rexpr.target_item;
+        assert(NULL != data_source);
+    }
+    switch (data_source->type) {
+    case AST_NODE_TYPE_BYTE_ARRAY:
+        size_value = data_source->u.byte_array.size;
+        assert(ast_node_is_rexpr(size_value));
+        if (AST_NODE_TYPE_REXPR_NATIVE != size_value->type) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &call->loc,
+                "integer interpreter only supports fixed-sized "
+                "byte arrays");
+            return -1;
+        }
+        assert(EXPR_VALUE_TYPE_INTEGER == size_value->u.rexpr.value_type);
+        size = size_value->u.rexpr_native.value.integer;
+        break ;
+
+    case AST_NODE_TYPE_BYTE:
+        size = 1;
+        break ;
+
+    default:
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &call->loc,
-            "integer interpreter can only interpret byte arrays, not %s",
+            "integer interpreter can only interpret byte or byte array "
+            "types, not %s",
             ast_node_type_str(data_source->type));
         return -1;
     }
-    size_value = data_source->u.byte_array.size;
-    if (size_value->type != AST_NODE_TYPE_INTEGER) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &call->loc,
-            "integer interpreter only supports fixed-sized byte arrays");
-        return -1;
-    }
-    size = size_value->u.integer;
     _signed = param_values[REF_SIGNED].u.boolean;
     if (param_values[REF_ENDIAN].type == AST_NODE_TYPE_NONE) {
         endian = ENDIAN_DEFAULT;
@@ -193,8 +219,8 @@ binary_integer_rcall_build(struct ast_node *rcall,
                        size);
         return -1;
     }
-    rcall->u.interpreter_rcall.read_func = read_func;
-    rcall->u.interpreter_rcall.write_func = write_func;
+    rcall->u.rexpr_interpreter.read_func = read_func;
+    rcall->u.rexpr_interpreter.write_func = write_func;
     return 0;
 }
 

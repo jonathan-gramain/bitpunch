@@ -106,16 +106,17 @@ varint_rcall_build(struct ast_node *rcall,
 {
     const struct ast_node *data_source;
 
-    data_source = call->u.interpreter_call.source;
-    if (AST_NODE_TYPE_BYTE_ARRAY != data_source->type) {
+    data_source = call->u.filter.target;
+    if (AST_NODE_TYPE_BYTE != data_source->type &&
+        AST_NODE_TYPE_BYTE_ARRAY != data_source->type) {
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &call->loc,
             "varint interpreter expects a byte array");
         return -1;
     }
-    rcall->u.interpreter_rcall.get_size_func = varint_get_size;
-    rcall->u.interpreter_rcall.read_func = varint_read;
-    rcall->u.interpreter_rcall.write_func = varint_write;
+    rcall->u.rexpr_interpreter.get_size_func = varint_get_size;
+    rcall->u.rexpr_interpreter.read_func = varint_read;
+    rcall->u.rexpr_interpreter.write_func = varint_write;
     return 0;
 }
 

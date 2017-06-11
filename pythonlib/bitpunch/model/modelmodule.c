@@ -1027,28 +1027,73 @@ DataContainer_get_item(DataContainerObject *self,
 }
 
 static PyObject *
-DataBlock_get_link_target(DataBlockObject *self, const char *attr_str)
+DataBlock_eval_link_value_internal(DataBlockObject *self,
+                                   const struct link *link,
+                                   struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    enum expr_dpath_type target_dpath_type;
-    union expr_dpath target_eval;
-    struct tracker_error *tk_err = NULL;
+    enum expr_value_type value_type;
+    union expr_value value_eval;
 
-    assert(attr_str[0] == '?');
-    bt_ret = box_evaluate_link_target(self->container.box, attr_str + 1,
-                                      &target_dpath_type, &target_eval,
-                                      &tk_err);
+    bt_ret = link_evaluate_value(link, self->container.box,
+                                 &value_type, &value_eval);
     if (BITPUNCH_OK != bt_ret) {
-        if (BITPUNCH_NO_ITEM == bt_ret) {
-            return PyErr_Format(PyExc_AttributeError,
-                                "no such link in block: %s", attr_str);
-        } else {
-            set_tracker_error(tk_err, bt_ret);
-        }
+        set_tracker_error(bst->last_error, bt_ret);
+        return NULL;
+    }
+    return expr_to_PyObject(self->container.dtree,
+                            value_type, value_eval);
+}
+
+static PyObject *
+DataBlock_eval_link_dpath_internal(DataBlockObject *self,
+                                   const struct link *link,
+                                   struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    enum expr_dpath_type dpath_type;
+    union expr_dpath dpath_eval;
+
+    bt_ret = link_evaluate_dpath(link, self->container.box,
+                                 &dpath_type, &dpath_eval);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(bst->last_error, bt_ret);
         return NULL;
     }
     return expr_dpath_to_PyObject(self->container.dtree,
-                                  target_dpath_type, target_eval, FALSE);
+                                  dpath_type, dpath_eval, FALSE);
+}
+
+static PyObject *
+DataBlock_eval_link(DataBlockObject *self, const char *attr_str)
+{
+    bitpunch_status_t bt_ret;
+    const struct link *link;
+    struct browse_state bst;
+    PyObject *res = NULL;
+
+    assert(attr_str[0] == '?');
+
+    browse_state_init(&bst);
+    bt_ret = box_lookup_link_internal(self->container.box, attr_str + 1,
+                                      &link, &bst);
+    if (BITPUNCH_OK != bt_ret) {
+        if (BITPUNCH_NO_ITEM == bt_ret) {
+            PyErr_Format(PyExc_AttributeError,
+                         "no such link in block: %s", attr_str);
+        } else {
+            set_tracker_error(bst.last_error, bt_ret);
+        }
+        browse_state_cleanup(&bst);
+        return NULL;
+    }
+    if (link->dst_expr->u.rexpr.value_type != EXPR_VALUE_TYPE_UNSET) {
+        res = DataBlock_eval_link_value_internal(self, link, &bst);
+    } else {
+        res = DataBlock_eval_link_dpath_internal(self, link, &bst);
+    }
+    browse_state_cleanup(&bst);
+    return res;
 }
 
 static PyObject *
@@ -1064,7 +1109,7 @@ DataBlock_getattro(DataBlockObject *self, PyObject *attr_name)
     if (0 == strcmp(attr_str, "__dict__")) {
         return DataContainer_get_dict(&self->container, attr_str);
     } else if (attr_str[0] == '?') {
-        return DataBlock_get_link_target(self, attr_str);
+        return DataBlock_eval_link(self, attr_str);
     } else {
         return DataContainer_get_item(&self->container, attr_str);
     }
@@ -2804,6 +2849,22 @@ expr_dpath_to_PyObject(DataTreeObject *dtree,
     return res;
 }
 
+static int
+node_is_complex_type(const struct ast_node *node)
+{
+    const struct ast_node *filter;
+
+    filter = node->u.item.filter;
+    if (NULL != filter) {
+        if (AST_NODE_TYPE_REXPR_AS_TYPE == filter->type) {
+            return ast_node_is_origin_container(
+                filter->u.rexpr_as_type.as_type);
+        }
+        return FALSE;
+    }
+    return ast_node_is_origin_container(node);
+}
+
 static PyObject *
 tracker_item_to_deep_PyObject(DataTreeObject *dtree,
                               struct tracker *tk)
@@ -2819,21 +2880,7 @@ tracker_item_to_deep_PyObject(DataTreeObject *dtree,
         Py_INCREF(Py_None);
         return Py_None;
     }
-
-    if (NULL != tk->item_node->u.item.interpreter) {
-        complex_type = FALSE;
-    } else {
-        switch (tk->item_node->type) {
-        case AST_NODE_TYPE_BLOCK_DEF:
-        case AST_NODE_TYPE_ARRAY:
-        case AST_NODE_TYPE_BYTE_ARRAY:
-            complex_type = TRUE;
-            break ;
-        default:
-            complex_type = FALSE;
-            break ;
-        }
-    }
+    complex_type = node_is_complex_type(tk->item_node);
     if (complex_type) {
         bt_ret = tracker_enter_item(tk, &tk_err);
         if (BITPUNCH_OK == bt_ret) {
@@ -2873,20 +2920,7 @@ tracker_item_to_shallow_PyObject(DataTreeObject *dtree,
         Py_INCREF(Py_None);
         return Py_None;
     }
-    if (NULL != item_node->u.item.interpreter) {
-        complex_type = FALSE;
-    } else {
-        switch (item_node->type) {
-        case AST_NODE_TYPE_BLOCK_DEF:
-        case AST_NODE_TYPE_ARRAY:
-        case AST_NODE_TYPE_BYTE_ARRAY:
-            complex_type = TRUE;
-            break ;
-        default:
-            complex_type = FALSE;
-            break ;
-        }
-    }
+    complex_type = node_is_complex_type(item_node);
     if (complex_type) {
         bt_ret = tracker_enter_item(tk, &tk_err);
         if (BITPUNCH_OK == bt_ret) {
@@ -3090,7 +3124,8 @@ mod_bitpunch_eval(PyObject *self, PyObject *args, PyObject *kwds)
         return PyErr_Format(PyExc_ValueError,
                             "Error evaluating expression '%s'", expr);
     }
-    if (EXPR_DPATH_TYPE_NONE != expr_dpath_type) {
+    if (EXPR_DPATH_TYPE_NONE != expr_dpath_type
+        && (tracker || EXPR_VALUE_TYPE_UNSET == expr_value_type)) {
         res = expr_dpath_to_PyObject(dtree,
                                      expr_dpath_type, expr_dpath,
                                      tracker);

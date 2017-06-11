@@ -85,15 +85,15 @@ snappy_rcall_build(struct ast_node *rcall,
 {
     const struct ast_node *data_source;
 
-    data_source = call->u.interpreter_call.source;
+    data_source = call->u.filter.target;
     if (AST_NODE_TYPE_BYTE_ARRAY != data_source->type) {
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &call->loc,
             "snappy interpreter expects a byte array");
         return -1;
     }
-    rcall->u.interpreter_rcall.read_func = snappy_read;
-    rcall->u.interpreter_rcall.write_func = snappy_write;
+    rcall->u.rexpr_interpreter.read_func = snappy_read;
+    rcall->u.rexpr_interpreter.write_func = snappy_write;
     return 0;
 }
 

@@ -143,55 +143,43 @@ string_rcall_build(struct ast_node *rcall,
                    const struct ast_node *call,
                    const struct ast_node *param_values)
 {
-    const struct ast_node *data_source;
     struct expr_value_string boundary;
 
     assert(param_values[REF_BOUNDARY].type == AST_NODE_TYPE_STRING ||
            param_values[REF_BOUNDARY].type == AST_NODE_TYPE_NONE);
 
-    data_source = call->u.interpreter_call.source;
-    switch (data_source->type) {
-    case AST_NODE_TYPE_BYTE_ARRAY:
-        // default read function, may be overriden next
-        rcall->u.interpreter_rcall.read_func =
-            string_read_byte_array_no_boundary;
+    // default read function, may be overriden next
+    rcall->u.rexpr_interpreter.read_func =
+        string_read_byte_array_no_boundary;
 
-        if (param_values[REF_BOUNDARY].type != AST_NODE_TYPE_NONE) {
-            if (param_values[REF_BOUNDARY].type != AST_NODE_TYPE_STRING) {
-                semantic_error(
-                    SEMANTIC_LOGLEVEL_ERROR, &call->loc,
-                    "string boundary must be a string, not \"%s\"",
-                    ast_node_type_str(param_values[REF_BOUNDARY].type));
-                return -1;
-            }
-            boundary = param_values[REF_BOUNDARY].u.string;
-            switch (boundary.len) {
-            case 0:
-                /* keep default byte array size */
-                break ;
-            case 1:
-                rcall->u.interpreter_rcall.get_size_func =
-                    string_get_size_byte_array_single_char_boundary;
-                rcall->u.interpreter_rcall.read_func =
-                    string_read_byte_array_single_char_boundary;
-                break ;
-            default: /* two or more characters boundary */
-                rcall->u.interpreter_rcall.get_size_func =
-                    string_get_size_byte_array_multi_char_boundary;
-                rcall->u.interpreter_rcall.read_func =
-                    string_read_byte_array_multi_char_boundary;
-                break ;
-            }
+    if (param_values[REF_BOUNDARY].type != AST_NODE_TYPE_NONE) {
+        if (param_values[REF_BOUNDARY].type != AST_NODE_TYPE_STRING) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &call->loc,
+                "string boundary must be a string, not \"%s\"",
+                ast_node_type_str(param_values[REF_BOUNDARY].type));
+            return -1;
         }
-        rcall->u.interpreter_rcall.write_func = string_write_byte_array;
-        break ;
-    default:
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &call->loc,
-            "string interpreter cannot convert type \"%s\" to string",
-            ast_node_type_str(data_source->type));
-        return -1;
+        boundary = param_values[REF_BOUNDARY].u.string;
+        switch (boundary.len) {
+        case 0:
+            /* keep default byte array size */
+            break ;
+        case 1:
+            rcall->u.rexpr_interpreter.get_size_func =
+                string_get_size_byte_array_single_char_boundary;
+            rcall->u.rexpr_interpreter.read_func =
+                string_read_byte_array_single_char_boundary;
+            break ;
+        default: /* two or more characters boundary */
+            rcall->u.rexpr_interpreter.get_size_func =
+                string_get_size_byte_array_multi_char_boundary;
+            rcall->u.rexpr_interpreter.read_func =
+                string_read_byte_array_multi_char_boundary;
+            break ;
+        }
     }
+    rcall->u.rexpr_interpreter.write_func = string_write_byte_array;
     return 0;
 }
 

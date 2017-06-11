@@ -368,14 +368,9 @@ check_tracker_item(struct tracker *tk,
         printf("=== After read ===\n");
         dbg_tracker_dump("", tk);
     }
-    if (EXPR_VALUE_TYPE_UNSET != expect_box->value_type
-        || BITPUNCH_OK != expect_box->read_item_ret) {
+    if (BITPUNCH_OK != expect_box->read_item_ret) {
         ck_assert_int_eq(bt_ret, expect_box->read_item_ret);
-        if (BITPUNCH_OK != expect_box->read_item_ret) {
-            return ;
-        }
-    } else {
-        ck_assert_int_eq(bt_ret, BITPUNCH_NOT_IMPLEMENTED);
+        return ;
     }
     if (EXPR_VALUE_TYPE_UNSET != expect_box->value_type) {
         ck_assert_int_eq(type, expect_box->value_type);

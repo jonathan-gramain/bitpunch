@@ -45,6 +45,8 @@ resolve_user_expr(struct ast_node **expr_p,
 int
 ast_node_is_rexpr(const struct ast_node *node);
 int
+ast_node_is_rexpr_to_item(const struct ast_node *node);
+int
 ast_node_is_container(const struct ast_node *node);
 int
 ast_node_is_origin_container(const struct ast_node *node);
@@ -56,6 +58,10 @@ int
 ast_node_is_item(const struct ast_node *node);
 int
 ast_node_has_interpreter(const struct ast_node *node);
+int
+ast_node_is_filter(const struct ast_node *node);
+const struct ast_node *
+ast_node_get_as_type(const struct ast_node *node);
 int64_t
 ast_node_get_min_span_size(const struct ast_node *node);
 int
@@ -67,7 +73,7 @@ ast_node_get_key_expr(const struct ast_node *node);
 enum expr_value_type
 ast_node_get_key_type(const struct ast_node *node);
 void
-dump_ast(const struct ast_node *root, FILE *stream);
+dump_ast(struct ast_node *root, FILE *stream);
 void
 dump_block(const struct ast_node *block, FILE *stream);
 void

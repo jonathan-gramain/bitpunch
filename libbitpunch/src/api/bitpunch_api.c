@@ -459,23 +459,15 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
         assert(ast_node_is_rexpr(expr_node));
     }
     if (NULL != expr_dpathp
-        && EXPR_DPATH_TYPE_NONE != expr_node->u.rexpr.dpath_type) {
-        if (BITPUNCH_OK != expr_evaluate_dpath(expr_node, box,
+        && EXPR_DPATH_TYPE_NONE != expr_node->u.rexpr.dpath_type
+        && BITPUNCH_OK != expr_evaluate_dpath(expr_node, box,
                                               &expr_dpath)) {
-            goto err;
-        }
-        if (NULL != expr_valuep
-            && EXPR_VALUE_TYPE_UNSET != expr_node->u.rexpr.value_type
-            && BITPUNCH_OK != expr_read_dpath_value(expr_node, expr_dpath,
-                                                   &expr_value)) {
-            expr_dpath_destroy(expr_node->u.rexpr.dpath_type,
-                               expr_dpath);
-            goto err;
-        }
-    } else if (NULL != expr_valuep
-               && EXPR_VALUE_TYPE_UNSET != expr_node->u.rexpr.value_type
-               && BITPUNCH_OK != expr_evaluate_value(expr_node, box,
-                                                    &expr_value)) {
+        goto err;
+    }
+    if (NULL != expr_valuep
+        && EXPR_VALUE_TYPE_UNSET != expr_node->u.rexpr.value_type
+        && BITPUNCH_OK != expr_evaluate_value(expr_node, box,
+                                              &expr_value)) {
         goto err;
     }
     box_delete(box);

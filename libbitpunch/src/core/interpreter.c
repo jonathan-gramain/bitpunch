@@ -37,6 +37,7 @@
 #include <assert.h>
 
 #include "core/interpreter.h"
+#include "core/browse_internal.h"
 
 #define MAX_INTERPRETER_COUNT           256
 
@@ -157,7 +158,7 @@ interpreter_declare_std(void)
 static int
 rcall_build_params(struct ast_node *rcall,
                    const struct interpreter *interpreter,
-                   const struct ast_node *interpreter_call);
+                   const struct ast_node *filter);
 static int
 get_param_index(const struct interpreter *interpreter,
                 const char *param_name);
@@ -165,27 +166,26 @@ get_param_index(const struct interpreter *interpreter,
 
 struct ast_node *
 interpreter_rcall_build(const struct interpreter *interpreter,
-                        const struct ast_node *interpreter_call)
+                        const struct ast_node *filter)
 {
     struct ast_node *rcall;
-    struct ast_node *source;
 
-    source = interpreter_call->u.interpreter_call.source;
     rcall = malloc0_safe(INTERPRETER_RCALL_BASE_SIZE
                          + (interpreter->max_param_ref + 1)
                          * sizeof (struct ast_node));
-    rcall->type = AST_NODE_TYPE_INTERPRETER_RCALL;
+    rcall->type = AST_NODE_TYPE_REXPR_INTERPRETER;
+    // default dpath type for type-declared interpreters, may be
+    // overriden in expressions
     rcall->u.rexpr.dpath_type = EXPR_DPATH_TYPE_ITEM;
     rcall->u.rexpr.value_type = interpreter->semantic_type;
-    rcall->u.interpreter_rcall.source = source;
-    rcall->u.interpreter_rcall.interpreter = interpreter;
-    rcall->u.interpreter_rcall.get_size_func = NULL;
-    if (-1 == rcall_build_params(rcall, interpreter, interpreter_call)) {
+    rcall->u.rexpr_interpreter.interpreter = interpreter;
+    rcall->u.rexpr_interpreter.get_size_func = NULL;
+    if (-1 == rcall_build_params(rcall, interpreter, filter)) {
         free(rcall);
         return NULL;
     }
     if (-1 == interpreter->rcall_build_func(
-            rcall, interpreter_call, interpreter_rcall_get_params(rcall))) {
+            rcall, filter, interpreter_rcall_get_params(rcall))) {
         free(rcall);
         return NULL;
     }
@@ -195,22 +195,22 @@ interpreter_rcall_build(const struct interpreter *interpreter,
 static int
 rcall_build_params(struct ast_node *rcall,
                    const struct interpreter *interpreter,
-                   const struct ast_node *interpreter_call)
+                   const struct ast_node *filter)
 {
-    const struct interpreter_call *call;
+    const struct filter *call;
     struct param *param;
     struct ast_node *param_valuep;
     int param_ref;
     struct interpreter_param_def *param_def;
     int sem_error = FALSE;
 
-    call = &interpreter_call->u.interpreter_call;
+    call = &filter->u.filter;
     for (param_ref = 0;
          param_ref <= interpreter->max_param_ref; ++param_ref) {
         param_valuep = INTERPRETER_RCALL_PARAM(rcall, param_ref);
         param_valuep->type = AST_NODE_TYPE_NONE;
     }
-    STAILQ_FOREACH(param, &call->param_list, list) {
+    STAILQ_FOREACH(param, call->param_list, list) {
         param_ref = get_param_index(interpreter, param->name);
         if (-1 == param_ref) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR, &param->loc,
@@ -227,13 +227,13 @@ rcall_build_params(struct ast_node *rcall,
             sem_error = TRUE;
             continue ;
         }
-        *param_valuep = param->value;
+        *param_valuep = *param->value;
     }
     STAILQ_FOREACH(param_def, &interpreter->param_list, list) {
         param_valuep = INTERPRETER_RCALL_PARAM(rcall, param_def->ref_idx);
         if ((INTERPRETER_PARAM_FLAG_MANDATORY & param_def->flags)
             && AST_NODE_TYPE_NONE == param_valuep->type) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &interpreter_call->loc,
+            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
                            "missing mandatory parameter \"%s\"",
                            param_def->name);
             sem_error = TRUE;
@@ -241,7 +241,7 @@ rcall_build_params(struct ast_node *rcall,
         }
         if (param_valuep->type != AST_NODE_TYPE_NONE
             && param_valuep->type != param_def->type) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &interpreter_call->loc,
+            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
                            "wrong data type for parameter \"%s\": expected \"%s\", not \"%s\"",
                            param_def->name,
                            ast_node_type_str(param_def->type),
@@ -269,4 +269,39 @@ get_param_index(const struct interpreter *interpreter,
         }
     }
     return -1; /* not found */
+}
+
+bitpunch_status_t
+interpreter_rcall_read_value(const struct ast_node *interpreter,
+                             const char *item_data,
+                             int64_t item_size,
+                             enum expr_value_type *typep,
+                             union expr_value *valuep,
+                             struct browse_state *bst)
+{
+    struct ast_node *params;
+    size_t value_size;
+    union expr_value value;
+
+    params = interpreter_rcall_get_params(interpreter);
+
+    if (NULL == interpreter->u.rexpr_interpreter.get_size_func) {
+        value_size = (size_t)item_size;
+    } else if (-1 == interpreter->u.rexpr_interpreter.get_size_func(
+                   &value_size, item_data, item_size, params)) {
+        return BITPUNCH_DATA_ERROR;
+    }
+    if (-1 == interpreter->u.rexpr_interpreter.read_func(
+            &value, item_data, value_size, params)) {
+        return BITPUNCH_DATA_ERROR;
+    }
+    if (NULL != typep) {
+        *typep = interpreter->u.rexpr.value_type;
+    }
+    if (NULL != valuep) {
+        *valuep = value;
+    } else {
+        expr_value_destroy(interpreter->u.rexpr.value_type, value);
+    }
+    return BITPUNCH_OK;
 }

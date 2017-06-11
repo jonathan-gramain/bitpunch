@@ -59,6 +59,10 @@ box_new_filter_box(struct box *unfiltered_box,
                    const char *filtered_data,
                    size_t filtered_size,
                    struct browse_state *bst);
+bitpunch_status_t
+box_apply_filters(struct box *unfiltered_box,
+                  struct box **filtered_boxp,
+                  struct browse_state *bst);
 
 bitpunch_status_t
 box_get_n_items_internal(struct box *box, int64_t *n_itemsp,
@@ -74,6 +78,11 @@ box_read_value_internal(struct box *box,
                         enum expr_value_type *typep,
                         union expr_value *valuep,
                         struct browse_state *bst);
+
+bitpunch_status_t
+box_lookup_link_internal(struct box *box, const char *link_name,
+                         const struct link **linkp,
+                         struct browse_state *bst);
 
 bitpunch_status_t
 tracker_create_item_box(struct tracker *tk,
@@ -107,11 +116,21 @@ bitpunch_status_t
 tracker_get_item_size_internal(struct tracker *tk, int64_t *item_sizep,
                                struct browse_state *bst);
 bitpunch_status_t
+tracker_get_item_location_internal(struct tracker *tk,
+                                   int64_t *item_offsetp,
+                                   int64_t *item_sizep,
+                                   struct browse_state *bst);
+bitpunch_status_t
 tracker_read_item_value_internal(struct tracker *tk,
                                  enum expr_value_type *typep,
                                  union expr_value *valuep,
                                  struct browse_state *bst);
 
+bitpunch_status_t
+tracker_read_item_raw_internal(struct tracker *tk,
+                               const char **item_contentsp,
+                               int64_t *item_sizep,
+                               struct browse_state *bst);
 bitpunch_status_t
 tracker_reverse_direction_internal(struct tracker *tk,
                                    struct browse_state *bst);

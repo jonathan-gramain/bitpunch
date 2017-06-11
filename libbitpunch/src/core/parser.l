@@ -100,7 +100,6 @@ int lit_alloc;
 %}
 
 type       { return KW_TYPE; }
-byte       { return KW_BYTE; }
 struct     { return KW_STRUCT; }
 union      { return KW_UNION; }
 file       { return KW_FILE; }
@@ -137,6 +136,7 @@ false       {
 "<<"          { return TOK_LSHIFT; }
 ">>"          { return TOK_RSHIFT; }
 "=>"          { return TOK_LINK; }
+".."          { return TOK_RANGE; }
 [|^&><+\-*/%!~()=[\].{}] { return yytext[0]; }
 sizeof        { return OP_SIZEOF; }
 

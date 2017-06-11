@@ -48,6 +48,11 @@ link_evaluate_dpath_internal(const struct link *link, struct box *scope,
                              union expr_dpath *eval_dpathp,
                              struct browse_state *bst);
 bitpunch_status_t
+link_evaluate_value_internal(const struct link *link, struct box *scope,
+                             enum expr_value_type *value_typep,
+                             union expr_value *eval_valuep,
+                             struct browse_state *bst);
+bitpunch_status_t
 evaluate_conditional_internal(struct ast_node *cond, struct box *scope,
                               int *evalp, struct browse_state *bst);
 

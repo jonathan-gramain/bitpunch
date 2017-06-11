@@ -8,25 +8,22 @@
 
 type u32 byte[4]: integer(signed=false, endian=little);
 
-type varint byte[]: varint();
+type VarInt byte[]: varint;
+
+type CompressedDataBlock byte[]: snappy: DataBlock;
 
 struct DataBlock {
-    DataBlockEntry[] entries;
+    KeyValue[] entries;
     u32[nb_restarts] restarts;
     u32 nb_restarts;
 };
 
-struct DataBlockEntry {
-    varint key_shared_size;
-    varint key_non_shared_size;
-    varint value_size;
+struct KeyValue {
+    VarInt key_shared_size;
+    VarInt key_non_shared_size;
+    VarInt value_size;
     byte[key_non_shared_size] key_non_shared;
     byte[value_size] value;
-};
-
-struct IndexBlockEntry {
-    DataBlockEntry;
-    ?data_block_handle (BlockHandle) => value;
 };
 
 struct BlockTrailer {
@@ -34,27 +31,23 @@ struct BlockTrailer {
     u32 crc;
 };
 
-struct StoredBlock {
+struct FileBlock {
     if (trailer.blocktype == 0) { // uncompressed
-        byte[] block;
-        ?raw_block => block;
+        DataBlock;
     }
     if (trailer.blocktype == 1) {
-        byte[] data: snappy;
-        ?raw_block => *data;
+        CompressedDataBlock;
     }
-    ?data_block (DataBlock) => ?raw_block;
     BlockTrailer trailer;
 };
 
 struct BlockHandle {
-    varint offset;
-    varint size;
+    VarInt offset;
+    VarInt size;
 
-    ?stored_block (StoredBlock)
-        => data[offset : offset + size + sizeof(BlockTrailer)];
-    ?raw_block => ?stored_block.?raw_block;
-    ?data_block => ?stored_block.?data_block;
+    ?stored_block
+        => file.payload[offset .. offset + size + sizeof(BlockTrailer)]
+           : FileBlock;
 };
 
 struct Footer {
@@ -66,11 +59,14 @@ struct Footer {
 };
 
 file {
-    byte[] data;
+    byte[] payload;
     Footer footer;
 
-    ?index => footer.index_handle.?data_block;
-    ?index_entries (IndexBlockEntry[]) => ?index.entries;
-    ?metaindex => footer.metaindex_handle.?data_block;
-    ?metaindex_entries (IndexBlockEntry[]) => ?metaindex.entries;
+    ?index => footer.index_handle;
+    ?metaindex => footer.metaindex_handle;
+
+    //:BlockHandle {
+    //    ?index.entries[*].value;
+    //    ?metaindex.entries[*].value;
+    //};
 }

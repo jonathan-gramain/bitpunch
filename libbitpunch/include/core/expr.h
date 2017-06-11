@@ -192,6 +192,10 @@ link_evaluate_dpath(const struct link *link, struct box *scope,
                     enum expr_dpath_type *dpath_typep,
                     union expr_dpath *eval_dpathp);
 bitpunch_status_t
+link_evaluate_value(const struct link *link, struct box *scope,
+                    enum expr_value_type *value_typep,
+                    union expr_value *eval_valuep);
+bitpunch_status_t
 evaluate_conditional(struct ast_node *cond, struct box *scope,
                      int *evalp);
 bitpunch_status_t
