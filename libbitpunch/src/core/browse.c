@@ -2893,7 +2893,6 @@ tracker_return_internal(struct tracker *tk,
         return BITPUNCH_NO_ITEM;
     }
     if (TRACK_PATH_ARRAY_SLICE == tk->box->track_path.type) {
-        bitpunch_status_t bt_ret;
         struct box *slice_box;
 
         slice_box = tk->box;
@@ -2902,15 +2901,6 @@ tracker_return_internal(struct tracker *tk,
             if (-1 != slice_box->track_path.u.array.index) {
                 tk->cur.u.array.index +=
                     slice_box->track_path.u.array.index;
-            }
-        } else if (-1 != slice_box->track_path.u.array.index) {
-            bt_ret = tracker_goto_nth_item_internal(
-                tk, slice_box->track_path.u.array.index, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                if (BITPUNCH_NO_ITEM == bt_ret) {
-                    bt_ret = tracker_set_end(tk, bst);
-                }
-                return bt_ret;
             }
         } else {
             tracker_set_dangling(tk);

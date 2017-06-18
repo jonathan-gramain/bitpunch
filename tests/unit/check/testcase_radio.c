@@ -203,7 +203,6 @@ static void check_codename_entry(struct radio_source_info *info,
         if (BITPUNCH_OK == bt_ret) {
             tracker_delete(tk2);
             tk2 = tk3;
-            bt_ret = tracker_return(tk2, NULL);
         }
     } else {
         bt_ret = tracker_goto_named_item(tk2, "codename", NULL);
