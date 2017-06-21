@@ -163,7 +163,7 @@
         ASTFLAG_REVERSE_COND                = (1<<7),
         ASTFLAG_CONTAINS_LAST_STMT          = (1<<8),
         ASTFLAG_HAS_UNDETERMINED_SIZE       = (1<<9),
-        ASTFLAG_HAS_BACKWARD_COMPUTABLE_SIZE = (1<<10),
+        ASTFLAG_HAS_FOOTER                  = (1<<10),
     };
 
     struct rexpr_static_check_info {

@@ -97,9 +97,13 @@ struct Footer {
     span footer_size;
 };
 
-file {
+struct Contents {
     byte[] contents;
     Footer footer;
+};
+
+file {
+    Contents root;
 }
 
 """
@@ -125,9 +129,70 @@ def params_footer_complex(request):
 def test_footer_complex(params_footer_complex):
     params = params_footer_complex
     dtree = params['dtree']
-    assert model.get_size(dtree.footer) == 14
+    assert model.get_size(dtree.root.footer) == 14
 
-    assert model.get_size(dtree.footer) == dtree.footer.footer_size
-    assert model.get_size(dtree.footer.footer_contents) == 6
-    assert memoryview(dtree.footer.footer_contents) == 'footer'
-    assert memoryview(dtree.contents) == 'some random data'
+    assert model.get_size(dtree.root.footer) == dtree.root.footer.footer_size
+    assert model.get_size(dtree.root.footer.footer_contents) == 6
+    assert memoryview(dtree.root.footer.footer_contents) == 'footer'
+    assert memoryview(dtree.root.contents) == 'some random data'
+
+    assert model.get_size(dtree.root) == 30
+
+
+
+spec_file_footer_with_implicit_padding = """
+
+type u8 byte: integer(signed=false);
+type u16 byte[2]: integer(signed=false, endian=big);
+type u32 byte[4]: integer(signed=false, endian=big);
+
+struct Footer {
+    byte[footer_hdr_size] hdr;
+    byte[] footer_contents;
+    u16 footer_size;
+    u8 footer_hdr_size;
+    span footer_size;
+};
+
+struct Item {
+    u32[3] values;
+};
+
+struct Contents {
+    Item[] items;
+    Footer footer;
+};
+
+file {
+    Contents root;
+}
+
+"""
+
+data_file_footer_with_implicit_padding = """
+00 00 00 01 00 00 00 02 00 00 00 03 # root.items[0].values
+"padding"
+"fthdr"
+"footer"
+00 0e
+05
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_footer_with_implicit_padding,
+        'data': data_file_footer_with_implicit_padding,
+    }])
+def params_footer_with_implicit_padding(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_footer_with_implicit_padding(params_footer_with_implicit_padding):
+    params = params_footer_with_implicit_padding
+    dtree = params['dtree']
+    assert model.get_size(dtree.root.footer) == 14
+
+    assert model.get_size(dtree.root.footer) == dtree.root.footer.footer_size
+    assert model.get_size(dtree.root.items) == 12
+    assert model.get_size(dtree.root) == 33

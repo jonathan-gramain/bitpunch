@@ -3149,6 +3149,9 @@ resolve2_span_size_block(struct ast_node *node)
         && NULL == max_span_expr) {
         node->flags |= ASTFLAG_HAS_UNDETERMINED_SIZE;
     }
+    if (NULL != compute_offset_backwards_from) {
+        node->flags |= ASTFLAG_HAS_FOOTER;
+    }
     if (!TAILQ_EMPTY(&node->u.block_def.block_stmt_list.last_stmt_list)) {
         node->flags |= ASTFLAG_CONTAINS_LAST_STMT;
     }

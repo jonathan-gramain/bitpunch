@@ -4138,8 +4138,8 @@ box_compute_used_size__from_parent(struct box *box,
 }
 
 static bitpunch_status_t
-box_compute_used_size__as_span(struct box *box,
-                               struct browse_state *bst)
+box_compute_used_size__as_max_span(struct box *box,
+                                   struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
 
@@ -6337,12 +6337,14 @@ browse_setup_backends__box__block(struct ast_node *node)
     memset(b_box, 0, sizeof (*b_box));
 
     if (0 != (node->flags & ASTFLAG_IS_ROOT_BLOCK)) {
-        b_box->compute_used_size = box_compute_used_size__as_span;
+        b_box->compute_used_size = box_compute_used_size__as_max_span;
         b_box->compute_slack_size = box_compute_slack_size__block_file;
     } else {
         if (0 == (node->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
             b_box->compute_used_size =
                 box_compute_used_size__container_static_size;
+        } else if (0 != (node->flags & ASTFLAG_HAS_FOOTER)) {
+            b_box->compute_used_size = box_compute_used_size__as_max_span;
         } else if (BLOCK_TYPE_STRUCT == node->u.block_def.type) {
             b_box->compute_used_size =
                 box_compute_used_size__packed_dynamic_size;
