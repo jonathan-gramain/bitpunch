@@ -2622,7 +2622,6 @@ tracker_goto_field_internal(struct tracker *tk,
         tracker_set_field_internal__block(tk, to_field, bst);
         return BITPUNCH_OK;
     }
-    assert(0 == (tk->flags & TRACKER_REVERSED));
     // union may be nesting anonymous structures, so an easy
     // optimization is incorrect because offset may not be box' offset
     // (maybe a more complex optim is possible, keep it for later)
