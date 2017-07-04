@@ -23,7 +23,7 @@ CFLAGS_CHECK = $(CFLAGS_COMMON) -Werror
 
 LEXSRC_LBITPUNCH = $(addprefix $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/,core/parser.l.c core/parser.tab.c)
 LEXHDR_LBITPUNCH = $(addprefix $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/,core/parser.tab.h)
-SRC_LBITPUNCH = $(addprefix $(LBITPUNCH_SRCDIR)/,api/bitpunch_api.c core/ast.c core/expr.c core/browse.c core/interpreter.c core/print.c core/debug.c interpreters/integer.c interpreters/varint.c interpreters/string.c interpreters/snappy.c utils/bloom.c utils/port.c)
+SRC_LBITPUNCH = $(addprefix $(LBITPUNCH_SRCDIR)/,api/bitpunch_api.c core/ast.c core/expr.c core/browse.c core/interpreter.c core/print.c core/debug.c interpreters/integer.c interpreters/varint.c interpreters/string.c interpreters/base64.c interpreters/snappy.c utils/bloom.c utils/port.c)
 SRC_CHECK_BITPUNCH = $(addprefix $(CHECK_SRCDIR)/,check_bitpunch.c check_array.c check_struct.c check_slack.c check_tracker.c check_cond.c check_dynarray.c testcase_radio.c)
 OBJ_LBITPUNCH = $(patsubst $(LBITPUNCH_SRCDIR)/%.c,$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.o,$(SRC_LBITPUNCH)) $(patsubst $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.c,$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.o,$(LEXSRC_LBITPUNCH))
 OBJ_CHECK_BITPUNCH = $(patsubst $(CHECK_SRCDIR)/%.c,$(BUILD_DIR)/$(CHECK_OBJDIR)/%.o,$(SRC_CHECK_BITPUNCH))
@@ -76,7 +76,7 @@ $(LBITPUNCH): $$(OBJ_LBITPUNCH) | $$(dir $$@)
 	$(CC) $(LDFLAGS) -shared -o $@ $(OBJ_LBITPUNCH) $(LIBS_LBITPUNCH)
 
 $(CHECK_BITPUNCH): $$(OBJ_CHECK_BITPUNCH) $$(LBITPUNCH) | $$(dir $$@)
-	$(CC) $(LDFLAGS) -o $@ $(OBJ_LBITPUNCH) $(OBJ_CHECK_BITPUNCH) $(LIBS_CHECK_BITPUNCH)
+	$(CC) $(LDFLAGS) -o $@ $(OBJ_LBITPUNCH) $(OBJ_CHECK_BITPUNCH) $(INCS) $(LIBS_CHECK_BITPUNCH)
 
 $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.o $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.d: CFLAGS = $(CFLAGS_LBITPUNCH)
 $(BUILD_DIR)/$(UTESTS_DIR)/%.o $(BUILD_DIR)/$(UTESTS_DIR)/%.d: CFLAGS = $(CFLAGS_CHECK)
