@@ -1802,8 +1802,13 @@ expr_evaluate_dpath_file(struct ast_node *expr, struct box *scope,
 
     assert(EXPR_DPATH_TYPE_CONTAINER == expr->u.rexpr.dpath_type);
     file_box = scope;
-    while (NULL != file_box->parent_box) {
-        file_box = file_box->parent_box;
+    while (NULL != file_box->parent_box ||
+           NULL != file_box->unfiltered_box) {
+        if (NULL != file_box->parent_box) {
+            file_box = file_box->parent_box;
+        } else {
+            file_box = file_box->unfiltered_box;
+        }
     }
     box_acquire(file_box);
     eval_dpathp->container.box = file_box;

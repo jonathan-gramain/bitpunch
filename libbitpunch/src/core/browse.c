@@ -3229,10 +3229,8 @@ track_path_elem_dump(struct track_path tp, int dump_separator,
         }
         break ;
     case TRACK_PATH_ARRAY:
-        assert(dump_separator); /* arrays always have a parent */
         return fprintf(stream, "[%"PRIi64"]", tp.u.array.index);
     case TRACK_PATH_ARRAY_SLICE:
-        assert(dump_separator); /* array slices always have a parent */
         return fprintf(stream, "[%"PRIi64":%"PRIi64"]",
                        tp.u.array.index, tp.u.array_slice.index_end);
     default:
