@@ -1123,9 +1123,19 @@ resolve_node_types_op_fcall(
     const struct list_of_visible_refs *visible_refs,
     struct ast_node **resolved_typep)
 {
+    struct func_param *param;
+
     if (-1 == resolve_node_types(&node->u.op_fcall.func, visible_refs,
                                  RESOLVE_EXPECT_EXPRESSION)) {
         return -1;
+    }
+    for (param = STAILQ_FIRST(node->u.op_fcall.func_params);
+         NULL != param;
+         param = STAILQ_NEXT(param, list)) {
+        if (-1 == resolve_node_types(&param->expr, visible_refs,
+                                     RESOLVE_EXPECT_EXPRESSION)) {
+            return -1;
+        }
     }
     *resolved_typep = NULL;
     return 0;
