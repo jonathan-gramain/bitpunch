@@ -1003,7 +1003,8 @@ resolve_node_types_array(
             RESOLVE_EXPECT_EXPRESSION)) {
         return -1;
     }
-    if (AST_NODE_TYPE_BYTE == node->u.array.value_type->type) {
+    if (AST_NODE_TYPE_BYTE == node->u.array.value_type->type
+        && NULL == node->u.array.value_type->u.item.filter) {
         struct ast_node *byte_count = node->u.array.value_count;
 
         node->type = AST_NODE_TYPE_BYTE_ARRAY;
@@ -3857,6 +3858,7 @@ ast_node_get_min_span_size(const struct ast_node *node)
     switch (node->type) {
     case AST_NODE_TYPE_BLOCK_DEF:
     case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
         assert(-1 != node->u.item.min_span_size);
         return node->u.item.min_span_size;
