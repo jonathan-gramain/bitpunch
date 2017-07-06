@@ -273,7 +273,9 @@ resolve2_stmt_lists(struct block_stmt_list *stmt_lists);
 static int
 resolve2_dtype(struct ast_node *dtype);
 static int
-resolve2_conditional(struct ast_node **if_node_p);
+resolve2_conditional(struct ast_node *if_node);
+static int
+resolve2_filter(struct ast_node *filter);
 static int
 resolve2_expr(struct ast_node **expr_p);
 static int
@@ -2544,7 +2546,7 @@ resolve2_stmt_list_generic(struct statement_list *stmt_list)
 
     TAILQ_FOREACH(stmt, stmt_list, list) {
         if (NULL != stmt->cond
-            && -1 == resolve2_conditional(&stmt->cond)) {
+            && -1 == resolve2_conditional(stmt->cond)) {
             return -1;
         }
     }
@@ -2601,6 +2603,7 @@ resolve2_stmt_lists(struct block_stmt_list *stmt_lists)
     struct statement *stmt;
     struct named_type *named_type;
     struct ast_node *block_def;
+    struct field *field;
     struct span_stmt *span_stmt;
     struct key_stmt *key_stmt;
     struct match *match;
@@ -2648,6 +2651,12 @@ resolve2_stmt_lists(struct block_stmt_list *stmt_lists)
             }
         }
     }
+    TAILQ_FOREACH(stmt, stmt_lists->field_list, list) {
+        field = (struct field *)stmt;
+        if (-1 == resolve2_dtype(field->field_type)) {
+            return -1;
+        }
+    }
     TAILQ_FOREACH(stmt, stmt_lists->span_list, list) {
         span_stmt = (struct span_stmt *)stmt;
         if (-1 == resolve2_expr(&span_stmt->span_expr)) {
@@ -2673,27 +2682,51 @@ static int
 resolve2_dtype(struct ast_node *dtype)
 {
     struct call_stack_error_ctx error_ctx;
-    int ret;
 
     error_ctx.call_type = CALL_RESOLVE2_DTYPE;
     error_ctx.u.dtype = dtype;
     push_error_ctx(&error_ctx);
 
-    ret = resolve2_span_size(dtype);
-
+    if (-1 == resolve2_span_size(dtype)) {
+        pop_error_ctx();
+        return -1;
+    }
+    if (ast_node_is_item(dtype)
+        && NULL != dtype->u.item.filter
+        && -1 == resolve2_filter(dtype->u.item.filter)) {
+        pop_error_ctx();
+        return -1;
+    }
     pop_error_ctx();
-    return ret;
+    return 0;
 }
 
 static int
-resolve2_conditional(struct ast_node **cond_p)
+resolve2_conditional(struct ast_node *cond)
 {
-    if (-1 == resolve2_expr(&(*cond_p)->u.conditional.cond_expr)) {
+    if (-1 == resolve2_expr(&cond->u.conditional.cond_expr)) {
         return -1;
     }
-    if (NULL != (*cond_p)->u.conditional.outer_cond
-        && -1 == resolve2_conditional(&(*cond_p)->u.conditional.outer_cond)) {
+    if (NULL != cond->u.conditional.outer_cond
+        && -1 == resolve2_conditional(cond->u.conditional.outer_cond)) {
         return -1;
+    }
+    return 0;
+}
+
+static int
+resolve2_filter(struct ast_node *filter)
+{
+    switch (filter->type) {
+    case AST_NODE_TYPE_REXPR_INTERPRETER:
+        break ;
+    case AST_NODE_TYPE_REXPR_AS_TYPE:
+        if (-1 == resolve2_dtype(filter->u.rexpr_as_type.as_type)) {
+            return -1;
+        }
+        break ;
+    default:
+        assert(0);
     }
     return 0;
 }
@@ -3582,9 +3615,16 @@ setup_track_backends(struct ast_node *node)
     if (-1 == ret) {
         return -1;
     }
-    if (ast_node_is_item(node)
-        && -1 == browse_setup_backends(node)) {
-        return -1;
+    if (ast_node_is_item(node)) {
+        if (-1 == browse_setup_backends(node)) {
+            return -1;
+        }
+        if (NULL != node->u.item.filter
+            && AST_NODE_TYPE_REXPR_AS_TYPE == node->u.item.filter->type
+            && -1 == browse_setup_backends(
+                node->u.item.filter->u.rexpr_as_type.as_type)) {
+            return -1;
+        }
     }
     node->flags |= ASTFLAG_PROCESSED_TRACK_BACKEND;
     return 0;
