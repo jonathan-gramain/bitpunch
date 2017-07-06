@@ -100,6 +100,21 @@ data_file_array_bytes_as_integers = """
 """
 
 
+spec_file_array_bytes_as_integers_filtered = """
+
+type u8 byte: integer(signed=false);
+
+file {
+    byte[] integers: base64: u8[];
+}
+
+"""
+
+data_file_array_bytes_as_integers_filtered = """
+"AAECAwQFBgcICQ=="
+"""
+
+
 @pytest.fixture(
     scope='module',
     params=[{
@@ -109,6 +124,10 @@ data_file_array_bytes_as_integers = """
     }, {
         'spec': spec_file_array_bytes_as_integers_2,
         'data': data_file_array_bytes_as_integers,
+        'sizeof_array': 10,
+    }, {
+        'spec': spec_file_array_bytes_as_integers_filtered,
+        'data': data_file_array_bytes_as_integers_filtered,
         'sizeof_array': 10,
     }])
 def params_array_flat(request):
