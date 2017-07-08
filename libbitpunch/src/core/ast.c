@@ -188,16 +188,16 @@ resolve_stmt_lists_expressions(const struct ast_node *block,
                                struct block_stmt_list *stmt_lists,
                                struct list_of_visible_refs *outer_refs);
 static int
-resolve_dtype_expressions(struct ast_node **dtype_p,
+resolve_dtype_expressions(struct ast_node *dtype,
                           struct list_of_visible_refs *visible_refs);
 static int
-resolve_dtype_expressions_array(struct ast_node **dtype_p,
+resolve_dtype_expressions_array(struct ast_node *dtype,
                                 struct list_of_visible_refs *visible_refs);
 static int
-resolve_dtype_expressions_byte_array(struct ast_node **dtype_p,
+resolve_dtype_expressions_byte_array(struct ast_node *dtype,
                                      struct list_of_visible_refs *visible_refs);
 static int
-resolve_dtype_expressions_conditional(struct ast_node **dtype_p,
+resolve_dtype_expressions_conditional(struct ast_node *dtype,
                                       struct list_of_visible_refs *visible_refs);
 static int
 resolve_expr(struct ast_node **expr_p,
@@ -1208,7 +1208,7 @@ resolve_stmt_list_expressions_generic(
 
     TAILQ_FOREACH(stmt, stmt_list, list) {
         if (NULL != stmt->cond
-            && -1 == resolve_dtype_expressions(&stmt->cond, visible_refs)) {
+            && -1 == resolve_dtype_expressions(stmt->cond, visible_refs)) {
             return -1;
         }
     }
@@ -1236,14 +1236,14 @@ resolve_stmt_lists_expressions(const struct ast_node *block,
     visible_refs.cur_lists = stmt_lists;
 
     STAILQ_FOREACH(named_type, stmt_lists->named_type_list, list) {
-        if (-1 == resolve_dtype_expressions(&named_type->type,
+        if (-1 == resolve_dtype_expressions(named_type->type,
                                             &visible_refs)) {
             return -1;
         }
     }
     TAILQ_FOREACH(stmt, stmt_lists->field_list, list) {
         field = (struct field *)stmt;
-        if (-1 == resolve_dtype_expressions(&field->field_type,
+        if (-1 == resolve_dtype_expressions(field->field_type,
                                             &visible_refs)) {
             return -1;
         }
@@ -1310,24 +1310,24 @@ resolve_stmt_lists_expressions(const struct ast_node *block,
 }
 
 static int
-resolve_dtype_expressions(struct ast_node **dtype_p,
+resolve_dtype_expressions(struct ast_node *dtype,
                           struct list_of_visible_refs *visible_refs)
 {
     int ret;
 
-    if (0 != ((*dtype_p)->flags & ASTFLAG_PROCESSING)) {
+    if (0 != (dtype->flags & ASTFLAG_PROCESSING)) {
         return 0;
     }
-    (*dtype_p)->flags |= ASTFLAG_PROCESSING;
-    switch ((*dtype_p)->type) {
+    dtype->flags |= ASTFLAG_PROCESSING;
+    switch (dtype->type) {
     case AST_NODE_TYPE_ARRAY:
-        ret = resolve_dtype_expressions_array(dtype_p, visible_refs);
+        ret = resolve_dtype_expressions_array(dtype, visible_refs);
         break ;
     case AST_NODE_TYPE_BYTE_ARRAY:
-        ret = resolve_dtype_expressions_byte_array(dtype_p, visible_refs);
+        ret = resolve_dtype_expressions_byte_array(dtype, visible_refs);
         break ;
     case AST_NODE_TYPE_CONDITIONAL:
-        ret = resolve_dtype_expressions_conditional(dtype_p, visible_refs);
+        ret = resolve_dtype_expressions_conditional(dtype, visible_refs);
         break ;
     default:
         /* nothing to resolve */
@@ -1335,66 +1335,66 @@ resolve_dtype_expressions(struct ast_node **dtype_p,
         break ;
     }
     if (-1 == ret) {
-        (*dtype_p)->flags &= ~ASTFLAG_PROCESSING;
+        dtype->flags &= ~ASTFLAG_PROCESSING;
         return -1;
     }
-    if (ast_node_is_item(*dtype_p)
-        && NULL != (*dtype_p)->u.item.filter
-        && -1 == resolve_expr(&(*dtype_p)->u.item.filter,
+    if (ast_node_is_item(dtype)
+        && NULL != dtype->u.item.filter
+        && -1 == resolve_expr(&dtype->u.item.filter,
                               visible_refs)) {
-        (*dtype_p)->flags &= ~ASTFLAG_PROCESSING;
+        dtype->flags &= ~ASTFLAG_PROCESSING;
         return -1;
     }
-    (*dtype_p)->flags &= ~ASTFLAG_PROCESSING;
+    dtype->flags &= ~ASTFLAG_PROCESSING;
     return 0;
 }
 
 static int
-resolve_dtype_expressions_array(struct ast_node **dtype_p,
+resolve_dtype_expressions_array(struct ast_node *dtype,
                                 struct list_of_visible_refs *visible_refs)
 {
     /* resolve array type and count expression, if defined */
-    if (-1 == resolve_dtype_expressions(&(*dtype_p)->u.array.value_type,
+    if (-1 == resolve_dtype_expressions(dtype->u.array.value_type,
                                         visible_refs)) {
         return -1;
     }
-    if (NULL != (*dtype_p)->u.array.value_count &&
+    if (NULL != dtype->u.array.value_count &&
         -1 == resolve_expr(
-            &(*dtype_p)->u.array.value_count, visible_refs)) {
+            &dtype->u.array.value_count, visible_refs)) {
         return -1;
     }
     return 0;
 }
 
 static int
-resolve_dtype_expressions_byte_array(struct ast_node **dtype_p,
+resolve_dtype_expressions_byte_array(struct ast_node *dtype,
                                      struct list_of_visible_refs *visible_refs)
 {
     /* resolve array count expression, if defined */
-    if (NULL != (*dtype_p)->u.byte_array.size &&
+    if (NULL != dtype->u.byte_array.size &&
         -1 == resolve_expr(
-            &(*dtype_p)->u.byte_array.size, visible_refs)) {
+            &dtype->u.byte_array.size, visible_refs)) {
         return -1;
     }
     return 0;
 }
 
 static int
-resolve_dtype_expressions_conditional(struct ast_node **dtype_p,
+resolve_dtype_expressions_conditional(struct ast_node *dtype,
                                       struct list_of_visible_refs *visible_refs)
 {
     struct ast_node *cond;
 
-    if (NULL != (*dtype_p)->u.conditional.outer_cond
+    if (NULL != dtype->u.conditional.outer_cond
         && -1 == resolve_dtype_expressions_conditional(
-            &(*dtype_p)->u.conditional.outer_cond, visible_refs)) {
+            dtype->u.conditional.outer_cond, visible_refs)) {
         return -1;
     }
-    if (-1 == resolve_expr(&(*dtype_p)->u.conditional.cond_expr,
+    if (-1 == resolve_expr(&dtype->u.conditional.cond_expr,
                            visible_refs)) {
         return -1;
     }
-    cond = (*dtype_p)->u.conditional.cond_expr;
+    cond = dtype->u.conditional.cond_expr;
     assert(ast_node_is_rexpr(cond));
     if (EXPR_VALUE_TYPE_BOOLEAN != cond->u.rexpr.value_type) {
         semantic_error(
@@ -1684,7 +1684,7 @@ resolve_expr_filter(struct ast_node **expr_p,
         *expr_p = resolved_type;
         return 0;
     }
-    if (-1 == resolve_dtype_expressions(&filter_type, visible_refs)) {
+    if (-1 == resolve_dtype_expressions(filter_type, visible_refs)) {
         return -1;
     }
     node->type = AST_NODE_TYPE_REXPR_AS_TYPE;
