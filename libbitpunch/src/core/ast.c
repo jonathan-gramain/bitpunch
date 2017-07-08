@@ -177,8 +177,11 @@ resolve_node_types_filter(
     enum resolve_expect_node_mask expect_mask);
 
 static int
-resolve_block_expressions(struct ast_node *block,
-                          struct list_of_visible_refs *outer_refs);
+resolve_dtype_expressions(struct ast_node *dtype,
+                          struct list_of_visible_refs *visible_refs);
+static int
+resolve_dtype_expressions_block(struct ast_node *block,
+                                struct list_of_visible_refs *outer_refs);
 static int
 resolve_stmt_list_expressions_generic(
     struct statement_list *stmt_list,
@@ -187,9 +190,6 @@ static int
 resolve_stmt_lists_expressions(const struct ast_node *block,
                                struct block_stmt_list *stmt_lists,
                                struct list_of_visible_refs *outer_refs);
-static int
-resolve_dtype_expressions(struct ast_node *dtype,
-                          struct list_of_visible_refs *visible_refs);
 static int
 resolve_dtype_expressions_array(struct ast_node *dtype,
                                 struct list_of_visible_refs *visible_refs);
@@ -525,7 +525,7 @@ resolve_schema_references(struct bitpunch_schema_hdl *schema)
     if (-1 == resolve_block_types(ast_root, NULL)) {
         return -1;
     }
-    if (-1 == resolve_block_expressions(ast_root, NULL)) {
+    if (-1 == resolve_dtype_expressions_block(ast_root, NULL)) {
         return -1;
     }
     if (-1 == resolve2_block(ast_root)) {
@@ -1191,8 +1191,51 @@ resolve_node_types_filter(
  */
 
 static int
-resolve_block_expressions(struct ast_node *block,
-                          struct list_of_visible_refs *outer_refs)
+resolve_dtype_expressions(struct ast_node *dtype,
+                          struct list_of_visible_refs *visible_refs)
+{
+    int ret;
+
+    if (0 != (dtype->flags & ASTFLAG_PROCESSING)) {
+        return 0;
+    }
+    dtype->flags |= ASTFLAG_PROCESSING;
+    switch (dtype->type) {
+    case AST_NODE_TYPE_BLOCK_DEF:
+        ret = resolve_dtype_expressions_block(dtype, visible_refs);
+        break ;
+    case AST_NODE_TYPE_ARRAY:
+        ret = resolve_dtype_expressions_array(dtype, visible_refs);
+        break ;
+    case AST_NODE_TYPE_BYTE_ARRAY:
+        ret = resolve_dtype_expressions_byte_array(dtype, visible_refs);
+        break ;
+    case AST_NODE_TYPE_CONDITIONAL:
+        ret = resolve_dtype_expressions_conditional(dtype, visible_refs);
+        break ;
+    default:
+        /* nothing to resolve */
+        ret = 0;
+        break ;
+    }
+    if (-1 == ret) {
+        dtype->flags &= ~ASTFLAG_PROCESSING;
+        return -1;
+    }
+    if (ast_node_is_item(dtype)
+        && NULL != dtype->u.item.filter
+        && -1 == resolve_expr(&dtype->u.item.filter,
+                              visible_refs)) {
+        dtype->flags &= ~ASTFLAG_PROCESSING;
+        return -1;
+    }
+    dtype->flags &= ~ASTFLAG_PROCESSING;
+    return 0;
+}
+
+static int
+resolve_dtype_expressions_block(struct ast_node *block,
+                                struct list_of_visible_refs *outer_refs)
 {
     return resolve_stmt_lists_expressions(block,
                                           &block->u.block_def.block_stmt_list,
@@ -1250,7 +1293,8 @@ resolve_stmt_lists_expressions(const struct ast_node *block,
     }
     /* resolve types of all nested blocks */
     STAILQ_FOREACH(block_def, stmt_lists->block_def_list, stmt_list) {
-        if (-1 == resolve_block_expressions(block_def, &visible_refs)) {
+        if (-1 == resolve_dtype_expressions_block(block_def,
+                                                  &visible_refs)) {
             return -1;
         }
     }
@@ -1306,46 +1350,6 @@ resolve_stmt_lists_expressions(const struct ast_node *block,
             return -1;
         }
     }
-    return 0;
-}
-
-static int
-resolve_dtype_expressions(struct ast_node *dtype,
-                          struct list_of_visible_refs *visible_refs)
-{
-    int ret;
-
-    if (0 != (dtype->flags & ASTFLAG_PROCESSING)) {
-        return 0;
-    }
-    dtype->flags |= ASTFLAG_PROCESSING;
-    switch (dtype->type) {
-    case AST_NODE_TYPE_ARRAY:
-        ret = resolve_dtype_expressions_array(dtype, visible_refs);
-        break ;
-    case AST_NODE_TYPE_BYTE_ARRAY:
-        ret = resolve_dtype_expressions_byte_array(dtype, visible_refs);
-        break ;
-    case AST_NODE_TYPE_CONDITIONAL:
-        ret = resolve_dtype_expressions_conditional(dtype, visible_refs);
-        break ;
-    default:
-        /* nothing to resolve */
-        ret = 0;
-        break ;
-    }
-    if (-1 == ret) {
-        dtype->flags &= ~ASTFLAG_PROCESSING;
-        return -1;
-    }
-    if (ast_node_is_item(dtype)
-        && NULL != dtype->u.item.filter
-        && -1 == resolve_expr(&dtype->u.item.filter,
-                              visible_refs)) {
-        dtype->flags &= ~ASTFLAG_PROCESSING;
-        return -1;
-    }
-    dtype->flags &= ~ASTFLAG_PROCESSING;
     return 0;
 }
 
@@ -1987,11 +1991,14 @@ resolve_expr_operator_set_filter(struct ast_node **expr_p,
                                   struct list_of_visible_refs *visible_refs)
 {
     struct ast_node *target_expr;
-    struct ast_node *target_item;
+    //struct ast_node *target_item;
     struct ast_node *filter;
 
     target_expr = (*expr_p)->u.op.operands[0];
     if (-1 == resolve_expr(&target_expr, visible_refs)) {
+        return -1;
+    }
+    if (-1 == resolve2_expr(&target_expr)) {
         return -1;
     }
     filter = (*expr_p)->u.op.operands[1];
@@ -1999,12 +2006,12 @@ resolve_expr_operator_set_filter(struct ast_node **expr_p,
     if (-1 == resolve_expr(&filter, visible_refs)) {
         return -1;
     }
-    target_item = target_expr->u.rexpr.target_item;
-    assert(NULL != target_item);
+    //target_item = target_expr->u.rexpr.target_item;
+    //assert(NULL != target_item);
     // in expressions, dpath type has to be set to the target
     // expression's one
     filter->u.rexpr.dpath_type = target_expr->u.rexpr.dpath_type;
-    filter->u.rexpr.target_item = target_item;
+    //filter->u.rexpr.target_item = target_item;
     filter->u.rexpr_filter.target = target_expr;
 
     ast_node_free(*expr_p);
@@ -2807,68 +2814,6 @@ resolve2_expr(struct ast_node **expr_p)
 }
 
 static int
-resolve2_expr_dpath_check_subscript_internal(
-    struct ast_node *expr, struct subscript_index *subscript)
-{
-    struct ast_node *twin_idx;
-    const struct ast_node *anchor_expr;
-    const struct ast_node *anchor_item;
-    struct ast_node *key_expr;
-    int ret;
-
-    if (NULL == subscript->key) {
-        return 0;
-    }
-    if (NULL != subscript->twin) {
-        ret = resolve2_expr(&subscript->twin);
-        if (-1 == ret) {
-            return -1;
-        }
-        twin_idx = subscript->twin;
-        if (AST_NODE_TYPE_REXPR_NATIVE == twin_idx->type
-            && EXPR_VALUE_TYPE_INTEGER == twin_idx->u.rexpr.value_type
-            && twin_idx->u.rexpr_native.value.integer < 0) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &twin_idx->loc,
-                "array integer twin index cannot be negative");
-            return -1;
-        }
-    }
-    anchor_expr = expr->u.rexpr_op_subscript_common.anchor_expr;
-    anchor_item = anchor_expr->u.rexpr.target_item;
-    if (NULL != anchor_item) {
-        if (ast_node_is_indexed(anchor_item)) {
-            /* integer subscript accesses items by raw index */
-            if (EXPR_VALUE_TYPE_INTEGER
-                != subscript->key->u.rexpr.value_type) {
-                key_expr = ast_node_get_key_expr(anchor_item);
-                assert(ast_node_is_rexpr(subscript->key));
-                assert(ast_node_is_rexpr(key_expr));
-                if (subscript->key->u.rexpr.value_type
-                    != key_expr->u.rexpr.value_type) {
-                    semantic_error(
-                        SEMANTIC_LOGLEVEL_ERROR, &subscript->key->loc,
-                        "invalid expression type in array subscript: "
-                        "type mismatch between subscript type '%s' and "
-                        "index type '%s'",
-                        ast_node_type_str(subscript->key->u.rexpr.value_type),
-                        ast_node_type_str(key_expr->u.rexpr.value_type));
-                    return -1;
-                }
-            }
-        } else if (EXPR_VALUE_TYPE_STRING
-                   == subscript->key->u.rexpr.value_type) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &subscript->key->loc,
-                "invalid expression type in array subscript: "
-                "'string' type requires array element type to be indexed");
-            return -1;
-        }
-    }
-    return 0;
-}
-
-static int
 resolve2_expr_field(struct ast_node **expr_p)
 {
     int ret;
@@ -2937,21 +2882,85 @@ resolve2_expr_link(struct ast_node **expr_p)
 }
 
 static int
-resolve2_expr_operator_subscript(struct ast_node **expr_p)
+resolve2_expr_dpath_check_subscript_internal(
+    struct ast_node *expr, struct subscript_index *subscript)
 {
+    struct ast_node *twin_idx;
+    const struct ast_node *anchor_expr;
+    const struct ast_node *anchor_item;
+    struct ast_node *key_expr;
     int ret;
-    struct subscript_index *index;
 
-    //FIXME is it necessary?
-#if 0
-    if (NULL != (*expr_p)->u.rexpr.target_item) {
-        ret = resolve2_dtype(
-            (*expr_p)->u.rexpr.target_item);
+    if (NULL == subscript->key) {
+        return 0;
+    }
+    if (NULL != subscript->twin) {
+        ret = resolve2_expr(&subscript->twin);
         if (-1 == ret) {
             return -1;
         }
+        twin_idx = subscript->twin;
+        if (AST_NODE_TYPE_REXPR_NATIVE == twin_idx->type
+            && EXPR_VALUE_TYPE_INTEGER == twin_idx->u.rexpr.value_type
+            && twin_idx->u.rexpr_native.value.integer < 0) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &twin_idx->loc,
+                "array integer twin index cannot be negative");
+            return -1;
+        }
     }
-#endif
+    anchor_expr = expr->u.rexpr_op_subscript_common.anchor_expr;
+    anchor_item = anchor_expr->u.rexpr.target_item;
+    if (NULL != anchor_item) {
+        if (ast_node_is_indexed(anchor_item)) {
+            /* integer subscript accesses items by raw index */
+            if (EXPR_VALUE_TYPE_INTEGER
+                != subscript->key->u.rexpr.value_type) {
+                key_expr = ast_node_get_key_expr(anchor_item);
+                assert(ast_node_is_rexpr(subscript->key));
+                assert(ast_node_is_rexpr(key_expr));
+                if (subscript->key->u.rexpr.value_type
+                    != key_expr->u.rexpr.value_type) {
+                    semantic_error(
+                        SEMANTIC_LOGLEVEL_ERROR, &subscript->key->loc,
+                        "invalid expression type in array subscript: "
+                        "type mismatch between subscript type '%s' and "
+                        "index type '%s'",
+                        ast_node_type_str(subscript->key->u.rexpr.value_type),
+                        ast_node_type_str(key_expr->u.rexpr.value_type));
+                    return -1;
+                }
+            }
+        } else if (EXPR_VALUE_TYPE_STRING
+                   == subscript->key->u.rexpr.value_type) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &subscript->key->loc,
+                "invalid expression type in array subscript: "
+                "'string' type requires array element type to be indexed");
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int
+resolve2_expr_operator_subscript(struct ast_node **expr_p)
+{
+    struct ast_node *target_item;
+    int ret;
+    struct subscript_index *index;
+
+    target_item = (*expr_p)->u.rexpr.target_item;
+    if (NULL != target_item) {
+        ret = resolve2_dtype(target_item);
+        if (-1 == ret) {
+            return -1;
+        }
+        if (NULL != target_item->u.item.filter) {
+            (*expr_p)->u.rexpr.value_type =
+                target_item->u.item.filter->u.rexpr.value_type;
+        }
+    }
     assert(NULL != (*expr_p)->u.rexpr_op_subscript_common.anchor_expr);
     ret = resolve2_expr(&(*expr_p)->u.rexpr_op_subscript_common.anchor_expr);
     if (-1 == ret) {
@@ -3130,7 +3139,10 @@ resolve2_expr_operator_addrof(struct ast_node **expr_p)
 static int
 resolve2_expr_operator_filter(struct ast_node **expr_p)
 {
-    if (-1 == resolve2_expr(&(*expr_p)->u.rexpr_op.op.operands[0])) {
+    struct ast_node *filter;
+
+    filter = (*expr_p)->u.rexpr_op.op.operands[0];
+    if (-1 == resolve2_expr(&filter)) {
         return -1;
     }
     return 0;
