@@ -1621,7 +1621,7 @@ resolve_expr_identifier(struct ast_node **expr_p,
                               &resolved_block, &resolved_link)) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &(*expr_p)->loc,
-                "no member named '%s' exists in the expression scope",
+                "no link named '%s' exists in the expression scope",
                 (*expr_p)->u.identifier);
             return -1;
         }

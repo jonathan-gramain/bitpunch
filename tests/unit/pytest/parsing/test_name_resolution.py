@@ -224,6 +224,36 @@ struct Foo {
     u8[4] sub_foo;
 };
 
+""", """
+type u8 byte: integer(signed=false);
+
+file {
+    u8 foo_offset;
+    u8 nb_foo;
+    u8 foo_size;
+    ?data => bytes(file)[foo_offset..]: Foo[nb_foo];
+    ?data_slice => ?data[2..3];
+}
+
+struct Foo {
+    u8[foo_size] sub_foo;
+};
+
+""", """
+type u8 byte: integer(signed=false);
+
+file {
+    byte foo_offset;
+    byte nb_foo;
+    byte foo_size;
+    ?data => bytes(file)[foo_offset:u8..]: Foo[nb_foo:u8];
+    ?data_slice => ?data[2..3];
+}
+
+struct Foo {
+    u8[foo_size:u8] sub_foo;
+};
+
 """
 ]
 
