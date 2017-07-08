@@ -179,6 +179,51 @@ struct Bar {
     byte[length] contents;
 };
 
+""", """
+type u8 byte: integer(signed=false);
+
+file {
+    byte[] data;
+    ?data_slice => data[10..20];
+}
+
+""", """
+type u8 byte: integer(signed=false);
+
+file {
+    byte[] data;
+    ?data => data;
+    ?data_slice1 => ?data[10..20];
+}
+
+""", """
+type u8 byte: integer(signed=false);
+
+file {
+    ?data => bytes(file);
+    ?data_slice1 => ?data[10..20];
+}
+
+""", """
+type u8 byte: integer(signed=false);
+
+file {
+    ?data => bytes(file)[..];
+    ?data_slice1 => ?data[10..20];
+}
+
+""", """
+type u8 byte: integer(signed=false);
+
+file {
+    ?data => bytes(file)[..]: Foo;
+    ?data_slice1 => ?data;
+}
+
+struct Foo {
+    u8[4] sub_foo;
+};
+
 """
 ]
 
@@ -204,4 +249,5 @@ def test_unknown_typename():
 
     #FIXME use custom error for syntax errors
     with pytest.raises(OSError):
-        dtree = model.DataTree('', spec_unknown_type_name_1)
+        dtree = model.DataTree('abcdefghij',
+                               spec_unknown_type_name_1)

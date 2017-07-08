@@ -3191,6 +3191,7 @@ resolve2_expr_as_type(struct ast_node **expr_p)
         return -1;
     }
     if (NULL != as_type
+        && AST_NODE_TYPE_NONE != target_item->type
         && !(ASTFLAG_IS_SPAN_SIZE_DYNAMIC & as_type->flags)
         && (ast_node_get_min_span_size(as_type)
             > ast_node_get_min_span_size(target_item))) {
