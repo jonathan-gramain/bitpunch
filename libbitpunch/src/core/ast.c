@@ -2167,13 +2167,11 @@ resolve_expr_subscript_common(struct ast_node **expr_p,
     anchor_expr = (*expr_p)->u.op_subscript_common.anchor_expr;
     anchor_item = anchor_expr->u.rexpr.target_item;
     if (NULL != anchor_item) {
-        if (anchor_item->type != AST_NODE_TYPE_ARRAY &&
-            anchor_item->type != AST_NODE_TYPE_ARRAY_SLICE &&
-            anchor_item->type != AST_NODE_TYPE_BYTE_ARRAY &&
-            anchor_item->type != AST_NODE_TYPE_BYTE_SLICE) {
+        if (! ast_node_is_subscriptable_container(anchor_item)) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &(*expr_p)->loc,
-                "invalid use of subscript operator on non-array path");
+                "invalid use of subscript operator on non-subscriptable "
+                "path");
             return -1;
         }
     } else {
@@ -3835,6 +3833,20 @@ ast_node_is_byte_container(const struct ast_node *node)
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
     case AST_NODE_TYPE_FILTERED:
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
+int
+ast_node_is_subscriptable_container(const struct ast_node *node)
+{
+    switch (node->type) {
+    case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_ARRAY_SLICE:
+    case AST_NODE_TYPE_BYTE_ARRAY:
+    case AST_NODE_TYPE_BYTE_SLICE:
         return TRUE;
     default:
         return FALSE;

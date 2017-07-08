@@ -53,6 +53,8 @@ ast_node_is_origin_container(const struct ast_node *node);
 int
 ast_node_is_byte_container(const struct ast_node *node);
 int
+ast_node_is_subscriptable_container(const struct ast_node *node);
+int
 ast_node_is_slice_container(const struct ast_node *node);
 int
 ast_node_is_item(const struct ast_node *node);
