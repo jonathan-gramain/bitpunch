@@ -154,7 +154,7 @@ expr_evalop_eq_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_eq_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_EQ,
+    .op_type = AST_NODE_TYPE_REXPR_OP_EQ,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -174,7 +174,7 @@ expr_evalop_eq_boolean_boolean(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_eq_boolean_boolean = {
-    .op_type = AST_NODE_TYPE_OP_EQ,
+    .op_type = AST_NODE_TYPE_REXPR_OP_EQ,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_BOOLEAN,
@@ -196,7 +196,7 @@ expr_evalop_eq_string_string(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_eq_string_string = {
-    .op_type = AST_NODE_TYPE_OP_EQ,
+    .op_type = AST_NODE_TYPE_REXPR_OP_EQ,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_STRING,
@@ -219,7 +219,7 @@ expr_evalop_ne_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_ne_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_NE,
+    .op_type = AST_NODE_TYPE_REXPR_OP_NE,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -239,7 +239,7 @@ expr_evalop_ne_boolean_boolean(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_ne_boolean_boolean = {
-    .op_type = AST_NODE_TYPE_OP_NE,
+    .op_type = AST_NODE_TYPE_REXPR_OP_NE,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_BOOLEAN,
@@ -261,7 +261,7 @@ expr_evalop_ne_string_string(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_ne_string_string = {
-    .op_type = AST_NODE_TYPE_OP_NE,
+    .op_type = AST_NODE_TYPE_REXPR_OP_NE,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_STRING,
@@ -284,7 +284,7 @@ expr_evalop_lt_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_lt_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_LT,
+    .op_type = AST_NODE_TYPE_REXPR_OP_LT,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -306,7 +306,7 @@ expr_evalop_le_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_le_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_LE,
+    .op_type = AST_NODE_TYPE_REXPR_OP_LE,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -328,7 +328,7 @@ expr_evalop_gt_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_gt_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_GT,
+    .op_type = AST_NODE_TYPE_REXPR_OP_GT,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -350,7 +350,7 @@ expr_evalop_ge_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_ge_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_GE,
+    .op_type = AST_NODE_TYPE_REXPR_OP_GE,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -373,7 +373,7 @@ expr_evalop_lor_boolean_boolean(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_lor_boolean_boolean = {
-    .op_type = AST_NODE_TYPE_OP_LOR,
+    .op_type = AST_NODE_TYPE_REXPR_OP_LOR,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_BOOLEAN,
@@ -395,7 +395,7 @@ expr_evalop_land_boolean_boolean(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_land_boolean_boolean = {
-    .op_type = AST_NODE_TYPE_OP_LAND,
+    .op_type = AST_NODE_TYPE_REXPR_OP_LAND,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_BOOLEAN,
@@ -418,7 +418,7 @@ expr_evalop_lnot_boolean(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_lnot_boolean = {
-    .op_type = AST_NODE_TYPE_OP_LNOT,
+    .op_type = AST_NODE_TYPE_REXPR_OP_LNOT,
     .n_opd = 1,
     .opd_types = {
         EXPR_VALUE_TYPE_BOOLEAN
@@ -440,7 +440,7 @@ expr_evalop_bwor_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_bwor_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_BWOR,
+    .op_type = AST_NODE_TYPE_REXPR_OP_BWOR,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -462,7 +462,7 @@ expr_evalop_bwand_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_bwand_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_BWAND,
+    .op_type = AST_NODE_TYPE_REXPR_OP_BWAND,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -484,7 +484,7 @@ expr_evalop_bwxor_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_bwxor_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_BWXOR,
+    .op_type = AST_NODE_TYPE_REXPR_OP_BWXOR,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -506,7 +506,7 @@ expr_evalop_bwnot_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_bwnot_integer = {
-    .op_type = AST_NODE_TYPE_OP_BWNOT,
+    .op_type = AST_NODE_TYPE_REXPR_OP_BWNOT,
     .n_opd = 1,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER
@@ -528,7 +528,7 @@ expr_evalop_lshift_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_lshift_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_LSHIFT,
+    .op_type = AST_NODE_TYPE_REXPR_OP_LSHIFT,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -550,7 +550,7 @@ expr_evalop_rshift_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_rshift_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_RSHIFT,
+    .op_type = AST_NODE_TYPE_REXPR_OP_RSHIFT,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -573,7 +573,7 @@ expr_evalop_add_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_add_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_ADD,
+    .op_type = AST_NODE_TYPE_REXPR_OP_ADD,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -595,7 +595,7 @@ expr_evalop_sub_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_sub_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_SUB,
+    .op_type = AST_NODE_TYPE_REXPR_OP_SUB,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -617,7 +617,7 @@ expr_evalop_mul_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_mul_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_MUL,
+    .op_type = AST_NODE_TYPE_REXPR_OP_MUL,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -639,7 +639,7 @@ expr_evalop_div_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_div_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_DIV,
+    .op_type = AST_NODE_TYPE_REXPR_OP_DIV,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -661,7 +661,7 @@ expr_evalop_mod_integer_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_mod_integer_integer = {
-    .op_type = AST_NODE_TYPE_OP_MOD,
+    .op_type = AST_NODE_TYPE_REXPR_OP_MOD,
     .n_opd = 2,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER,
@@ -683,7 +683,7 @@ expr_evalop_uplus_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_uplus_integer = {
-    .op_type = AST_NODE_TYPE_OP_UPLUS,
+    .op_type = AST_NODE_TYPE_REXPR_OP_UPLUS,
     .n_opd = 1,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER
@@ -702,7 +702,7 @@ expr_evalop_uminus_integer(union expr_value operands[])
 }
 
 static struct expr_evalop_match_item match_uminus_integer = {
-    .op_type = AST_NODE_TYPE_OP_UMINUS,
+    .op_type = AST_NODE_TYPE_REXPR_OP_UMINUS,
     .n_opd = 1,
     .opd_types = {
         EXPR_VALUE_TYPE_INTEGER
@@ -1708,7 +1708,7 @@ expr_evaluate_dpath_internal(struct ast_node *expr, struct box *scope,
         return expr_evaluate_dpath_self(expr, scope, eval_dpathp, bst);
     case AST_NODE_TYPE_REXPR_FIELD:
         return expr_evaluate_dpath_field(expr, scope, eval_dpathp, bst);
-    case AST_NODE_TYPE_REXPR_MEMBER:
+    case AST_NODE_TYPE_REXPR_LINK:
         return expr_evaluate_dpath_link(expr, scope, eval_dpathp, bst);
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT:
         return expr_evaluate_dpath_subscript(expr, scope, eval_dpathp, bst);
@@ -1834,13 +1834,16 @@ expr_evaluate_dpath_field(struct ast_node *expr, struct box *scope,
                            union expr_dpath *eval_dpathp,
                           struct browse_state *bst)
 {
+    struct ast_node *anchor_expr;
+    struct ast_node *anchor_block;
     bitpunch_status_t bt_ret;
     struct tracker *tk;
 
     assert(EXPR_DPATH_TYPE_ITEM == expr->u.rexpr.dpath_type);
-    bt_ret = expr_evaluate_dpath_anchor_common(
-        expr->u.rexpr_field.anchor_expr,
-        expr->u.rexpr_field.block, scope, &tk, bst);
+    anchor_expr = expr->u.rexpr_member_common.anchor_expr;
+    anchor_block = expr->u.rexpr_member_common.anchor_block;
+    bt_ret = expr_evaluate_dpath_anchor_common(anchor_expr, anchor_block,
+                                               scope, &tk, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -1898,6 +1901,8 @@ expr_evaluate_dpath_link(struct ast_node *expr, struct box *scope,
                          union expr_dpath *eval_dpathp,
                          struct browse_state *bst)
 {
+    struct ast_node *anchor_expr;
+    struct ast_node *anchor_block;
     bitpunch_status_t bt_ret;
     bitpunch_status_t bt_ret_1st_failure;
     struct tracker *tk;
@@ -1908,9 +1913,10 @@ expr_evaluate_dpath_link(struct ast_node *expr, struct box *scope,
     union expr_dpath eval_dpath;
     union expr_dpath converted_dpath;
 
-    bt_ret = expr_evaluate_dpath_anchor_common(
-        expr->u.rexpr_link.anchor_expr,
-        expr->u.rexpr_link.block, scope, &tk, bst);
+    anchor_expr = expr->u.rexpr_member_common.anchor_expr;
+    anchor_block = expr->u.rexpr_member_common.anchor_block;
+    bt_ret = expr_evaluate_dpath_anchor_common(anchor_expr, anchor_block,
+                                               scope, &tk, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -2168,7 +2174,7 @@ expr_evaluate_dpath_as_type(struct ast_node *expr, struct box *scope,
     struct box *dst_box;
     struct box *as_box;
 
-    as_type = expr->u.rexpr_as_type.as_type;
+    as_type = expr->u.rexpr_filter.filter_type;
     target = expr->u.rexpr_filter.target;
     bt_ret = expr_evaluate_dpath_internal(target,
                                           scope, &source_eval, bst);
@@ -2238,7 +2244,7 @@ expr_read_dpath_value_internal(struct ast_node *expr,
                                struct browse_state *bst)
 {
     switch (expr->type) {
-    case AST_NODE_TYPE_REXPR_MEMBER:
+    case AST_NODE_TYPE_REXPR_LINK:
         return expr_read_dpath_value_link(expr, dpath, expr_valuep, bst);
     case AST_NODE_TYPE_REXPR_INTERPRETER:
         return expr_read_dpath_value_interpreter(expr, dpath,

@@ -158,7 +158,7 @@ base64_rcall_build(struct ast_node *rcall,
 {
     const struct ast_node *data_source;
 
-    data_source = call->u.filter.target;
+    data_source = call->u.rexpr_filter.target;
     if (AST_NODE_TYPE_BYTE_ARRAY != data_source->type) {
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &call->loc,

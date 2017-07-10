@@ -2858,7 +2858,7 @@ node_is_complex_type(const struct ast_node *node)
     if (NULL != filter) {
         if (AST_NODE_TYPE_REXPR_AS_TYPE == filter->type) {
             return ast_node_is_origin_container(
-                filter->u.rexpr_as_type.as_type);
+                filter->u.rexpr_filter.filter_type);
         }
         return FALSE;
     }

@@ -173,7 +173,7 @@ interpreter_rcall_build(const struct interpreter *interpreter,
     rcall = malloc0_safe(INTERPRETER_RCALL_BASE_SIZE
                          + (interpreter->max_param_ref + 1)
                          * sizeof (struct ast_node));
-    rcall->type = AST_NODE_TYPE_REXPR_INTERPRETER;
+    memcpy(rcall, filter, INTERPRETER_RCALL_BASE_SIZE);
     // default dpath type for type-declared interpreters, may be
     // overriden in expressions
     rcall->u.rexpr.dpath_type = EXPR_DPATH_TYPE_ITEM;
@@ -197,20 +197,20 @@ rcall_build_params(struct ast_node *rcall,
                    const struct interpreter *interpreter,
                    const struct ast_node *filter)
 {
-    const struct filter *call;
+    struct param_list *param_list;
     struct param *param;
     struct ast_node *param_valuep;
     int param_ref;
     struct interpreter_param_def *param_def;
     int sem_error = FALSE;
 
-    call = &filter->u.filter;
+    param_list = filter->u.rexpr_interpreter.param_list;
     for (param_ref = 0;
          param_ref <= interpreter->max_param_ref; ++param_ref) {
         param_valuep = INTERPRETER_RCALL_PARAM(rcall, param_ref);
         param_valuep->type = AST_NODE_TYPE_NONE;
     }
-    STAILQ_FOREACH(param, call->param_list, list) {
+    STAILQ_FOREACH(param, param_list, list) {
         param_ref = get_param_index(interpreter, param->name);
         if (-1 == param_ref) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR, &param->loc,

@@ -1166,7 +1166,7 @@ box_apply_filter_as_type(struct box *unfiltered_box,
     struct box *as_type_box;
     bitpunch_status_t bt_ret;
 
-    as_type_node = filter->u.rexpr_as_type.as_type;
+    as_type_node = filter->u.rexpr_filter.filter_type;
     if (! ast_node_is_container(as_type_node)) {
         return box_error(BITPUNCH_NOT_CONTAINER,
                          unfiltered_box, as_type_node, bst,
@@ -5316,10 +5316,6 @@ tracker_goto_first_item__array_slack(struct tracker *tk,
     DBG_TRACKER_CHECK_STATE(tk);
 
     /* check if there's size for at least one element */
-    bt_ret = tracker_compute_item_offset(tk, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
     WITH_EXPECTED_ERROR(BITPUNCH_OUT_OF_BOUNDS_ERROR, {
         bt_ret = tracker_compute_item_size(tk, bst);
     });

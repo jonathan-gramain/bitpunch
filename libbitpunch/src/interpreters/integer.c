@@ -120,8 +120,8 @@ binary_integer_rcall_build(struct ast_node *rcall,
     assert(param_values[REF_ENDIAN].type == AST_NODE_TYPE_IDENTIFIER ||
            param_values[REF_ENDIAN].type == AST_NODE_TYPE_NONE);
 
-    assert(AST_NODE_TYPE_FILTER == call->type);
-    data_source = call->u.filter.target;
+    assert(AST_NODE_TYPE_REXPR_INTERPRETER == call->type);
+    data_source = call->u.rexpr_filter.target;
     assert(NULL != data_source);
     if (ast_node_is_rexpr(data_source)) {
         if (!ast_node_is_rexpr_to_item(data_source)) {

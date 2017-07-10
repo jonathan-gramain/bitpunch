@@ -248,7 +248,7 @@
             AST_NODE_TYPE_REXPR_INTERPRETER,
             AST_NODE_TYPE_REXPR_AS_TYPE,
             AST_NODE_TYPE_REXPR_FIELD,
-            AST_NODE_TYPE_REXPR_MEMBER,
+            AST_NODE_TYPE_REXPR_LINK,
             AST_NODE_TYPE_REXPR_BUILTIN,
             AST_NODE_TYPE_REXPR_OP_SUBSCRIPT,
             AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE,
@@ -342,9 +342,11 @@
             struct rexpr_filter {
                 struct rexpr rexpr; /* inherits */
                 struct ast_node *target;
+                struct ast_node *filter_type;
             } rexpr_filter; /* base, not instanciable */
             struct rexpr_interpreter {
                 struct rexpr_filter rexpr_filter; /* inherits */
+                struct param_list *param_list;
                 const struct interpreter *interpreter;
                 interpreter_read_func_t read_func;
                 interpreter_write_func_t write_func;
@@ -355,22 +357,25 @@
             } rexpr_interpreter;
             struct rexpr_as_type {
                 struct rexpr_filter rexpr_filter; /* inherits */
-                struct ast_node *as_type;
             } rexpr_as_type;
             struct rexpr_native {
                 struct rexpr rexpr; /* inherits */
                 union expr_value value;
             } rexpr_native;
-            struct rexpr_field {
+            struct rexpr_member_common {
                 struct rexpr rexpr; /* inherits */
                 struct ast_node *anchor_expr;
-                const struct ast_node *block;
+                struct ast_node *anchor_block;
+                struct ast_node *member;
+            } rexpr_member_common;
+            struct rexpr_field {
+                /* inherits */
+                struct rexpr_member_common rexpr_member_common;
                 const struct field *field;
             } rexpr_field;
             struct rexpr_link {
-                struct rexpr rexpr; /* inherits */
-                struct ast_node *anchor_expr;
-                const struct ast_node *block;
+                /* inherits */
+                struct rexpr_member_common rexpr_member_common;
                 const struct link *link;
             } rexpr_link;
             struct rexpr_builtin {
@@ -895,6 +900,7 @@ expr:
     }
   | expr '.' g_identifier {
         $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_MEMBER, $1, $3, &@2);
+        parser_location_make_span(&$$->loc, &@1, &@3);
     }
   | expr ':' filter {
         $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_SET_FILTER, $1, $3, &@2);
@@ -1718,7 +1724,7 @@ ast_node_type_str(enum ast_node_type type)
         return "array subscript slice";
     case AST_NODE_TYPE_OP_MEMBER: return "operator 'member of'";
     case AST_NODE_TYPE_REXPR_FIELD: return "field expression";
-    case AST_NODE_TYPE_REXPR_MEMBER: return "member expression";
+    case AST_NODE_TYPE_REXPR_LINK: return "link expression";
     case AST_NODE_TYPE_REXPR_BUILTIN: return "builtin expression";
     }
     return "!!bad value type!!";
