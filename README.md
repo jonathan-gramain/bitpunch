@@ -107,7 +107,7 @@ purpose tool instead of restricting it to .mp4.
 ## License
 
 - The libbitpunch C library and the bitpunch Python package (the
-  Python bindings) are distributed under a New BSD License.
+  Python bindings) are distributed under a 3-Clause BSD License.
 
 - The bitpunch Command-Line tool and its helper Python package
   "nestedcmd" are distributed under a GPL v3 license.

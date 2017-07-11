@@ -289,3 +289,6 @@ This is NOT an organized or prioritized list.
 - allow to pass an arbitrary item as second argument to model.eval(),
   not just the root DataTree (allows easier scoping of expressions)
 
+BUG: taking address '&' of link expression does not work anymore
+
+BUG: rework filter operator '*' to make it work again
