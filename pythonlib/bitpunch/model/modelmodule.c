@@ -778,6 +778,22 @@ static PyBufferProcs DataContainerAsBuffer = {
     .bf_getbuffer = (getbufferproc)DataContainer_bf_getbuffer,
 };
 
+static PyObject *
+DataContainer_keys(DataContainerObject *self);
+
+static PyObject *
+DataContainer_items(DataContainerObject *self);
+
+static PyMethodDef DataContainer_methods[] = {
+    { "keys", (PyCFunction)DataContainer_keys, METH_NOARGS,
+      "Get an iterator over the array keys."
+    },
+    { "items", (PyCFunction)DataContainer_items, METH_NOARGS,
+      "Get an iterator over the array items as (key, value) tuples."
+    },
+    { NULL, NULL, 0, NULL }
+};
+
 static PyTypeObject DataContainerType = {
     PyObject_HEAD_INIT(NULL)
     0,                           /*ob_size*/
@@ -809,7 +825,7 @@ static PyTypeObject DataContainerType = {
     0,		               /* tp_weaklistoffset */
     0,		               /* tp_iter */
     0,		               /* tp_iternext */
-    0,                         /* tp_methods */
+    DataContainer_methods,     /* tp_methods */
     0,                         /* tp_members */
     0,                         /* tp_getset */
     0,                         /* tp_base */
@@ -1097,8 +1113,10 @@ DataBlock_eval_link(DataBlockObject *self, const char *attr_str)
 }
 
 static PyObject *
-DataBlock_getattro(DataBlockObject *self, PyObject *attr_name)
+DataBlock_getattr_base(DataBlockObject *self, PyObject *attr_name,
+                       int find_methods)
 {
+    PyObject *attr;
     const char *attr_str;
 
     if (!PyString_Check(attr_name)) {
@@ -1108,11 +1126,24 @@ DataBlock_getattro(DataBlockObject *self, PyObject *attr_name)
     attr_str = PyString_AS_STRING(attr_name);
     if (0 == strcmp(attr_str, "__dict__")) {
         return DataContainer_get_dict(&self->container, attr_str);
-    } else if (attr_str[0] == '?') {
-        return DataBlock_eval_link(self, attr_str);
-    } else {
-        return DataContainer_get_item(&self->container, attr_str);
     }
+    if (attr_str[0] == '?') {
+        return DataBlock_eval_link(self, attr_str);
+    }
+    if (find_methods) {
+        attr = PyObject_GenericGetAttr((PyObject *)self, attr_name);
+        if (NULL != attr) {
+            return attr;
+        }
+        PyErr_Clear();
+    }
+    return DataContainer_get_item(&self->container, attr_str);
+}
+
+static PyObject *
+DataBlock_getattro(DataBlockObject *self, PyObject *attr_name)
+{
+    return DataBlock_getattr_base(self, attr_name, TRUE);
 }
 
 static PyObject *
@@ -1120,7 +1151,7 @@ DataBlock_mp_subscript(PyObject *_d_blk, PyObject *key)
 {
     DataBlockObject *d_blk = (DataBlockObject *)_d_blk;
 
-    return DataBlock_getattro(d_blk, key);
+    return DataBlock_getattr_base(d_blk, key, FALSE);
 }
 
 static PyMappingMethods DataBlock_as_mapping = {
@@ -1493,22 +1524,8 @@ static PyObject *
 DataArray_bytes_box_to_python_object(struct DataTreeObject *dtree,
                                      struct box *box);
 
-static PyObject *
-DataArray_keys(DataArrayObject *self);
-
-static PyObject *
-DataArray_items(DataArrayObject *self);
-
 
 static PyMethodDef DataArray_methods[] = {
-
-    { "keys", (PyCFunction)DataArray_keys, METH_NOARGS,
-      "Get an iterator over the array keys."
-    },
-
-    { "items", (PyCFunction)DataArray_items, METH_NOARGS,
-      "Get an iterator over the array items as (key, value) tuples."
-    },
 
     { NULL, NULL, 0, NULL }
 };
@@ -2674,6 +2691,30 @@ TrackerType_setup(void)
 
 
 static PyObject *
+DataContainer_keys(DataContainerObject *self)
+{
+    TrackerObject *tracker;
+
+    tracker = Tracker_new_from_DataContainer(&TrackerType, self);
+    if (NULL != tracker) {
+        tracker->iter_mode = TRACKER_ITER_FIELD_NAMES;
+    }
+    return (PyObject *)tracker;
+}
+
+static PyObject *
+DataContainer_items(DataContainerObject *self)
+{
+    TrackerObject *tracker;
+
+    tracker = Tracker_new_from_DataContainer(&TrackerType, self);
+    if (NULL != tracker) {
+        tracker->iter_mode = TRACKER_ITER_FIELD_KEYVALUE_TUPLES;
+    }
+    return (PyObject *)tracker;
+}
+
+static PyObject *
 DataContainer_iter(DataContainerObject *self)
 {
     TrackerObject *iter;
@@ -2716,32 +2757,6 @@ DataContainer_bf_getbuffer(DataContainerObject *exporter,
     return PyBuffer_FillInfo(view, (PyObject *)exporter,
                              (void *)buf, (Py_ssize_t)len,
                              TRUE /* read-only */, flags);
-}
-
-static PyObject *
-DataArray_keys(DataArrayObject *self)
-{
-    TrackerObject *tracker;
-
-    tracker = Tracker_new_from_DataContainer(&TrackerType,
-                                             (DataContainerObject *)self);
-    if (NULL != tracker) {
-        tracker->iter_mode = TRACKER_ITER_FIELD_NAMES;
-    }
-    return (PyObject *)tracker;
-}
-
-static PyObject *
-DataArray_items(DataArrayObject *self)
-{
-    TrackerObject *tracker;
-
-    tracker = Tracker_new_from_DataContainer(&TrackerType,
-                                             (DataContainerObject *)self);
-    if (NULL != tracker) {
-        tracker->iter_mode = TRACKER_ITER_FIELD_KEYVALUE_TUPLES;
-    }
-    return (PyObject *)tracker;
 }
 
 
@@ -3088,7 +3103,8 @@ mod_bitpunch_eval(PyObject *self, PyObject *args, PyObject *kwds)
 {
     static char *kwlist[] = { "expr", "dtree", "tracker", NULL };
     const char *expr;
-    DataTreeObject *dtree = NULL;
+    DataContainerObject *cont = NULL;
+    DataTreeObject *dtree;
     int tracker = FALSE;
     struct bitpunch_schema_hdl *schema;
     struct bitpunch_binary_file_hdl *binary_file;
@@ -3102,18 +3118,20 @@ mod_bitpunch_eval(PyObject *self, PyObject *args, PyObject *kwds)
     //TODO: be able to evaluate expressions from any data container context
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|Oi", kwlist,
-                                     &expr, &dtree, &tracker)) {
+                                     &expr, &cont, &tracker)) {
         return NULL;
     }
-    if (NULL != dtree && (PyObject *)dtree != Py_None) {
-        if (!PyObject_TypeCheck((PyObject *)dtree, &DataTreeType)) {
+    if (NULL != cont && (PyObject *)cont != Py_None) {
+        if (!PyObject_TypeCheck((PyObject *)cont, &DataContainerType)) {
             return PyErr_Format(PyExc_TypeError,
                                 "Second argument must be a "
-                                "'bitpunch.DataTree' object");
+                                "'bitpunch.DataContainer' object");
         }
+        dtree = cont->dtree;
         schema = dtree->fmt->schema;
         binary_file = dtree->binary_file;
     } else {
+        dtree = NULL;
         schema = NULL;
         binary_file = NULL;
     }

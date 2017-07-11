@@ -194,5 +194,5 @@ def test_footer_with_implicit_padding(params_footer_with_implicit_padding):
     assert model.get_size(dtree.root.footer) == 14
 
     assert model.get_size(dtree.root.footer) == dtree.root.footer.footer_size
-    assert model.get_size(dtree.root.items) == 12
+    assert model.get_size(dtree.root['items']) == 12
     assert model.get_size(dtree.root) == 33
