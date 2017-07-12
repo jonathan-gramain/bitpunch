@@ -3956,10 +3956,7 @@ tracker_error_new(bitpunch_status_t bt_ret,
     } else {
         assert(NULL == tk);
         tk_err->box = box;
-        // no box_acquire() here, tk_err does not own a reference to
-        // box (to avoid a circular reference).
-        // This is safe since tk_err cannot live longer than the box,
-        // since the box will destroy tk_err before destroying itself.
+        box_acquire(box);
     }
     tk_err->bt_ret = bt_ret;
     tk_err->node = node;
@@ -3990,6 +3987,9 @@ tracker_error_destroy(struct tracker_error *tk_err)
         if (NULL != tk_err->tk) {
             assert(NULL == tk_err->box);
             tracker_delete(tk_err->tk);
+        } else {
+            assert(NULL != tk_err->box);
+            box_delete(tk_err->box);
         }
         for (ctx_i = 0; ctx_i < tk_err->n_contexts; ++ctx_i) {
             struct tracker_error_context_info *ctx_info;

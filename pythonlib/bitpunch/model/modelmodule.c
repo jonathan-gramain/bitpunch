@@ -35,6 +35,7 @@
 #include "api/bitpunch-structs.h"
 #include "api/bitpunch_api.h"
 #include "core/browse_internal.h"
+#include "core/expr_internal.h"
 #include "core/print.h"
 
 #define MAX_KEY_LENGTH 4096
@@ -1051,10 +1052,11 @@ DataBlock_eval_link_value_internal(DataBlockObject *self,
     enum expr_value_type value_type;
     union expr_value value_eval;
 
-    bt_ret = link_evaluate_value(link, self->container.box,
-                                 &value_type, &value_eval);
+    bt_ret = link_evaluate_value_internal(link, self->container.box,
+                                          &value_type, &value_eval, bst);
     if (BITPUNCH_OK != bt_ret) {
         set_tracker_error(bst->last_error, bt_ret);
+        bst->last_error = NULL;
         return NULL;
     }
     return expr_to_PyObject(self->container.dtree,
@@ -1070,10 +1072,11 @@ DataBlock_eval_link_dpath_internal(DataBlockObject *self,
     enum expr_dpath_type dpath_type;
     union expr_dpath dpath_eval;
 
-    bt_ret = link_evaluate_dpath(link, self->container.box,
-                                 &dpath_type, &dpath_eval);
+    bt_ret = link_evaluate_dpath_internal(link, self->container.box,
+                                          &dpath_type, &dpath_eval, bst);
     if (BITPUNCH_OK != bt_ret) {
         set_tracker_error(bst->last_error, bt_ret);
+        bst->last_error = NULL;
         return NULL;
     }
     return expr_dpath_to_PyObject(self->container.dtree,
