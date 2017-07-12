@@ -183,3 +183,51 @@ def test_links_4(params_links_4):
     numbers = dtree['?first_and_second_numbers']
     assert numbers[0].value == 2
     assert numbers[1].value == 3
+
+
+spec_file_links_invalid_1 = """
+
+type u16 byte[2]: integer(signed=false, endian=little);
+
+struct Number {
+    u16 value;
+};
+
+file {
+    byte[] data;
+    ?something => does_not_exist;
+}
+
+"""
+
+spec_file_links_invalid_2 = """
+
+type u16 byte[2]: integer(signed=false, endian=little);
+
+struct Number {
+    u16 value;
+};
+
+file {
+    byte[] data;
+    ?something => ?does_not_exist;
+}
+
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_links_invalid_1,
+    }, {
+        'spec': spec_file_links_invalid_2,
+    }])
+def params_links_invalid(request):
+    return request.param
+
+
+def test_links_invalid(params_links_invalid):
+    params = params_links_invalid
+    spec = params['spec']
+    with pytest.raises(OSError):
+        dtree = model.DataTree('', spec)
