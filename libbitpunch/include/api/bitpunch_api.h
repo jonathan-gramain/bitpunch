@@ -83,12 +83,13 @@ bitpunch_free_binary_file(struct bitpunch_binary_file_hdl *bf);
 
 int
 bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
-                  struct bitpunch_binary_file_hdl *binary_file,
-                  const char *expr,
-                  enum expr_value_type *expr_value_typep,
-                  union expr_value *expr_valuep,
-                  enum expr_dpath_type *expr_dpath_typep,
-                  union expr_dpath *expr_dpathp);
+                   struct bitpunch_binary_file_hdl *binary_file,
+                   const char *expr,
+                   struct box *scope,
+                   enum expr_value_type *expr_value_typep,
+                   union expr_value *expr_valuep,
+                   enum expr_dpath_type *expr_dpath_typep,
+                   union expr_dpath *expr_dpathp);
 
 const char *
 bitpunch_status_pretty(bitpunch_status_t bt_ret);

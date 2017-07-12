@@ -424,18 +424,19 @@ bitpunch_free_binary_file(struct bitpunch_binary_file_hdl *bf)
 
 int
 bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
-                  struct bitpunch_binary_file_hdl *binary_file,
-                  const char *expr,
-                  enum expr_value_type *expr_value_typep,
-                  union expr_value *expr_valuep,
-                  enum expr_dpath_type *expr_dpath_typep,
-                  union expr_dpath *expr_dpathp)
+                   struct bitpunch_binary_file_hdl *binary_file,
+                   const char *expr,
+                   struct box *scope,
+                   enum expr_value_type *expr_value_typep,
+                   union expr_value *expr_valuep,
+                   enum expr_dpath_type *expr_dpath_typep,
+                   union expr_dpath *expr_dpathp)
 {
     struct ast_node *expr_node = NULL;
-    struct box *box = NULL;
     struct parser_ctx *parser_ctx = NULL;
     union expr_value expr_value;
     union expr_dpath expr_dpath;
+    const struct ast_node *scope_node;
 
     assert(NULL != expr);
 
@@ -443,34 +444,37 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
         return -1;
     }
     if (NULL != schema && NULL != binary_file) {
-        if (-1 == resolve_user_expr(&expr_node,
-                                    schema->df_file_block.root)) {
-            goto err;
-        }
-        assert(ast_node_is_rexpr(expr_node));
-        box = box_new_from_file(schema, binary_file);
-        if (NULL == box) {
-            goto err;
+        if (NULL == scope) {
+            scope = box_new_from_file(schema, binary_file);
+            if (NULL == scope) {
+                goto err;
+            }
+            scope_node = schema->df_file_block.root;
+        } else {
+            box_acquire(scope);
+            scope_node = scope->node;
         }
     } else {
-        if (-1 == resolve_user_expr(&expr_node, NULL)) {
-            goto err;
-        }
-        assert(ast_node_is_rexpr(expr_node));
+        scope = NULL; // just in case
+        scope_node = NULL;
     }
+    if (-1 == resolve_user_expr(&expr_node, scope_node)) {
+        goto err;
+    }
+    assert(ast_node_is_rexpr(expr_node));
     if (NULL != expr_dpathp
         && EXPR_DPATH_TYPE_NONE != expr_node->u.rexpr.dpath_type
-        && BITPUNCH_OK != expr_evaluate_dpath(expr_node, box,
+        && BITPUNCH_OK != expr_evaluate_dpath(expr_node, scope,
                                               &expr_dpath)) {
         goto err;
     }
     if (NULL != expr_valuep
         && EXPR_VALUE_TYPE_UNSET != expr_node->u.rexpr.value_type
-        && BITPUNCH_OK != expr_evaluate_value(expr_node, box,
+        && BITPUNCH_OK != expr_evaluate_value(expr_node, scope,
                                               &expr_value)) {
         goto err;
     }
-    box_delete(box);
+    box_delete(scope);
     if (NULL != expr_value_typep) {
         *expr_value_typep = expr_node->u.rexpr.value_type;
     }
@@ -488,7 +492,7 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
     return 0;
 
   err:
-    box_delete(box);
+    box_delete(scope);
     /* TODO free expr_node */
     free(parser_ctx);
     return -1;

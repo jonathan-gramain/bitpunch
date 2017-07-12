@@ -3105,6 +3105,7 @@ mod_bitpunch_eval(PyObject *self, PyObject *args, PyObject *kwds)
     const char *expr;
     DataContainerObject *cont = NULL;
     DataTreeObject *dtree;
+    struct box *scope;
     int tracker = FALSE;
     struct bitpunch_schema_hdl *schema;
     struct bitpunch_binary_file_hdl *binary_file;
@@ -3130,12 +3131,14 @@ mod_bitpunch_eval(PyObject *self, PyObject *args, PyObject *kwds)
         dtree = cont->dtree;
         schema = dtree->fmt->schema;
         binary_file = dtree->binary_file;
+        scope = cont->box;
     } else {
         dtree = NULL;
         schema = NULL;
         binary_file = NULL;
+        scope = NULL;
     }
-    ret = bitpunch_eval_expr(schema, binary_file, expr,
+    ret = bitpunch_eval_expr(schema, binary_file, expr, scope,
                             &expr_value_type, &expr_value,
                             &expr_dpath_type, &expr_dpath);
     if (-1 == ret) {
