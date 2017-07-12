@@ -597,10 +597,10 @@ box_set_used_size(struct box *box, int64_t used_size,
 }
 
 static bitpunch_status_t
-box_set_max_span_size(struct box *box, int64_t slack_size,
+box_set_max_span_size(struct box *box, int64_t max_span_size,
                       struct browse_state *bst)
 {
-    return box_set_size(box, slack_size, BOX_END_OFFSET_MAX_SPAN, bst);
+    return box_set_size(box, max_span_size, BOX_END_OFFSET_MAX_SPAN, bst);
 }
 
 
@@ -1166,6 +1166,10 @@ box_apply_filter_as_type(struct box *unfiltered_box,
     struct box *as_type_box;
     bitpunch_status_t bt_ret;
 
+    bt_ret = box_compute_max_span_size(unfiltered_box, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     as_type_node = filter->u.rexpr_filter.filter_type;
     if (! ast_node_is_container(as_type_node)) {
         return box_error(BITPUNCH_NOT_CONTAINER,
@@ -3387,6 +3391,16 @@ tracker_compute_item_size_internal(struct tracker *tk,
                                    int64_t *item_sizep,
                                    struct browse_state *bst)
 {
+    bitpunch_status_t bt_ret;
+
+    /* If span size is being computed, skip this, it normally means an
+     * item is being read to know its container box size. */
+    if (0 == (tk->box->flags & COMPUTING_SPAN_SIZE)) {
+        bt_ret = box_compute_max_span_size(tk->box, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
+    }
     return tk->item_node->u.container.b_tk.compute_item_size(
         tk, item_sizep, bst);
 }
@@ -6551,26 +6565,25 @@ browse_setup_backends__box__block(struct ast_node *node)
     if (0 != (node->flags & ASTFLAG_IS_ROOT_BLOCK)) {
         b_box->compute_used_size = box_compute_used_size__as_max_span;
         b_box->compute_slack_size = box_compute_slack_size__block_file;
+    } else if (0 != (node->flags & ASTFLAG_NEED_SLACK)) {
+        b_box->compute_slack_size = box_compute_slack_size__container_slack;
     } else {
-        if (0 == (node->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-            b_box->compute_used_size = box_compute_used_size__static_size;
-        } else if (0 != (node->flags & ASTFLAG_HAS_FOOTER)) {
-            b_box->compute_used_size = box_compute_used_size__as_max_span;
-        } else if (BLOCK_TYPE_STRUCT == node->u.block_def.type) {
-            b_box->compute_used_size =
-                box_compute_used_size__packed_dynamic_size;
-        } else /* union */ {
-            b_box->compute_used_size =
-                box_compute_used_size__union_dynamic_size;
-        }
-        if (0 != (node->flags & ASTFLAG_IS_ROOT_BLOCK)) {
-        } else if (0 != (node->flags & ASTFLAG_NEED_SLACK)) {
-            b_box->compute_slack_size =
-                box_compute_slack_size__container_slack;
-        } else {
-            b_box->compute_slack_size =
-                box_compute_slack_size__from_parent;
-        }
+        b_box->compute_slack_size = box_compute_slack_size__from_parent;
+    }
+    if (0 == (node->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+        b_box->compute_used_size = box_compute_used_size__static_size;
+    } else if (0 != (node->flags & ASTFLAG_HAS_FOOTER)) {
+        b_box->compute_used_size = box_compute_used_size__as_max_span;
+    } else if (BLOCK_TYPE_STRUCT == node->u.block_def.type) {
+        b_box->compute_used_size = box_compute_used_size__packed_dynamic_size;
+    } else /* union */ {
+        b_box->compute_used_size = box_compute_used_size__union_dynamic_size;
+    }
+    if (0 != (node->flags & ASTFLAG_IS_ROOT_BLOCK)) {
+    } else if (0 != (node->flags & ASTFLAG_NEED_SLACK)) {
+        b_box->compute_slack_size = box_compute_slack_size__container_slack;
+    } else {
+        b_box->compute_slack_size = box_compute_slack_size__from_parent;
     }
     if (!TAILQ_EMPTY(node->u.block_def.block_stmt_list.span_list)) {
         b_box->compute_min_span_size = box_compute_min_span_size__span_expr;
