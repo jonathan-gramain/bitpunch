@@ -89,7 +89,8 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
                    enum expr_value_type *expr_value_typep,
                    union expr_value *expr_valuep,
                    enum expr_dpath_type *expr_dpath_typep,
-                   union expr_dpath *expr_dpathp);
+                   union expr_dpath *expr_dpathp,
+                   struct tracker_error **errp);
 
 const char *
 bitpunch_status_pretty(bitpunch_status_t bt_ret);

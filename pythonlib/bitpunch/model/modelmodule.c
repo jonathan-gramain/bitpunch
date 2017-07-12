@@ -3118,6 +3118,7 @@ mod_bitpunch_eval(PyObject *self, PyObject *args, PyObject *kwds)
     enum expr_dpath_type expr_dpath_type;
     union expr_dpath expr_dpath;
     PyObject *res = NULL;
+    struct tracker_error *tk_err = NULL;
 
     //TODO: be able to evaluate expressions from any data container context
 
@@ -3142,11 +3143,17 @@ mod_bitpunch_eval(PyObject *self, PyObject *args, PyObject *kwds)
         scope = NULL;
     }
     ret = bitpunch_eval_expr(schema, binary_file, expr, scope,
-                            &expr_value_type, &expr_value,
-                            &expr_dpath_type, &expr_dpath);
+                             &expr_value_type, &expr_value,
+                             &expr_dpath_type, &expr_dpath,
+                             &tk_err);
     if (-1 == ret) {
-        return PyErr_Format(PyExc_ValueError,
-                            "Error evaluating expression '%s'", expr);
+        if (NULL != tk_err) {
+            set_tracker_error(tk_err, tk_err->bt_ret);
+        } else {
+            PyErr_Format(PyExc_ValueError,
+                         "Error evaluating expression '%s'", expr);
+        }
+        return NULL;
     }
     if (EXPR_DPATH_TYPE_NONE != expr_dpath_type
         && (tracker || EXPR_VALUE_TYPE_UNSET == expr_value_type)) {

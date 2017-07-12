@@ -38,6 +38,8 @@
 #include "api/bitpunch-structs.h"
 #include "core/parser.h"
 
+struct tracker_error;
+
 enum ast_node_type;
 struct ast_node;
 struct browse_state;
@@ -183,24 +185,30 @@ expr_value_cmp(enum expr_value_type type,
 
 bitpunch_status_t
 expr_evaluate_value(struct ast_node *expr, struct box *scope,
-                    union expr_value *eval_valuep);
+                    union expr_value *eval_valuep,
+                    struct tracker_error **errp);
 bitpunch_status_t
 expr_evaluate_dpath(struct ast_node *expr, struct box *scope,
-                    union expr_dpath *eval_dpathp);
+                    union expr_dpath *eval_dpathp,
+                    struct tracker_error **errp);
 bitpunch_status_t
 link_evaluate_dpath(const struct link *link, struct box *scope,
                     enum expr_dpath_type *dpath_typep,
-                    union expr_dpath *eval_dpathp);
+                    union expr_dpath *eval_dpathp,
+                    struct tracker_error **errp);
 bitpunch_status_t
 link_evaluate_value(const struct link *link, struct box *scope,
                     enum expr_value_type *value_typep,
-                    union expr_value *eval_valuep);
+                    union expr_value *eval_valuep,
+                    struct tracker_error **errp);
 bitpunch_status_t
 evaluate_conditional(struct ast_node *cond, struct box *scope,
-                     int *evalp);
+                     int *evalp,
+                     struct tracker_error **errp);
 bitpunch_status_t
 expr_read_dpath_value(struct ast_node *expr, union expr_dpath dpath,
-                      union expr_value *expr_valuep);
+                      union expr_value *expr_valuep,
+                      struct tracker_error **errp);
 const char *
 expr_value_type_str(enum expr_value_type type);
 

@@ -430,13 +430,15 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
                    enum expr_value_type *expr_value_typep,
                    union expr_value *expr_valuep,
                    enum expr_dpath_type *expr_dpath_typep,
-                   union expr_dpath *expr_dpathp)
+                   union expr_dpath *expr_dpathp,
+                   struct tracker_error **errp)
 {
     struct ast_node *expr_node = NULL;
     struct parser_ctx *parser_ctx = NULL;
     union expr_value expr_value;
     union expr_dpath expr_dpath;
     const struct ast_node *scope_node;
+    bitpunch_status_t bt_ret;
 
     assert(NULL != expr);
 
@@ -463,16 +465,20 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
     }
     assert(ast_node_is_rexpr(expr_node));
     if (NULL != expr_dpathp
-        && EXPR_DPATH_TYPE_NONE != expr_node->u.rexpr.dpath_type
-        && BITPUNCH_OK != expr_evaluate_dpath(expr_node, scope,
-                                              &expr_dpath)) {
-        goto err;
+        && EXPR_DPATH_TYPE_NONE != expr_node->u.rexpr.dpath_type) {
+        bt_ret = expr_evaluate_dpath(expr_node, scope,
+                                     &expr_dpath, errp);
+        if (BITPUNCH_OK != bt_ret) {
+            goto err;
+        }
     }
     if (NULL != expr_valuep
-        && EXPR_VALUE_TYPE_UNSET != expr_node->u.rexpr.value_type
-        && BITPUNCH_OK != expr_evaluate_value(expr_node, scope,
-                                              &expr_value)) {
-        goto err;
+        && EXPR_VALUE_TYPE_UNSET != expr_node->u.rexpr.value_type) {
+        bt_ret = expr_evaluate_value(expr_node, scope,
+                                     &expr_value, errp);
+        if (BITPUNCH_OK != bt_ret) {
+            goto err;
+        }
     }
     box_delete(scope);
     if (NULL != expr_value_typep) {

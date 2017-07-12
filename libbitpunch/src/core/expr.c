@@ -2390,69 +2390,99 @@ expr_value_to_hashable(enum expr_value_type type,
  * external API wrappers
  */
 
+static bitpunch_status_t
+transmit_error(bitpunch_status_t bt_ret, struct browse_state *bst,
+               struct tracker_error **errp)
+{
+    if (NULL != errp) {
+        *errp = bst->last_error;
+        bst->last_error = NULL;
+    }
+    browse_state_cleanup(bst);
+    return bt_ret;
+}
+
 bitpunch_status_t
 expr_evaluate_value(struct ast_node *expr, struct box *scope,
-                    union expr_value *eval_valuep)
+                    union expr_value *eval_valuep,
+                    struct tracker_error **errp)
 {
-    struct browse_state st;
+    struct browse_state bst;
 
     assert(NULL != eval_valuep);
 
-    browse_state_init(&st);
-    return expr_evaluate_value_internal(expr, scope, eval_valuep, &st);
+    browse_state_init(&bst);
+    return transmit_error(
+        expr_evaluate_value_internal(expr, scope, eval_valuep, &bst),
+        &bst, errp);
 }
 
 bitpunch_status_t
 expr_evaluate_dpath(struct ast_node *expr, struct box *scope,
-                    union expr_dpath *eval_dpathp)
+                    union expr_dpath *eval_dpathp,
+                    struct tracker_error **errp)
 {
-    struct browse_state st;
+    struct browse_state bst;
 
     assert(NULL != eval_dpathp);
 
-    browse_state_init(&st);
-    return expr_evaluate_dpath_internal(expr, scope, eval_dpathp, &st);
+    browse_state_init(&bst);
+    return transmit_error(
+        expr_evaluate_dpath_internal(expr, scope, eval_dpathp, &bst),
+        &bst, errp);
 }
 
 bitpunch_status_t
 link_evaluate_dpath(const struct link *link, struct box *scope,
                     enum expr_dpath_type *dpath_typep,
-                    union expr_dpath *eval_dpathp)
+                    union expr_dpath *eval_dpathp,
+                    struct tracker_error **errp)
 {
-    struct browse_state st;
+    struct browse_state bst;
 
-    browse_state_init(&st);
-    return link_evaluate_dpath_internal(link, scope,
-                                        dpath_typep, eval_dpathp, &st);
+    browse_state_init(&bst);
+    return transmit_error(
+        link_evaluate_dpath_internal(link, scope,
+                                     dpath_typep, eval_dpathp, &bst),
+        &bst, errp);
 }
 
 bitpunch_status_t
 link_evaluate_value(const struct link *link, struct box *scope,
                     enum expr_value_type *value_typep,
-                    union expr_value *eval_valuep)
+                    union expr_value *eval_valuep,
+                    struct tracker_error **errp)
 {
-    struct browse_state st;
+    struct browse_state bst;
 
-    browse_state_init(&st);
-    return link_evaluate_value_internal(link, scope,
-                                        value_typep, eval_valuep, &st);
+    browse_state_init(&bst);
+    return transmit_error(
+        link_evaluate_value_internal(link, scope,
+                                     value_typep, eval_valuep, &bst),
+        &bst, errp);
 }
 
 bitpunch_status_t
 evaluate_conditional(struct ast_node *cond, struct box *scope,
-                     int *evalp)
+                     int *evalp,
+                     struct tracker_error **errp)
 {
-    struct browse_state st;
+    struct browse_state bst;
 
-    browse_state_init(&st);
-    return evaluate_conditional_internal(cond, scope, evalp, &st);
+    browse_state_init(&bst);
+    return transmit_error(
+        evaluate_conditional_internal(cond, scope, evalp, &bst),
+        &bst, errp);
 }
 bitpunch_status_t
 expr_read_dpath_value(struct ast_node *expr, union expr_dpath dpath,
-                      union expr_value *expr_valuep)
+                      union expr_value *expr_valuep,
+                      struct tracker_error **errp)
 {
-    struct browse_state st;
+    struct browse_state bst;
 
-    browse_state_init(&st);
-    return expr_read_dpath_value_internal(expr, dpath, expr_valuep, &st);
+    browse_state_init(&bst);
+    return transmit_error(
+        expr_read_dpath_value_internal(expr, dpath, expr_valuep, &bst),
+        &bst, errp);
 }
