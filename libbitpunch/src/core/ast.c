@@ -2922,7 +2922,6 @@ resolve2_expr_operator_sizeof(struct ast_node **expr_p)
 {
     struct ast_node *operand;
     struct ast_node *item;
-    int allow_dynamic_span;
 
     switch ((*expr_p)->u.rexpr_op.op.operands[0]->type) {
     case AST_NODE_TYPE_BLOCK_DEF:
@@ -2936,7 +2935,13 @@ resolve2_expr_operator_sizeof(struct ast_node **expr_p)
         if (-1 == resolve2_dtype(item)) {
             return -1;
         }
-        allow_dynamic_span = FALSE;
+        if (0 != (item->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &(*expr_p)->loc,
+                "invalid use of sizeof operator on dynamic-sized type name\n"
+                "(use a path to field for computing size dynamically)");
+            return -1;
+        }
         break ;
     default:
         if (-1 == resolve2_expr(&(*expr_p)->u.rexpr_op.op.operands[0])) {
@@ -2947,19 +2952,9 @@ resolve2_expr_operator_sizeof(struct ast_node **expr_p)
         if (NULL != item && -1 == resolve2_dtype(item)) {
             return -1;
         }
-        allow_dynamic_span = TRUE;
         break ;
     }
-
-    if (! allow_dynamic_span
-        && 0 != (item->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &(*expr_p)->loc,
-            "invalid use of sizeof operator on dynamic-sized type name\n"
-            "(use a path to field for computing size dynamically)");
-        return -1;
-    }
-    if (0 == (item->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+    if (NULL != item && 0 == (item->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
         (*expr_p)->type = AST_NODE_TYPE_REXPR_NATIVE;
         (*expr_p)->u.rexpr.value_type = EXPR_VALUE_TYPE_INTEGER;
         (*expr_p)->u.rexpr.dpath_type = EXPR_DPATH_TYPE_NONE;
