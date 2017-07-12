@@ -2248,7 +2248,7 @@ box_compute_max_span_size(struct box *box,
         /* nothing to do */
         return BITPUNCH_OK;
     }
-    assert(!(box->flags & COMPUTING_SPAN_SIZE));
+    assert(0 == (box->flags & COMPUTING_SPAN_SIZE));
     box->flags |= COMPUTING_SPAN_SIZE;
     bt_ret = box->node->u.container.b_box.compute_max_span_size(box, bst);
     box->flags &= ~COMPUTING_SPAN_SIZE;
@@ -4451,9 +4451,12 @@ box_compute_max_span_size__span_expr(struct box *box,
         (const struct statement **)&span_stmt, bst);
     if (BITPUNCH_OK != bt_ret) {
         if (BITPUNCH_NO_ITEM == bt_ret) {
-            // no dynamic span enabled by conditional: max span is
-            // defined by available slack space
-            return box_compute_max_span_size__as_slack(box, bst);
+            // no dynamic span enabled by conditional
+            if (0 == (box->node->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+                return box_compute_max_span_size__as_used(box, bst);
+            } else {
+                return box_compute_max_span_size__as_slack(box, bst);
+            }
         } else {
             return bt_ret;
         }
@@ -6575,7 +6578,13 @@ browse_setup_backends__box__block(struct ast_node *node)
     } else {
         b_box->compute_min_span_size =
             box_compute_min_span_size__as_hard_min;
-        b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
+        if (0 == (node->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+            b_box->compute_max_span_size =
+                box_compute_max_span_size__as_used;
+        } else {
+            b_box->compute_max_span_size =
+                box_compute_max_span_size__as_slack;
+        }
     }
     if (BLOCK_TYPE_STRUCT == node->u.block_def.type) {
         b_box->get_max_slack_offset = box_get_children_slack__struct;
@@ -6735,12 +6744,13 @@ browse_setup_backends__box__byte_array(struct ast_node *node)
         b_box->compute_slack_size = box_compute_slack_size__from_parent;
     }
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
-    b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
     if (0 == (node->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
         b_box->compute_used_size = box_compute_used_size__static_size;
+        b_box->compute_max_span_size = box_compute_max_span_size__as_used;
     } else {
         b_box->compute_used_size =
             box_compute_used_size__byte_array_dynamic_size;
+        b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
     }
     if (NULL != node->u.byte_array.size) {
         b_box->get_n_items = box_get_n_items__byte_array_non_slack;
