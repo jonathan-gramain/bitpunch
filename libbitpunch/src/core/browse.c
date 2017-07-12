@@ -597,7 +597,7 @@ box_set_used_size(struct box *box, int64_t used_size,
 }
 
 static bitpunch_status_t
-box_set_span_size(struct box *box, int64_t slack_size,
+box_set_max_span_size(struct box *box, int64_t slack_size,
                       struct browse_state *bst)
 {
     return box_set_size(box, slack_size, BOX_END_OFFSET_MAX_SPAN, bst);
@@ -4285,8 +4285,8 @@ tracker_compute_item_size__static_size(struct tracker *tk,
 }
 
 static bitpunch_status_t
-box_compute_used_size__container_static_size(struct box *box,
-                                             struct browse_state *bst)
+box_compute_used_size__static_size(struct box *box,
+                                   struct browse_state *bst)
 {
     DBG_BOX_DUMP(box);
     return box_set_used_size(box, box->node->u.item.min_span_size, bst);
@@ -4431,7 +4431,7 @@ box_compute_min_span_size__span_expr(struct box *box,
     bt_ret = box_set_min_span_size(box, span_size.integer, bst);
     if (0 != (SPAN_FLAG_MAX & span_stmt->stmt.stmt_flags)
         && BITPUNCH_OK == bt_ret) {
-        bt_ret = box_set_span_size(box, span_size.integer, bst);
+        bt_ret = box_set_max_span_size(box, span_size.integer, bst);
     }
     return bt_ret;
 }
@@ -4476,7 +4476,7 @@ box_compute_max_span_size__span_expr(struct box *box,
         return bt_ret;
     }
     if (span_size.integer <= box->end_offset_slack) {
-        bt_ret = box_set_span_size(box, span_size.integer, bst);
+        bt_ret = box_set_max_span_size(box, span_size.integer, bst);
     } else {
         bt_ret = box_compute_max_span_size__as_slack(box, bst);
     }
@@ -6550,8 +6550,7 @@ browse_setup_backends__box__block(struct ast_node *node)
         b_box->compute_slack_size = box_compute_slack_size__block_file;
     } else {
         if (0 == (node->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-            b_box->compute_used_size =
-                box_compute_used_size__container_static_size;
+            b_box->compute_used_size = box_compute_used_size__static_size;
         } else if (0 != (node->flags & ASTFLAG_HAS_FOOTER)) {
             b_box->compute_used_size = box_compute_used_size__as_max_span;
         } else if (BLOCK_TYPE_STRUCT == node->u.block_def.type) {
@@ -6626,8 +6625,7 @@ browse_setup_backends__box__array(struct ast_node *node)
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
     b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
     if (0 == (node->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-        b_box->compute_used_size =
-            box_compute_used_size__container_static_size;
+        b_box->compute_used_size = box_compute_used_size__static_size;
     } else if (0 == (node->u.array.value_type->flags
                      & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
         b_box->compute_used_size =
@@ -6739,8 +6737,7 @@ browse_setup_backends__box__byte_array(struct ast_node *node)
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
     b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
     if (0 == (node->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-        b_box->compute_used_size =
-            box_compute_used_size__container_static_size;
+        b_box->compute_used_size = box_compute_used_size__static_size;
     } else {
         b_box->compute_used_size =
             box_compute_used_size__byte_array_dynamic_size;
