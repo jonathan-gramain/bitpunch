@@ -44,6 +44,8 @@ def test_links_1(params_links_1):
         assert dtree.typed[i] == i + 1
         assert dtree.untyped[i]['?value'] == i + 1
         assert model.eval('untyped[{0}].?value'.format(i), dtree) == i + 1
+        assert (model.eval('& untyped[{0}].?value'.format(i), dtree)
+                == 6 + 2 * i)
 
 
 spec_file_links_2_1 = """

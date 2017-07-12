@@ -289,6 +289,8 @@ resolve2_expr_operator(struct ast_node **expr_p, int n_operands);
 static int
 resolve2_expr_operator_sizeof(struct ast_node **expr_p);
 static int
+resolve2_expr_operator_addrof(struct ast_node **expr_p);
+static int
 resolve2_expr_fcall(struct ast_node **expr_p);
 static int
 resolve2_expr_interpreter(struct ast_node **expr_p);
@@ -1711,7 +1713,6 @@ resolve_expr_operator_sizeof(struct ast_node **expr_p,
     (*expr_p)->u.rexpr_op.evaluator = NULL;
     return 0;
 }
-
 /**
  * @brief first resolve pass of addrof (&) operator
  *
@@ -1729,18 +1730,7 @@ resolve_expr_operator_addrof(struct ast_node **expr_p,
     if (-1 == resolve_expr(&(*expr_p)->u.op.operands[0], visible_refs)) {
         return -1;
     }
-    if (-1 == resolve2_expr(&(*expr_p)->u.op.operands[0])) {
-        return -1;
-    }
     op = (*expr_p)->u.op;
-    if (EXPR_DPATH_TYPE_NONE == op.operands[0]->u.rexpr.dpath_type) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &(*expr_p)->loc,
-            "invalid use of addrof (&) operator on non-dpath node of type "
-            "'%s'",
-            ast_node_type_str(op.operands[0]->type));
-        return -1;
-    }
     ast_node_clear(*expr_p);
     (*expr_p)->type = AST_NODE_TYPE_REXPR_OP_ADDROF;
     (*expr_p)->u.rexpr.value_type = EXPR_VALUE_TYPE_INTEGER;
@@ -2453,6 +2443,7 @@ resolve2_expr(struct ast_node **expr_p)
     case AST_NODE_TYPE_REXPR_OP_UMINUS:
     case AST_NODE_TYPE_REXPR_OP_LNOT:
     case AST_NODE_TYPE_REXPR_OP_BWNOT:
+    case AST_NODE_TYPE_REXPR_OP_FILTER:
         ret = resolve2_expr_operator(expr_p, 1);
         break ;
     case AST_NODE_TYPE_REXPR_OP_EQ:
@@ -2473,8 +2464,6 @@ resolve2_expr(struct ast_node **expr_p)
     case AST_NODE_TYPE_REXPR_OP_MUL:
     case AST_NODE_TYPE_REXPR_OP_DIV:
     case AST_NODE_TYPE_REXPR_OP_MOD:
-    case AST_NODE_TYPE_REXPR_OP_ADDROF:
-    case AST_NODE_TYPE_REXPR_OP_FILTER:
         ret = resolve2_expr_operator(expr_p, 2);
         break ;
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT:
@@ -2485,6 +2474,9 @@ resolve2_expr(struct ast_node **expr_p)
         break ;
     case AST_NODE_TYPE_REXPR_OP_SIZEOF:
         ret = resolve2_expr_operator_sizeof(expr_p);
+        break ;
+    case AST_NODE_TYPE_REXPR_OP_ADDROF:
+        ret = resolve2_expr_operator_addrof(expr_p);
         break ;
     case AST_NODE_TYPE_REXPR_OP_FCALL:
         ret = resolve2_expr_fcall(expr_p);
@@ -2827,14 +2819,16 @@ resolve2_expr_subscript_slice(struct ast_node **expr_p)
  * @brief second pass of resolve on expressions nodes of type
  * 'operator'
  *
- * Its job:
+ * Its jobs:
  *
- * - prune pre-computable branches
- * 
- * - in particular, prune sizeof operator operand: this allows to use
- *   sizeof on type names that have a static size but defined using
- *   expressions (typically, array size expressions that end up being
- *   a static, pre-computable value)
+ * - find a match for the operator type along with its operand types,
+ *   or raise an error if no match exists
+ *
+ * - prune pre-computable branches - in particular, prune sizeof
+ *   operator operand: this allows to use sizeof on type names that
+ *   have a static size but defined using expressions (typically,
+ *   array size expressions that end up being a static, pre-computable
+ *   value)
  */
 static int
 resolve2_expr_operator(struct ast_node **expr_p, int n_operands)
@@ -2970,6 +2964,26 @@ resolve2_expr_operator_sizeof(struct ast_node **expr_p)
         (*expr_p)->u.rexpr.value_type = EXPR_VALUE_TYPE_INTEGER;
         (*expr_p)->u.rexpr.dpath_type = EXPR_DPATH_TYPE_NONE;
         (*expr_p)->u.rexpr_native.value.integer = item->u.item.min_span_size;
+    }
+    return 0;
+}
+
+static int
+resolve2_expr_operator_addrof(struct ast_node **expr_p)
+{
+    struct op op;
+
+    if (-1 == resolve2_expr(&(*expr_p)->u.rexpr_op.op.operands[0])) {
+        return -1;
+    }
+    op = (*expr_p)->u.rexpr_op.op;
+    if (EXPR_DPATH_TYPE_NONE == op.operands[0]->u.rexpr.dpath_type) {
+        semantic_error(
+            SEMANTIC_LOGLEVEL_ERROR, &(*expr_p)->loc,
+            "invalid use of addrof (&) operator on non-dpath node of type "
+            "'%s'",
+            ast_node_type_str(op.operands[0]->type));
+        return -1;
     }
     return 0;
 }
