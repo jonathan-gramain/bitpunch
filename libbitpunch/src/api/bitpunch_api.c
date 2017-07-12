@@ -423,6 +423,12 @@ bitpunch_free_binary_file(struct bitpunch_binary_file_hdl *bf)
 }
 
 int
+bitpunch_resolve_expr(struct ast_node **expr_p, struct box *scope)
+{
+    return resolve_user_expr(expr_p, scope);
+}
+
+int
 bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
                    struct bitpunch_binary_file_hdl *binary_file,
                    const char *expr,
@@ -437,7 +443,6 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
     struct parser_ctx *parser_ctx = NULL;
     union expr_value expr_value;
     union expr_dpath expr_dpath;
-    const struct ast_node *scope_node;
     bitpunch_status_t bt_ret;
 
     assert(NULL != expr);
@@ -451,16 +456,13 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
             if (NULL == scope) {
                 goto err;
             }
-            scope_node = schema->df_file_block.root;
         } else {
             box_acquire(scope);
-            scope_node = scope->node;
         }
     } else {
         scope = NULL; // just in case
-        scope_node = NULL;
     }
-    if (-1 == resolve_user_expr(&expr_node, scope_node)) {
+    if (-1 == bitpunch_resolve_expr(&expr_node, scope)) {
         goto err;
     }
     assert(ast_node_is_rexpr(expr_node));

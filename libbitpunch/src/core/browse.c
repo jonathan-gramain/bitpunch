@@ -2855,7 +2855,7 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
     while (NULL != root_box->parent_box) {
         root_box = root_box->parent_box;
     }
-    if (-1 == resolve_user_expr(&expr_node, root_box->node)) {
+    if (-1 == bitpunch_resolve_expr(&expr_node, root_box)) {
         free(parser_ctx);
         /* TODO free expr_node */
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);

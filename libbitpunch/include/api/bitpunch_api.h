@@ -82,6 +82,13 @@ int
 bitpunch_free_binary_file(struct bitpunch_binary_file_hdl *bf);
 
 int
+bitpunch_parse_expr(const char *expr,
+                    struct ast_node **expr_nodep,
+                    struct parser_ctx **parser_ctxp);
+int
+bitpunch_resolve_expr(struct ast_node **expr_p, struct box *scope);
+
+int
 bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
                    struct bitpunch_binary_file_hdl *binary_file,
                    const char *expr,

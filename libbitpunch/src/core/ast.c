@@ -258,6 +258,12 @@ resolve_link(struct link *link,
              struct list_of_visible_refs *visible_refs);
 
 static int
+resolve_user_expr_scoped_recur(struct ast_node **expr_p,
+                               struct box *cur_scope,
+                               struct list_of_visible_refs *inner_refs,
+                               struct list_of_visible_refs *inmost_refs);
+
+static int
 resolve2_block(struct ast_node *block);
 static int
 link_check_duplicates(struct link *link);
@@ -2173,31 +2179,54 @@ resolve_link(struct link *link,
     return 0;
 }
 
-int
-resolve_user_expr(struct ast_node **expr_p,
-                  const struct ast_node *top_level_block)
+static int
+resolve_user_expr_scoped_recur(struct ast_node **expr_p,
+                               struct box *cur_scope,
+                               struct list_of_visible_refs *inner_refs,
+                               struct list_of_visible_refs *inmost_refs)
 {
     struct list_of_visible_refs visible_refs;
-    int ret;
 
-    if (NULL != top_level_block) {
-        visible_refs.outer_refs = NULL;
-        visible_refs.cur_block = top_level_block;
-        visible_refs.cur_lists =
-            &top_level_block->u.block_def.block_stmt_list;
-        if (-1 == resolve_node_types(expr_p, &visible_refs,
-                                     RESOLVE_EXPECT_EXPRESSION)) {
-            return -1;
-        }
-        ret = resolve_expr(expr_p, &visible_refs);
-    } else {
-        if (-1 == resolve_node_types(expr_p, NULL,
-                                     RESOLVE_EXPECT_EXPRESSION)) {
-            return -1;
-        }
-        ret = resolve_expr(expr_p, NULL);
+    while (NULL != cur_scope
+           && AST_NODE_TYPE_BLOCK_DEF != cur_scope->node->type) {
+        cur_scope = (NULL != cur_scope->parent_box ?
+                     cur_scope->parent_box :
+                     cur_scope->unfiltered_box);
     }
-    if (-1 == ret) {
+    if (NULL == cur_scope) {
+        if (-1 == resolve_node_types(expr_p, inmost_refs,
+                                     RESOLVE_EXPECT_EXPRESSION)) {
+            return -1;
+        }
+        if (-1 == resolve_expr(expr_p, inmost_refs)) {
+            return -1;
+        }
+        return resolve2_expr(expr_p);
+    }
+    visible_refs.outer_refs = NULL;
+    visible_refs.cur_block = cur_scope->node;
+    visible_refs.cur_lists =
+        &cur_scope->node->u.block_def.block_stmt_list;
+    if (NULL != inner_refs) {
+        inner_refs->outer_refs = &visible_refs;
+    }
+    return resolve_user_expr_scoped_recur(
+        expr_p, cur_scope->parent_box,
+        &visible_refs,
+        (NULL != inmost_refs ? inmost_refs : &visible_refs));
+}
+
+int
+resolve_user_expr(struct ast_node **expr_p, struct box *scope)
+{
+    if (NULL != scope) {
+        return resolve_user_expr_scoped_recur(expr_p, scope, NULL, NULL);
+    }
+    if (-1 == resolve_node_types(expr_p, NULL,
+                                 RESOLVE_EXPECT_EXPRESSION)) {
+        return -1;
+    }
+    if (-1 == resolve_expr(expr_p, NULL)) {
         return -1;
     }
     return resolve2_expr(expr_p);

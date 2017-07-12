@@ -36,12 +36,12 @@
 
 struct ast_node;
 struct bitpunch_schema_hdl;
+struct box;
 
 int
 resolve_schema_references(struct bitpunch_schema_hdl *schema);
 int
-resolve_user_expr(struct ast_node **expr_p,
-                  const struct ast_node *top_level_block);
+resolve_user_expr(struct ast_node **expr_p, struct box *scope);
 int
 ast_node_is_rexpr(const struct ast_node *node);
 int

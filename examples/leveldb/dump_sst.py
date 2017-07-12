@@ -34,8 +34,7 @@ prev_key = ''
 #    ...
 
 for i, entry in enumerate(index['?stored_block'].entries):
-    sub_block = model.eval('(?index.?stored_block.entries[{i}]'.format(i=i)
-                           + '.value: BlockHandle).?stored_block', entry)
+    sub_block = model.eval('(value: BlockHandle).?stored_block', entry)
     for sub_entry in sub_block.entries:
         if first:
             first = False;

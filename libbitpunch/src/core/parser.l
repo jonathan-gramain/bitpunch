@@ -308,8 +308,8 @@ bitpunch_parse_schema(struct bitpunch_schema_hdl *schema)
 
 int
 bitpunch_parse_expr(const char *expr,
-                   struct ast_node **expr_nodep,
-                   struct parser_ctx **parser_ctxp)
+                    struct ast_node **expr_nodep,
+                    struct parser_ctx **parser_ctxp)
 {
     yyscan_t scanner;
     struct parser_ctx *parser_ctx;
