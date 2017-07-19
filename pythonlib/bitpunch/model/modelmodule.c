@@ -785,10 +785,10 @@ static PyBufferProcs DataContainerAsBuffer = {
 };
 
 static PyObject *
-DataContainer_keys(DataContainerObject *self);
+DataContainer_iter_keys(DataContainerObject *self);
 
 static PyObject *
-DataContainer_items(DataContainerObject *self);
+DataContainer_iter_items(DataContainerObject *self);
 
 static PyObject *
 DataContainer_eval_expr(DataContainerObject *cont,
@@ -804,10 +804,10 @@ static PyObject *
 DataContainer_get_location(DataContainerObject *self, PyObject *args);
 
 static PyMethodDef DataContainer_methods[] = {
-    { "keys", (PyCFunction)DataContainer_keys, METH_NOARGS,
+    { "iter_keys", (PyCFunction)DataContainer_iter_keys, METH_NOARGS,
       "get an iterator over the array keys"
     },
-    { "items", (PyCFunction)DataContainer_items, METH_NOARGS,
+    { "iter_items", (PyCFunction)DataContainer_iter_items, METH_NOARGS,
       "get an iterator over the array items as (key, value) tuples"
     },
     { "eval_expr", (PyCFunction)DataContainer_eval_expr,
@@ -2837,7 +2837,7 @@ TrackerType_setup(void)
 
 
 static PyObject *
-DataContainer_keys(DataContainerObject *self)
+DataContainer_iter_keys(DataContainerObject *self)
 {
     TrackerObject *tracker;
 
@@ -2849,7 +2849,7 @@ DataContainer_keys(DataContainerObject *self)
 }
 
 static PyObject *
-DataContainer_items(DataContainerObject *self)
+DataContainer_iter_items(DataContainerObject *self)
 {
     TrackerObject *tracker;
 
