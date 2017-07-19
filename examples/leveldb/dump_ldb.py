@@ -16,14 +16,14 @@ def records_dumper(records_generator, output_file):
             first = False;
         else:
             output_file.write(',')
-        json.dump(record, output_file, encoding='iso8859-1')
+        json.dump(record, output_file)
         n_dumped_records += 1
     output_file.write(']')
     return n_dumped_records
 
 def records_extractor(ldb_model):
     index = ldb_model['?index']
-    prev_key = ''
+    prev_key = u''
 
     for entry in index['?stored_block'].entries:
         # recurse one more level into the LDB index to get the data,
@@ -32,10 +32,10 @@ def records_extractor(ldb_model):
         sub_block = entry.eval_expr('(value: BlockHandle).?stored_block')
         for sub_entry in sub_block.entries:
             entry_key = (prev_key[:sub_entry.key_shared_size] +
-                         model.make_python_object(sub_entry.key_non_shared))
+                         unicode(sub_entry.key_non_shared))
             yield {
                 'key': entry_key,
-                'value': model.make_python_object(sub_entry.value)
+                'value': unicode(sub_entry.value)
             }
             prev_key = entry_key
 

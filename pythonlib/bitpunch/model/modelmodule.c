@@ -803,6 +803,9 @@ DataContainer_get_offset(DataContainerObject *self, PyObject *args);
 static PyObject *
 DataContainer_get_location(DataContainerObject *self, PyObject *args);
 
+static PyObject *
+DataContainer___unicode__(DataContainerObject *self, PyObject *args);
+
 static PyMethodDef DataContainer_methods[] = {
     { "iter_keys", (PyCFunction)DataContainer_iter_keys, METH_NOARGS,
       "get an iterator over the array keys"
@@ -832,6 +835,10 @@ static PyMethodDef DataContainer_methods[] = {
       "get a tuple of the absolute byte offset of the container from "
       "the beginning of the file or filtered byte contents, and the "
       "byte size of the container"
+    },
+    { "__unicode__",
+      (PyCFunction)DataContainer___unicode__, METH_NOARGS,
+      "convert to unicode string"
     },
     { NULL, NULL, 0, NULL }
 };
@@ -2923,6 +2930,30 @@ DataContainer_get_location(DataContainerObject *self, PyObject *args)
     item_size = end_offset - item_offset;
 
     return Py_BuildValue("ii", item_offset, item_size);
+}
+
+static PyObject *
+DataContainer___unicode__(DataContainerObject *self, PyObject *args)
+{
+    struct box *box;
+    int64_t end_offset;
+    bitpunch_status_t bt_ret;
+    const char *buf;
+    int64_t len;
+    struct tracker_error *tk_err = NULL;
+
+    box = self->box;
+    bt_ret = box_compute_end_offset(box, BOX_END_OFFSET_USED, &end_offset,
+                                    &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
+        return NULL;
+    }
+    buf = box->file_hdl->bf_data + box_get_start_offset(box);
+    len = end_offset - box_get_start_offset(box);
+    // FIXME: use proper encoding configured in string() filter when
+    // this is implemented
+    return PyUnicode_Decode(buf, len, "latin_1", NULL);
 }
 
 static PyObject *
