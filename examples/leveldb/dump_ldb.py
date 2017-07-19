@@ -29,7 +29,7 @@ def records_extractor(ldb_model):
         # recurse one more level into the LDB index to get the data,
         # because first-level values are block handles to other
         # sub-blocks in the file.
-        sub_block = model.eval('(value: BlockHandle).?stored_block', entry)
+        sub_block = entry.eval_expr('(value: BlockHandle).?stored_block')
         for sub_entry in sub_block.entries:
             entry_key = (prev_key[:sub_entry.key_shared_size] +
                          model.make_python_object(sub_entry.key_non_shared))

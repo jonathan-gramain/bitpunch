@@ -103,7 +103,7 @@ def test_slack_static_sized(params):
                                                dtree.small_blocks]):
         assert len(block_array) == block_counts[blocktype]
         for block in block_array:
-            assert model.get_offset(block) == cur_location
+            assert block.get_offset() == cur_location
             cur_location += BLOCK_SIZES[blocktype]
             contents = model.make_python_object(block.contents)
             assert contents == ''.join(

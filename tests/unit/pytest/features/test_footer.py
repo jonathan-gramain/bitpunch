@@ -129,14 +129,14 @@ def params_footer_complex(request):
 def test_footer_complex(params_footer_complex):
     params = params_footer_complex
     dtree = params['dtree']
-    assert model.get_size(dtree.root.footer) == 14
+    assert dtree.root.footer.get_size() == 14
 
-    assert model.get_size(dtree.root.footer) == dtree.root.footer.footer_size
-    assert model.get_size(dtree.root.footer.footer_contents) == 6
+    assert dtree.root.footer.get_size() == dtree.root.footer.footer_size
+    assert dtree.root.footer.footer_contents.get_size() == 6
     assert memoryview(dtree.root.footer.footer_contents) == 'footer'
     assert memoryview(dtree.root.contents) == 'some random data'
 
-    assert model.get_size(dtree.root) == 30
+    assert dtree.root.get_size() == 30
 
 
 
@@ -191,8 +191,8 @@ def params_footer_with_implicit_padding(request):
 def test_footer_with_implicit_padding(params_footer_with_implicit_padding):
     params = params_footer_with_implicit_padding
     dtree = params['dtree']
-    assert model.get_size(dtree.root.footer) == 14
+    assert dtree.root.footer.get_size() == 14
 
-    assert model.get_size(dtree.root.footer) == dtree.root.footer.footer_size
-    assert model.get_size(dtree.root['items']) == 12
-    assert model.get_size(dtree.root) == 33
+    assert dtree.root.footer.get_size() == dtree.root.footer.footer_size
+    assert dtree.root['items'].get_size() == 12
+    assert dtree.root.get_size() == 33

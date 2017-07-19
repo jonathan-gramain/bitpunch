@@ -43,8 +43,8 @@ def test_links_1(params_links_1):
     for i in range(3):
         assert dtree.typed[i] == i + 1
         assert dtree.untyped[i]['?value'] == i + 1
-        assert model.eval('untyped[{0}].?value'.format(i), dtree) == i + 1
-        assert (model.eval('& untyped[{0}].?value'.format(i), dtree)
+        assert dtree.eval_expr('untyped[{0}].?value'.format(i)) == i + 1
+        assert (dtree.eval_expr('& untyped[{0}].?value'.format(i))
                 == 6 + 2 * i)
 
 
@@ -101,8 +101,7 @@ def test_links_2(params_links_2):
     for i in range(3):
         assert dtree.typed[i] == i + 1
         assert dtree['?untyped_as_typed'][i] == i + 1
-        assert model.eval('?untyped_as_typed[{0}]'.format(i),
-                          dtree) == i + 1
+        assert dtree.eval_expr('?untyped_as_typed[{0}]'.format(i)) == i + 1
 
 
 spec_file_links_3 = """
@@ -143,8 +142,7 @@ def test_links_3(params_links_3):
     for i in range(3):
         assert dtree.typed[i] == i + 1
         assert dtree['?numbers'][i].value == i + 1
-        assert model.eval('?numbers[{0}].value'.format(i),
-                          dtree) == i + 1
+        assert dtree.eval_expr('?numbers[{0}].value'.format(i)) == i + 1
 
 
 spec_file_links_4 = """

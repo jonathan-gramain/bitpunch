@@ -251,7 +251,7 @@ class CLI(NestedCmd):
                          repr(sep), repr(sep_end),
                          repr(completion_base)))
         if item:
-            obj = model.eval(item, self.data_tree)
+            obj = self.data_tree.eval_expr(item)
             if not (isinstance(obj, model.DataBlock) and sep == '.' or
                     isinstance(obj, model.DataArray) and sep in ('[', ':')):
                 return
@@ -365,7 +365,7 @@ class CLI(NestedCmd):
         pargs = self.parse_dump_args('dump json', args)
         if self.format_spec and self.bin_file:
             self.open_data_tree('dump json')
-        dump_obj = model.eval(pargs.expression, self.data_tree)
+        dump_obj = self.data_tree.eval_expr(pargs.expression)
         dump_obj = model.make_python_object(dump_obj) # required for JSON serialization
         with open(pargs.output_file, 'wxb') as output_file:
             json.dump(dump_obj, output_file, encoding='iso8859-1', indent=4)
@@ -384,7 +384,7 @@ class CLI(NestedCmd):
         pargs = self.parse_dump_args('dump python', args)
         if self.format_spec and self.bin_file:
             self.open_data_tree('dump python')
-        dump_obj = model.eval(pargs.expression, self.data_tree)
+        dump_obj = self.data_tree.eval_expr(pargs.expression)
         # not strictly necessary, but enables pretty-printing
         dump_obj = model.make_python_object(dump_obj)
         with open(pargs.output_file, 'wxb') as output_file:
@@ -403,7 +403,7 @@ class CLI(NestedCmd):
 """
         pargs = self.parse_dump_args('dump raw', args)
         self.open_data_tree('dump raw')
-        obj = model.eval(pargs.expression, self.data_tree)
+        obj = self.data_tree.eval_expr(pargs.expression)
         logging.info("dump_raw dpath=%s", repr(pargs.expression))
         with open(pargs.output_file, 'wxb') as output_file:
             output_file.write(obj)
@@ -478,7 +478,7 @@ class CLI(NestedCmd):
         expr = args
         if self.format_spec and self.bin_file:
             self.open_data_tree('keys')
-        obj = model.eval(expr, self.data_tree) if expr else self.data_tree
+        obj = self.data_tree.eval_expr(expr) if expr else self.data_tree
         if (isinstance(obj, model.DataBlock) or
             isinstance(obj, model.DataArray)):
             keys = list(str(key)
@@ -505,7 +505,7 @@ class CLI(NestedCmd):
                                "Missing expression argument to 'print'")
         if self.format_spec and self.bin_file:
             self.open_data_tree('print')
-        print repr(model.make_python_object(model.eval(expr, self.data_tree)))
+        print repr(model.make_python_object(self.data_tree.eval_expr(expr)))
 
     def complete_print(self, text, begin, end):
         return self._complete_expression(text, begin, end)
@@ -522,11 +522,11 @@ class CLI(NestedCmd):
             raise CommandError('xdump',
                                "Missing expression argument to 'xdump'")
         self.open_data_tree('xdump')
-        obj = model.eval(expr, self.data_tree, tracker=True)
+        obj = self.data_tree.eval_expr(expr, tracker=True)
         try:
             memview = memoryview(obj)
             lines = hexdump.hexdump(memview, result='generator')
-            abs_offset = model.get_offset(obj)
+            abs_offset = obj.get_offset()
             for line in lines:
                 print('%08X +%s' % (abs_offset, line))
                 abs_offset += 16

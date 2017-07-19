@@ -112,14 +112,14 @@ def test_leveldb_log_empty(spec_log, data_log_empty):
     assert len(dtree.head_blocks) == 0
     assert len(dtree.tail_block.records) == 0
 
-    assert model.eval('sizeof(head_blocks)', dtree) == 0
-    assert model.eval('sizeof(tail_block.records)', dtree) == 0
+    assert dtree.eval_expr('sizeof(head_blocks)') == 0
+    assert dtree.eval_expr('sizeof(tail_block.records)') == 0
 
     with pytest.raises(IndexError):
         dtree.tail_block.records[0]
 
     with pytest.raises(ValueError):
-        model.eval('tail_block.records[0]', dtree)
+        dtree.eval_expr('tail_block.records[0]')
 
 
 def test_leveldb_log_small(spec_log, data_log_small):
@@ -132,22 +132,22 @@ def test_leveldb_log_small(spec_log, data_log_small):
     assert records[0].length == 33
     assert records[0].rtype == 1
     assert len(records[0].data) == 33
-    assert model.eval('sizeof(tail_block.records[0])', dtree) == 40
+    assert dtree.eval_expr('sizeof(tail_block.records[0])') == 40
 
     assert records[1].checksum == 0x6EC2C495
     assert records[1].length == 39
     assert records[1].rtype == 1
     assert len(records[1].data) == 39
-    assert model.eval('sizeof(tail_block.records[1])', dtree) == 46
+    assert dtree.eval_expr('sizeof(tail_block.records[1])') == 46
 
-    assert model.eval('sizeof(tail_block.records)', dtree) == 86
-    assert model.eval('sizeof(tail_block)', dtree) == 86
+    assert dtree.eval_expr('sizeof(tail_block.records)') == 86
+    assert dtree.eval_expr('sizeof(tail_block)') == 86
 
     with pytest.raises(IndexError):
         dummy = records[2]
 
     with pytest.raises(ValueError):
-        model.eval('tail_block.records[2]', dtree)
+        dtree.eval_expr('tail_block.records[2]')
 
 
 def test_leveldb_log_multiblock(spec_log, data_log_multiblock):
@@ -155,13 +155,13 @@ def test_leveldb_log_multiblock(spec_log, data_log_multiblock):
     assert len(dtree.head_blocks) == 1
     assert len(dtree.head_blocks[0].records) == 762
     assert len(dtree.tail_block.records) == 3
-    assert model.eval('sizeof(head_blocks)', dtree) == 32768
-    assert model.eval('sizeof(head_blocks[0])', dtree) == 32768
-    assert model.eval('sizeof(head_blocks[0].records)', dtree) == 32766
-    assert model.eval('sizeof(head_blocks[0].trailer)', dtree) == 2
+    assert dtree.eval_expr('sizeof(head_blocks)') == 32768
+    assert dtree.eval_expr('sizeof(head_blocks[0])') == 32768
+    assert dtree.eval_expr('sizeof(head_blocks[0].records)') == 32766
+    assert dtree.eval_expr('sizeof(head_blocks[0].trailer)') == 2
     assert model.make_python_object(
-        model.eval('head_blocks[0].trailer', dtree)) == '\x00\x00'
-    assert model.eval('sizeof(tail_block.records)', dtree) == 43 * 3
+        dtree.eval_expr('head_blocks[0].trailer')) == '\x00\x00'
+    assert dtree.eval_expr('sizeof(tail_block.records)') == 43 * 3
 
     records = dtree.head_blocks[0].records
     dummy = records[761]
@@ -222,4 +222,4 @@ def test_sst_index_block(spec_sst_index,
         model.make_python_object(entry)
     assert last_index == nb_entries - 1
     assert len(dtree.restarts) == dtree.nb_restarts
-    assert model.get_size(dtree.restarts) == dtree.nb_restarts * 4
+    assert dtree.restarts.get_size() == dtree.nb_restarts * 4

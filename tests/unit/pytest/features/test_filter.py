@@ -232,8 +232,8 @@ def test_filter_2(params_filter_2):
     params = params_filter_2
     dtree = params['dtree']
 
-    assert model.get_offset(dtree.blocks[1]) == 29
-    assert model.get_size(dtree.blocks[1]) == 33
+    assert dtree.blocks[1].get_offset() == 29
+    assert dtree.blocks[1].get_size() == 33
     assert dtree.blocks[1].n == 18
     assert memoryview(dtree.blocks[1].data) == 'more contents data'
     assert dtree.blocks[0].n == 16

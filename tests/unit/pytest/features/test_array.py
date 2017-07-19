@@ -69,7 +69,7 @@ def test_array_items(params_array_items):
     params = params_array_items
     dtree, sizeof_array = params['dtree'], params['sizeof_array']
     assert len(dtree.integers) == 10
-    assert model.get_size(dtree.integers) == sizeof_array
+    assert dtree.integers.get_size() == sizeof_array
     for i in range(10):
         mapped_i = (i * 7) % 10
         assert dtree.integers[mapped_i].value == mapped_i
@@ -138,7 +138,7 @@ def test_array_flat(params_array_flat):
     params = params_array_flat
     dtree, sizeof_array = params['dtree'], params['sizeof_array']
     assert len(dtree.integers) == 10
-    assert model.get_size(dtree.integers) == sizeof_array
+    assert dtree.integers.get_size() == sizeof_array
     for i in range(10):
         mapped_i = (i * 7) % 10
         assert dtree.integers[mapped_i] == mapped_i

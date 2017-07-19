@@ -62,6 +62,10 @@ expr_dpath_to_PyObject(struct DataTreeObject *dtree,
                        union expr_dpath dpath_value,
                        int tracker);
 static PyObject *
+eval_expr_as_python_object(struct DataContainerObject *cont,
+                           const char *expr, int tracker);
+
+static PyObject *
 tracker_item_to_deep_PyObject(struct DataTreeObject *dtree,
                               struct tracker *tk);
 static PyObject *
@@ -290,6 +294,7 @@ set_tracker_error(struct tracker_error *err,
     Py_DECREF(errobj);
     tracker_error_destroy(err);
 }
+
 
 static PyObject *
 DataBlock_box_to_python_object(struct DataTreeObject *dtree,
@@ -785,12 +790,48 @@ DataContainer_keys(DataContainerObject *self);
 static PyObject *
 DataContainer_items(DataContainerObject *self);
 
+static PyObject *
+DataContainer_eval_expr(DataContainerObject *cont,
+                        PyObject *args, PyObject *kwds);
+
+static PyObject *
+DataContainer_get_size(DataContainerObject *self, PyObject *args);
+
+static PyObject *
+DataContainer_get_offset(DataContainerObject *self, PyObject *args);
+
+static PyObject *
+DataContainer_get_location(DataContainerObject *self, PyObject *args);
+
 static PyMethodDef DataContainer_methods[] = {
     { "keys", (PyCFunction)DataContainer_keys, METH_NOARGS,
-      "Get an iterator over the array keys."
+      "get an iterator over the array keys"
     },
     { "items", (PyCFunction)DataContainer_items, METH_NOARGS,
-      "Get an iterator over the array items as (key, value) tuples."
+      "get an iterator over the array items as (key, value) tuples"
+    },
+    { "eval_expr", (PyCFunction)DataContainer_eval_expr,
+      METH_VARARGS | METH_KEYWORDS,
+      "evaluate a bitpunch expression in the object's scope"
+      "\n"
+      "keyword arguments:\n"
+      "tracker -- if True, return a Tracker object pointing\n"
+      "to the original object location in place of native Python types "
+      "(default is False)"
+    },
+    { "get_size", (PyCFunction)DataContainer_get_size, METH_NOARGS,
+      "get the spanned size of the container in the file or "
+      "filtered byte contents"
+    },
+    { "get_offset", (PyCFunction)DataContainer_get_offset, METH_NOARGS,
+      "get the absolute byte offset of the container from the beginning "
+      "of the file or filtered byte contents"
+    },
+    { "get_location",
+      (PyCFunction)DataContainer_get_location, METH_NOARGS,
+      "get a tuple of the absolute byte offset of the container from "
+      "the beginning of the file or filtered byte contents, and the "
+      "byte size of the container"
     },
     { NULL, NULL, 0, NULL }
 };
@@ -2251,7 +2292,37 @@ Tracker_get_item_key(TrackerObject *self)
 }
 
 static PyObject *
-Tracker_get_item_location(TrackerObject *self)
+Tracker_get_size(TrackerObject *self)
+{
+    int64_t item_size;
+    bitpunch_status_t bt_ret;
+    struct tracker_error *tk_err = NULL;
+
+    bt_ret = tracker_get_item_size(self->tk, &item_size, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
+        return NULL;
+    }
+    return PyInt_FromLong(item_size);
+}
+
+static PyObject *
+Tracker_get_offset(TrackerObject *self)
+{
+    int64_t item_offset;
+    bitpunch_status_t bt_ret;
+    struct tracker_error *tk_err = NULL;
+
+    bt_ret = tracker_get_item_offset(self->tk, &item_offset, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
+        return NULL;
+    }
+    return PyInt_FromLong(item_offset);
+}
+
+static PyObject *
+Tracker_get_location(TrackerObject *self)
 {
     bitpunch_status_t ret;
     int64_t item_offset;
@@ -2365,7 +2436,7 @@ static PyMethodDef Tracker_methods[] = {
 
     { "get_n_items",
       (PyCFunction)Tracker_get_n_items, METH_NOARGS,
-      "Return the number of items in the currently tracked container."
+      "get the number of items in the currently tracked container"
     },
 
     /* item functions */
@@ -2373,24 +2444,38 @@ static PyMethodDef Tracker_methods[] = {
     { "get_item_key",
       (PyCFunction)Tracker_get_item_key, METH_NOARGS,
       "Return the item's key:\n"
-      " - as integer if tracking an non-indexed array,\n"
-      " - as the index data type if tracking an indexed array,\n"
-      " - as string if tracking a block."
+      " - as integer if tracking an non-indexed array\n"
+      " - as the index data type if tracking an indexed array\n"
+      " - as string if tracking a block"
     },
 
-    { "get_item_location",
-      (PyCFunction)Tracker_get_item_location, METH_NOARGS,
-      "Return the target item's location as a (offset, size) tuple."
+    { "get_size",
+      (PyCFunction)Tracker_get_size, METH_NOARGS,
+      "get the target item's byte size in the file or filtered "
+      "byte contents"
+    },
+
+    { "get_offset",
+      (PyCFunction)Tracker_get_offset, METH_NOARGS,
+      "get the target item's absolute byte offset in the file or "
+      "filtered byte contents"
+    },
+
+    { "get_location",
+      (PyCFunction)Tracker_get_location, METH_NOARGS,
+      "get the target item's location in the file or filtered "
+      "byte contents, as a (offset, size) tuple"
     },
 
     { "read_item_raw",
       (PyCFunction)Tracker_read_item_raw, METH_NOARGS,
-      "Return the target item's byte data, as a memoryview object."
+      "get the target item's byte data, as a memoryview object"
     },
 
     { "read_item_value",
       (PyCFunction)Tracker_read_item_value, METH_NOARGS,
-      "Return the target item's value as a DataItem object."
+      "get the target item's value, either as a DataContainer object for "
+      "structured types (blocks and arrays) or as native Python types"
     },
 
     { NULL, NULL, 0, NULL }
@@ -2776,6 +2861,71 @@ DataContainer_items(DataContainerObject *self)
 }
 
 static PyObject *
+DataContainer_eval_expr(DataContainerObject *cont,
+                        PyObject *args, PyObject *kwds)
+{
+    static char *kwlist[] = { "expr", "tracker", NULL };
+    const char *expr;
+    int tracker = FALSE;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|i", kwlist,
+                                     &expr, &tracker)) {
+        return NULL;
+    }
+    return eval_expr_as_python_object(cont, expr, tracker);
+}
+
+static PyObject *
+DataContainer_get_size(DataContainerObject *self, PyObject *args)
+{
+    int64_t item_size;
+    bitpunch_status_t bt_ret;
+    struct tracker_error *tk_err = NULL;
+    int64_t end_offset;
+
+    bt_ret = box_compute_end_offset(self->box, BOX_END_OFFSET_USED,
+                                    &end_offset, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
+        return NULL;
+    }
+    assert(end_offset >= box_get_start_offset(self->box));
+    item_size = end_offset - box_get_start_offset(self->box);
+    return PyInt_FromLong(item_size);
+}
+
+static PyObject *
+DataContainer_get_offset(DataContainerObject *self, PyObject *args)
+{
+    int64_t item_offset;
+
+    item_offset = box_get_start_offset(self->box);
+    return PyInt_FromLong(item_offset);
+}
+
+static PyObject *
+DataContainer_get_location(DataContainerObject *self, PyObject *args)
+{
+    int64_t item_offset;
+    int64_t item_size;
+    bitpunch_status_t bt_ret;
+    struct tracker_error *tk_err = NULL;
+    int64_t end_offset;
+
+    bt_ret = box_compute_end_offset(self->box, BOX_END_OFFSET_USED,
+                                    &end_offset, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
+        return NULL;
+    }
+    assert(end_offset >= box_get_start_offset(self->box));
+    item_offset = box_get_start_offset(self->box);
+    item_size = end_offset - item_offset;
+
+    return Py_BuildValue("ii", item_offset, item_size);
+}
+
+static PyObject *
 DataContainer_iter(DataContainerObject *self)
 {
     TrackerObject *iter;
@@ -2922,6 +3072,62 @@ expr_dpath_to_PyObject(DataTreeObject *dtree,
         assert(0);
     }
     expr_dpath_destroy(dpath_type, dpath_value);
+    return res;
+}
+
+static PyObject *
+eval_expr_as_python_object(DataContainerObject *cont,
+                           const char *expr, int tracker)
+{
+    DataTreeObject *dtree;
+    struct bitpunch_schema_hdl *schema;
+    struct bitpunch_binary_file_hdl *binary_file;
+    struct box *scope;
+    int ret;
+    enum expr_value_type expr_value_type;
+    union expr_value expr_value;
+    enum expr_dpath_type expr_dpath_type;
+    union expr_dpath expr_dpath;
+    PyObject *res = NULL;
+    struct tracker_error *tk_err = NULL;
+
+    if (NULL != cont) {
+        dtree = cont->dtree;
+        schema = dtree->fmt->schema;
+        binary_file = dtree->binary_file;
+        scope = cont->box;
+    } else {
+        dtree = NULL;
+        schema = NULL;
+        binary_file = NULL;
+        scope = NULL;
+    }
+
+    ret = bitpunch_eval_expr(schema, binary_file, expr, scope,
+                             &expr_value_type, &expr_value,
+                             &expr_dpath_type, &expr_dpath,
+                             &tk_err);
+    if (-1 == ret) {
+        if (NULL != tk_err) {
+            set_tracker_error(tk_err, tk_err->bt_ret);
+        } else {
+            PyErr_Format(PyExc_ValueError,
+                         "Error evaluating expression '%s'", expr);
+        }
+        return NULL;
+    }
+    if (EXPR_DPATH_TYPE_NONE != expr_dpath_type
+        && (tracker || EXPR_VALUE_TYPE_UNSET == expr_value_type)) {
+        res = expr_dpath_to_PyObject(dtree,
+                                     expr_dpath_type, expr_dpath,
+                                     tracker);
+        if (EXPR_VALUE_TYPE_UNSET != expr_value_type) {
+            expr_value_destroy(expr_value_type, expr_value);
+        }
+    } else {
+        assert(EXPR_VALUE_TYPE_UNSET != expr_value_type);
+        res = expr_to_PyObject(dtree, expr_value_type, expr_value);
+    }
     return res;
 }
 
@@ -3144,174 +3350,14 @@ mod_bitpunch_make_python_object(PyObject *self, PyObject *obj)
 }
 
 static PyObject *
-mod_bitpunch_eval(PyObject *self, PyObject *args, PyObject *kwds)
+mod_bitpunch_eval_expr(PyObject *self, PyObject *args)
 {
-    static char *kwlist[] = { "expr", "dtree", "tracker", NULL };
     const char *expr;
-    DataContainerObject *cont = NULL;
-    DataTreeObject *dtree;
-    struct box *scope;
-    int tracker = FALSE;
-    struct bitpunch_schema_hdl *schema;
-    struct bitpunch_binary_file_hdl *binary_file;
-    int ret;
-    enum expr_value_type expr_value_type;
-    union expr_value expr_value;
-    enum expr_dpath_type expr_dpath_type;
-    union expr_dpath expr_dpath;
-    PyObject *res = NULL;
-    struct tracker_error *tk_err = NULL;
 
-    //TODO: be able to evaluate expressions from any data container context
-
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|Oi", kwlist,
-                                     &expr, &cont, &tracker)) {
+    if (!PyArg_ParseTuple(args, "s|Oi", &expr)) {
         return NULL;
     }
-    if (NULL != cont && (PyObject *)cont != Py_None) {
-        if (!PyObject_TypeCheck((PyObject *)cont, &DataContainerType)) {
-            return PyErr_Format(PyExc_TypeError,
-                                "Second argument must be a "
-                                "'bitpunch.DataContainer' object");
-        }
-        dtree = cont->dtree;
-        schema = dtree->fmt->schema;
-        binary_file = dtree->binary_file;
-        scope = cont->box;
-    } else {
-        dtree = NULL;
-        schema = NULL;
-        binary_file = NULL;
-        scope = NULL;
-    }
-    ret = bitpunch_eval_expr(schema, binary_file, expr, scope,
-                             &expr_value_type, &expr_value,
-                             &expr_dpath_type, &expr_dpath,
-                             &tk_err);
-    if (-1 == ret) {
-        if (NULL != tk_err) {
-            set_tracker_error(tk_err, tk_err->bt_ret);
-        } else {
-            PyErr_Format(PyExc_ValueError,
-                         "Error evaluating expression '%s'", expr);
-        }
-        return NULL;
-    }
-    if (EXPR_DPATH_TYPE_NONE != expr_dpath_type
-        && (tracker || EXPR_VALUE_TYPE_UNSET == expr_value_type)) {
-        res = expr_dpath_to_PyObject(dtree,
-                                     expr_dpath_type, expr_dpath,
-                                     tracker);
-        if (EXPR_VALUE_TYPE_UNSET != expr_value_type) {
-            expr_value_destroy(expr_value_type, expr_value);
-        }
-    } else {
-        assert(EXPR_VALUE_TYPE_UNSET != expr_value_type);
-        res = expr_to_PyObject(dtree, expr_value_type, expr_value);
-    }
-    return res;
-}
-
-static PyObject *
-mod_bitpunch_get_size(PyObject *self, PyObject *obj)
-{
-    int64_t item_size;
-    bitpunch_status_t bt_ret;
-    struct tracker_error *tk_err = NULL;
-
-    if (PyObject_TypeCheck(obj, &DataContainerType)) {
-        DataContainerObject *dcont;
-        int64_t end_offset;
-
-        dcont = (DataContainerObject *)obj;
-        bt_ret = box_compute_end_offset(dcont->box, BOX_END_OFFSET_USED,
-                                        &end_offset, &tk_err);
-        if (BITPUNCH_OK != bt_ret) {
-            set_tracker_error(tk_err, bt_ret);
-            return NULL;
-        }
-        assert(end_offset >= box_get_start_offset(dcont->box));
-        item_size = end_offset - box_get_start_offset(dcont->box);
-    } else if (PyObject_TypeCheck(obj, &TrackerType)) {
-        TrackerObject *tracker = (TrackerObject *)obj;
-
-        bt_ret = tracker_get_item_size(tracker->tk, &item_size, &tk_err);
-        if (BITPUNCH_OK != bt_ret) {
-            set_tracker_error(tk_err, bt_ret);
-            return NULL;
-        }
-    } else {
-        return PyErr_Format(PyExc_TypeError,
-                            "Argument is not of type 'bitpunch.DataContainer'");
-    }
-    return PyInt_FromLong(item_size);
-}
-
-static PyObject *
-mod_bitpunch_get_offset(PyObject *self, PyObject *obj)
-{
-    int64_t item_offset;
-    bitpunch_status_t bt_ret;
-    struct tracker_error *tk_err = NULL;
-
-    if (PyObject_TypeCheck(obj, &DataContainerType)) {
-        DataContainerObject *dcont;
-
-        dcont = (DataContainerObject *)obj;
-        item_offset = box_get_start_offset(dcont->box);
-    } else if (PyObject_TypeCheck(obj, &TrackerType)) {
-        TrackerObject *tracker = (TrackerObject *)obj;
-
-        bt_ret = tracker_get_item_offset(tracker->tk, &item_offset,
-                                         &tk_err);
-        if (BITPUNCH_OK != bt_ret) {
-            set_tracker_error(tk_err, bt_ret);
-            return NULL;
-        }
-    } else {
-        return PyErr_Format(PyExc_TypeError,
-                            "Argument is not a dpath type");
-    }
-    return PyInt_FromLong(item_offset);
-}
-
-static PyObject *
-mod_bitpunch_get_location(PyObject *self, PyObject *obj)
-{
-    int64_t item_offset;
-    int64_t item_size;
-    bitpunch_status_t bt_ret;
-    struct tracker_error *tk_err = NULL;
-
-    if (PyObject_TypeCheck(obj, &DataContainerType)) {
-        DataContainerObject *dcont;
-        int64_t end_offset;
-
-        dcont = (DataContainerObject *)obj;
-        bt_ret = box_compute_end_offset(dcont->box, BOX_END_OFFSET_USED,
-                                        &end_offset, &tk_err);
-        if (BITPUNCH_OK != bt_ret) {
-            set_tracker_error(tk_err, bt_ret);
-            return NULL;
-        }
-        assert(end_offset >= box_get_start_offset(dcont->box));
-        item_offset = box_get_start_offset(dcont->box);
-        item_size = end_offset - item_offset;
-    } else if (PyObject_TypeCheck(obj, &TrackerType)) {
-        TrackerObject *tracker = (TrackerObject *)obj;
-
-        bt_ret = tracker_get_item_location(tracker->tk,
-                                           &item_offset, &item_size,
-                                           &tk_err);
-        if (BITPUNCH_OK != bt_ret) {
-            set_tracker_error(tk_err, bt_ret);
-            return NULL;
-        }
-    } else {
-        return PyErr_Format(PyExc_TypeError,
-                            "Argument is not a dpath type");
-    }
-    return Py_BuildValue("ii", item_offset, item_size);
+    return eval_expr_as_python_object(NULL, expr, FALSE);
 }
 
 static PyObject *
@@ -3394,30 +3440,9 @@ static PyMethodDef bitpunch_methods[] = {
       "Make a deep python object from a bitpunch data object."
     },
 
-    { "eval", (PyCFunction)mod_bitpunch_eval, METH_VARARGS | METH_KEYWORDS,
-      "Evaluate an expression, optionally taking a data tree object as\n"
-      "context.\n"
-      "\n"
-      "Keyword arguments:\n"
-      "tracker -- if provided and True, return a Tracker object pointing\n"
-      "to the original object location whenever a python native value "
-      "would be returned otherwise."
-    },
-
-    { "get_size", mod_bitpunch_get_size, METH_O,
-      "Get the span size of a container in its storage area."
-    },
-
-    { "get_offset",
-      (PyCFunction)mod_bitpunch_get_offset, METH_O,
-      "Return the absolute byte-offset of a dpath object from the "
-      "beginning of the file."
-    },
-
-    { "get_location",
-      (PyCFunction)mod_bitpunch_get_location, METH_O,
-      "Return a tuple of the absolute byte-offset from the beginning "
-      "of the file and the byte size of a dpath object."
+    { "eval_expr", (PyCFunction)mod_bitpunch_eval_expr,
+      METH_VARARGS,
+      "evaluate a bitpunch expression outside any object scope"
     },
 
     { "get_builtin_names", (PyCFunction)mod_bitpunch_get_builtin_names,

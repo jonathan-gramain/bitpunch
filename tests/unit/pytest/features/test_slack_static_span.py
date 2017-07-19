@@ -324,8 +324,8 @@ def test_slack_span_simple(params_simple):
         assert len(contents) == lengths[i]
         assert contents[:data_lengths[i]] == ''.join(
             [chr(i)] * data_lengths[i])
-        assert model.get_size(block) >= 10
-        assert model.get_size(block) == model.get_size(dtree.blocks[i:i+1])
+        assert block.get_size() >= 10
+        assert block.get_size() == dtree.blocks[i:i+1].get_size()
         padding_len = max(10 - (control_size + lengths[i]), 0)
         try:
             assert (memoryview(block.padding) == '\xff' * padding_len)
@@ -540,8 +540,8 @@ def test_slack_static_span(params_subblocks):
         assert len(block_array) == block_counts[blocktype]
         for block in block_array:
             for sub_block in block.sub_blocks:
-                assert model.get_offset(sub_block) == cur_offset
+                assert sub_block.get_offset() == cur_offset
                 contents = model.make_python_object(sub_block.contents)
                 assert contents == ''.join(
                     [chr(blocktype)] * len(contents))
-                cur_offset += model.get_size(sub_block)
+                cur_offset += sub_block.get_size()

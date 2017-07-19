@@ -60,16 +60,16 @@ def test_scoped_eval(params_scoped_eval):
     dtree = params['dtree']
     int_values = [ord('i'), ord('j'), ord('k'), ord('l')]
 
-    assert memoryview(model.eval('things[1].props[0]', dtree)) == 'ijkl'
-    values = model.eval('(things[1].props[0]: AsArray).values', dtree)
+    assert memoryview(dtree.eval_expr('things[1].props[0]')) == 'ijkl'
+    values = dtree.eval_expr('(things[1].props[0]: AsArray).values')
     assert model.make_python_object(values) == int_values
 
     thing = dtree.things[1]
-    assert memoryview(model.eval('props[0]', thing)) == 'ijkl'
-    thing_values = model.eval('(props[0]: AsArray).values', thing)
+    assert memoryview(thing.eval_expr('props[0]')) == 'ijkl'
+    thing_values = thing.eval_expr('(props[0]: AsArray).values')
     assert model.make_python_object(thing_values) == int_values
 
     prop = thing.props[0]
-    assert memoryview(model.eval('name', prop)) == 'ijkl'
-    prop_values = model.eval('(name: AsArray).values', prop)
+    assert memoryview(prop.eval_expr('name')) == 'ijkl'
+    prop_values = prop.eval_expr('(name: AsArray).values')
     assert model.make_python_object(prop_values) == int_values

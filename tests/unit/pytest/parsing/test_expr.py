@@ -59,38 +59,39 @@ ligula scelerisque tristique.
 #
 
 def test_integer_literals():
-    assert model.eval('0') == 0
-    assert model.eval('1') == 1
-    assert model.eval('123456789') == 123456789
-    assert model.eval('42000000000000') == 42000000000000
-    assert model.eval('07') == 7
-    assert model.eval('01234567') == 01234567
-    assert model.eval('0xdeadbeef') == 0xdeadbeef
-    assert model.eval('0xdeadbeefbadf00d') == 0xdeadbeefbadf00d
+    assert model.eval_expr('0') == 0
+    assert model.eval_expr('1') == 1
+    assert model.eval_expr('123456789') == 123456789
+    assert model.eval_expr('42000000000000') == 42000000000000
+    assert model.eval_expr('07') == 7
+    assert model.eval_expr('01234567') == 01234567
+    assert model.eval_expr('0xdeadbeef') == 0xdeadbeef
+    assert model.eval_expr('0xdeadbeefbadf00d') == 0xdeadbeefbadf00d
 
     with pytest.raises(ValueError):
-        model.eval('0abc')
+        model.eval_expr('0abc')
     with pytest.raises(ValueError):
-        model.eval('0xffeeg')
+        model.eval_expr('0xffeeg')
     with pytest.raises(ValueError):
-        model.eval('42a')
+        model.eval_expr('42a')
     with pytest.raises(ValueError):
-        model.eval('42a')
+        model.eval_expr('42a')
     with pytest.raises(ValueError):
-        model.eval('08')
+        model.eval_expr('08')
 
 
 def test_string_literals():
-    assert model.eval('"hi"') == 'hi'
-    assert model.eval("'hello'") == 'hello'
-    assert model.eval("'how\\nare\\nyou'") == 'how\nare\nyou'
-    assert model.eval("'\\0\\x00\\377'") == '\0\x00\377'
-    assert model.eval("'\\r\\t\\n'") == '\r\t\n'
-    assert model.eval('"\\r\\t\\n"') == '\r\t\n'
-    assert model.eval("'multi'' ' 'part' ' ''string'") == 'multi part string'
+    assert model.eval_expr('"hi"') == 'hi'
+    assert model.eval_expr("'hello'") == 'hello'
+    assert model.eval_expr("'how\\nare\\nyou'") == 'how\nare\nyou'
+    assert model.eval_expr("'\\0\\x00\\377'") == '\0\x00\377'
+    assert model.eval_expr("'\\r\\t\\n'") == '\r\t\n'
+    assert model.eval_expr('"\\r\\t\\n"') == '\r\t\n'
+    assert (model.eval_expr("'multi'' ' 'part' ' ''string'")
+            == 'multi part string')
     # create a concatenation of lines as literals
     lorem_ipsum_quoted = "'" + LOREM_IPSUM.replace('\n', "\\n'\n    '") + "'"
-    assert model.eval(lorem_ipsum_quoted) == LOREM_IPSUM
+    assert model.eval_expr(lorem_ipsum_quoted) == LOREM_IPSUM
 
     with pytest.raises(ValueError):
-        model.eval('hello')
+        model.eval_expr('hello')
