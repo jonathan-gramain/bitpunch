@@ -45,7 +45,6 @@ data_file_1 = """
 "uvwx"
 """
 
-
 @pytest.fixture(
     scope='module',
     params=[{

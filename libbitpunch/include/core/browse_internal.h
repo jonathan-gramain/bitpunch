@@ -56,8 +56,10 @@ box_new_as_box(struct box *parent_box,
                struct browse_state *bst);
 struct box *
 box_new_filter_box(struct box *unfiltered_box,
+                   const struct ast_node *filter,
                    const char *filtered_data,
                    size_t filtered_size,
+                   int own_buffer,
                    struct browse_state *bst);
 bitpunch_status_t
 box_apply_filters(struct box *unfiltered_box,
@@ -85,8 +87,16 @@ box_lookup_link_internal(struct box *box, const char *link_name,
                          struct browse_state *bst);
 
 bitpunch_status_t
+tracker_create_item_box_internal(struct tracker *tk,
+                                 struct browse_state *bst);
+
+bitpunch_status_t
 tracker_create_item_box(struct tracker *tk,
-                        struct browse_state *bst);
+                        struct tracker_error **errp);
+
+struct tracker *
+track_box_contents(struct box *box,
+                   struct tracker_error **errp);
 
 bitpunch_status_t
 tracker_check_item(struct tracker *tk,

@@ -104,7 +104,7 @@ void
 expr_dpath_destroy_container(union expr_dpath dpath);
 bitpunch_status_t
 expr_dpath_to_tracker(enum expr_dpath_type type, union expr_dpath dpath,
-                      struct tracker **tkp);
+                      struct tracker **tkp, struct browse_state *bst);
 bitpunch_status_t
 expr_dpath_to_box(enum expr_dpath_type type, union expr_dpath dpath,
                   struct box **boxp,

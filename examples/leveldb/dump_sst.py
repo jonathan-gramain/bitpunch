@@ -27,6 +27,7 @@ output_file.write('[')
 first = True
 index = sst_data['?index']
 prev_key = ''
+n_dumped_records = 0
 
 #FIXME: replace loop by the commented lines when scoped eval is implemented
 #for entry in index['?stored_block'].entries:
@@ -48,4 +49,6 @@ for i, entry in enumerate(index['?stored_block'].entries):
         }
         prev_key = entry_key
         json.dump(entry, output_file, encoding='iso8859-1')
+        n_dumped_records += 1
 output_file.write(']')
+print('dumped {0} records'.format(n_dumped_records))

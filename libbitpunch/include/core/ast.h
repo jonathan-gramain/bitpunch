@@ -75,6 +75,8 @@ ast_node_get_key_expr(const struct ast_node *node);
 enum expr_value_type
 ast_node_get_key_type(const struct ast_node *node);
 void
+dump_ast_location(struct ast_node *node, FILE *stream);
+void
 dump_ast(struct ast_node *root, FILE *stream);
 void
 dump_block(const struct ast_node *block, FILE *stream);

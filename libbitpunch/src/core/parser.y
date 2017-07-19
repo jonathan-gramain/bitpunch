@@ -273,6 +273,7 @@
             } filter;
             struct item_node {
                 struct ast_node *filter;
+                struct ast_node *filter_defining_size;
                 struct item_backend b_item;
                 int64_t min_span_size; /* minimum size */
             } item;
@@ -525,6 +526,9 @@
                  struct parser_ctx *parser_ctx, void *out_param,
                  const char *str);
 
+    size_t
+        bitpunch_parser_print_location(const struct parser_location *loc,
+                                       FILE *out);
     void
         parser_location_make_span(struct parser_location *dest_loc,
                                   const struct parser_location *start_loc,
@@ -1565,7 +1569,7 @@ parser_location_make_span(struct parser_location *dest_loc,
  * including the final \0, or the number of characters that would have
  * been printed if @out_buf_size was big enough
  */
-static size_t
+size_t
 bitpunch_parser_print_location(const struct parser_location *loc,
                                FILE *out)
 {

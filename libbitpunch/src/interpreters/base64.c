@@ -156,15 +156,6 @@ base64_rcall_build(struct ast_node *rcall,
                    const struct ast_node *call,
                    const struct ast_node *param_values)
 {
-    const struct ast_node *data_source;
-
-    data_source = call->u.rexpr_filter.target;
-    if (AST_NODE_TYPE_BYTE_ARRAY != data_source->type) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &call->loc,
-            "base64 interpreter expects a byte array");
-        return -1;
-    }
     rcall->u.rexpr_interpreter.read_func = base64_read;
     rcall->u.rexpr_interpreter.write_func = base64_write;
     return 0;

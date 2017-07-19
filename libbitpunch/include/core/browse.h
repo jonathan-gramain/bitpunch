@@ -279,7 +279,8 @@ tracker_get_state(const struct tracker *tk);
 
 struct tracker *
 track_file(const struct bitpunch_schema_hdl *def_hdl,
-           struct bitpunch_binary_file_hdl *file_hdl);
+           struct bitpunch_binary_file_hdl *file_hdl,
+           struct tracker_error **errp);
 bitpunch_status_t
 box_get_n_items(struct box *box, int64_t *n_itemsp,
                 struct tracker_error **errp);
@@ -295,7 +296,7 @@ box_compute_end_offset(struct box *box,
                        int64_t *end_offsetp,
                        struct tracker_error **errp);
 struct tracker *
-track_box(struct box *box);
+track_box_contents_internal(struct box *box, struct browse_state *bst);
 struct tracker *
 track_item_contents(struct tracker *tk,
                     struct tracker_error **errp);

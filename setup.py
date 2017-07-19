@@ -7,7 +7,8 @@ model = Extension('bitpunch.model.model_ext',
                   include_dirs = ['libbitpunch/include', '.'],
                   library_dirs = ['build/lib'],
                   libraries = ['bitpunch'],
-                  define_macros=[('DEBUG', None)])
+                  define_macros=[('DEBUG', None)],
+                  extra_compile_args=['-O0', '-g3'])
 
 setup (name = 'bitpunch',
        version = '0.1',

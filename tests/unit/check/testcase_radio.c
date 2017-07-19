@@ -243,7 +243,7 @@ void testcase_radio_launch_test_iterate(struct radio_source_info *info)
     int c;
     int code_idx;
 
-    tk = track_file(info->bp, info->bin);
+    tk = track_file(info->bp, info->bin, NULL);
     ck_assert(NULL != tk);
 
     bt_ret = tracker_goto_named_item(tk, "codes", NULL);
@@ -310,7 +310,7 @@ void testcase_radio_launch_test_index(struct radio_source_info *info)
     int code_idx;
     union expr_value item_key;
 
-    tk = track_file(info->bp, info->bin);
+    tk = track_file(info->bp, info->bin, NULL);
     ck_assert(NULL != tk);
 
     bt_ret = tracker_goto_named_item(tk, "codes", NULL);
@@ -386,7 +386,7 @@ void testcase_radio_launch_test_slices(struct radio_source_info *info)
     int c;
     int code_idx;
 
-    tk = track_file(info->bp, info->bin);
+    tk = track_file(info->bp, info->bin, NULL);
     ck_assert(NULL != tk);
 
     bt_ret = tracker_goto_named_item(tk, "codes", NULL);
@@ -482,7 +482,7 @@ void testcase_radio_launch_test_dpath(struct radio_source_info *info)
     int code_idx;
     char dpath_expr[128];
 
-    tk = track_file(info->bp, info->bin);
+    tk = track_file(info->bp, info->bin, NULL);
     ck_assert(NULL != tk);
 
     for (c = 0; c < N_ELEM(radio_codenames); ++c) {
@@ -574,7 +574,7 @@ void testcase_radio_launch_test_slice_dpath(struct radio_source_info *info)
     int idx_end;
     int r;
 
-    tk = track_file(info->bp, info->bin);
+    tk = track_file(info->bp, info->bin, NULL);
     ck_assert(NULL != tk);
 
     for (r = 0; r < N_ELEM(ranges_to_check); ++r) {

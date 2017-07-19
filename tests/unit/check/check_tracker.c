@@ -98,7 +98,7 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
         test_spec->contents, test_spec->contents_size, &file_hdl);
     ck_assert_int_eq(ret, 0);
 
-    tk = track_file(*test_spec->contents_def, file_hdl);
+    tk = track_file(*test_spec->contents_def, file_hdl, NULL);
     ck_assert_ptr_ne(tk, NULL);
 
     bt_ret = tracker_goto_first_item(tk, NULL);
@@ -253,7 +253,7 @@ check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
         test_spec->contents, test_spec->contents_size, &file_hdl);
     ck_assert_int_eq(ret, 0);
 
-    tk = track_file(*test_spec->contents_def, file_hdl);
+    tk = track_file(*test_spec->contents_def, file_hdl, NULL);
     ck_assert_ptr_ne(tk, NULL);
 
     check_tracker_browse_sub_trackers_recur(tk, test_spec, -1,
@@ -286,7 +286,7 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
         test_spec->contents, test_spec->contents_size, &file_hdl);
     ck_assert_int_eq(ret, 0);
 
-    tk = track_file(*test_spec->contents_def, file_hdl);
+    tk = track_file(*test_spec->contents_def, file_hdl, NULL);
     ck_assert_ptr_ne(tk, NULL);
 
     random_box_indices = malloc_safe(test_spec->n_expect_boxes

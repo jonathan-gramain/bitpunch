@@ -119,6 +119,7 @@ data_file_simple_filter_as_type_base64 = """
 "YXMgY29udGVudHMgZGF0YQ=="
 """
 
+
 @pytest.fixture(
     scope='module',
     params=[{
@@ -166,3 +167,78 @@ def test_filter(params_filter):
             'n': stored_content_length,
             'data': 'as contents data'
         }
+
+
+spec_file_simple_filter_line_separated_base64 = """
+
+type u32 byte[4]: integer(signed=false, endian=little);
+
+struct RawBlock {
+    u32 n;
+    byte[n]: AsContents;
+};
+
+type Base64Block byte[]: string(boundary='\\n'): base64: RawBlock;
+
+struct AsContents {
+    byte[] data;
+};
+
+file {
+    Base64Block[] blocks;
+}
+
+"""
+
+spec_file_simple_filter_line_separated_base64_2 = """
+
+type u32 byte[4]: integer(signed=false, endian=little);
+
+type Base64Block byte[]: string(boundary='\\n'): base64: struct {
+    u32 n;
+    byte[n]: AsContents;
+};
+
+struct AsContents {
+    byte[] data;
+};
+
+file {
+    Base64Block[] blocks;
+}
+
+"""
+
+data_file_simple_filter_line_separated_base64 = """
+"EAAAAGFzIGNvbnRlbnRzIGRhdGE=\n"
+"EgAAAG1vcmUgY29udGVudHMgZGF0YQ==\n"
+"FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh\n"
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_simple_filter_line_separated_base64,
+        'data': data_file_simple_filter_line_separated_base64,
+#    }, {
+#        'spec': spec_file_simple_filter_line_separated_base64_2,
+#        'data': data_file_simple_filter_line_separated_base64,
+    }])
+def params_filter_2(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_filter_2(params_filter_2):
+    params = params_filter_2
+    dtree = params['dtree']
+
+    assert model.get_offset(dtree.blocks[1]) == 29
+    assert model.get_size(dtree.blocks[1]) == 33
+    assert dtree.blocks[1].n == 18
+    assert memoryview(dtree.blocks[1].data) == 'more contents data'
+    assert dtree.blocks[0].n == 16
+    assert memoryview(dtree.blocks[0].data) == 'as contents data'
+    assert model.make_python_object(dtree.blocks[2]) == {
+        'n': 23,
+        'data': 'even more contents data'
+    }

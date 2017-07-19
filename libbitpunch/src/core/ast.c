@@ -2532,6 +2532,7 @@ resolve2_expr_member_common(struct ast_node **expr_p,
     int ret;
     const struct ast_node *anchor_expr;
     struct ast_node *anchor_block;
+    const struct ast_node *as_type;
     struct ast_node *member;
     struct named_statement *resolved_member;
 
@@ -2555,7 +2556,8 @@ resolve2_expr_member_common(struct ast_node **expr_p,
         (*expr_p)->u.rexpr_member_common.anchor_block = anchor_block;
     }
     assert(ast_node_is_item(anchor_block));
-    if (anchor_block->type != AST_NODE_TYPE_BLOCK_DEF) {
+    as_type = ast_node_get_as_type(anchor_block);
+    if (as_type->type != AST_NODE_TYPE_BLOCK_DEF) {
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &(*expr_p)->loc,
             "invalid use of member operator on non-block dpath");
@@ -2572,7 +2574,7 @@ resolve2_expr_member_common(struct ast_node **expr_p,
         }
         resolved_member = find_statement_by_name(
             statement_type, name,
-            &anchor_block->u.block_def.block_stmt_list);
+            &as_type->u.block_def.block_stmt_list);
         if (NULL == resolved_member) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &member->loc,
@@ -3035,6 +3037,7 @@ resolve2_expr_interpreter(struct ast_node **expr_p)
     struct ast_node *target;
     struct interpreter *interpreter;
     struct ast_node *resolved_type;
+    struct ast_node *target_item;
 
     if (NULL != (*expr_p)->u.rexpr_filter.target
         && -1 == resolve2_expr(&(*expr_p)->u.rexpr_filter.target)) {
@@ -3051,8 +3054,23 @@ resolve2_expr_interpreter(struct ast_node **expr_p)
         return -1;
     }
     assert(resolved_type->type == AST_NODE_TYPE_REXPR_INTERPRETER);
+    resolved_type->u.rexpr_filter.target = target;
     if (NULL != target && ast_node_is_rexpr(target)) {
         resolved_type->u.rexpr.dpath_type = target->u.rexpr.dpath_type;
+    }
+    if (NULL != resolved_type->u.rexpr_interpreter.get_size_func) {
+        target_item = target;
+        while (NULL != target_item && !ast_node_is_item(target_item)) {
+            if (AST_NODE_TYPE_REXPR_AS_TYPE == target_item->type
+                || (AST_NODE_TYPE_REXPR_INTERPRETER == target_item->type
+                    && NULL != target_item->u.rexpr_interpreter.get_size_func)) {
+                break ;
+            }
+            target_item = target_item->u.rexpr_filter.target;
+        }
+        if (NULL != target_item && ast_node_is_item(target_item)) {
+            target_item->u.item.filter_defining_size = resolved_type;
+        }
     }
     ast_node_free(*expr_p);
     *expr_p = resolved_type;
@@ -3311,9 +3329,7 @@ resolve2_span_size_block(struct ast_node *node)
         node->flags |= ASTFLAG_IS_USED_SIZE_DYNAMIC;
     }
     if (child_has_undetermined_size
-        && (NULL == node->u.item.filter
-            || NULL == (node->u.item.filter
-                        ->u.rexpr_interpreter.get_size_func))
+        && NULL == node->u.item.filter_defining_size
         && NULL == max_span_expr) {
         node->flags |= ASTFLAG_HAS_UNDETERMINED_SIZE;
     }
@@ -3379,9 +3395,7 @@ resolve2_span_size_array(struct ast_node *node)
         node->flags |= (ASTFLAG_IS_SPAN_SIZE_DYNAMIC |
                         ASTFLAG_IS_USED_SIZE_DYNAMIC);
     }
-    if ((NULL == node->u.item.filter
-         || NULL == (node->u.item.filter
-                     ->u.rexpr_interpreter.get_size_func))
+    if (NULL == node->u.item.filter_defining_size
         && (NULL == value_count_expr
             || 0 != (value_type->flags & ASTFLAG_HAS_UNDETERMINED_SIZE))) {
         node->flags |= ASTFLAG_HAS_UNDETERMINED_SIZE;
@@ -3425,9 +3439,7 @@ resolve2_span_size_byte_array(struct ast_node *node)
     }
     if (NULL == size_expr) {
         node->flags |= ASTFLAG_NEED_SLACK;
-        if (NULL == node->u.item.filter
-            || NULL == (node->u.item.filter
-                        ->u.rexpr_interpreter.get_size_func)) {
+        if (NULL == node->u.item.filter_defining_size) {
             node->flags |= ASTFLAG_HAS_UNDETERMINED_SIZE;
         }
     }
@@ -3810,8 +3822,7 @@ ast_node_is_item(const struct ast_node *node)
 int
 ast_node_has_interpreter(const struct ast_node *node)
 {
-    return (ast_node_is_origin_container(node)
-            && NULL != node->u.item.filter);
+    return ast_node_is_item(node) && NULL != node->u.item.filter;
 }
 
 int
@@ -3949,6 +3960,12 @@ dump_block_stmt_list_recur(const struct ast_node *block,
 static void
 dump_ast_type(const struct ast_node *node, int depth,
               struct list_of_visible_refs *visible_refs, FILE *stream);
+
+void
+dump_ast_location(struct ast_node *node, FILE *stream)
+{
+    bitpunch_parser_print_location(&node->loc, stream);
+}
 
 void
 dump_ast(struct ast_node *root, FILE *stream)

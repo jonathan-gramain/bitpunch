@@ -128,7 +128,7 @@ data_file_array_bytes_as_integers_filtered = """
     }, {
         'spec': spec_file_array_bytes_as_integers_filtered,
         'data': data_file_array_bytes_as_integers_filtered,
-        'sizeof_array': 10,
+        'sizeof_array': 16,
     }])
 def params_array_flat(request):
     return conftest.make_testcase(request.param)
