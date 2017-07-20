@@ -69,11 +69,11 @@ def test_tinydb(spec, data_ok1):
     first_item = True
     for item in values:
         # item is a mapping because TinyDBValue is a 'struct'
-        assert list(model.iter_keys(item)) == expected_attr_list
+        assert list(item.iter_keys()) == expected_attr_list
         if first_item:
             #FIXME
             #assert model.make_python_object(
-            #    model.iter_items(item))) == expected_first_item_items
+            #    item.iter_items())) == expected_first_item_items
             first_item = False
 
     description = [item for item in values if item.key_value == 'description'][0]

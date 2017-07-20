@@ -936,6 +936,8 @@ DataContainer_make_python_object(DataContainerObject *obj)
     return DataContainer_box_to_python_object(obj->dtree, obj->box);
 }
 
+static PyObject *
+DataContainer_str(DataContainerObject *self);
 
 
 static PyObject *
@@ -948,6 +950,7 @@ DataContainerType_setup(void)
     DataContainerType.tp_new = DataContainer_new;
     DataContainerType.tp_clear = (inquiry)DataContainer_clear;
     DataContainerType.tp_dealloc = (destructor)DataContainer_dealloc;
+    DataContainerType.tp_str = (reprfunc)DataContainer_str;
     DataContainerType.tp_iter = (getiterfunc)DataContainer_iter;
 
     if (PyType_Ready(&DataContainerType) < 0) {
@@ -2933,6 +2936,28 @@ DataContainer_get_location(DataContainerObject *self, PyObject *args)
 }
 
 static PyObject *
+DataContainer_str(DataContainerObject *self)
+{
+    struct box *box;
+    int64_t end_offset;
+    bitpunch_status_t bt_ret;
+    const char *buf;
+    int64_t len;
+    struct tracker_error *tk_err = NULL;
+
+    box = self->box;
+    bt_ret = box_compute_end_offset(box, BOX_END_OFFSET_USED, &end_offset,
+                                    &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
+        return NULL;
+    }
+    buf = box->file_hdl->bf_data + box_get_start_offset(box);
+    len = end_offset - box_get_start_offset(box);
+    return PyString_FromStringAndSize(buf, (Py_ssize_t)len);
+}
+
+static PyObject *
 DataContainer___unicode__(DataContainerObject *self, PyObject *args)
 {
     struct box *box;
@@ -3336,40 +3361,6 @@ setup_exceptions(PyObject *bitpunch_m)
 /* bitpunch methods */
 
 static PyObject *
-mod_bitpunch_iter_keys(PyObject *self, PyObject *obj)
-{
-    TrackerObject *tracker;
-
-    if (!PyObject_TypeCheck(obj, &DataContainerType)) {
-        return PyErr_Format(PyExc_TypeError,
-                            "Argument is not of type 'bitpunch.DataContainer'");
-    }
-    tracker = Tracker_new_from_DataContainer(&TrackerType,
-                                             (DataContainerObject *)obj);
-    if (NULL != tracker) {
-        tracker->iter_mode = TRACKER_ITER_FIELD_NAMES;
-    }
-    return (PyObject *)tracker;
-}
-
-static PyObject *
-mod_bitpunch_iter_items(PyObject *self, PyObject *obj)
-{
-    TrackerObject *tracker;
-
-    if (!PyObject_TypeCheck(obj, &DataContainerType)) {
-        return PyErr_Format(PyExc_TypeError,
-                            "Argument is not of type 'bitpunch.DataContainer'");
-    }
-    tracker = Tracker_new_from_DataContainer(&TrackerType,
-                                             (DataContainerObject *)obj);
-    if (NULL != tracker) {
-        tracker->iter_mode = TRACKER_ITER_FIELD_KEYVALUE_TUPLES;
-    }
-    return (PyObject *)tracker;
-}
-
-static PyObject *
 mod_bitpunch_make_python_object(PyObject *self, PyObject *obj)
 {
     if (PyObject_TypeCheck(obj, &DataContainerType)) {
@@ -3459,14 +3450,6 @@ mod_bitpunch_disable_debug_mode(PyObject *self)
 }
 
 static PyMethodDef bitpunch_methods[] = {
-    { "iter_keys", mod_bitpunch_iter_keys, METH_O,
-      "Get an iterator over the keys of a container."
-    },
-
-    { "iter_items", mod_bitpunch_iter_items, METH_O,
-      "Get an iterator over (key, value) tuples of a container."
-    },
-
     { "make_python_object", mod_bitpunch_make_python_object, METH_O,
       "Make a deep python object from a bitpunch data object."
     },

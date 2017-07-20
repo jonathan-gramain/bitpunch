@@ -16,14 +16,22 @@ def records_dumper(records_generator, output_file):
             first = False;
         else:
             output_file.write(',')
-        json.dump(record, output_file)
+
+        # json is utf-8 based, since we want to dump binary data which
+        # may be most easily read as ASCII most of the time
+        # (especially for keys) we choose a single-byte-per-character
+        # encoding which allows the full range of 256 values per
+        # byte. The non-ASCII characters will then be encoded with
+        # their unicode equivalent in latin-1.
+        json.dump(record, output_file, encoding='latin-1')
+
         n_dumped_records += 1
     output_file.write(']')
     return n_dumped_records
 
 def records_extractor(ldb_model):
     index = ldb_model['?index']
-    prev_key = u''
+    prev_key = b''
 
     for entry in index['?stored_block'].entries:
         # recurse one more level into the LDB index to get the data,
@@ -32,10 +40,10 @@ def records_extractor(ldb_model):
         sub_block = entry.eval_expr('(value: BlockHandle).?stored_block')
         for sub_entry in sub_block.entries:
             entry_key = (prev_key[:sub_entry.key_shared_size] +
-                         unicode(sub_entry.key_non_shared))
+                         bytes(sub_entry.key_non_shared))
             yield {
                 'key': entry_key,
-                'value': unicode(sub_entry.value)
+                'value': bytes(sub_entry.value),
             }
             prev_key = entry_key
 
