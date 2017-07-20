@@ -7,7 +7,7 @@ import conftest
 
 spec_file_anonymous_struct_embedded = """
 
-type u32 byte[4]: integer(endian=little, signed=false);
+type u32 = byte[4]: integer(endian=little, signed=false);
 
 file {
     struct {
@@ -26,7 +26,7 @@ file {
 
 spec_file_anonymous_field = """
 
-type u32 byte[4]: integer(endian=little, signed=false);
+type u32 = byte[4]: integer(endian=little, signed=false);
 
 struct Foo {
     u32 a;
@@ -47,8 +47,8 @@ file {
 
 spec_file_hidden_field = """
 
-type u8 byte: integer(signed=false);
-type u32 byte[4]: integer(endian=little, signed=false);
+type u8 = byte: integer(signed=false);
+type u32 = byte[4]: integer(endian=little, signed=false);
 
 struct Foo {
     u32 a;
@@ -79,8 +79,8 @@ data_file_anonymous = """
 
 spec_file_anonymous_in_trailer = """
 
-type u8 byte: integer(signed=false);
-type u32 byte[4]: integer(endian=little, signed=false);
+type u8 = byte: integer(signed=false);
+type u32 = byte[4]: integer(endian=little, signed=false);
 
 struct Foo {
     u32 a;

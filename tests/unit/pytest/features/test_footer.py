@@ -22,7 +22,7 @@ data_file_footer_static_sized = """
 
 spec_file_footer_dynamic_sized_len_at_start = """
 
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     u8 footer_size;
@@ -41,7 +41,7 @@ data_file_footer_dynamic_sized_len_at_start = """
 
 spec_file_footer_dynamic_sized_len_in_footer = """
 
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     byte[] contents;
@@ -86,8 +86,8 @@ def test_footer(params_footer):
 
 spec_file_footer_dynamic_sized_complex_footer = """
 
-type u8 byte: integer(signed=false);
-type u16 byte[2]: integer(signed=false, endian=big);
+type u8 = byte: integer(signed=false);
+type u16 = byte[2]: integer(signed=false, endian=big);
 
 struct Footer {
     byte[footer_hdr_size] hdr;
@@ -142,9 +142,9 @@ def test_footer_complex(params_footer_complex):
 
 spec_file_footer_with_implicit_padding = """
 
-type u8 byte: integer(signed=false);
-type u16 byte[2]: integer(signed=false, endian=big);
-type u32 byte[4]: integer(signed=false, endian=big);
+type u8 = byte: integer(signed=false);
+type u16 = byte[2]: integer(signed=false, endian=big);
+type u32 = byte[4]: integer(signed=false, endian=big);
 
 struct Footer {
     byte[footer_hdr_size] hdr;

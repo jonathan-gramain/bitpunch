@@ -5,7 +5,7 @@
  * reached.
  */
 
-type u32 byte[4] : integer(signed=false, endian=big);
+type u32 = byte[4]: integer(signed=false, endian=big);
 
 struct DumbDBValue {
     byte flags : integer(signed=false);

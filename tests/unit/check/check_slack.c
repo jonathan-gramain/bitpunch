@@ -46,7 +46,7 @@
 #include "check_tracker.h"
 
 static const char *check_slack_def =
-    "type u32 byte[4]: integer(signed=false, endian=big);\n"
+    "type u32 = byte[4]: integer(signed=false, endian=big);\n"
     "struct MyHdr {\n"
     "    byte[5] magic;\n"
     "};\n"
@@ -126,7 +126,7 @@ static const struct test_tracker_spec check_slack_valid1_spec = {
 
 
 static const char *check_slack_trailing_field_def =
-    "type u32 byte[4]: integer(signed=false, endian=big);\n"
+    "type u32 = byte[4]: integer(signed=false, endian=big);\n"
     "struct MyHdr {\n"
     "    byte[5] magic;\n"
     "};\n"
@@ -213,7 +213,7 @@ static const struct test_tracker_spec check_slack_trailing_field_valid1_spec = {
 
 
 static const char *check_slack_byte_array_def =
-    "type u32 byte[4]: integer(signed=false, endian=big);\n"
+    "type u32 = byte[4]: integer(signed=false, endian=big);\n"
     "struct MyHdr {\n"
     "    byte[5] magic;\n"
     "};\n"
@@ -279,7 +279,7 @@ static const struct test_tracker_spec check_slack_byte_array_valid1_spec = {
 
 
 static const char *check_slack_trailing_field_recur_def =
-    "type u32 byte[4]: integer(signed=false, endian=big);\n"
+    "type u32 = byte[4]: integer(signed=false, endian=big);\n"
     "struct BOX {\n"
     "    u32 size;\n"
     "    byte[8] name: string;\n"

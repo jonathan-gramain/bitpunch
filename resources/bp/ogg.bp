@@ -4,10 +4,10 @@
  * https://www.xiph.org/ogg/
  */
 
-type s64 byte[8]: integer(signed=true, endian=little);
+type s64 = byte[8]: integer(signed=true, endian=little);
 
-type u8 byte: integer(signed=false);
-type u32 byte[4]: integer(signed=false, endian=little);
+type u8 = byte: integer(signed=false);
+type u32 = byte[4]: integer(signed=false, endian=little);
 
 file {
     OggPage[] ogg_pages;

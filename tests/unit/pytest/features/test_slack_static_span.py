@@ -7,7 +7,7 @@ import conftest
 
 spec_static_span_and_slack = """
 
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     VarBlock[] blocks;
@@ -30,7 +30,7 @@ data_static_span_and_slack = """
 
 spec_static_span_and_slack_sized = """
 
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     VarBlock[] blocks;
@@ -46,7 +46,7 @@ struct VarBlock {
 
 spec_static_span_and_slack_sized_subblock = """
 
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     VarBlock[] blocks;
@@ -73,7 +73,7 @@ data_static_span_and_slack_sized = """
 
 spec_static_minspan = """
 
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     VarBlock[] blocks;
@@ -101,7 +101,7 @@ data_static_minspan = """
 
 spec_length_in_trailer = """
 
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     VarBlock[] blocks;
@@ -117,7 +117,7 @@ struct VarBlock {
 
 spec_length_in_trailer_conditional = """
 
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     VarBlock[] blocks;
@@ -145,7 +145,7 @@ data_length_in_trailer = """
 
 spec_var_length_trailer = """
 
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     VarBlock[] blocks;
@@ -169,8 +169,8 @@ data_var_length_trailer = """
 
 spec_var_length_array_trailer = """
 
-type u8 byte: integer(signed=false);
-type u16 byte[2]: integer(signed=false);
+type u8 = byte: integer(signed=false);
+type u16 = byte[2]: integer(signed=false);
 
 file {
     VarBlock[] blocks;
@@ -194,8 +194,8 @@ data_var_length_array_trailer = """
 
 spec_var_length_block_trailer = """
 
-type u8 byte: integer(signed=false);
-type u16 byte[2]: integer(signed=false);
+type u8 = byte: integer(signed=false);
+type u16 = byte[2]: integer(signed=false);
 
 file {
     VarBlock[] blocks;
@@ -225,8 +225,8 @@ ff ff ff ff ff ff ff ff ff 03
 
 spec_var_length_subblock_trailer = """
 
-type u8 byte: integer(signed=false);
-type u16 byte[2]: integer(signed=false);
+type u8 = byte: integer(signed=false);
+type u16 = byte[2]: integer(signed=false);
 
 file {
     VarBlock[] blocks;
@@ -335,7 +335,7 @@ def test_slack_span_simple(params_simple):
 
 spec_static_span_template = """
 
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {{
     HugeBlock[] huge_blocks;

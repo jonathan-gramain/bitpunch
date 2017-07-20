@@ -43,12 +43,12 @@ def test_varint(params_varint):
 #
 
 spec_varint_pools = """
-type u8 byte[1]: integer(signed=false);
-type v8 byte[1]: varint();
-type v16 byte[2]: varint();
-type v32 byte[4]: varint();
-type v64 byte[8]: varint();
-type vx byte[]: varint();
+type u8 = byte[1]: integer(signed=false);
+type v8 = byte[1]: varint();
+type v16 = byte[2]: varint();
+type v32 = byte[4]: varint();
+type v64 = byte[8]: varint();
+type vx = byte[]: varint();
 
 file {
     u8 v8_count;
@@ -126,11 +126,11 @@ def test_varint_pools(params_varint_pools):
 
 
 spec_varint_in_blocks = """
-type u8 byte: integer(signed=false);
-type u16 byte[2]: integer(signed=false, endian=little);
-type u32 byte[4]: integer(signed=false, endian=little);
+type u8 = byte: integer(signed=false);
+type u16 = byte[2]: integer(signed=false, endian=little);
+type u32 = byte[4]: integer(signed=false, endian=little);
 
-type VarInt byte[]: varint();
+type VarInt = byte[]: varint();
 
 file {
     Block[] blocks;

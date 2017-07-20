@@ -46,10 +46,10 @@
 #include "check_tracker.h"
 
 static const char *check_struct_def =
-    "type u8 byte[1]: integer(signed=false);\n"
-    "type u16_le byte[2]: integer(signed=false, endian=little);\n"
-    "type u32 byte[4]: integer(signed=false, endian=big);\n"
-    "type u32_le byte[4]: integer(signed=false, endian=little);\n"
+    "type u8 = byte[1]: integer(signed=false);\n"
+    "type u16_le = byte[2]: integer(signed=false, endian=little);\n"
+    "type u32 = byte[4]: integer(signed=false, endian=big);\n"
+    "type u32_le = byte[4]: integer(signed=false, endian=little);\n"
     "struct MyStruct {\n"
     "    u32 field1_u32;\n"
     "    byte field2_byte;\n"
@@ -248,10 +248,10 @@ static const struct test_tracker_spec check_struct_invalid_truncated1_spec = {
 
 
 static const char *check_vstruct_def =
-    "type u8 byte[1]: integer(signed=false);\n"
-    "type u16_le byte[2]: integer(signed=false, endian=little);\n"
-    "type u32 byte[4]: integer(signed=false, endian=big);\n"
-    "type u32_le byte[4]: integer(signed=false, endian=little);\n"
+    "type u8 = byte[1]: integer(signed=false);\n"
+    "type u16_le = byte[2]: integer(signed=false, endian=little);\n"
+    "type u32 = byte[4]: integer(signed=false, endian=big);\n"
+    "type u32_le = byte[4]: integer(signed=false, endian=little);\n"
     "struct MyStruct {\n"
     "    u32 field1_u32;\n"
     "    byte[field1_u32] field2_bytes;\n"

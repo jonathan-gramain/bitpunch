@@ -10,7 +10,7 @@ import conftest
 #
 
 specs_resolve_types_and_expr = ["""
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     Foo foo;
@@ -22,7 +22,7 @@ struct Foo {
 };
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     Foo foo;
@@ -38,7 +38,7 @@ struct Bar {
 };
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     byte[] data: Foo;
@@ -50,7 +50,7 @@ struct Foo {
 };
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     byte[] data: Foo[];
@@ -62,7 +62,7 @@ struct Foo {
 };
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
 }
@@ -73,7 +73,7 @@ struct Foo {
 };
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     byte[] data;
@@ -86,7 +86,7 @@ struct Foo {
 };
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     byte[] data;
@@ -100,7 +100,7 @@ struct Foo {
 };
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     byte[] data;
@@ -118,7 +118,7 @@ struct Bar {
 };
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     byte[] data;
@@ -136,7 +136,7 @@ struct Bar {
 };
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     byte[] data;
@@ -154,25 +154,25 @@ struct Foo {
 };
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     Foo foo;
 }
 
-type Foo struct {
+type Foo = struct {
     u8 length;
     byte[length] contents;
 };
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     Foo foo;
 }
 
-type Foo byte[]: Bar;
+type Foo = byte[]: Bar;
 
 struct Bar {
     u8 length;
@@ -180,7 +180,7 @@ struct Bar {
 };
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     byte[] data;
@@ -188,7 +188,7 @@ file {
 }
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     byte[] data;
@@ -197,7 +197,7 @@ file {
 }
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     ?data => bytes(file);
@@ -205,7 +205,7 @@ file {
 }
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     ?data => bytes(file)[..];
@@ -213,7 +213,7 @@ file {
 }
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     ?data => bytes(file)[..]: Foo;
@@ -225,7 +225,7 @@ struct Foo {
 };
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     u8 foo_offset;
@@ -240,7 +240,7 @@ struct Foo {
 };
 
 """, """
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     byte foo_offset;
@@ -267,7 +267,7 @@ def test_resolve_types_and_expr(spec):
 #
 
 spec_unknown_type_name_1 = """
-type Foo byte[42];
+type Foo = byte[42];
 
 file {
     Bar bar;

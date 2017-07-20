@@ -1054,7 +1054,7 @@ file_block: KW_FILE '{' block_stmt_list '}' {
     }
 
 type_decl:
-    KW_TYPE IDENTIFIER type_def ';' {
+    KW_TYPE IDENTIFIER '=' type_def ';' {
         $$ = $type_def;
         $$->loc = @IDENTIFIER;
         $$->name = $IDENTIFIER;

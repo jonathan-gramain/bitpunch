@@ -7,7 +7,7 @@ import conftest
 
 spec_file_1 = """
 
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 struct Thing {
     u8 nb_props;

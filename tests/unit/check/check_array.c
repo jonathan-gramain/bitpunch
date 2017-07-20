@@ -48,7 +48,7 @@
 /* static array */
 
 static const char *check_sarray_contents_def =
-    "type u32 byte[4]: integer(signed=false, endian=big);\n"
+    "type u32 = byte[4]: integer(signed=false, endian=big);\n"
     "file {\n"
     "    u32[5] int_array;"
     "}\n";
@@ -154,7 +154,7 @@ static const struct test_tracker_spec check_sarray_invalid_truncated2_spec = {
 
 
 static const char *check_varray_contents_def =
-    "type u32 byte[4]: integer(signed=false, endian=big);\n"
+    "type u32 = byte[4]: integer(signed=false, endian=big);\n"
     "file {\n"
     "    u32 int_array_size;\n"
     "    u32[(2 + int_array_size)] int_array;\n"

@@ -10,7 +10,7 @@ import conftest
 #
 
 spec_embedded = """
-type u32 byte[4]: integer(signed=false, endian=little);
+type u32 = byte[4]: integer(signed=false, endian=little);
 
 file {
     GreetingSet greeting_set;

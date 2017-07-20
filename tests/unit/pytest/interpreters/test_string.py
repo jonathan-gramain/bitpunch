@@ -12,7 +12,7 @@ import conftest
 expected_string_table = ['Bonjour', 'Hello', 'Guten Tag', 'Hola', 'Privet']
 
 spec_string_table = """
-type cstr byte[]: string(boundary='\\0');
+type cstr = byte[]: string(boundary='\\0');
 
 file {
     cstr[] string_table;
@@ -26,7 +26,7 @@ data_string_table_1 = """
 
 
 spec_string_table_multi_char_boundary = """
-type cstr byte[]: string(boundary='--delimiter--');
+type cstr = byte[]: string(boundary='--delimiter--');
 
 file {
     cstr[] string_table;

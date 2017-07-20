@@ -4,15 +4,15 @@
  * Reference: http://xhelmboyx.tripod.com/formats/mp4-layout.txt
  */
 
-type u8  byte[1] : integer(signed=false, endian=big);
-type u16 byte[2] : integer(signed=false, endian=big);
-type u32 byte[4] : integer(signed=false, endian=big);
-type u64 byte[8] : integer(signed=false, endian=big);
+type u8  = byte[1]: integer(signed=false, endian=big);
+type u16 = byte[2]: integer(signed=false, endian=big);
+type u32 = byte[4]: integer(signed=false, endian=big);
+type u64 = byte[8]: integer(signed=false, endian=big);
 
-type timestamp32 u32;
-type timestamp64 u64;
+type timestamp32 = u32;
+type timestamp64 = u64;
 
-type ATOM byte[4] : string;
+type ATOM = byte[4]: string;
 
 struct BOX_HDR {
     u32 size;

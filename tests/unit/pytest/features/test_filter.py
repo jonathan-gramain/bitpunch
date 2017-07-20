@@ -7,7 +7,7 @@ import conftest
 
 spec_file_simple_filter_as_type = """
 
-type u32 byte[4]: integer(signed=false, endian=little);
+type u32 = byte[4]: integer(signed=false, endian=little);
 
 struct AsContents {
     u32 n;
@@ -22,7 +22,7 @@ file {
 
 spec_file_simple_filter_as_type_twice = """
 
-type u32 byte[4]: integer(signed=false, endian=little);
+type u32 = byte[4]: integer(signed=false, endian=little);
 
 struct DummyStruct {
     u32 n;
@@ -42,7 +42,7 @@ file {
 
 spec_file_simple_filter_as_type_anon_hop = """
 
-type u32 byte[4]: integer(signed=false, endian=little);
+type u32 = byte[4]: integer(signed=false, endian=little);
 
 struct HopStruct {
     u32 n;
@@ -66,7 +66,7 @@ data_file_simple_filter_as_type = """
 
 spec_file_simple_filter_as_type_constrained = """
 
-type u32 byte[4]: integer(signed=false, endian=little);
+type u32 = byte[4]: integer(signed=false, endian=little);
 
 struct AsContents {
     u32 n;
@@ -97,7 +97,7 @@ data_file_simple_filter_as_type_constrained_bad = """
 
 spec_file_simple_filter_as_type_base64 = """
 
-type u32 byte[4]: integer(signed=false, endian=little);
+type u32 = byte[4]: integer(signed=false, endian=little);
 
 struct Base64Block {
     u32 n;
@@ -171,14 +171,14 @@ def test_filter(params_filter):
 
 spec_file_simple_filter_line_separated_base64 = """
 
-type u32 byte[4]: integer(signed=false, endian=little);
+type u32 = byte[4]: integer(signed=false, endian=little);
 
 struct RawBlock {
     u32 n;
     byte[n]: AsContents;
 };
 
-type Base64Block byte[]: string(boundary='\\n'): base64: RawBlock;
+type Base64Block = byte[]: string(boundary='\\n'): base64: RawBlock;
 
 struct AsContents {
     byte[] data;
@@ -192,9 +192,9 @@ file {
 
 spec_file_simple_filter_line_separated_base64_2 = """
 
-type u32 byte[4]: integer(signed=false, endian=little);
+type u32 = byte[4]: integer(signed=false, endian=little);
 
-type Base64Block byte[]: string(boundary='\\n'): base64: struct {
+type Base64Block = byte[]: string(boundary='\\n'): base64: struct {
     u32 n;
     byte[n]: AsContents;
 };

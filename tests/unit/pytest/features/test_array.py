@@ -7,7 +7,7 @@ import conftest
 
 spec_file_array_static_sized = """
 
-type u32 byte[4]: integer(signed=false, endian=big);
+type u32 = byte[4]: integer(signed=false, endian=big);
 
 struct Item {
     u32 value;
@@ -77,7 +77,7 @@ def test_array_items(params_array_items):
 
 spec_file_array_bytes_as_integers_1 = """
 
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     u8[10] integers;
@@ -87,7 +87,7 @@ file {
 
 spec_file_array_bytes_as_integers_2 = """
 
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     byte[10] integers: u8[];
@@ -102,7 +102,7 @@ data_file_array_bytes_as_integers = """
 
 spec_file_array_bytes_as_integers_filtered = """
 
-type u8 byte: integer(signed=false);
+type u8 = byte: integer(signed=false);
 
 file {
     byte[] integers: base64: u8[];

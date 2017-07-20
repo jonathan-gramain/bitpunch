@@ -22,9 +22,9 @@ import conftest
 @pytest.fixture
 def spec_log():
     fmt = """
-type u8 byte: integer(signed=false);
-type u16 byte[2]: integer(signed=false, endian=little);
-type u32 byte[4]: integer(signed=false, endian=little);
+type u8 = byte: integer(signed=false);
+type u16 = byte[2]: integer(signed=false, endian=little);
+type u32 = byte[4]: integer(signed=false, endian=little);
 
 file {
     LogBlock[] head_blocks;
@@ -177,9 +177,9 @@ def test_leveldb_log_multiblock(spec_log, data_log_multiblock):
 @pytest.fixture
 def spec_sst_index():
     return """
-    type u32 byte[4]: integer(signed=false, endian=little);
+    type u32 = byte[4]: integer(signed=false, endian=little);
 
-    type VarInt byte[]: varint();
+    type VarInt = byte[]: varint();
 
     struct BlockHandle {
         VarInt offset;

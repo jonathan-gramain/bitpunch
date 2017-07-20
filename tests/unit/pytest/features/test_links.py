@@ -7,7 +7,7 @@ import conftest
 
 spec_file_links_1 = """
 
-type u16 byte[2]: integer(signed=false, endian=little);
+type u16 = byte[2]: integer(signed=false, endian=little);
 
 struct Number {
     byte[2] raw;
@@ -50,7 +50,7 @@ def test_links_1(params_links_1):
 
 spec_file_links_2_1 = """
 
-type u16 byte[2]: integer(signed=false, endian=little);
+type u16 = byte[2]: integer(signed=false, endian=little);
 
 file {
     u16[3] typed;
@@ -62,7 +62,7 @@ file {
 
 spec_file_links_2_2 = """
 
-type u16 byte[2]: integer(signed=false, endian=little);
+type u16 = byte[2]: integer(signed=false, endian=little);
 
 struct Foo {
     byte[] bar;
@@ -106,7 +106,7 @@ def test_links_2(params_links_2):
 
 spec_file_links_3 = """
 
-type u16 byte[2]: integer(signed=false, endian=little);
+type u16 = byte[2]: integer(signed=false, endian=little);
 
 struct Number {
     u16 value;
@@ -147,7 +147,7 @@ def test_links_3(params_links_3):
 
 spec_file_links_4 = """
 
-type u16 byte[2]: integer(signed=false, endian=little);
+type u16 = byte[2]: integer(signed=false, endian=little);
 
 struct Number {
     u16 value;
@@ -185,7 +185,7 @@ def test_links_4(params_links_4):
 
 spec_file_links_invalid_1 = """
 
-type u16 byte[2]: integer(signed=false, endian=little);
+type u16 = byte[2]: integer(signed=false, endian=little);
 
 struct Number {
     u16 value;
@@ -200,7 +200,7 @@ file {
 
 spec_file_links_invalid_2 = """
 
-type u16 byte[2]: integer(signed=false, endian=little);
+type u16 = byte[2]: integer(signed=false, endian=little);
 
 struct Number {
     u16 value;

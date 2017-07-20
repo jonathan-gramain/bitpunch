@@ -10,9 +10,9 @@
  * Otherwise it's a pretty straightforward format.
  */
 
-type u8 byte: integer(signed=false);
-type u16 byte[2]: integer(signed=false, endian=little);
-type u32 byte[4]: integer(signed=false, endian=little);
+type u8 = byte: integer(signed=false);
+type u16 = byte[2]: integer(signed=false, endian=little);
+type u32 = byte[4]: integer(signed=false, endian=little);
 
 file {
     LogBlock[] head_blocks;

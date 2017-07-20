@@ -6,11 +6,11 @@
  * https://github.com/google/leveldb/blob/master/doc/table_format.md
  */
 
-type u32 byte[4]: integer(signed=false, endian=little);
+type u32 = byte[4]: integer(signed=false, endian=little);
 
-type VarInt byte[]: varint;
+type VarInt = byte[]: varint;
 
-type CompressedDataBlock byte[]: snappy: DataBlock;
+type CompressedDataBlock = byte[]: snappy: DataBlock;
 
 struct DataBlock {
     KeyValue[] entries;
