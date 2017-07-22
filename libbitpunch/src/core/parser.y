@@ -113,7 +113,7 @@
         struct ast_node_list *block_def_list;
 
         struct statement_list *field_list;
-        struct statement_list *link_list;
+        struct statement_list *named_expr_list;
         struct statement_list *span_list;
         struct statement_list *key_list;
         struct statement_list *last_stmt_list;
@@ -248,7 +248,7 @@
             AST_NODE_TYPE_REXPR_INTERPRETER,
             AST_NODE_TYPE_REXPR_AS_TYPE,
             AST_NODE_TYPE_REXPR_FIELD,
-            AST_NODE_TYPE_REXPR_LINK,
+            AST_NODE_TYPE_REXPR_NAMED_EXPR,
             AST_NODE_TYPE_REXPR_BUILTIN,
             AST_NODE_TYPE_REXPR_OP_SUBSCRIPT,
             AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE,
@@ -374,11 +374,11 @@
                 struct rexpr_member_common rexpr_member_common;
                 const struct field *field;
             } rexpr_field;
-            struct rexpr_link {
+            struct rexpr_named_expr {
                 /* inherits */
                 struct rexpr_member_common rexpr_member_common;
-                const struct link *link;
-            } rexpr_link;
+                const struct named_expr *named_expr;
+            } rexpr_named_expr;
             struct rexpr_builtin {
                 struct rexpr rexpr; /* inherits */
                 struct ast_node *anchor_expr;
@@ -461,7 +461,7 @@
         struct ast_node *expr;
     };
 
-    struct link {
+    struct named_expr {
         struct named_statement nstmt; // inherits
         struct ast_node *dst_expr;
     };
@@ -629,7 +629,7 @@
         dst->named_type_list = new_safe(struct named_type_list);
         dst->block_def_list = new_safe(struct ast_node_list);
         dst->field_list = new_safe(struct statement_list);
-        dst->link_list = new_safe(struct statement_list);
+        dst->named_expr_list = new_safe(struct statement_list);
         dst->span_list = new_safe(struct statement_list);
         dst->key_list = new_safe(struct statement_list);
         dst->last_stmt_list = new_safe(struct statement_list);
@@ -637,7 +637,7 @@
         STAILQ_INIT(dst->named_type_list);
         STAILQ_INIT(dst->block_def_list);
         TAILQ_INIT(dst->field_list);
-        TAILQ_INIT(dst->link_list);
+        TAILQ_INIT(dst->named_expr_list);
         TAILQ_INIT(dst->span_list);
         TAILQ_INIT(dst->key_list);
         TAILQ_INIT(dst->last_stmt_list);
@@ -651,7 +651,7 @@
         STAILQ_CONCAT(dst->named_type_list, src->named_type_list);
         STAILQ_CONCAT(dst->block_def_list, src->block_def_list);
         TAILQ_CONCAT(dst->field_list, src->field_list, list);
-        TAILQ_CONCAT(dst->link_list, src->link_list, list);
+        TAILQ_CONCAT(dst->named_expr_list, src->named_expr_list, list);
 
         TAILQ_CONCAT(dst->span_list, src->span_list, list);
         TAILQ_CONCAT(dst->key_list, src->key_list, list);
@@ -689,7 +689,7 @@
     struct statement_list *statement_list;
     struct file_block file_block;
     struct match *match;
-    struct link *link;
+    struct named_expr *named_expr;
     struct span_stmt *span_stmt;
     struct key_stmt *key_stmt;
     struct func_param *func_param;
@@ -703,7 +703,7 @@
 %token <integer> INTEGER
 %token <literal> LITERAL
 %token <boolean> KW_TRUE KW_FALSE
-%token KW_TYPE KW_STRUCT KW_UNION KW_FILE KW_MATCH KW_SPAN KW_MINSPAN KW_MAXSPAN KW_IF KW_ELSE KW_KEY KW_SELF KW_LAST
+%token KW_TYPE KW_STRUCT KW_UNION KW_FILE KW_MATCH KW_SPAN KW_MINSPAN KW_MAXSPAN KW_IF KW_ELSE KW_KEY KW_SELF KW_LAST KW_LET
 
 %token <ast_node_type> '|' '^' '&' '>' '<' '+' '-' '*' '/' '%' '!' '~' '.' ':'
 %token <ast_node_type> TOK_LOR "||"
@@ -714,7 +714,6 @@
 %token <ast_node_type> TOK_LE "<="
 %token <ast_node_type> TOK_LSHIFT "<<"
 %token <ast_node_type> TOK_RSHIFT ">>"
-%token <ast_node_type> TOK_LINK "=>"
 %token <ast_node_type> TOK_RANGE ".."
 %token <ast_node_type> OP_SIZEOF
 
@@ -744,7 +743,7 @@
 %type <func_param> func_param
 %type <func_param_list> func_params func_param_nonempty_list
 %type <match> match_stmt
-%type <link> link_stmt
+%type <named_expr> let_stmt
 %type <span_stmt> span_stmt
 %type <key_stmt> key_stmt
 %type <subscript_index> key_expr opt_key_expr
@@ -1248,7 +1247,7 @@ if_block:
         TAILQ_FOREACH(stmt, $block_stmt_list.field_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
-        TAILQ_FOREACH(stmt, $block_stmt_list.link_list, list) {
+        TAILQ_FOREACH(stmt, $block_stmt_list.named_expr_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
         TAILQ_FOREACH(stmt, $block_stmt_list.span_list, list) {
@@ -1271,7 +1270,7 @@ if_block:
         TAILQ_FOREACH(stmt, $opt_else_block.field_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
-        TAILQ_FOREACH(stmt, $opt_else_block.link_list, list) {
+        TAILQ_FOREACH(stmt, $opt_else_block.named_expr_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
         TAILQ_FOREACH(stmt, $opt_else_block.span_list, list) {
@@ -1381,12 +1380,12 @@ block_stmt_list:
             // anonymous block
             if (AST_NODE_TYPE_BLOCK_DEF == $type->type
                 && !TAILQ_EMPTY($type->u.block_def
-                                .block_stmt_list.link_list)) {
+                                .block_stmt_list.named_expr_list)) {
                 semantic_error(
                     SEMANTIC_LOGLEVEL_ERROR,
                     &TAILQ_FIRST($type->u.block_def
-                                 .block_stmt_list.link_list)->loc,
-                    "anonymous field cannot contain links");
+                                 .block_stmt_list.named_expr_list)->loc,
+                    "anonymous field cannot contain named expressions");
                 YYERROR;
             }
             field = new_safe(struct field);
@@ -1422,10 +1421,10 @@ block_stmt_list:
         TAILQ_INSERT_TAIL($$.key_list,
                           (struct statement *)$key_stmt, list);
     }
-  | block_stmt_list link_stmt ';' {
+  | block_stmt_list let_stmt ';' {
         $$ = $1;
-        TAILQ_INSERT_TAIL($$.link_list,
-                          (struct statement *)$link_stmt, list);
+        TAILQ_INSERT_TAIL($$.named_expr_list,
+                          (struct statement *)$let_stmt, list);
     }
 
   | block_stmt_list last_stmt ';' {
@@ -1524,15 +1523,9 @@ key_stmt:
         $$->key_expr = $expr;
     }
 
-link_stmt:
-    IDENTIFIER TOK_LINK expr {
-        if (*$IDENTIFIER != '?') {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &@$,
-                           "defining a link requires the member name to "
-                           "start with '?' character.");
-            YYERROR;
-        }
-        $$ = new_safe(struct link);
+let_stmt:
+    KW_LET IDENTIFIER '=' expr {
+        $$ = new_safe(struct named_expr);
         $$->nstmt.stmt.loc = @$;
         $$->nstmt.name = $IDENTIFIER + 1;
         $$->dst_expr = $expr;
@@ -1728,7 +1721,7 @@ ast_node_type_str(enum ast_node_type type)
         return "array subscript slice";
     case AST_NODE_TYPE_OP_MEMBER: return "operator 'member of'";
     case AST_NODE_TYPE_REXPR_FIELD: return "field expression";
-    case AST_NODE_TYPE_REXPR_LINK: return "link expression";
+    case AST_NODE_TYPE_REXPR_NAMED_EXPR: return "named expression";
     case AST_NODE_TYPE_REXPR_BUILTIN: return "builtin expression";
     }
     return "!!bad value type!!";

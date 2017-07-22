@@ -82,9 +82,10 @@ box_read_value_internal(struct box *box,
                         struct browse_state *bst);
 
 bitpunch_status_t
-box_lookup_link_internal(struct box *box, const char *link_name,
-                         const struct link **linkp,
-                         struct browse_state *bst);
+box_lookup_named_expr_internal(struct box *box,
+                               const char *named_expr_name,
+                               const struct named_expr **named_exprp,
+                               struct browse_state *bst);
 
 bitpunch_status_t
 tracker_create_item_box_internal(struct tracker *tk,

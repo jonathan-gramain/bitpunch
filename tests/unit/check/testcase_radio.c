@@ -49,7 +49,7 @@ static const char *radio_sources[] = {
     "item_cond_span",
     "dynamic_item_span",
     "item_size_table",
-    "links_shuffled",
+    "named_exprs_shuffled",
     "with_last",
 };
 
@@ -87,7 +87,7 @@ struct radio_source_info {
     struct bitpunch_binary_file_hdl *bin;
     struct tracker *tk;
     int64_t codename_offset[N_ELEM(radio_codenames)];
-    int codename_is_link;
+    int codename_is_named_expr;
 };
 
 static struct radio_source_info radio_source_info[N_ELEM(radio_sources)];
@@ -127,7 +127,7 @@ static void testcase_radio_setup(void)
         if (memmem(info->bp->df_data,
                    info->bp->df_data_length,
                    "?codename", strlen("?codename")) != 0) {
-            info->codename_is_link = TRUE;
+            info->codename_is_named_expr = TRUE;
         }
     }
 }
@@ -217,9 +217,9 @@ static void check_codename_entry(struct radio_source_info *info,
     ck_assert_ptr_ne(tk2, NULL);
     bt_ret = tracker_enter_item(tk2, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-    if (info->codename_is_link) {
-        bt_ret = box_evaluate_link_value(tk2->box, "codename",
-                                         &type, &value, NULL);
+    if (info->codename_is_named_expr) {
+        bt_ret = box_evaluate_named_expr_value(tk2->box, "codename",
+                                               &type, &value, NULL);
         ck_assert_int_eq(bt_ret, BITPUNCH_OK);
         check_codename_value(info, type, value, code_idx, FALSE);
     } else {
@@ -472,7 +472,7 @@ static void check_goto_dpath(struct radio_source_info *info,
     bt_ret = tracker_goto_abs_dpath(tk, dpath_expr, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
 
-    check_codename_item(info, tk, code_idx, info->codename_is_link);
+    check_codename_item(info, tk, code_idx, info->codename_is_named_expr);
 }
 
 void testcase_radio_launch_test_dpath(struct radio_source_info *info)
@@ -489,7 +489,7 @@ void testcase_radio_launch_test_dpath(struct radio_source_info *info)
         code_idx = (c * 7) % 26;
         snprintf(dpath_expr, sizeof (dpath_expr),
                  "codes[%d].%scodename",
-                 code_idx, (info->codename_is_link ? "?" : ""));
+                 code_idx, (info->codename_is_named_expr ? "?" : ""));
         check_goto_dpath(info, tk, dpath_expr, code_idx);
     }
     for (c = 0; c < N_ELEM(radio_codenames); ++c) {
@@ -497,7 +497,7 @@ void testcase_radio_launch_test_dpath(struct radio_source_info *info)
         snprintf(dpath_expr, sizeof (dpath_expr),
                  "codes['%s'].%scodename",
                  radio_codenames[code_idx],
-                 (info->codename_is_link ? "?" : ""));
+                 (info->codename_is_named_expr ? "?" : ""));
         check_goto_dpath(info, tk, dpath_expr, code_idx);
     }
     tracker_delete(tk);

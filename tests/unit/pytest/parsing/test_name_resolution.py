@@ -77,7 +77,7 @@ type u8 = byte: integer(signed=false);
 
 file {
     byte[] data;
-    ?data => data: Foo;
+    let ?data = data: Foo;
 }
 
 struct Foo {
@@ -90,8 +90,8 @@ type u8 = byte: integer(signed=false);
 
 file {
     byte[] data;
-    ?data1 => data;
-    ?data2 => ?data1: Foo;
+    let ?data1 = data;
+    let ?data2 = ?data1: Foo;
 }
 
 struct Foo {
@@ -104,8 +104,8 @@ type u8 = byte: integer(signed=false);
 
 file {
     byte[] data;
-    ?data1 => data;
-    ?data2 => ?data1: Foo;
+    let ?data1 = data;
+    let ?data2 = ?data1: Foo;
 }
 
 struct Foo {
@@ -122,8 +122,8 @@ type u8 = byte: integer(signed=false);
 
 file {
     byte[] data;
-    ?data1 => data;
-    ?data2 => ?data1: Foo;
+    let ?data1 = data;
+    let ?data2 = ?data1: Foo;
 }
 
 struct Foo {
@@ -140,8 +140,8 @@ type u8 = byte: integer(signed=false);
 
 file {
     byte[] data;
-    ?data1 => data;
-    ?data2 => ?data1: Foo;
+    let ?data1 = data;
+    let ?data2 = ?data1: Foo;
 }
 
 struct Foo {
@@ -184,7 +184,7 @@ type u8 = byte: integer(signed=false);
 
 file {
     byte[] data;
-    ?data_slice => data[10..20];
+    let ?data_slice = data[10..20];
 }
 
 """, """
@@ -192,32 +192,32 @@ type u8 = byte: integer(signed=false);
 
 file {
     byte[] data;
-    ?data => data;
-    ?data_slice1 => ?data[10..20];
+    let ?data = data;
+    let ?data_slice1 = ?data[10..20];
 }
 
 """, """
 type u8 = byte: integer(signed=false);
 
 file {
-    ?data => bytes(file);
-    ?data_slice1 => ?data[10..20];
+    let ?data = bytes(file);
+    let ?data_slice1 = ?data[10..20];
 }
 
 """, """
 type u8 = byte: integer(signed=false);
 
 file {
-    ?data => bytes(file)[..];
-    ?data_slice1 => ?data[10..20];
+    let ?data = bytes(file)[..];
+    let ?data_slice1 = ?data[10..20];
 }
 
 """, """
 type u8 = byte: integer(signed=false);
 
 file {
-    ?data => bytes(file)[..]: Foo;
-    ?data_slice1 => ?data;
+    let ?data = bytes(file)[..]: Foo;
+    let ?data_slice1 = ?data;
 }
 
 struct Foo {
@@ -231,8 +231,8 @@ file {
     u8 foo_offset;
     u8 nb_foo;
     u8 foo_size;
-    ?data => bytes(file)[foo_offset..]: Foo[nb_foo];
-    ?data_slice => ?data[2..3];
+    let ?data = bytes(file)[foo_offset..]: Foo[nb_foo];
+    let ?data_slice = ?data[2..3];
 }
 
 struct Foo {
@@ -246,8 +246,8 @@ file {
     byte foo_offset;
     byte nb_foo;
     byte foo_size;
-    ?data => bytes(file)[foo_offset:u8..]: Foo[nb_foo:u8];
-    ?data_slice => ?data[2..3];
+    let ?data = bytes(file)[foo_offset:u8..]: Foo[nb_foo:u8];
+    let ?data_slice = ?data[2..3];
 }
 
 struct Foo {

@@ -45,9 +45,9 @@ struct BlockHandle {
     VarInt offset;
     VarInt size;
 
-    ?stored_block
-        => file.payload[offset .. offset + size + sizeof(BlockTrailer)]
-           : FileBlock;
+    let ?stored_block =
+        file.payload[offset .. offset + size + sizeof(BlockTrailer)]
+            : FileBlock;
 };
 
 struct Footer {
@@ -62,8 +62,8 @@ file {
     byte[] payload;
     Footer footer;
 
-    ?index => footer.index_handle;
-    ?metaindex => footer.metaindex_handle;
+    let ?index = footer.index_handle;
+    let ?metaindex = footer.metaindex_handle;
 
     //:BlockHandle {
     //    ?index.entries[*].value;

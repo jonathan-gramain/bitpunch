@@ -45,7 +45,7 @@ struct ast_node;
 struct browse_state;
 struct box;
 struct func_param_list;
-struct link;
+struct named_expr;
 
 enum expr_value_type {
     EXPR_VALUE_TYPE_UNSET = 0,
@@ -192,15 +192,17 @@ expr_evaluate_dpath(struct ast_node *expr, struct box *scope,
                     union expr_dpath *eval_dpathp,
                     struct tracker_error **errp);
 bitpunch_status_t
-link_evaluate_dpath(const struct link *link, struct box *scope,
-                    enum expr_dpath_type *dpath_typep,
-                    union expr_dpath *eval_dpathp,
-                    struct tracker_error **errp);
+named_expr_evaluate_dpath(const struct named_expr *named_expr,
+                          struct box *scope,
+                          enum expr_dpath_type *dpath_typep,
+                          union expr_dpath *eval_dpathp,
+                          struct tracker_error **errp);
 bitpunch_status_t
-link_evaluate_value(const struct link *link, struct box *scope,
-                    enum expr_value_type *value_typep,
-                    union expr_value *eval_valuep,
-                    struct tracker_error **errp);
+named_expr_evaluate_value(const struct named_expr *named_expr,
+                          struct box *scope,
+                          enum expr_value_type *value_typep,
+                          union expr_value *eval_valuep,
+                          struct tracker_error **errp);
 bitpunch_status_t
 evaluate_conditional(struct ast_node *cond, struct box *scope,
                      int *evalp,

@@ -5,13 +5,13 @@ import pytest
 from bitpunch import model
 import conftest
 
-spec_file_links_1 = """
+spec_file_named_exprs_1 = """
 
 type u16 = byte[2]: integer(signed=false, endian=little);
 
 struct Number {
     byte[2] raw;
-    ?value => raw: integer(signed=false, endian=little);
+    let ?value = raw: integer(signed=false, endian=little);
 };
 
 file {
@@ -21,7 +21,7 @@ file {
 
 """
 
-data_file_links_1 = """
+data_file_named_exprs_1 = """
 01 00 02 00 03 00
 01 00 02 00 03 00
 """
@@ -30,15 +30,15 @@ data_file_links_1 = """
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_file_links_1,
-        'data': data_file_links_1,
+        'spec': spec_file_named_exprs_1,
+        'data': data_file_named_exprs_1,
     }])
-def params_links_1(request):
+def params_named_exprs_1(request):
     return conftest.make_testcase(request.param)
 
 
-def test_links_1(params_links_1):
-    params = params_links_1
+def test_named_exprs_1(params_named_exprs_1):
+    params = params_named_exprs_1
     dtree = params['dtree']
     for i in range(3):
         assert dtree.typed[i] == i + 1
@@ -48,19 +48,19 @@ def test_links_1(params_links_1):
                 == 6 + 2 * i)
 
 
-spec_file_links_2_1 = """
+spec_file_named_exprs_2_1 = """
 
 type u16 = byte[2]: integer(signed=false, endian=little);
 
 file {
     u16[3] typed;
     byte[6] untyped;
-    ?untyped_as_typed => untyped: u16[];
+    let ?untyped_as_typed = untyped: u16[];
 }
 
 """
 
-spec_file_links_2_2 = """
+spec_file_named_exprs_2_2 = """
 
 type u16 = byte[2]: integer(signed=false, endian=little);
 
@@ -71,12 +71,12 @@ struct Foo {
 file {
     u16[3] typed;
     byte[6] untyped;
-    ?untyped_as_typed => untyped: byte[]: u16[];
+    let ?untyped_as_typed = untyped: byte[]: u16[];
 }
 
 """
 
-data_file_links_2 = """
+data_file_named_exprs_2 = """
 01 00 02 00 03 00
 01 00 02 00 03 00
 """
@@ -85,18 +85,18 @@ data_file_links_2 = """
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_file_links_2_1,
-        'data': data_file_links_2,
+        'spec': spec_file_named_exprs_2_1,
+        'data': data_file_named_exprs_2,
     }, {
-        'spec': spec_file_links_2_2,
-        'data': data_file_links_2,
+        'spec': spec_file_named_exprs_2_2,
+        'data': data_file_named_exprs_2,
     }])
-def params_links_2(request):
+def params_named_exprs_2(request):
     return conftest.make_testcase(request.param)
 
 
-def test_links_2(params_links_2):
-    params = params_links_2
+def test_named_exprs_2(params_named_exprs_2):
+    params = params_named_exprs_2
     dtree = params['dtree']
     for i in range(3):
         assert dtree.typed[i] == i + 1
@@ -104,7 +104,7 @@ def test_links_2(params_links_2):
         assert dtree.eval_expr('?untyped_as_typed[{0}]'.format(i)) == i + 1
 
 
-spec_file_links_3 = """
+spec_file_named_exprs_3 = """
 
 type u16 = byte[2]: integer(signed=false, endian=little);
 
@@ -115,12 +115,12 @@ struct Number {
 file {
     u16[3] typed;
     Number[3] numbers;
-    ?numbers => numbers;
+    let ?numbers = numbers;
 }
 
 """
 
-data_file_links_3 = """
+data_file_named_exprs_3 = """
 01 00 02 00 03 00
 01 00 02 00 03 00
 """
@@ -129,15 +129,15 @@ data_file_links_3 = """
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_file_links_3,
-        'data': data_file_links_3,
+        'spec': spec_file_named_exprs_3,
+        'data': data_file_named_exprs_3,
     }])
-def params_links_3(request):
+def params_named_exprs_3(request):
     return conftest.make_testcase(request.param)
 
 
-def test_links_3(params_links_3):
-    params = params_links_3
+def test_named_exprs_3(params_named_exprs_3):
+    params = params_named_exprs_3
     dtree = params['dtree']
     for i in range(3):
         assert dtree.typed[i] == i + 1
@@ -145,7 +145,7 @@ def test_links_3(params_links_3):
         assert dtree.eval_expr('?numbers[{0}].value'.format(i)) == i + 1
 
 
-spec_file_links_4 = """
+spec_file_named_exprs_4 = """
 
 type u16 = byte[2]: integer(signed=false, endian=little);
 
@@ -155,12 +155,12 @@ struct Number {
 
 file {
     byte[] data;
-    ?first_and_second_numbers => data[sizeof(Number)..]: Number[];
+    let ?first_and_second_numbers = data[sizeof(Number)..]: Number[];
 }
 
 """
 
-data_file_links_4 = """
+data_file_named_exprs_4 = """
 01 00 02 00 03 00
 """
 
@@ -168,22 +168,22 @@ data_file_links_4 = """
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_file_links_4,
-        'data': data_file_links_4,
+        'spec': spec_file_named_exprs_4,
+        'data': data_file_named_exprs_4,
     }])
-def params_links_4(request):
+def params_named_exprs_4(request):
     return conftest.make_testcase(request.param)
 
 
-def test_links_4(params_links_4):
-    params = params_links_4
+def test_named_exprs_4(params_named_exprs_4):
+    params = params_named_exprs_4
     dtree = params['dtree']
     numbers = dtree['?first_and_second_numbers']
     assert numbers[0].value == 2
     assert numbers[1].value == 3
 
 
-spec_file_links_invalid_1 = """
+spec_file_named_exprs_invalid_1 = """
 
 type u16 = byte[2]: integer(signed=false, endian=little);
 
@@ -193,12 +193,12 @@ struct Number {
 
 file {
     byte[] data;
-    ?something => does_not_exist;
+    let ?something = does_not_exist;
 }
 
 """
 
-spec_file_links_invalid_2 = """
+spec_file_named_exprs_invalid_2 = """
 
 type u16 = byte[2]: integer(signed=false, endian=little);
 
@@ -208,7 +208,7 @@ struct Number {
 
 file {
     byte[] data;
-    ?something => ?does_not_exist;
+    let ?something = ?does_not_exist;
 }
 
 """
@@ -216,16 +216,16 @@ file {
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_file_links_invalid_1,
+        'spec': spec_file_named_exprs_invalid_1,
     }, {
-        'spec': spec_file_links_invalid_2,
+        'spec': spec_file_named_exprs_invalid_2,
     }])
-def params_links_invalid(request):
+def params_named_exprs_invalid(request):
     return request.param
 
 
-def test_links_invalid(params_links_invalid):
-    params = params_links_invalid
+def test_named_exprs_invalid(params_named_exprs_invalid):
+    params = params_named_exprs_invalid
     spec = params['spec']
     with pytest.raises(OSError):
         dtree = model.DataTree('', spec)

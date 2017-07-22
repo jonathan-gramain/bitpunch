@@ -254,8 +254,8 @@ static int
 resolve_expr_operator_set_filter(struct ast_node **expr_p,
                                   struct list_of_visible_refs *visible_refs);
 static int
-resolve_link(struct link *link,
-             struct list_of_visible_refs *visible_refs);
+resolve_named_expr(struct named_expr *named_expr,
+                   struct list_of_visible_refs *visible_refs);
 
 static int
 resolve_user_expr_scoped_recur(struct ast_node **expr_p,
@@ -266,9 +266,9 @@ resolve_user_expr_scoped_recur(struct ast_node **expr_p,
 static int
 resolve2_block(struct ast_node *block);
 static int
-link_check_duplicates(struct link *link);
+named_expr_check_duplicates(struct named_expr *named_expr);
 static int
-links_check_duplicates(struct statement_list *link_list);
+named_exprs_check_duplicates(struct statement_list *named_expr_list);
 static int
 resolve2_stmt_list_generic(struct statement_list *stmt_list);
 static int
@@ -282,7 +282,7 @@ resolve2_expr(struct ast_node **expr_p);
 static int
 resolve2_expr_field(struct ast_node **expr_p);
 static int
-resolve2_expr_link(struct ast_node **expr_p);
+resolve2_expr_named_expr(struct ast_node **expr_p);
 static int
 resolve2_expr_subscript_index(struct ast_node *expr,
                               struct subscript_index *subscript);
@@ -317,7 +317,7 @@ resolve2_key_stmt(struct key_stmt *key_stmt);
 static int
 resolve2_span_expr(struct ast_node **span_expr_p);
 static int
-resolve2_link(struct link *link);
+resolve2_named_expr(struct named_expr *named_expr);
  
 static int
 setup_global_track_backends(void);
@@ -443,8 +443,8 @@ find_statement_by_name(enum statement_type stmt_type,
     case STATEMENT_TYPE_FIELD:
         stmt_list = stmt_lists->field_list;
         break ;
-    case STATEMENT_TYPE_LINK:
-        stmt_list = stmt_lists->link_list;
+    case STATEMENT_TYPE_NAMED_EXPR:
+        stmt_list = stmt_lists->named_expr_list;
         break ;
     default:
         assert(0);
@@ -510,14 +510,14 @@ lookup_field(const char *identifier,
 }
 
 static int
-lookup_link(const char *identifier,
+lookup_named_expr(const char *identifier,
             const struct list_of_visible_refs *visible_refs,
             const struct ast_node **blockp,
-            const struct link **linkp)
+            const struct named_expr **named_exprp)
 {
-    return lookup_statement(STATEMENT_TYPE_LINK, identifier, visible_refs,
-                            blockp,
-                            (const struct named_statement **)linkp);
+    return lookup_statement(STATEMENT_TYPE_NAMED_EXPR,
+                            identifier, visible_refs, blockp,
+                            (const struct named_statement **)named_exprp);
 }
 
 int
@@ -581,7 +581,7 @@ resolve_stmt_lists_types(struct block_stmt_list *stmt_lists,
     struct ast_node *block_def;
     struct span_stmt *span_stmt;
     struct key_stmt *key_stmt;
-    struct link *link;
+    struct named_expr *named_expr;
 
     /* add current refs to the chain of visible refs */
     visible_refs.outer_refs = outer_refs;
@@ -610,7 +610,7 @@ resolve_stmt_lists_types(struct block_stmt_list *stmt_lists,
                                               &visible_refs)) {
         return -1;
     }
-    if (-1 == resolve_stmt_list_types_generic(stmt_lists->link_list,
+    if (-1 == resolve_stmt_list_types_generic(stmt_lists->named_expr_list,
                                               &visible_refs)) {
         return -1;
     }
@@ -645,10 +645,10 @@ resolve_stmt_lists_types(struct block_stmt_list *stmt_lists,
             return -1;
         }
     }
-    TAILQ_FOREACH(stmt, stmt_lists->link_list, list) {
-        link = (struct link *)stmt;
-        if (NULL != link->dst_expr
-            && -1 == resolve_node_types(&link->dst_expr, &visible_refs,
+    TAILQ_FOREACH(stmt, stmt_lists->named_expr_list, list) {
+        named_expr = (struct named_expr *)stmt;
+        if (NULL != named_expr->dst_expr
+            && -1 == resolve_node_types(&named_expr->dst_expr, &visible_refs,
                                         RESOLVE_EXPECT_EXPRESSION)) {
             return -1;
         }
@@ -771,8 +771,8 @@ chain_duplicate_statements(const struct block_stmt_list *stmt_lists)
                                             stmt_lists->field_list)) {
         return -1;
     }
-    if (-1 == chain_duplicate_statements_in(stmt_lists->link_list,
-                                            stmt_lists->link_list)) {
+    if (-1 == chain_duplicate_statements_in(stmt_lists->named_expr_list,
+                                            stmt_lists->named_expr_list)) {
         return -1;
     }
     return 0;
@@ -1275,7 +1275,7 @@ resolve_stmt_lists_expressions(const struct ast_node *block,
     struct span_stmt *span_stmt;
     struct key_stmt *key_stmt;
     struct match *match;
-    struct link *link;
+    struct named_expr *named_expr;
 
     /* add current refs to the chain of visible refs */
     visible_refs.outer_refs = outer_refs;
@@ -1315,7 +1315,7 @@ resolve_stmt_lists_expressions(const struct ast_node *block,
         return -1;
     }
     if (-1 == resolve_stmt_list_expressions_generic(
-            stmt_lists->link_list, &visible_refs)) {
+            stmt_lists->named_expr_list, &visible_refs)) {
         return -1;
     }
 
@@ -1347,9 +1347,9 @@ resolve_stmt_lists_expressions(const struct ast_node *block,
             return -1;
         }
     }
-    TAILQ_FOREACH(stmt, stmt_lists->link_list, list) {
-        link = (struct link *)stmt;
-        if (-1 == resolve_link(link, &visible_refs)) {
+    TAILQ_FOREACH(stmt, stmt_lists->named_expr_list, list) {
+        named_expr = (struct named_expr *)stmt;
+        if (-1 == resolve_named_expr(named_expr, &visible_refs)) {
             return -1;
         }
     }
@@ -1557,28 +1557,30 @@ resolve_expr_identifier(struct ast_node **expr_p,
                         struct list_of_visible_refs *visible_refs)
 {
     const struct ast_node *resolved_block;
-    const struct link *resolved_link;
+    const struct named_expr *resolved_named_expr;
     const struct field *resolved_field;
     const struct expr_builtin_fn *builtin;
 
     /* try to match identifier with an existing field */
     if ((*expr_p)->u.identifier[0] == '?') {
-        if (-1 == lookup_link((*expr_p)->u.identifier + 1, visible_refs,
-                              &resolved_block, &resolved_link)) {
+        if (-1 == lookup_named_expr(
+                (*expr_p)->u.identifier + 1, visible_refs,
+                &resolved_block, &resolved_named_expr)) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &(*expr_p)->loc,
-                "no link named '%s' exists in the expression scope",
+                "no named expression with name '%s' exists in the "
+                "expression scope",
                 (*expr_p)->u.identifier);
             return -1;
         }
         free((*expr_p)->u.identifier);
         ast_node_clear(*expr_p);
-        (*expr_p)->type = AST_NODE_TYPE_REXPR_LINK;
+        (*expr_p)->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
         (*expr_p)->u.rexpr.dpath_type = EXPR_DPATH_TYPE_UNSET;
         (*expr_p)->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
         (*expr_p)->u.rexpr_member_common.anchor_block =
             (struct ast_node *)resolved_block;
-        (*expr_p)->u.rexpr_link.link = resolved_link;
+        (*expr_p)->u.rexpr_named_expr.named_expr = resolved_named_expr;
         return 0;
     }
     if (-1 != lookup_field((*expr_p)->u.identifier, visible_refs,
@@ -2153,9 +2155,9 @@ resolve_expr_operator_dot(struct ast_node **expr_p,
     assert(opd2->type == AST_NODE_TYPE_IDENTIFIER);
     ast_node_clear(*expr_p);
     if (opd2->u.identifier[0] == '?') {
-        (*expr_p)->type = AST_NODE_TYPE_REXPR_LINK;
+        (*expr_p)->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
         (*expr_p)->u.rexpr.dpath_type = EXPR_DPATH_TYPE_UNSET;
-        // .link will be set at resolve2 phase
+        // .named_expr will be set at resolve2 phase
     } else {
         (*expr_p)->type = AST_NODE_TYPE_REXPR_FIELD;
         (*expr_p)->u.rexpr.dpath_type = EXPR_DPATH_TYPE_ITEM;
@@ -2168,11 +2170,11 @@ resolve_expr_operator_dot(struct ast_node **expr_p,
 }
 
 static int
-resolve_link(struct link *link,
-             struct list_of_visible_refs *visible_refs)
+resolve_named_expr(struct named_expr *named_expr,
+                   struct list_of_visible_refs *visible_refs)
 {
-    if (NULL != link->dst_expr) {
-        if (-1 == resolve_expr(&link->dst_expr, visible_refs)) {
+    if (NULL != named_expr->dst_expr) {
+        if (-1 == resolve_expr(&named_expr->dst_expr, visible_refs)) {
             return -1;
         }
     }
@@ -2280,18 +2282,20 @@ resolve2_stmt_list_generic(struct statement_list *stmt_list)
 }
 
 static int
-link_check_duplicates(struct link *link)
+named_expr_check_duplicates(struct named_expr *named_expr)
 {
     const struct ast_node *dst_item;
-    struct link *next_link;
+    struct named_expr *next_named_expr;
     const struct ast_node *next_dst_item;
 
-    dst_item = link->dst_expr->u.rexpr.target_item;
-    for (next_link = (struct link *)link->nstmt.next_sibling;
-         NULL != next_link;
-         next_link = (struct link *)next_link->nstmt.next_sibling) {
+    dst_item = named_expr->dst_expr->u.rexpr.target_item;
+    for (next_named_expr =
+             (struct named_expr *)named_expr->nstmt.next_sibling;
+         NULL != next_named_expr;
+         next_named_expr =
+             (struct named_expr *)next_named_expr->nstmt.next_sibling) {
         next_dst_item =
-            next_link->dst_expr->u.rexpr.target_item;
+            next_named_expr->dst_expr->u.rexpr.target_item;
         if (dst_item != next_dst_item) {
             if (dst_item->type == next_dst_item->type) {
                 if (AST_NODE_TYPE_BYTE_ARRAY == dst_item->type) {
@@ -2299,10 +2303,10 @@ link_check_duplicates(struct link *link)
                 }
             }
             semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &next_link->nstmt.stmt.loc,
-                "different target types across duplicate link names");
+                SEMANTIC_LOGLEVEL_ERROR, &next_named_expr->nstmt.stmt.loc,
+                "different target types across duplicate named expressions");
             semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &link->nstmt.stmt.loc,
+                SEMANTIC_LOGLEVEL_ERROR, &named_expr->nstmt.stmt.loc,
                 "first declaration here");
             return -1;
         }
@@ -2311,12 +2315,12 @@ link_check_duplicates(struct link *link)
 }
 
 static int
-links_check_duplicates(struct statement_list *link_list)
+named_exprs_check_duplicates(struct statement_list *named_expr_list)
 {
     struct statement *stmt;
 
-    TAILQ_FOREACH(stmt, link_list, list) {
-        if (-1 == link_check_duplicates((struct link *)stmt)) {
+    TAILQ_FOREACH(stmt, named_expr_list, list) {
+        if (-1 == named_expr_check_duplicates((struct named_expr *)stmt)) {
             return -1;
         }
     }
@@ -2333,7 +2337,7 @@ resolve2_stmt_lists(struct block_stmt_list *stmt_lists)
     struct span_stmt *span_stmt;
     struct key_stmt *key_stmt;
     struct match *match;
-    struct link *link;
+    struct named_expr *named_expr;
 
     STAILQ_FOREACH(named_type, stmt_lists->named_type_list, list) {
         if (-1 == resolve2_dtype(named_type->type)) {
@@ -2349,10 +2353,10 @@ resolve2_stmt_lists(struct block_stmt_list *stmt_lists)
     if (-1 == resolve2_stmt_list_generic(stmt_lists->last_stmt_list)) {
         return -1;
     }
-    if (-1 == resolve2_stmt_list_generic(stmt_lists->link_list)) {
+    if (-1 == resolve2_stmt_list_generic(stmt_lists->named_expr_list)) {
         return -1;
     }
-    if (-1 == links_check_duplicates(stmt_lists->link_list)) {
+    if (-1 == named_exprs_check_duplicates(stmt_lists->named_expr_list)) {
         return -1;
     }
     /* resolve2 pass on references of all nested blocks */
@@ -2395,9 +2399,9 @@ resolve2_stmt_lists(struct block_stmt_list *stmt_lists)
             return -1;
         }
     }
-    TAILQ_FOREACH(stmt, stmt_lists->link_list, list) {
-        link = (struct link *)stmt;
-        if (-1 == resolve2_link(link)) {
+    TAILQ_FOREACH(stmt, stmt_lists->named_expr_list, list) {
+        named_expr = (struct named_expr *)stmt;
+        if (-1 == resolve2_named_expr(named_expr)) {
             return -1;
         }
     }
@@ -2465,8 +2469,8 @@ resolve2_expr(struct ast_node **expr_p)
     case AST_NODE_TYPE_REXPR_FIELD:
         ret = resolve2_expr_field(expr_p);
         break ;
-    case AST_NODE_TYPE_REXPR_LINK:
-        ret = resolve2_expr_link(expr_p);
+    case AST_NODE_TYPE_REXPR_NAMED_EXPR:
+        ret = resolve2_expr_named_expr(expr_p);
         break ;
     case AST_NODE_TYPE_REXPR_OP_UPLUS:
     case AST_NODE_TYPE_REXPR_OP_UMINUS:
@@ -2567,7 +2571,7 @@ resolve2_expr_member_common(struct ast_node **expr_p,
     if (NULL != member) {
         const char *name;
 
-        if (STATEMENT_TYPE_LINK == statement_type) {
+        if (STATEMENT_TYPE_NAMED_EXPR == statement_type) {
             name = member->u.identifier + 1;
         } else {
             name = member->u.identifier;
@@ -2579,7 +2583,8 @@ resolve2_expr_member_common(struct ast_node **expr_p,
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &member->loc,
                 "no %s named '%s' exists in block",
-                statement_type == STATEMENT_TYPE_FIELD ? "field" : "link",
+                statement_type == STATEMENT_TYPE_FIELD ?
+                "field" : "named expression",
                 member->u.identifier);
             semantic_error(SEMANTIC_LOGLEVEL_INFO, &anchor_block->loc,
                            "declared here");
@@ -2621,35 +2626,39 @@ resolve2_expr_field(struct ast_node **expr_p)
 }
 
 static int
-resolve2_expr_link(struct ast_node **expr_p)
+resolve2_expr_named_expr(struct ast_node **expr_p)
 {
     int ret;
-    struct link *link;
+    struct named_expr *named_expr;
 
-    ret = resolve2_expr_member_common(expr_p, STATEMENT_TYPE_LINK,
-                                      (struct named_statement **)&link);
+    ret = resolve2_expr_member_common(
+        expr_p, STATEMENT_TYPE_NAMED_EXPR,
+        (struct named_statement **)&named_expr);
     if (-1 == ret) {
         return -1;
     }
-    if (NULL != link) {
-        (*expr_p)->u.rexpr_link.link = link;
+    if (NULL != named_expr) {
+        (*expr_p)->u.rexpr_named_expr.named_expr = named_expr;
     } else {
         // preset in earlier resolve phase
-        link = (struct link *)(*expr_p)->u.rexpr_link.link;
+        named_expr =
+            (struct named_expr *)(*expr_p)->u.rexpr_named_expr.named_expr;
     }
-    assert(NULL != link);
-    ret = resolve2_expr(&link->dst_expr);
+    assert(NULL != named_expr);
+    ret = resolve2_expr(&named_expr->dst_expr);
     if (-1 == ret) {
         return -1;
     }
-    (*expr_p)->u.rexpr.target_item = link->dst_expr->u.rexpr.target_item;
-    (*expr_p)->u.rexpr.value_type = link->dst_expr->u.rexpr.value_type;
-    if (NULL == link->nstmt.next_sibling) {
+    (*expr_p)->u.rexpr.target_item =
+        named_expr->dst_expr->u.rexpr.target_item;
+    (*expr_p)->u.rexpr.value_type =
+        named_expr->dst_expr->u.rexpr.value_type;
+    if (NULL == named_expr->nstmt.next_sibling) {
         (*expr_p)->u.rexpr.dpath_type =
-            link->dst_expr->u.rexpr.dpath_type;
+            named_expr->dst_expr->u.rexpr.dpath_type;
     } else {
-        // TODO: We may optimize with EXPR_DPATH_TYPE_ITEM
-        // whenever all duplicate links use item type, though this
+        // TODO: We may optimize with EXPR_DPATH_TYPE_ITEM whenever
+        // all duplicate dpath expressions use item type, though this
         // requires post-processing when all types have been
         // resolved. Container type is more universal.
         (*expr_p)->u.rexpr.dpath_type = EXPR_DPATH_TYPE_CONTAINER;
@@ -3106,8 +3115,8 @@ resolve2_expr_as_type(struct ast_node **expr_p)
                 > ast_node_get_min_span_size(as_type_target))) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &(*expr_p)->loc,
-                "invalid link cast: cast-to type minimum size is greater "
-                "than static size of destination "
+                "invalid as-type filter: cast-to type minimum size is "
+                "greater than static size of destination "
                 "(as type size %s %"PRIi64", target size == %"PRIi64")",
                 (0 != (ASTFLAG_IS_SPAN_SIZE_DYNAMIC & as_type->flags) ?
                  ">=" : "=="),
@@ -3486,17 +3495,17 @@ resolve2_span_expr(struct ast_node **span_expr_p)
 }
 
 static int
-resolve2_link(struct link *link)
+resolve2_named_expr(struct named_expr *named_expr)
 {
-    if (-1 == resolve2_expr(&link->dst_expr)) {
+    if (-1 == resolve2_expr(&named_expr->dst_expr)) {
         return -1;
     }
-    assert(ast_node_is_rexpr(link->dst_expr));
-    if (EXPR_DPATH_TYPE_NONE == link->dst_expr->u.rexpr.dpath_type) {
+    assert(ast_node_is_rexpr(named_expr->dst_expr));
+    if (EXPR_DPATH_TYPE_NONE == named_expr->dst_expr->u.rexpr.dpath_type) {
         semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &link->nstmt.stmt.loc,
-            "invalid link target: '%s' is not a dpath type",
-            ast_node_type_str(link->dst_expr->type));
+            SEMANTIC_LOGLEVEL_ERROR, &named_expr->nstmt.stmt.loc,
+            "invalid dtype expression target: '%s' is not a dpath type",
+            ast_node_type_str(named_expr->dst_expr->type));
         return -1;
     }
     return 0;
@@ -3583,7 +3592,7 @@ setup_track_backends_recur_block(struct ast_node *block)
     struct statement *stmt;
     const struct field *field;
     struct ast_node *block_def;
-    struct link *link;
+    struct named_expr *named_expr;
 
     block_lists = &block->u.block_def.block_stmt_list;
     STAILQ_FOREACH(named_type, block_lists->named_type_list, list) {
@@ -3602,9 +3611,9 @@ setup_track_backends_recur_block(struct ast_node *block)
             return -1;
         }
     }
-    TAILQ_FOREACH(stmt, block_lists->link_list, list) {
-        link = (struct link *)stmt;
-        if (-1 == setup_track_backends(link->dst_expr)) {
+    TAILQ_FOREACH(stmt, block_lists->named_expr_list, list) {
+        named_expr = (struct named_expr *)stmt;
+        if (-1 == setup_track_backends(named_expr->dst_expr)) {
             return -1;
         }
     }
@@ -3696,7 +3705,7 @@ ast_node_is_rexpr(const struct ast_node *node)
     case AST_NODE_TYPE_REXPR_OP_ADDROF:
     case AST_NODE_TYPE_REXPR_OP_FILTER:
     case AST_NODE_TYPE_REXPR_FIELD:
-    case AST_NODE_TYPE_REXPR_LINK:
+    case AST_NODE_TYPE_REXPR_NAMED_EXPR:
     case AST_NODE_TYPE_REXPR_BUILTIN:
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT:
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE:
@@ -3715,13 +3724,14 @@ ast_node_is_rexpr(const struct ast_node *node)
 int
 ast_node_is_rexpr_to_item(const struct ast_node *node)
 {
-    if (AST_NODE_TYPE_REXPR_LINK == node->type) {
-        return ast_node_is_rexpr_to_item(node->u.rexpr_link.link->dst_expr);
+    if (AST_NODE_TYPE_REXPR_NAMED_EXPR == node->type) {
+        return ast_node_is_rexpr_to_item(
+            node->u.rexpr_named_expr.named_expr->dst_expr);
     }
     switch (node->type) {
     case AST_NODE_TYPE_REXPR_AS_TYPE:
     case AST_NODE_TYPE_REXPR_FIELD:
-    case AST_NODE_TYPE_REXPR_LINK:
+    case AST_NODE_TYPE_REXPR_NAMED_EXPR:
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
         return TRUE;
@@ -4354,7 +4364,7 @@ dump_ast_recur(struct ast_node *node, int depth,
                        visible_refs, stream);
         break ;
     case AST_NODE_TYPE_REXPR_FIELD:
-    case AST_NODE_TYPE_REXPR_LINK:
+    case AST_NODE_TYPE_REXPR_NAMED_EXPR:
     case AST_NODE_TYPE_REXPR_BUILTIN:
         dump_ast_rexpr(node, stream);
         dump_target_item(node, depth, visible_refs, stream);
@@ -4518,7 +4528,7 @@ dump_ast_type(const struct ast_node *node, int depth,
     case AST_NODE_TYPE_REXPR_OP_ADDROF:
     case AST_NODE_TYPE_REXPR_OP_FILTER:
     case AST_NODE_TYPE_REXPR_FIELD:
-    case AST_NODE_TYPE_REXPR_LINK:
+    case AST_NODE_TYPE_REXPR_NAMED_EXPR:
     case AST_NODE_TYPE_REXPR_BUILTIN:
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT:
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE:
@@ -4574,7 +4584,7 @@ dump_block_stmt_list_recur(const struct ast_node *block,
     const struct named_type *named_type;
     const struct statement *stmt;
     const struct field *field;
-    const struct link *link;
+    const struct named_expr *named_expr;
 
     /* add current refs to the chain of visible refs */
     visible_refs.outer_refs = outer_refs;
@@ -4595,15 +4605,16 @@ dump_block_stmt_list_recur(const struct ast_node *block,
         dump_ast_recur(field->field_type, depth + 2, &visible_refs,
                        stream);
     }
-    fprintf(stream, "%*s\\_ links:\n", depth * INDENT_N_SPACES, "");
-    TAILQ_FOREACH(stmt, block_lists->link_list, list) {
-        link = (const struct link *)stmt;
+    fprintf(stream, "%*s\\_ named expressions:\n",
+            depth * INDENT_N_SPACES, "");
+    TAILQ_FOREACH(stmt, block_lists->named_expr_list, list) {
+        named_expr = (const struct named_expr *)stmt;
         fprintf(stream, "%*s\\_ name \"%s\"\n",
                 (depth + 1) * INDENT_N_SPACES, "",
-                link->nstmt.name);
+                named_expr->nstmt.name);
         fprintf(stream, "%*s\\_ dst expr:\n",
                 (depth + 2) * INDENT_N_SPACES, "");
-        dump_ast_recur(link->dst_expr, depth + 3, &visible_refs,
+        dump_ast_recur(named_expr->dst_expr, depth + 3, &visible_refs,
                        stream);
     }
 }

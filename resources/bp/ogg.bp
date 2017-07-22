@@ -31,6 +31,6 @@ struct OggPage {
     struct OggPageSegment {
         byte[?segment_size] segment_data;
 
-        ?segment_size => hdr.segment_sizes[index(segments, self)];
+        let ?segment_size = hdr.segment_sizes[index(segments, self)];
     };
 };

@@ -201,15 +201,17 @@ box_destroy_index_cache_by_key(struct box *box);
 static void
 box_destroy_mark_offsets_repo(struct box *box);
 static bitpunch_status_t
-box_evaluate_link_dpath_internal(struct box *box, const char *link_name,
-                                 enum expr_dpath_type *dpath_typep,
-                                 union expr_dpath *eval_dpathp,
-                                 struct browse_state *bst);
+box_evaluate_named_expr_dpath_internal(struct box *box,
+                                       const char *named_expr_name,
+                                       enum expr_dpath_type *dpath_typep,
+                                       union expr_dpath *eval_dpathp,
+                                       struct browse_state *bst);
 static bitpunch_status_t
-box_evaluate_link_value_internal(struct box *box, const char *link_name,
-                                 enum expr_value_type *value_typep,
-                                 union expr_value *eval_valuep,
-                                 struct browse_state *bst);
+box_evaluate_named_expr_value_internal(struct box *box,
+                                       const char *named_expr_name,
+                                       enum expr_value_type *value_typep,
+                                       union expr_value *eval_valuep,
+                                       struct browse_state *bst);
 static void
 tracker_jump_to_item_internal(struct tracker *tk,
                               const struct ast_node *item_node,
@@ -3631,8 +3633,8 @@ statement_type_str(enum statement_type stmt_type)
     switch (stmt_type) {
     case STATEMENT_TYPE_FIELD:
         return "field";
-    case STATEMENT_TYPE_LINK:
-        return "link";
+    case STATEMENT_TYPE_NAMED_EXPR:
+        return "named expr";
     case STATEMENT_TYPE_SPAN:
         return "span";
     case STATEMENT_TYPE_KEY:
@@ -3664,8 +3666,8 @@ box_iter_statements(struct box *box,
     case STATEMENT_TYPE_FIELD:
         it.next_stmt = TAILQ_FIRST(stmt_lists->field_list);
         break ;
-    case STATEMENT_TYPE_LINK:
-        it.next_stmt = TAILQ_FIRST(stmt_lists->link_list);
+    case STATEMENT_TYPE_NAMED_EXPR:
+        it.next_stmt = TAILQ_FIRST(stmt_lists->named_expr_list);
         break ;
     case STATEMENT_TYPE_SPAN:
         it.next_stmt = TAILQ_FIRST(stmt_lists->span_list);
@@ -3715,8 +3717,8 @@ box_riter_statements(struct box *box,
     case STATEMENT_TYPE_FIELD:
         it.next_stmt = TAILQ_LAST(stmt_lists->field_list, statement_list);
         break ;
-    case STATEMENT_TYPE_LINK:
-        it.next_stmt = TAILQ_LAST(stmt_lists->link_list, statement_list);
+    case STATEMENT_TYPE_NAMED_EXPR:
+        it.next_stmt = TAILQ_LAST(stmt_lists->named_expr_list, statement_list);
         break ;
     case STATEMENT_TYPE_SPAN:
         it.next_stmt = TAILQ_LAST(stmt_lists->span_list, statement_list);
@@ -3807,9 +3809,9 @@ box_lookup_statement_recur(struct box *box,
         stmt = (const struct named_statement *)
             TAILQ_FIRST(stmt_lists->field_list);
         break ;
-    case STATEMENT_TYPE_LINK:
+    case STATEMENT_TYPE_NAMED_EXPR:
         stmt = (const struct named_statement *)
-            TAILQ_FIRST(stmt_lists->link_list);
+            TAILQ_FIRST(stmt_lists->named_expr_list);
         break ;
     default:
         return box_error(BITPUNCH_INVALID_PARAM, box, box->node, bst,
@@ -3907,66 +3909,73 @@ box_get_n_statements_internal(struct box *box,
 }
 
 /*
- * links API
+ * named expressions API
  */
 
-tlink_iterator
-box_iter_links(struct box *box)
+tnamed_expr_iterator
+box_iter_named_exprs(struct box *box)
 {
-    return box_iter_statements(box, STATEMENT_TYPE_LINK, 0);
+    return box_iter_statements(box, STATEMENT_TYPE_NAMED_EXPR, 0);
 }
 
 static bitpunch_status_t
-box_iter_links_next_internal(struct box *box, tlink_iterator *it,
-                             const struct link **linkp,
-                             struct browse_state *bst)
+box_iter_named_exprs_next_internal(struct box *box,
+                                   tnamed_expr_iterator *it,
+                                   const struct named_expr **named_exprp,
+                                   struct browse_state *bst)
 {
     return box_iter_statements_next_internal(
-        box, it, (const struct statement **)linkp, bst);
+        box, it, (const struct statement **)named_exprp, bst);
 }
 
 bitpunch_status_t
-box_lookup_link_internal(struct box *box, const char *link_name,
-                         const struct link **linkp,
-                         struct browse_state *bst)
+box_lookup_named_expr_internal(struct box *box, const char *named_expr_name,
+                               const struct named_expr **named_exprp,
+                               struct browse_state *bst)
 {
     return box_lookup_statement_internal(
-        box, STATEMENT_TYPE_LINK, link_name,
-        (const struct named_statement **)linkp, bst);
+        box, STATEMENT_TYPE_NAMED_EXPR, named_expr_name,
+        (const struct named_statement **)named_exprp, bst);
 }
 
 static bitpunch_status_t
-box_evaluate_link_dpath_internal(struct box *box, const char *link_name,
-                                 enum expr_dpath_type *dpath_typep,
-                                 union expr_dpath *eval_dpathp,
-                                 struct browse_state *bst)
+box_evaluate_named_expr_dpath_internal(struct box *box,
+                                       const char *named_expr_name,
+                                       enum expr_dpath_type *dpath_typep,
+                                       union expr_dpath *eval_dpathp,
+                                       struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    const struct link *link;
+    const struct named_expr *named_expr;
 
-    bt_ret = box_lookup_link_internal(box, link_name, &link, bst);
+    bt_ret = box_lookup_named_expr_internal(box, named_expr_name,
+                                            &named_expr, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    return link_evaluate_dpath_internal(link, box,
-                                        dpath_typep, eval_dpathp, bst);
+    return named_expr_evaluate_dpath_internal(named_expr, box,
+                                              dpath_typep, eval_dpathp,
+                                              bst);
 }
 
 static bitpunch_status_t
-box_evaluate_link_value_internal(struct box *box, const char *link_name,
-                                 enum expr_value_type *value_typep,
-                                 union expr_value *eval_valuep,
-                                 struct browse_state *bst)
+box_evaluate_named_expr_value_internal(struct box *box,
+                                       const char *named_expr_name,
+                                       enum expr_value_type *value_typep,
+                                       union expr_value *eval_valuep,
+                                       struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    const struct link *link;
+    const struct named_expr *named_expr;
 
-    bt_ret = box_lookup_link_internal(box, link_name, &link, bst);
+    bt_ret = box_lookup_named_expr_internal(box, named_expr_name,
+                                            &named_expr, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    return link_evaluate_value_internal(link, box,
-                                        value_typep, eval_valuep, bst);
+    return named_expr_evaluate_value_internal(named_expr, box,
+                                              value_typep, eval_valuep,
+                                              bst);
 }
 
 
@@ -7500,45 +7509,47 @@ box_get_n_statements(struct box *box,
 
 
 bitpunch_status_t
-box_iter_links_next(struct box *box, tlink_iterator *it,
-                    const struct link **linkp,
-                    struct tracker_error **errp)
+box_iter_named_exprs_next(struct box *box, tnamed_expr_iterator *it,
+                          const struct named_expr **named_exprp,
+                          struct tracker_error **errp)
 {
     struct browse_state bst;
 
     browse_state_init(&bst);
     return transmit_error(
-        box_iter_links_next_internal(box, it, linkp, &bst),
+        box_iter_named_exprs_next_internal(box, it, named_exprp, &bst),
         &bst, errp);
 }
 
 bitpunch_status_t
-box_evaluate_link_dpath(struct box *box, const char *link_name,
-                        enum expr_dpath_type *dpath_typep,
-                        union expr_dpath *eval_dpathp,
-                        struct tracker_error **errp)
+box_evaluate_named_expr_dpath(struct box *box, const char *named_expr_name,
+                              enum expr_dpath_type *dpath_typep,
+                              union expr_dpath *eval_dpathp,
+                              struct tracker_error **errp)
 {
     struct browse_state bst;
 
     browse_state_init(&bst);
     return transmit_error(
-        box_evaluate_link_dpath_internal(box, link_name,
-                                         dpath_typep, eval_dpathp, &bst),
+        box_evaluate_named_expr_dpath_internal(box, named_expr_name,
+                                               dpath_typep, eval_dpathp,
+                                               &bst),
         &bst, errp);
 }
 
 bitpunch_status_t
-box_evaluate_link_value(struct box *box, const char *link_name,
-                        enum expr_value_type *value_typep,
-                        union expr_value *eval_valuep,
-                        struct tracker_error **errp)
+box_evaluate_named_expr_value(struct box *box, const char *named_expr_name,
+                              enum expr_value_type *value_typep,
+                              union expr_value *eval_valuep,
+                              struct tracker_error **errp)
 {
     struct browse_state bst;
 
     browse_state_init(&bst);
     return transmit_error(
-        box_evaluate_link_value_internal(box, link_name,
-                                         value_typep, eval_valuep, &bst),
+        box_evaluate_named_expr_value_internal(box, named_expr_name,
+                                               value_typep, eval_valuep,
+                                               &bst),
         &bst, errp);
 }
 

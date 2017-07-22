@@ -112,6 +112,7 @@ else       { return KW_ELSE; }
 key        { return KW_KEY; }
 self       { return KW_SELF; }
 last       { return KW_LAST; }
+let        { return KW_LET; }
 
 true        {
     yylval_param->boolean = 1;
@@ -135,7 +136,6 @@ false       {
 "<="          { return TOK_LE; }
 "<<"          { return TOK_LSHIFT; }
 ">>"          { return TOK_RSHIFT; }
-"=>"          { return TOK_LINK; }
 ".."          { return TOK_RANGE; }
 [|^&><+\-*/%!~()=[\].{}] { return yytext[0]; }
 sizeof        { return OP_SIZEOF; }

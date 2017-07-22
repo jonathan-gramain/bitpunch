@@ -406,7 +406,7 @@ tracker_read_item_value(struct tracker *tk,
 
 enum statement_type {
     STATEMENT_TYPE_FIELD,
-    STATEMENT_TYPE_LINK,
+    STATEMENT_TYPE_NAMED_EXPR,
     STATEMENT_TYPE_SPAN,
     STATEMENT_TYPE_KEY,
     STATEMENT_TYPE_LAST,
@@ -472,28 +472,28 @@ box_get_n_statements(struct box *box,
                      struct tracker_error **errp);
 
 
-/* links API */
+/* named expressions API */
 
-typedef struct statement_iterator tlink_iterator;
+typedef struct statement_iterator tnamed_expr_iterator;
 
-tlink_iterator
-box_iter_links(struct box *box);
-
-bitpunch_status_t
-box_iter_links_next(struct box *box, tlink_iterator *it,
-                    const struct link **linkp,
-                    struct tracker_error **errp);
+tnamed_expr_iterator
+box_iter_named_exprs(struct box *box);
 
 bitpunch_status_t
-box_evaluate_link_dpath(struct box *box, const char *link_name,
-                        enum expr_dpath_type *dpath_typep,
-                        union expr_dpath *eval_dpathp,
-                        struct tracker_error **errp);
+box_iter_named_exprs_next(struct box *box, tnamed_expr_iterator *it,
+                          const struct named_expr **named_exprp,
+                          struct tracker_error **errp);
+
 bitpunch_status_t
-box_evaluate_link_value(struct box *box, const char *link_name,
-                        enum expr_value_type *value_typep,
-                        union expr_value *eval_valuep,
-                        struct tracker_error **errp);
+box_evaluate_named_expr_dpath(struct box *box, const char *named_expr_name,
+                              enum expr_dpath_type *dpath_typep,
+                              union expr_dpath *eval_dpathp,
+                              struct tracker_error **errp);
+bitpunch_status_t
+box_evaluate_named_expr_value(struct box *box, const char *named_expr_name,
+                              enum expr_value_type *value_typep,
+                              union expr_value *eval_valuep,
+                              struct tracker_error **errp);
 
 /* error reporting */
 

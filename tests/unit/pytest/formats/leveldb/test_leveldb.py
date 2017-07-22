@@ -192,7 +192,7 @@ def spec_sst_index():
         VarInt value_size;
         byte[key_non_shared_size] key_non_shared;
         byte[value_size] value;
-        ?data_block => value: BlockHandle;
+        let ?data_block = value: BlockHandle;
     };
 
     file {

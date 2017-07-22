@@ -1037,8 +1037,8 @@ DataContainer_get_dict(DataContainerObject *self, const char *attr_str)
     PyObject *py_key;
     enum expr_value_type key_type;
     union expr_value key_value;
-    tlink_iterator link_iter;
-    const struct link *link;
+    tnamed_expr_iterator named_expr_iter;
+    const struct named_expr *named_expr;
     struct tracker_error *tk_err = NULL;
 
     /* generate a dict containing all attribute keys on-the-fly */
@@ -1068,15 +1068,17 @@ DataContainer_get_dict(DataContainerObject *self, const char *attr_str)
         bt_ret = tracker_goto_next_item(tk, NULL);
     }
     tracker_delete(tk);
-    link_iter = box_iter_links(self->box);
-    bt_ret = box_iter_links_next(self->box, &link_iter, &link, NULL);
+    named_expr_iter = box_iter_named_exprs(self->box);
+    bt_ret = box_iter_named_exprs_next(self->box, &named_expr_iter,
+                                       &named_expr, NULL);
     while (BITPUNCH_OK == bt_ret) {
-        py_key = PyString_FromFormat("?%s", link->nstmt.name);
+        py_key = PyString_FromFormat("?%s", named_expr->nstmt.name);
         if (NULL != py_key) {
             PyDict_SetItem(dict, py_key, Py_None);
             Py_DECREF(py_key);
         }
-        bt_ret = box_iter_links_next(self->box, &link_iter, &link, NULL);
+        bt_ret = box_iter_named_exprs_next(self->box, &named_expr_iter,
+                                           &named_expr, NULL);
     }
     return dict;
 }
@@ -1112,16 +1114,18 @@ DataContainer_get_named_item(DataContainerObject *self,
 }
 
 static PyObject *
-DataBlock_eval_link_value_internal(DataBlockObject *self,
-                                   const struct link *link,
-                                   struct browse_state *bst)
+DataBlock_eval_named_expr_value_internal(
+    DataBlockObject *self,
+    const struct named_expr *named_expr,
+    struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     enum expr_value_type value_type;
     union expr_value value_eval;
 
-    bt_ret = link_evaluate_value_internal(link, self->container.box,
-                                          &value_type, &value_eval, bst);
+    bt_ret = named_expr_evaluate_value_internal(
+        named_expr, self->container.box,
+        &value_type, &value_eval, bst);
     if (BITPUNCH_OK != bt_ret) {
         set_tracker_error(bst->last_error, bt_ret);
         bst->last_error = NULL;
@@ -1132,16 +1136,18 @@ DataBlock_eval_link_value_internal(DataBlockObject *self,
 }
 
 static PyObject *
-DataBlock_eval_link_dpath_internal(DataBlockObject *self,
-                                   const struct link *link,
-                                   struct browse_state *bst)
+DataBlock_eval_named_expr_dpath_internal(
+    DataBlockObject *self,
+    const struct named_expr *named_expr,
+    struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     enum expr_dpath_type dpath_type;
     union expr_dpath dpath_eval;
 
-    bt_ret = link_evaluate_dpath_internal(link, self->container.box,
-                                          &dpath_type, &dpath_eval, bst);
+    bt_ret = named_expr_evaluate_dpath_internal(
+        named_expr, self->container.box,
+        &dpath_type, &dpath_eval, bst);
     if (BITPUNCH_OK != bt_ret) {
         set_tracker_error(bst->last_error, bt_ret);
         bst->last_error = NULL;
@@ -1152,11 +1158,11 @@ DataBlock_eval_link_dpath_internal(DataBlockObject *self,
 }
 
 static PyObject *
-DataBlock_eval_link(DataBlockObject *self, const char *attr_str)
+DataBlock_eval_named_expr(DataBlockObject *self, const char *attr_str)
 {
     bitpunch_status_t bt_ret;
     struct box *filtered_box;
-    const struct link *link;
+    const struct named_expr *named_expr;
     struct browse_state bst;
     PyObject *res = NULL;
 
@@ -1169,23 +1175,25 @@ DataBlock_eval_link(DataBlockObject *self, const char *attr_str)
         browse_state_cleanup(&bst);
         return NULL;
     }
-    bt_ret = box_lookup_link_internal(filtered_box, attr_str + 1,
-                                      &link, &bst);
+    bt_ret = box_lookup_named_expr_internal(filtered_box, attr_str + 1,
+                                            &named_expr, &bst);
     box_delete(filtered_box);
     if (BITPUNCH_OK != bt_ret) {
         if (BITPUNCH_NO_ITEM == bt_ret) {
             PyErr_Format(PyExc_AttributeError,
-                         "no such link in block: %s", attr_str);
+                         "no such named expression in block: %s", attr_str);
         } else {
             set_tracker_error(bst.last_error, bt_ret);
         }
         browse_state_cleanup(&bst);
         return NULL;
     }
-    if (link->dst_expr->u.rexpr.value_type != EXPR_VALUE_TYPE_UNSET) {
-        res = DataBlock_eval_link_value_internal(self, link, &bst);
+    if (named_expr->dst_expr->u.rexpr.value_type != EXPR_VALUE_TYPE_UNSET) {
+        res = DataBlock_eval_named_expr_value_internal(self, named_expr,
+                                                       &bst);
     } else {
-        res = DataBlock_eval_link_dpath_internal(self, link, &bst);
+        res = DataBlock_eval_named_expr_dpath_internal(self, named_expr,
+                                                       &bst);
     }
     browse_state_cleanup(&bst);
     return res;
@@ -1207,7 +1215,7 @@ DataBlock_getattr_base(DataBlockObject *self, PyObject *attr_name,
         return DataContainer_get_dict(&self->container, attr_str);
     }
     if (attr_str[0] == '?') {
-        return DataBlock_eval_link(self, attr_str);
+        return DataBlock_eval_named_expr(self, attr_str);
     }
     if (lookup_methods) {
         attr = PyObject_GenericGetAttr((PyObject *)self, attr_name);
@@ -1954,8 +1962,9 @@ DataArray_bytes_box_to_python_object(
     X(ITER_FIELD_NAMES, "iterate over field names")                     \
     X(ITER_FIELD_VALUES, "iterate over field values")                   \
     X(ITER_FIELD_KEYVALUE_TUPLES, "iterate over field's (key, value) tuples") \
-    X(ITER_LINK_NAMES, "iterate over all link's names")                 \
-    X(ITER_MEMBER_NAMES, "iterate over all member's names (fields and links)") \
+    X(ITER_NAMED_EXPR_NAMES, "iterate over all named expressions' names")                 \
+    X(ITER_MEMBER_NAMES, "iterate over all member's names (fields and " \
+      "named expressions)")                                             \
 
 
 #define X(NAME, DESC) TRACKER_##NAME,
@@ -1978,7 +1987,7 @@ typedef struct TrackerObject {
     struct tracker *tk;
     TrackerIterType iter_mode;
     TrackerIterType current_iter_mode;
-    tlink_iterator link_iter;
+    tnamed_expr_iterator named_expr_iter;
 } TrackerObject;
 
 
@@ -2703,8 +2712,8 @@ Tracker_iter(TrackerObject *self)
 {
     Py_INCREF((PyObject *)self);
     self->current_iter_mode = self->iter_mode;
-    if (TRACKER_ITER_LINK_NAMES == self->iter_mode) {
-        self->link_iter = box_iter_links(self->tk->box);
+    if (TRACKER_ITER_NAMED_EXPR_NAMES == self->iter_mode) {
+        self->named_expr_iter = box_iter_named_exprs(self->tk->box);
     }
     return (PyObject *)self;
 }
@@ -2712,13 +2721,13 @@ Tracker_iter(TrackerObject *self)
 static PyObject *
 Tracker_iternext(TrackerObject *self)
 {
-    if (TRACKER_ITER_LINK_NAMES != self->current_iter_mode) {
+    if (TRACKER_ITER_NAMED_EXPR_NAMES != self->current_iter_mode) {
         if (NULL == Tracker_goto_next_item(self)) {
             if (PyErr_ExceptionMatches(BitpunchExc_NoItemError)) {
                 PyErr_Clear();
                 if (TRACKER_ITER_MEMBER_NAMES == self->current_iter_mode) {
-                    self->current_iter_mode = TRACKER_ITER_LINK_NAMES;
-                    self->link_iter = box_iter_links(self->tk->box);
+                    self->current_iter_mode = TRACKER_ITER_NAMED_EXPR_NAMES;
+                    self->named_expr_iter = box_iter_named_exprs(self->tk->box);
                 } else {
                     /* StopIteration is implicitly set by the API */
                     return NULL;
@@ -2753,13 +2762,14 @@ Tracker_iternext(TrackerObject *self)
         Py_DECREF(value);
         return res;
     }
-    case TRACKER_ITER_LINK_NAMES: {
+    case TRACKER_ITER_NAMED_EXPR_NAMES: {
         bitpunch_status_t bt_ret;
-        const struct link *link;
+        const struct named_expr *named_expr;
         struct tracker_error *tk_err = NULL;
 
-        bt_ret = box_iter_links_next(self->tk->box, &self->link_iter,
-                                     &link, &tk_err);
+        bt_ret = box_iter_named_exprs_next(self->tk->box,
+                                           &self->named_expr_iter,
+                                           &named_expr, &tk_err);
         if (BITPUNCH_NO_ITEM == bt_ret) {
             PyErr_Clear();
             /* StopIteration is implicitly set by the API */
@@ -2769,7 +2779,7 @@ Tracker_iternext(TrackerObject *self)
             set_tracker_error(tk_err, bt_ret);
             return NULL;
         }
-        return PyString_FromFormat("?%s", link->nstmt.name);
+        return PyString_FromFormat("?%s", named_expr->nstmt.name);
     }
     default:
         PyErr_Format(PyExc_ValueError,
