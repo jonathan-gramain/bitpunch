@@ -126,7 +126,7 @@ static void testcase_radio_setup(void)
 
         if (memmem(info->bp->df_data,
                    info->bp->df_data_length,
-                   "?codename", strlen("?codename")) != 0) {
+                   "let codename", strlen("let codename")) != 0) {
             info->codename_is_named_expr = TRUE;
         }
     }
@@ -217,12 +217,11 @@ static void check_codename_entry(struct radio_source_info *info,
     ck_assert_ptr_ne(tk2, NULL);
     bt_ret = tracker_enter_item(tk2, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-    if (info->codename_is_named_expr) {
-        bt_ret = box_evaluate_named_expr_value(tk2->box, "codename",
-                                               &type, &value, NULL);
-        ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-        check_codename_value(info, type, value, code_idx, FALSE);
-    } else {
+    bt_ret = box_evaluate_attribute_value(tk2->box, "codename",
+                                          &type, &value, NULL);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+    check_codename_value(info, type, value, code_idx, FALSE);
+    if (!info->codename_is_named_expr) {
         bt_ret = tracker_goto_named_item(tk2, "codename", NULL);
         ck_assert_int_eq(bt_ret, BITPUNCH_OK);
         check_codename_item(info, tk2, code_idx, FALSE);
@@ -488,16 +487,15 @@ void testcase_radio_launch_test_dpath(struct radio_source_info *info)
     for (c = 0; c < N_ELEM(radio_codenames); ++c) {
         code_idx = (c * 7) % 26;
         snprintf(dpath_expr, sizeof (dpath_expr),
-                 "codes[%d].%scodename",
-                 code_idx, (info->codename_is_named_expr ? "?" : ""));
+                 "codes[%d].codename",
+                 code_idx);
         check_goto_dpath(info, tk, dpath_expr, code_idx);
     }
     for (c = 0; c < N_ELEM(radio_codenames); ++c) {
         code_idx = (c * 7) % 26;
         snprintf(dpath_expr, sizeof (dpath_expr),
-                 "codes['%s'].%scodename",
-                 radio_codenames[code_idx],
-                 (info->codename_is_named_expr ? "?" : ""));
+                 "codes['%s'].codename",
+                 radio_codenames[code_idx]);
         check_goto_dpath(info, tk, dpath_expr, code_idx);
     }
     tracker_delete(tk);

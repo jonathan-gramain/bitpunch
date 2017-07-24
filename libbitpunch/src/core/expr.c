@@ -116,11 +116,6 @@ expr_evaluate_dpath_as_type(struct ast_node *expr, struct box *scope,
                             union expr_dpath *eval_dpathp,
                             struct browse_state *bst);
 static bitpunch_status_t
-expr_read_dpath_value_internal(struct ast_node *expr,
-                               union expr_dpath dpath,
-                               union expr_value *expr_valuep,
-                               struct browse_state *bst);
-static bitpunch_status_t
 expr_read_dpath_value_default(struct ast_node *expr,
                               union expr_dpath dpath,
                               union expr_value *expr_valuep,
@@ -2242,7 +2237,7 @@ evaluate_conditional_internal(struct ast_node *cond, struct box *scope,
     return BITPUNCH_OK;
 }
 
-static bitpunch_status_t
+bitpunch_status_t
 expr_read_dpath_value_internal(struct ast_node *expr,
                                union expr_dpath dpath,
                                union expr_value *expr_valuep,

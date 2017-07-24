@@ -86,6 +86,24 @@ box_lookup_named_expr_internal(struct box *box,
                                const char *named_expr_name,
                                const struct named_expr **named_exprp,
                                struct browse_state *bst);
+bitpunch_status_t
+box_lookup_attribute_internal(struct box *box, const char *name,
+                              enum statement_type *stmt_typep,
+                              const struct named_statement **named_stmt,
+                              struct browse_state *bst);
+bitpunch_status_t
+box_evaluate_attribute_value_internal(struct box *box, const char *name,
+                                      enum expr_value_type *value_typep,
+                                      union expr_value *eval_valuep,
+                                      struct browse_state *bst);
+bitpunch_status_t
+box_evaluate_attribute_internal(struct box *box,
+                                const char *attr_name,
+                                enum expr_value_type *value_typep,
+                                union expr_value *eval_valuep,
+                                enum expr_dpath_type *dpath_typep,
+                                union expr_dpath *eval_dpathp,
+                                struct browse_state *bst);
 
 bitpunch_status_t
 tracker_create_item_box_internal(struct tracker *tk,

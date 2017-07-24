@@ -480,6 +480,26 @@ tnamed_expr_iterator
 box_iter_named_exprs(struct box *box);
 
 bitpunch_status_t
+box_evaluate_attribute_value(struct box *box,
+                             const char *attr_name,
+                             enum expr_value_type *value_typep,
+                             union expr_value *eval_valuep,
+                             struct tracker_error **errp);
+bitpunch_status_t
+box_evaluate_attribute_dpath(struct box *box,
+                             const char *attr_name,
+                             enum expr_dpath_type *dpath_typep,
+                             union expr_dpath *eval_dpathp,
+                             struct tracker_error **errp);
+bitpunch_status_t
+box_evaluate_attribute(struct box *box,
+                       const char *attr_name,
+                       enum expr_value_type *value_typep,
+                       union expr_value *eval_valuep,
+                       enum expr_dpath_type *dpath_typep,
+                       union expr_dpath *eval_dpathp,
+                       struct tracker_error **errp);
+bitpunch_status_t
 box_iter_named_exprs_next(struct box *box, tnamed_expr_iterator *it,
                           const struct named_expr **named_exprp,
                           struct tracker_error **errp);

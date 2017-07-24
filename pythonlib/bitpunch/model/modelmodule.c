@@ -49,18 +49,25 @@ struct DataTreeObject;
 struct TrackerObject;
 
 static int
-expr_from_PyObject(PyObject *py_expr,
-                   enum expr_value_type *expr_typep,
-                   union expr_value *exprp);
+expr_value_from_PyObject(PyObject *py_expr,
+                         enum expr_value_type *value_typep,
+                         union expr_value *exprp);
 static PyObject *
-expr_to_PyObject(struct DataTreeObject *dtree,
-                 enum expr_value_type expr_type,
-                 union expr_value expr);
+expr_value_to_PyObject(struct DataTreeObject *dtree,
+                       enum expr_value_type value_type,
+                       union expr_value value_eval);
 static PyObject *
 expr_dpath_to_PyObject(struct DataTreeObject *dtree,
                        enum expr_dpath_type dpath_type,
                        union expr_dpath dpath_value,
                        int tracker);
+static PyObject *
+expr_to_PyObject(struct DataTreeObject *dtree,
+                 enum expr_value_type value_type,
+                 union expr_value value_eval,
+                 enum expr_dpath_type dpath_type,
+                 union expr_dpath dpath_value,
+                 int tracker);
 static PyObject *
 eval_expr_as_python_object(struct DataContainerObject *cont,
                            const char *expr, int tracker);
@@ -978,8 +985,8 @@ DataBlock_box_to_python_object(struct DataTreeObject *dtree,
     PyObject *dict;
     struct tracker *tk;
     bitpunch_status_t bt_ret;
-    enum expr_value_type expr_type;
-    union expr_value expr_value;
+    enum expr_value_type value_type;
+    union expr_value value_eval;
     PyObject *py_key;
     PyObject *py_value;
     struct tracker_error *tk_err = NULL;
@@ -996,11 +1003,11 @@ DataBlock_box_to_python_object(struct DataTreeObject *dtree,
     }
     bt_ret = tracker_goto_next_item(tk, &tk_err);
     while (BITPUNCH_OK == bt_ret) {
-        bt_ret = tracker_get_item_key(tk, &expr_type, &expr_value, &tk_err);
+        bt_ret = tracker_get_item_key(tk, &value_type, &value_eval, &tk_err);
         if (BITPUNCH_OK != bt_ret) {
             goto tk_error;
         }
-        py_key = expr_to_PyObject(dtree, expr_type, expr_value);
+        py_key = expr_value_to_PyObject(dtree, value_type, value_eval);
         if (NULL == py_key) {
             goto error;
         }
@@ -1072,7 +1079,7 @@ DataContainer_get_dict(DataContainerObject *self, const char *attr_str)
     bt_ret = box_iter_named_exprs_next(self->box, &named_expr_iter,
                                        &named_expr, NULL);
     while (BITPUNCH_OK == bt_ret) {
-        py_key = PyString_FromFormat("?%s", named_expr->nstmt.name);
+        py_key = PyString_FromString(named_expr->nstmt.name);
         if (NULL != py_key) {
             PyDict_SetItem(dict, py_key, Py_None);
             Py_DECREF(py_key);
@@ -1114,89 +1121,32 @@ DataContainer_get_named_item(DataContainerObject *self,
 }
 
 static PyObject *
-DataBlock_eval_named_expr_value_internal(
-    DataBlockObject *self,
-    const struct named_expr *named_expr,
-    struct browse_state *bst)
+DataContainer_eval_attr(DataContainerObject *self, const char *attr_str)
 {
     bitpunch_status_t bt_ret;
     enum expr_value_type value_type;
     union expr_value value_eval;
-
-    bt_ret = named_expr_evaluate_value_internal(
-        named_expr, self->container.box,
-        &value_type, &value_eval, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        set_tracker_error(bst->last_error, bt_ret);
-        bst->last_error = NULL;
-        return NULL;
-    }
-    return expr_to_PyObject(self->container.dtree,
-                            value_type, value_eval);
-}
-
-static PyObject *
-DataBlock_eval_named_expr_dpath_internal(
-    DataBlockObject *self,
-    const struct named_expr *named_expr,
-    struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
     enum expr_dpath_type dpath_type;
     union expr_dpath dpath_eval;
+    struct tracker_error *tk_err = NULL;
 
-    bt_ret = named_expr_evaluate_dpath_internal(
-        named_expr, self->container.box,
-        &dpath_type, &dpath_eval, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        set_tracker_error(bst->last_error, bt_ret);
-        bst->last_error = NULL;
-        return NULL;
-    }
-    return expr_dpath_to_PyObject(self->container.dtree,
-                                  dpath_type, dpath_eval, FALSE);
-}
-
-static PyObject *
-DataBlock_eval_named_expr(DataBlockObject *self, const char *attr_str)
-{
-    bitpunch_status_t bt_ret;
-    struct box *filtered_box;
-    const struct named_expr *named_expr;
-    struct browse_state bst;
-    PyObject *res = NULL;
-
-    assert(attr_str[0] == '?');
-
-    browse_state_init(&bst);
-    bt_ret = box_apply_filters(self->container.box, &filtered_box, &bst);
-    if (BITPUNCH_OK != bt_ret) {
-        set_tracker_error(bst.last_error, bt_ret);
-        browse_state_cleanup(&bst);
-        return NULL;
-    }
-    bt_ret = box_lookup_named_expr_internal(filtered_box, attr_str + 1,
-                                            &named_expr, &bst);
-    box_delete(filtered_box);
+    bt_ret = box_evaluate_attribute(self->box, attr_str,
+                                    &value_type, &value_eval,
+                                    &dpath_type, &dpath_eval,
+                                    &tk_err);
     if (BITPUNCH_OK != bt_ret) {
         if (BITPUNCH_NO_ITEM == bt_ret) {
             PyErr_Format(PyExc_AttributeError,
-                         "no such named expression in block: %s", attr_str);
+                         "no such named expression or field: %s",
+                         attr_str);
         } else {
-            set_tracker_error(bst.last_error, bt_ret);
+            set_tracker_error(tk_err, bt_ret);
         }
-        browse_state_cleanup(&bst);
         return NULL;
     }
-    if (named_expr->dst_expr->u.rexpr.value_type != EXPR_VALUE_TYPE_UNSET) {
-        res = DataBlock_eval_named_expr_value_internal(self, named_expr,
-                                                       &bst);
-    } else {
-        res = DataBlock_eval_named_expr_dpath_internal(self, named_expr,
-                                                       &bst);
-    }
-    browse_state_cleanup(&bst);
-    return res;
+    return expr_to_PyObject(self->dtree,
+                            value_type, value_eval,
+                            dpath_type, dpath_eval, FALSE);
 }
 
 static PyObject *
@@ -1214,9 +1164,6 @@ DataBlock_getattr_base(DataBlockObject *self, PyObject *attr_name,
     if (0 == strcmp(attr_str, "__dict__")) {
         return DataContainer_get_dict(&self->container, attr_str);
     }
-    if (attr_str[0] == '?') {
-        return DataBlock_eval_named_expr(self, attr_str);
-    }
     if (lookup_methods) {
         attr = PyObject_GenericGetAttr((PyObject *)self, attr_name);
         if (NULL != attr) {
@@ -1224,7 +1171,7 @@ DataBlock_getattr_base(DataBlockObject *self, PyObject *attr_name,
         }
         PyErr_Clear();
     }
-    return DataContainer_get_named_item(&self->container, attr_str);
+    return DataContainer_eval_attr(&self->container, attr_str);
 }
 
 static PyObject *
@@ -1937,19 +1884,19 @@ DataArray_bytes_box_to_python_object(
 {
     PyObject *res = NULL;
     bitpunch_status_t bt_ret;
-    enum expr_value_type expr_type;
-    union expr_value expr_value;
+    enum expr_value_type value_type;
+    union expr_value value_eval;
     struct tracker_error *tk_err = NULL;
 
     assert(ast_node_is_item(box->node));
 
-    bt_ret = box_read_value(box, &expr_type, &expr_value, &tk_err);
+    bt_ret = box_read_value(box, &value_type, &value_eval, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
         set_tracker_error(tk_err, bt_ret);
         return NULL;
     }
-    res = expr_to_PyObject(dtree, expr_type, expr_value);
-    expr_value_destroy(expr_type, expr_value);
+    res = expr_value_to_PyObject(dtree, value_type, value_eval);
+    expr_value_destroy(value_type, value_eval);
     return res;
 }
 
@@ -2149,7 +2096,7 @@ tk_goto_item_by_key(struct tracker *tk, PyObject *index,
         index_value = index;
         twin_index = 0;
     }
-    if (-1 == expr_from_PyObject(index_value, &key_type, &key)) {
+    if (-1 == expr_value_from_PyObject(index_value, &key_type, &key)) {
         return -1;
     }
     if (box_contains_indexed_items(tk->box)) {
@@ -2288,7 +2235,7 @@ Tracker_get_item_key(TrackerObject *self)
         set_tracker_error(tk_err, bt_ret);
         return NULL;
     }
-    py_key_value = expr_to_PyObject(self->dtree, key_type, key);
+    py_key_value = expr_value_to_PyObject(self->dtree, key_type, key);
     if (NULL == py_key_value) {
         return NULL;
     }
@@ -2779,7 +2726,7 @@ Tracker_iternext(TrackerObject *self)
             set_tracker_error(tk_err, bt_ret);
             return NULL;
         }
-        return PyString_FromFormat("?%s", named_expr->nstmt.name);
+        return PyString_FromString(named_expr->nstmt.name);
     }
     default:
         PyErr_Format(PyExc_ValueError,
@@ -3038,26 +2985,26 @@ DataContainer_bf_getbuffer(DataContainerObject *exporter,
 
 
 static int
-expr_from_PyObject(PyObject *py_expr,
-                   enum expr_value_type *expr_typep,
-                   union expr_value *exprp)
+expr_value_from_PyObject(PyObject *py_expr,
+                         enum expr_value_type *value_typep,
+                         union expr_value *exprp)
 {
     if (PyInt_Check(py_expr)) {
-        *expr_typep = EXPR_VALUE_TYPE_INTEGER;
+        *value_typep = EXPR_VALUE_TYPE_INTEGER;
         exprp->integer = PyInt_AS_LONG(py_expr);
     } else if (PyBool_Check(py_expr)) {
-        *expr_typep = EXPR_VALUE_TYPE_BOOLEAN;
+        *value_typep = EXPR_VALUE_TYPE_BOOLEAN;
         exprp->boolean = (py_expr == Py_True);
     } else if (PyString_Check(py_expr)) {
         char *str;
         Py_ssize_t length;
 
-        *expr_typep = EXPR_VALUE_TYPE_STRING;
+        *value_typep = EXPR_VALUE_TYPE_STRING;
         PyString_AsStringAndSize(py_expr, &str, &length);
         exprp->string.str = str;
         exprp->string.len = length;
     } else if (PyByteArray_Check(py_expr)) {
-        *expr_typep = EXPR_VALUE_TYPE_BYTES;
+        *value_typep = EXPR_VALUE_TYPE_BYTES;
         exprp->bytes.buf = PyByteArray_AS_STRING(py_expr);
         exprp->bytes.len = PyByteArray_GET_SIZE(py_expr);
     } else {
@@ -3075,34 +3022,34 @@ expr_from_PyObject(PyObject *py_expr,
  * @note this function call always destroys @ref expr
  */
 static PyObject *
-expr_to_PyObject(DataTreeObject *dtree,
-                 enum expr_value_type expr_type,
-                 union expr_value expr)
+expr_value_to_PyObject(DataTreeObject *dtree,
+                       enum expr_value_type value_type,
+                       union expr_value value_eval)
 {
     PyObject *res = NULL;
 
-    switch (expr_type) {
+    switch (value_type) {
     case EXPR_VALUE_TYPE_INTEGER:
-        res = Py_BuildValue("l", expr.integer);
+        res = Py_BuildValue("l", value_eval.integer);
         goto end;
     case EXPR_VALUE_TYPE_BOOLEAN:
-        res = PyBool_FromLong(expr.boolean);
+        res = PyBool_FromLong(value_eval.boolean);
         goto end;
     case EXPR_VALUE_TYPE_STRING:
-        res = PyString_FromStringAndSize(expr.string.str,
-                                         (Py_ssize_t)expr.string.len);
+        res = PyString_FromStringAndSize(value_eval.string.str,
+                                         (Py_ssize_t)value_eval.string.len);
         goto end;
     case EXPR_VALUE_TYPE_BYTES:
-        res = PyString_FromStringAndSize(expr.bytes.buf,
-                                         (Py_ssize_t)expr.bytes.len);
+        res = PyString_FromStringAndSize(value_eval.bytes.buf,
+                                         (Py_ssize_t)value_eval.bytes.len);
         goto end;
     default:
         PyErr_Format(PyExc_ValueError,
-                     "Unsupported expression type '%d'", (int)expr_type);
+                     "Unsupported expression type '%d'", (int)value_type);
         goto end;
     }
   end:
-    expr_value_destroy(expr_type, expr);
+    expr_value_destroy(value_type, value_eval);
     return res;
 }
 
@@ -3139,6 +3086,21 @@ expr_dpath_to_PyObject(DataTreeObject *dtree,
     }
     expr_dpath_destroy(dpath_type, dpath_value);
     return res;
+}
+
+static PyObject *
+expr_to_PyObject(struct DataTreeObject *dtree,
+                 enum expr_value_type value_type,
+                 union expr_value value_eval,
+                 enum expr_dpath_type dpath_type,
+                 union expr_dpath dpath_value,
+                 int tracker)
+{
+    if (EXPR_VALUE_TYPE_UNSET != value_type) {
+        expr_dpath_destroy(dpath_type, dpath_value);
+        return expr_value_to_PyObject(dtree, value_type, value_eval);
+    }
+    return expr_dpath_to_PyObject(dtree, dpath_type, dpath_value, tracker);
 }
 
 static PyObject *
@@ -3192,7 +3154,7 @@ eval_expr_as_python_object(DataContainerObject *cont,
         }
     } else {
         assert(EXPR_VALUE_TYPE_UNSET != expr_value_type);
-        res = expr_to_PyObject(dtree, expr_value_type, expr_value);
+        res = expr_value_to_PyObject(dtree, expr_value_type, expr_value);
     }
     return res;
 }
@@ -3215,8 +3177,8 @@ tracker_item_to_deep_PyObject(DataTreeObject *dtree,
 {
     PyObject *res = NULL;
     bitpunch_status_t bt_ret;
-    enum expr_value_type expr_type;
-    union expr_value expr_value;
+    enum expr_value_type value_type;
+    union expr_value value_eval;
     int complex_type;
     struct tracker_error *tk_err = NULL;
 
@@ -3233,14 +3195,14 @@ tracker_item_to_deep_PyObject(DataTreeObject *dtree,
             set_tracker_error(tk_err, bt_ret);
         }
     } else {
-        bt_ret = tracker_read_item_value(tk, &expr_type, &expr_value,
+        bt_ret = tracker_read_item_value(tk, &value_type, &value_eval,
                                          &tk_err);
         if (BITPUNCH_OK != bt_ret) {
             set_tracker_error(tk_err, bt_ret);
             return NULL;
         }
-        res = expr_to_PyObject(dtree, expr_type, expr_value);
-        expr_value_destroy(expr_type, expr_value);
+        res = expr_value_to_PyObject(dtree, value_type, value_eval);
+        expr_value_destroy(value_type, value_eval);
     }
     return res;
 }
@@ -3269,17 +3231,17 @@ tracker_item_to_shallow_PyObject(DataTreeObject *dtree,
             set_tracker_error(tk_err, bt_ret);
         }
     } else {
-        enum expr_value_type expr_type;
-        union expr_value expr_value;
+        enum expr_value_type value_type;
+        union expr_value value_eval;
 
-        bt_ret = tracker_read_item_value(tk, &expr_type, &expr_value,
+        bt_ret = tracker_read_item_value(tk, &value_type, &value_eval,
                                          &tk_err);
         if (BITPUNCH_OK != bt_ret) {
             set_tracker_error(tk_err, bt_ret);
             return NULL;
         }
-        res = expr_to_PyObject(dtree, expr_type, expr_value);
-        expr_value_destroy(expr_type, expr_value);
+        res = expr_value_to_PyObject(dtree, value_type, value_eval);
+        expr_value_destroy(value_type, value_eval);
     }
     return res;
 }
@@ -3290,8 +3252,8 @@ box_to_shallow_PyObject(DataTreeObject *dtree, struct box *box,
 {
     PyObject *res = NULL;
     bitpunch_status_t bt_ret;
-    enum expr_value_type expr_type;
-    union expr_value expr_value;
+    enum expr_value_type value_type;
+    union expr_value value_eval;
     DataContainerObject *dcont;
 
     switch (ast_node_get_as_type(box->node)->type) {
@@ -3332,13 +3294,13 @@ box_to_shallow_PyObject(DataTreeObject *dtree, struct box *box,
     default: {
         struct tracker_error *tk_err = NULL;
 
-        bt_ret = box_read_value(box, &expr_type, &expr_value, &tk_err);
+        bt_ret = box_read_value(box, &value_type, &value_eval, &tk_err);
         if (BITPUNCH_OK != bt_ret) {
             set_tracker_error(tk_err, bt_ret);
             return NULL;
         }
-        res = expr_to_PyObject(dtree, expr_type, expr_value);
-        expr_value_destroy(expr_type, expr_value);
+        res = expr_value_to_PyObject(dtree, value_type, value_eval);
+        expr_value_destroy(value_type, value_eval);
         return res;
     }
     }

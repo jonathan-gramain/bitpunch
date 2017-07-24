@@ -245,8 +245,8 @@ static int
 resolve_expr_subscript_slice(struct ast_node **expr_p,
                              struct list_of_visible_refs *visible_refs);
 static int
-resolve_expr_operator_dot(struct ast_node **expr_p,
-                          struct list_of_visible_refs *visible_refs);
+resolve_expr_member(struct ast_node **expr_p,
+                    struct list_of_visible_refs *visible_refs);
 static int
 resolve_expr_fcall(struct ast_node **expr_p,
                    struct list_of_visible_refs *visible_refs);
@@ -280,9 +280,11 @@ resolve2_conditional(struct ast_node *if_node);
 static int
 resolve2_expr(struct ast_node **expr_p);
 static int
-resolve2_expr_field(struct ast_node **expr_p);
+resolve2_expr_member(struct ast_node **expr_p);
 static int
 resolve2_expr_named_expr(struct ast_node **expr_p);
+static int
+resolve2_expr_field(struct ast_node **expr_p);
 static int
 resolve2_expr_subscript_index(struct ast_node *expr,
                               struct subscript_index *subscript);
@@ -1464,7 +1466,7 @@ resolve_expr(struct ast_node **expr_p,
         ret = resolve_expr_subscript_slice(expr_p, visible_refs);
         break ;
     case AST_NODE_TYPE_OP_MEMBER:
-        ret = resolve_expr_operator_dot(expr_p, visible_refs);
+        ret = resolve_expr_member(expr_p, visible_refs);
         break ;
     case AST_NODE_TYPE_OP_FCALL:
         ret = resolve_expr_fcall(expr_p, visible_refs);
@@ -1561,18 +1563,9 @@ resolve_expr_identifier(struct ast_node **expr_p,
     const struct field *resolved_field;
     const struct expr_builtin_fn *builtin;
 
-    /* try to match identifier with an existing field */
-    if ((*expr_p)->u.identifier[0] == '?') {
-        if (-1 == lookup_named_expr(
-                (*expr_p)->u.identifier + 1, visible_refs,
-                &resolved_block, &resolved_named_expr)) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &(*expr_p)->loc,
-                "no named expression with name '%s' exists in the "
-                "expression scope",
-                (*expr_p)->u.identifier);
-            return -1;
-        }
+    /* try to match identifier with an existing named expression or field */
+    if (-1 != lookup_named_expr((*expr_p)->u.identifier, visible_refs,
+                                &resolved_block, &resolved_named_expr)) {
         free((*expr_p)->u.identifier);
         ast_node_clear(*expr_p);
         (*expr_p)->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
@@ -1588,7 +1581,7 @@ resolve_expr_identifier(struct ast_node **expr_p,
         free((*expr_p)->u.identifier);
         ast_node_clear(*expr_p);
         (*expr_p)->type = AST_NODE_TYPE_REXPR_FIELD;
-        (*expr_p)->u.rexpr.dpath_type = EXPR_DPATH_TYPE_ITEM;
+        (*expr_p)->u.rexpr.dpath_type = EXPR_DPATH_TYPE_UNSET;
         (*expr_p)->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
         (*expr_p)->u.rexpr_member_common.anchor_block =
             (struct ast_node *)resolved_block;
@@ -1607,7 +1600,8 @@ resolve_expr_identifier(struct ast_node **expr_p,
     }
     semantic_error(
         SEMANTIC_LOGLEVEL_ERROR, &(*expr_p)->loc,
-        "no field or builtin named '%s' exists in the expression scope",
+        "no named expression, field or builtin named '%s' exists in the "
+        "expression scope",
         (*expr_p)->u.identifier);
     return -1;
 }
@@ -1783,7 +1777,7 @@ resolve_expr_operator_filter(struct ast_node **expr_p,
         return -1;
     }
     assert(ast_node_is_item(target));
-    if (!ast_node_has_interpreter(target)
+    if (!ast_node_has_filter(target)
         || AST_NODE_TYPE_REXPR_OP_FILTER == op.operands[0]->type
         || AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE == op.operands[0]->type) {
         semantic_error(
@@ -2139,33 +2133,16 @@ resolve_expr_subscript_slice(struct ast_node **expr_p,
 }
 
 static int
-resolve_expr_operator_dot(struct ast_node **expr_p,
-                          struct list_of_visible_refs *visible_refs)
+resolve_expr_member(struct ast_node **expr_p,
+                    struct list_of_visible_refs *visible_refs)
 {
     struct op *op;
-    struct ast_node *opd1, *opd2;
 
     op = &(*expr_p)->u.op;
     if (-1 == resolve_expr(&op->operands[0], visible_refs)) {
         return -1;
     }
-    opd1 = op->operands[0];
-    opd2 = op->operands[1];
-    /* checked by parser */
-    assert(opd2->type == AST_NODE_TYPE_IDENTIFIER);
-    ast_node_clear(*expr_p);
-    if (opd2->u.identifier[0] == '?') {
-        (*expr_p)->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
-        (*expr_p)->u.rexpr.dpath_type = EXPR_DPATH_TYPE_UNSET;
-        // .named_expr will be set at resolve2 phase
-    } else {
-        (*expr_p)->type = AST_NODE_TYPE_REXPR_FIELD;
-        (*expr_p)->u.rexpr.dpath_type = EXPR_DPATH_TYPE_ITEM;
-        // .field will be set at resolve2 phase
-    }
-    (*expr_p)->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
-    (*expr_p)->u.rexpr_member_common.anchor_expr = opd1;
-    (*expr_p)->u.rexpr_member_common.member = opd2;
+    // right-side operand will be resolved in resolve2 phase
     return 0;
 }
 
@@ -2466,6 +2443,9 @@ resolve2_expr(struct ast_node **expr_p)
     push_error_ctx(&error_ctx);
     ret = 0;
     switch ((*expr_p)->type) {
+    case AST_NODE_TYPE_OP_MEMBER:
+        ret = resolve2_expr_member(expr_p);
+        break ;
     case AST_NODE_TYPE_REXPR_FIELD:
         ret = resolve2_expr_field(expr_p);
         break ;
@@ -2529,37 +2509,32 @@ resolve2_expr(struct ast_node **expr_p)
 }
 
 static int
-resolve2_expr_member_common(struct ast_node **expr_p,
-                            enum statement_type statement_type,
-                            struct named_statement **resolved_member_p)
+resolve2_expr_member(struct ast_node **expr_p)
 {
     int ret;
-    const struct ast_node *anchor_expr;
-    struct ast_node *anchor_block;
+    struct op *op;
+    struct ast_node *anchor_expr;
+    struct ast_node *anchor_block, *member;
     const struct ast_node *as_type;
-    struct ast_node *member;
     struct named_statement *resolved_member;
 
-    if (NULL != (*expr_p)->u.rexpr_member_common.anchor_expr) {
-        ret = resolve2_expr(&(*expr_p)->u.rexpr_member_common.anchor_expr);
-        if (-1 == ret) {
-            return -1;
-        }
+    op = &(*expr_p)->u.op;
+    ret = resolve2_expr(&op->operands[0]);
+    if (-1 == ret) {
+        return -1;
     }
-    anchor_expr = (*expr_p)->u.rexpr_member_common.anchor_expr;
-    anchor_block = (*expr_p)->u.rexpr_member_common.anchor_block;
+    anchor_expr = op->operands[0];
+    anchor_block = anchor_expr->u.rexpr.target_item;
+    member = op->operands[1];
+
     if (NULL == anchor_block) {
-        assert(NULL != anchor_expr);
-        anchor_block = anchor_expr->u.rexpr.target_item;
-        if (NULL == anchor_block) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &(*expr_p)->loc,
-                "member operator with computed dpath not supported");
-            return -1;
-        }
-        (*expr_p)->u.rexpr_member_common.anchor_block = anchor_block;
+        semantic_error(
+            SEMANTIC_LOGLEVEL_ERROR, &(*expr_p)->loc,
+            "member operator with computed dpath not supported");
+        return -1;
     }
     assert(ast_node_is_item(anchor_block));
+
     as_type = ast_node_get_as_type(anchor_block);
     if (as_type->type != AST_NODE_TYPE_BLOCK_DEF) {
         semantic_error(
@@ -2567,95 +2542,63 @@ resolve2_expr_member_common(struct ast_node **expr_p,
             "invalid use of member operator on non-block dpath");
         return -1;
     }
-    member = (*expr_p)->u.rexpr_member_common.member;
-    if (NULL != member) {
-        const char *name;
-
-        if (STATEMENT_TYPE_NAMED_EXPR == statement_type) {
-            name = member->u.identifier + 1;
-        } else {
-            name = member->u.identifier;
-        }
-        resolved_member = find_statement_by_name(
-            statement_type, name,
-            &as_type->u.block_def.block_stmt_list);
-        if (NULL == resolved_member) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &member->loc,
-                "no %s named '%s' exists in block",
-                statement_type == STATEMENT_TYPE_FIELD ?
-                "field" : "named expression",
-                member->u.identifier);
-            semantic_error(SEMANTIC_LOGLEVEL_INFO, &anchor_block->loc,
-                           "declared here");
-            return -1;
-        }
-        *resolved_member_p = resolved_member;
-    } else {
-        *resolved_member_p = NULL;
+    (*expr_p)->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
+    /* checked by parser */
+    assert(member->type == AST_NODE_TYPE_IDENTIFIER);
+    resolved_member = find_statement_by_name(
+        STATEMENT_TYPE_NAMED_EXPR, member->u.identifier,
+        &as_type->u.block_def.block_stmt_list);
+    if (NULL != resolved_member) {
+        (*expr_p)->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
+        (*expr_p)->u.rexpr_member_common.anchor_expr = anchor_expr;
+        (*expr_p)->u.rexpr_named_expr.named_expr =
+            (struct named_expr *)resolved_member;
+        return resolve2_expr_named_expr(expr_p);
     }
-    return 0;
-}
-
-static int
-resolve2_expr_field(struct ast_node **expr_p)
-{
-    int ret;
-    struct field *field;
-
-    ret = resolve2_expr_member_common(expr_p, STATEMENT_TYPE_FIELD,
-                                      (struct named_statement **)&field);
-    if (-1 == ret) {
-        return -1;
+    resolved_member = find_statement_by_name(
+        STATEMENT_TYPE_FIELD, member->u.identifier,
+        &as_type->u.block_def.block_stmt_list);
+    if (NULL != resolved_member) {
+        (*expr_p)->type = AST_NODE_TYPE_REXPR_FIELD;
+        (*expr_p)->u.rexpr_member_common.anchor_expr = anchor_expr;
+        (*expr_p)->u.rexpr_field.field = 
+            (struct field *)resolved_member;
+        return resolve2_expr_field(expr_p);
     }
-    if (NULL != field) {
-        (*expr_p)->u.rexpr_field.field = field;
-    } else {
-        // preset in earlier resolve phase
-        field = (struct field *)(*expr_p)->u.rexpr_field.field;
-    }
-    assert(NULL != field);
-    ret = resolve2_dtype(field->field_type);
-    if (-1 == ret) {
-        return -1;
-    }
-    (*expr_p)->u.rexpr.target_item = field->field_type;
-    (*expr_p)->u.rexpr.value_type =
-        expr_value_type_from_node(field->field_type);
-    return 0;
+    semantic_error(
+        SEMANTIC_LOGLEVEL_ERROR, &member->loc,
+        "no named expression or field named '%s' exists in block",
+        member->u.identifier);
+    semantic_error(SEMANTIC_LOGLEVEL_INFO, &anchor_block->loc,
+                   "declared here");
+    return -1;
 }
 
 static int
 resolve2_expr_named_expr(struct ast_node **expr_p)
 {
-    int ret;
+    struct ast_node *anchor_expr;
+    struct ast_node *anchor_block;
     struct named_expr *named_expr;
+    struct ast_node *dst_expr;
+    int ret;
 
-    ret = resolve2_expr_member_common(
-        expr_p, STATEMENT_TYPE_NAMED_EXPR,
-        (struct named_statement **)&named_expr);
-    if (-1 == ret) {
-        return -1;
-    }
-    if (NULL != named_expr) {
-        (*expr_p)->u.rexpr_named_expr.named_expr = named_expr;
-    } else {
-        // preset in earlier resolve phase
-        named_expr =
-            (struct named_expr *)(*expr_p)->u.rexpr_named_expr.named_expr;
-    }
-    assert(NULL != named_expr);
+    anchor_expr = (*expr_p)->u.rexpr_member_common.anchor_expr;
+    anchor_block = (*expr_p)->u.rexpr_member_common.anchor_block;
+    named_expr = (struct named_expr *)
+        (*expr_p)->u.rexpr_named_expr.named_expr;
     ret = resolve2_expr(&named_expr->dst_expr);
     if (-1 == ret) {
         return -1;
     }
-    (*expr_p)->u.rexpr.target_item =
-        named_expr->dst_expr->u.rexpr.target_item;
-    (*expr_p)->u.rexpr.value_type =
-        named_expr->dst_expr->u.rexpr.value_type;
+    dst_expr = named_expr->dst_expr;
+
+    ast_node_clear(*expr_p);
+    (*expr_p)->u.rexpr.target_item = dst_expr->u.rexpr.target_item;
+    (*expr_p)->u.rexpr.value_type = dst_expr->u.rexpr.value_type;
     if (NULL == named_expr->nstmt.next_sibling) {
-        (*expr_p)->u.rexpr.dpath_type =
-            named_expr->dst_expr->u.rexpr.dpath_type;
+        // when named expression has no duplicate in the block
+        (*expr_p)->u.rexpr.dpath_type = dst_expr->u.rexpr.dpath_type;
     } else {
         // TODO: We may optimize with EXPR_DPATH_TYPE_ITEM whenever
         // all duplicate dpath expressions use item type, though this
@@ -2663,7 +2606,49 @@ resolve2_expr_named_expr(struct ast_node **expr_p)
         // resolved. Container type is more universal.
         (*expr_p)->u.rexpr.dpath_type = EXPR_DPATH_TYPE_CONTAINER;
     }
+    (*expr_p)->u.rexpr_member_common.anchor_expr = anchor_expr;
+    if (NULL != anchor_block) {
+        (*expr_p)->u.rexpr_member_common.anchor_block = anchor_block;
+    } else {
+        assert(NULL != anchor_expr);
+        (*expr_p)->u.rexpr_member_common.anchor_block =
+            anchor_expr->u.rexpr.target_item;
+    }
+    (*expr_p)->u.rexpr_named_expr.named_expr = named_expr;
     return 0;
+}
+
+static int
+resolve2_expr_field(struct ast_node **expr_p)
+{
+    struct ast_node *anchor_expr;
+    struct ast_node *anchor_block;
+    const struct field *field;
+
+    anchor_expr = (*expr_p)->u.rexpr_member_common.anchor_expr;
+    anchor_block = (*expr_p)->u.rexpr_member_common.anchor_block;
+    field = (*expr_p)->u.rexpr_field.field;
+
+    if (-1 == resolve2_dtype(field->field_type)) {
+        return -1;
+    }
+    ast_node_clear(*expr_p);
+    (*expr_p)->u.rexpr.dpath_type = EXPR_DPATH_TYPE_ITEM;
+    (*expr_p)->u.rexpr.value_type =
+        expr_value_type_from_node(field->field_type);
+    (*expr_p)->u.rexpr.target_item = field->field_type;
+
+    (*expr_p)->u.rexpr_member_common.anchor_expr = anchor_expr;
+    if (NULL != anchor_block) {
+        (*expr_p)->u.rexpr_member_common.anchor_block = anchor_block;
+    } else {
+        assert(NULL != anchor_expr);
+        (*expr_p)->u.rexpr_member_common.anchor_block =
+            anchor_expr->u.rexpr.target_item;
+    }
+    (*expr_p)->u.rexpr_field.field = field;
+    return 0;
+
 }
 
 static int
@@ -3830,7 +3815,7 @@ ast_node_is_item(const struct ast_node *node)
 }
 
 int
-ast_node_has_interpreter(const struct ast_node *node)
+ast_node_has_filter(const struct ast_node *node)
 {
     return ast_node_is_item(node) && NULL != node->u.item.filter;
 }
@@ -3845,6 +3830,13 @@ ast_node_is_filter(const struct ast_node *node)
     default:
         return FALSE;
     }
+}
+
+int
+ast_node_has_interpreter(const struct ast_node *node)
+{
+    return ast_node_has_filter(node)
+        && AST_NODE_TYPE_REXPR_INTERPRETER == node->u.item.filter->type;
 }
 
 const struct ast_node *

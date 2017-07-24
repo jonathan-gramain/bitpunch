@@ -367,7 +367,6 @@
                 struct rexpr rexpr; /* inherits */
                 struct ast_node *anchor_expr;
                 struct ast_node *anchor_block;
-                struct ast_node *member;
             } rexpr_member_common;
             struct rexpr_field {
                 /* inherits */
@@ -1527,7 +1526,7 @@ let_stmt:
     KW_LET IDENTIFIER '=' expr {
         $$ = new_safe(struct named_expr);
         $$->nstmt.stmt.loc = @$;
-        $$->nstmt.name = $IDENTIFIER + 1;
+        $$->nstmt.name = $IDENTIFIER;
         $$->dst_expr = $expr;
     }
 

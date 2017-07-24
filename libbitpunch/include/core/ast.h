@@ -59,9 +59,11 @@ ast_node_is_slice_container(const struct ast_node *node);
 int
 ast_node_is_item(const struct ast_node *node);
 int
-ast_node_has_interpreter(const struct ast_node *node);
+ast_node_has_filter(const struct ast_node *node);
 int
 ast_node_is_filter(const struct ast_node *node);
+int
+ast_node_has_interpreter(const struct ast_node *node);
 const struct ast_node *
 ast_node_get_as_type(const struct ast_node *node);
 int64_t

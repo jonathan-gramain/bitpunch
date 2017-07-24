@@ -43,6 +43,11 @@ expr_evaluate_dpath_internal(struct ast_node *expr, struct box *scope,
                              union expr_dpath *eval_dpathp,
                              struct browse_state *bst);
 bitpunch_status_t
+expr_read_dpath_value_internal(struct ast_node *expr,
+                               union expr_dpath dpath,
+                               union expr_value *expr_valuep,
+                               struct browse_state *bst);
+bitpunch_status_t
 named_expr_evaluate_dpath_internal(
     const struct named_expr *named_expr, struct box *scope,
     enum expr_dpath_type *dpath_typep,

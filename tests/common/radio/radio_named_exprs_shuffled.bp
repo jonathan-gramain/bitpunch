@@ -14,7 +14,7 @@ file {
         u8 start;
         byte[3] foo2;
         u8 len;
-        let ?codename = data[start..start+len]: string;
-        key ?codename;
+        let codename = data[start..start+len]: string;
+        key codename;
     };
 }

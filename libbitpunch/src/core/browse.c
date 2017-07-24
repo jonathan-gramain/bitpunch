@@ -3943,6 +3943,166 @@ box_lookup_named_expr_internal(struct box *box, const char *named_expr_name,
         (const struct named_statement **)named_exprp, bst);
 }
 
+bitpunch_status_t
+box_lookup_attribute_internal(struct box *box, const char *name,
+                              enum statement_type *stmt_typep,
+                              const struct named_statement **named_stmt,
+                              struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+
+    if (AST_NODE_TYPE_BLOCK_DEF != box->node->type) {
+        return BITPUNCH_NO_ITEM;
+    }
+    bt_ret = box_lookup_statement_internal(
+        box, STATEMENT_TYPE_NAMED_EXPR, name, named_stmt, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        *stmt_typep = STATEMENT_TYPE_NAMED_EXPR;
+        return BITPUNCH_OK;
+    }
+    if (BITPUNCH_NO_ITEM != bt_ret) {
+        return bt_ret;
+    }
+    bt_ret = box_lookup_statement_internal(
+        box, STATEMENT_TYPE_FIELD, name, named_stmt, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        *stmt_typep = STATEMENT_TYPE_FIELD;
+        return BITPUNCH_OK;
+    }
+    return bt_ret;
+}
+
+bitpunch_status_t
+box_evaluate_attribute_value_internal(struct box *box,
+                                      const char *attr_name,
+                                      enum expr_value_type *value_typep,
+                                      union expr_value *eval_valuep,
+                                      struct browse_state *bst)
+{
+    return box_evaluate_attribute_internal(box, attr_name,
+                                           value_typep, eval_valuep,
+                                           NULL, NULL, bst);
+}
+
+bitpunch_status_t
+box_evaluate_attribute_dpath_internal(struct box *box,
+                                      const char *attr_name,
+                                      enum expr_dpath_type *dpath_typep,
+                                      union expr_dpath *eval_dpathp,
+                                      struct browse_state *bst)
+{
+    return box_evaluate_attribute_internal(box, attr_name,
+                                           NULL, NULL,
+                                           dpath_typep, eval_dpathp, bst);
+}
+
+bitpunch_status_t
+box_evaluate_attribute_internal(struct box *box,
+                                const char *attr_name,
+                                enum expr_value_type *value_typep,
+                                union expr_value *eval_valuep,
+                                enum expr_dpath_type *dpath_typep,
+                                union expr_dpath *eval_dpathp,
+                                struct browse_state *bst)
+{
+    struct box *filtered_box;
+    bitpunch_status_t bt_ret;
+    enum statement_type stmt_type;
+    const struct named_statement *named_stmt;
+
+    bt_ret = box_apply_filters(box, &filtered_box, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    bt_ret = box_lookup_attribute_internal(filtered_box, attr_name,
+                                           &stmt_type, &named_stmt, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        box_delete(filtered_box);
+        return bt_ret;
+    }
+    switch (stmt_type) {
+    case STATEMENT_TYPE_NAMED_EXPR: {
+        const struct named_expr *named_expr;
+        struct ast_node *dst_expr;
+        union expr_value eval_value;
+        union expr_dpath eval_dpath;
+        int eval_dpath_computed = FALSE;
+
+        named_expr = (const struct named_expr *)named_stmt;
+        dst_expr = named_expr->dst_expr;
+        if (NULL != eval_dpathp
+            && EXPR_DPATH_TYPE_NONE != dst_expr->u.rexpr.dpath_type) {
+            bt_ret = expr_evaluate_dpath_internal(dst_expr, filtered_box,
+                                                  &eval_dpath, bst);
+            eval_dpath_computed = TRUE;
+        }
+        if (BITPUNCH_OK == bt_ret
+            && NULL != eval_valuep
+            && EXPR_VALUE_TYPE_UNSET != dst_expr->u.rexpr.value_type) {
+            if (eval_dpath_computed) {
+                bt_ret = expr_read_dpath_value_internal(dst_expr,
+                                                        eval_dpath,
+                                                        &eval_value, bst);
+            } else {
+                bt_ret = expr_evaluate_value_internal(dst_expr,
+                                                      filtered_box,
+                                                      &eval_value, bst);
+            }
+        }
+        box_delete(filtered_box);
+        if (BITPUNCH_OK == bt_ret) {
+            if (NULL != eval_valuep) {
+                *eval_valuep = eval_value;
+            }
+            if (NULL != value_typep) {
+                *value_typep = dst_expr->u.rexpr.value_type;
+            }
+            if (NULL != eval_dpathp) {
+                *eval_dpathp = eval_dpath;
+            }
+            if (NULL != dpath_typep) {
+                *dpath_typep = dst_expr->u.rexpr.dpath_type;
+            }
+        }
+        return bt_ret;
+    }
+    case STATEMENT_TYPE_FIELD: {
+        struct tracker *tk;
+
+        tk = tracker_new(filtered_box);
+        box_delete(filtered_box);
+        bt_ret = tracker_goto_field_internal(
+            tk, (const struct field *)named_stmt, FALSE, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            tracker_delete(tk);
+            return bt_ret;
+        }
+        if (NULL != eval_valuep) {
+            if (ast_node_has_interpreter(tk->item_node)) {
+                bt_ret = tracker_read_item_value_internal(
+                    tk, value_typep, eval_valuep, bst);
+            } else {
+                if (NULL != value_typep) {
+                    *value_typep = EXPR_VALUE_TYPE_UNSET;
+                }
+            }
+        }
+        if (BITPUNCH_OK == bt_ret && NULL != eval_dpathp) {
+            eval_dpathp->item.tk = tk;
+        } else {
+            tracker_delete(tk);
+        }
+        if (BITPUNCH_OK == bt_ret && NULL != dpath_typep) {
+            *dpath_typep = EXPR_DPATH_TYPE_ITEM;
+        }
+        return bt_ret;
+    }
+    default:
+        assert(0);
+    }
+    /*NOT REACHED*/
+}
+
 static bitpunch_status_t
 box_evaluate_named_expr_dpath_internal(struct box *box,
                                        const char *named_expr_name,
@@ -7512,6 +7672,60 @@ box_get_n_statements(struct box *box,
         &bst, errp);
 }
 
+
+bitpunch_status_t
+box_evaluate_attribute_value(struct box *box,
+                             const char *attr_name,
+                             enum expr_value_type *value_typep,
+                             union expr_value *eval_valuep,
+                             struct tracker_error **errp)
+{
+    struct browse_state bst;
+
+    browse_state_init(&bst);
+    return transmit_error(
+        box_evaluate_attribute_value_internal(box, attr_name,
+                                              value_typep, eval_valuep,
+                                              &bst),
+        &bst, errp);
+}
+
+bitpunch_status_t
+box_evaluate_attribute_dpath(struct box *box,
+                             const char *attr_name,
+                             enum expr_dpath_type *dpath_typep,
+                             union expr_dpath *eval_dpathp,
+                             struct tracker_error **errp)
+{
+    struct browse_state bst;
+
+    browse_state_init(&bst);
+    return transmit_error(
+        box_evaluate_attribute_dpath_internal(box, attr_name,
+                                              dpath_typep, eval_dpathp,
+                                              &bst),
+        &bst, errp);
+}
+
+bitpunch_status_t
+box_evaluate_attribute(struct box *box,
+                       const char *attr_name,
+                       enum expr_value_type *value_typep,
+                       union expr_value *eval_valuep,
+                       enum expr_dpath_type *dpath_typep,
+                       union expr_dpath *eval_dpathp,
+                       struct tracker_error **errp)
+{
+    struct browse_state bst;
+
+    browse_state_init(&bst);
+    return transmit_error(
+        box_evaluate_attribute_internal(box, attr_name,
+                                        value_typep, eval_valuep,
+                                        dpath_typep, eval_dpathp,
+                                        &bst),
+        &bst, errp);
+}
 
 bitpunch_status_t
 box_iter_named_exprs_next(struct box *box, tnamed_expr_iterator *it,
