@@ -3839,15 +3839,20 @@ box_lookup_statement_recur(struct box *box,
                 }
             }
         } else {
-            const struct field *field;
+            assert(STATEMENT_TYPE_FIELD == stmt_type);
+            if (!(stmt->stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
+                const struct field *field;
+                const struct ast_node *as_type;
 
-            field = (const struct field *)stmt;
-            assert(AST_NODE_TYPE_BLOCK_DEF == field->field_type->type);
-            bt_ret = box_lookup_statement_recur(
-                box, &field->field_type->u.block_def.block_stmt_list,
-                stmt_type, stmt_name, stmtp, bst);
-            if (BITPUNCH_NO_ITEM != bt_ret) {
-                return bt_ret;
+                field = (const struct field *)stmt;
+                as_type = ast_node_get_as_type(field->field_type);
+                assert(AST_NODE_TYPE_BLOCK_DEF == as_type->type);
+                bt_ret = box_lookup_statement_recur(
+                    box, &as_type->u.block_def.block_stmt_list,
+                    stmt_type, stmt_name, stmtp, bst);
+                if (BITPUNCH_NO_ITEM != bt_ret) {
+                    return bt_ret;
+                }
             }
         }
         stmt = (const struct named_statement *)
