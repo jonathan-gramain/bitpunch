@@ -3230,8 +3230,9 @@ resolve2_span_size_block(struct ast_node *node)
         if (0 != (field_type->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
             dynamic_used = TRUE;
         }
+        /* only update min span size if field is not conditional */
         if (NULL == stmt->cond) {
-            /* only update min span size if field is not conditional */
+            assert(-1 != field_type->u.item.min_span_size);
             if (BLOCK_TYPE_UNION == node->u.block_def.type) {
                 min_span_size = MAX(min_span_size,
                                     field_type->u.item.min_span_size);
@@ -3368,6 +3369,7 @@ resolve2_span_size_array(struct ast_node *node)
     }
     if (NULL != value_count_expr &&
         AST_NODE_TYPE_REXPR_NATIVE == value_count_expr->type) {
+        assert(-1 != value_type->u.item.min_span_size);
         assert(EXPR_VALUE_TYPE_INTEGER
                == value_count_expr->u.rexpr.value_type);
         value_count = value_count_expr->u.rexpr_native.value.integer;
