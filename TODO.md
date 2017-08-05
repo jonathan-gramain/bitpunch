@@ -175,11 +175,6 @@ higher level browse code relying on the .bp file.
 This is a haystack of random features to add to the project.
 This is NOT an organized or prioritized list.
 
-- implement generic variables (i.e value_type, not only links = dpath_type)
-
-  - define a syntax ($var?) => maybe links and variables can use the
-    same syntax
-
 - improve error reporting
 
   - notably, add more context information in various places where
@@ -252,9 +247,6 @@ This is NOT an organized or prioritized list.
 - conditional types (e.g. if little/big endian is decided from the
   value of a field)
 
-- allow str(obj) and bytes(obj) to get a string of raw contents in
-  python bindings
-
 - param to choose how sign is encoded in integers (2's complement /
   sign bit)
 
@@ -279,13 +271,7 @@ This is NOT an organized or prioritized list.
         then in test: data.offsets.atX == 3
         assert model.get_location(foo) == data.offsets.atX
 
-- implement cast (as) operator in expressions, not just in link declaration
-
-  - possibly replace link syntax with the new one
-
 - interpreter callbacks should be able to return tracker errors by
   themselves
-
-BUG: taking address '&' of link expression does not work anymore
 
 BUG: rework filter operator '*' to make it work again
