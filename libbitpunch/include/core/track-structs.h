@@ -50,7 +50,7 @@ struct track_path {
     } type;
     union {
         struct {
-            const struct field *field;
+            const struct named_expr *field;
         } block;
         struct track_path_array {
             int64_t index;
@@ -67,7 +67,7 @@ static const struct track_path TRACK_PATH_NONE = {
 };
 
 static inline struct track_path
-track_path_from_block_field(const struct field *field)
+track_path_from_block_field(const struct named_expr *field)
 {
     struct track_path ret;
 

@@ -7,17 +7,17 @@ import conftest
 
 spec_file_anonymous_struct_embedded = """
 
-type u32 = byte[4]: integer(endian=little, signed=false);
+let u32 = byte[4]: integer { endian: 'little'; signed: false; };
 
 file {
-    struct {
-        u32 a;
-        struct {
-            struct {
-                u32 b;
-                u32 c;
+    : struct {
+        a: u32;
+        : struct {
+            : struct {
+                b: u32;
+                c: u32;
             };
-            u32 d;
+            d: u32;
         };
     };
 }
@@ -26,44 +26,44 @@ file {
 
 spec_file_anonymous_field = """
 
-type u32 = byte[4]: integer(endian=little, signed=false);
+let u32 = byte[4]: integer { endian: 'little'; signed: false; };
 
-struct Foo {
-    u32 a;
+let Foo = struct {
+    a: u32;
 };
 
-struct Bar {
-    u32 b;
-    u32 c;
+let Bar = struct {
+    b: u32;
+    c: u32;
 };
 
 file {
-    Foo;
-    Bar;
-    u32 d;
+    :  Foo;
+    :  Bar;
+    d: u32;
 }
 
 """
 
 spec_file_hidden_field = """
 
-type u8 = byte: integer(signed=false);
-type u32 = byte[4]: integer(endian=little, signed=false);
+let u8 = byte: integer { signed: false; };
+let u32 = byte[4]: integer { endian: 'little'; signed: false; };
 
-struct Foo {
-    u32 a;
+let Foo = struct {
+    a: u32;
 };
 
-struct Bar {
-    u8 b;
-    byte[3]; // hidden field
-    u32 c;
+let Bar = struct {
+    b: u8;
+    :  byte[3]; // hidden field
+    c: u32;
 };
 
 file {
-    Foo;
-    Bar;
-    u32 d;
+    :  Foo;
+    :  Bar;
+    d: u32;
 }
 
 """
@@ -79,38 +79,38 @@ data_file_anonymous = """
 
 spec_file_anonymous_in_trailer = """
 
-type u8 = byte: integer(signed=false);
-type u32 = byte[4]: integer(endian=little, signed=false);
+let u8 = byte: integer { signed: false; };
+let u32 = byte[4]: integer { endian: 'little'; signed: false; };
 
-struct Foo {
-    u32 a;
+let Foo = struct {
+    a: u32;
 };
 
-struct Bar {
-    u8 b;
-    byte[3]; // hidden field
+let Bar = struct {
+    b: u8;
+    :  byte[3]; // hidden field
 };
 
-struct SlackBody {
-    struct {
-        byte[2];
-        byte[] data;
+let SlackBody = struct {
+    : struct {
+        :     byte[2];
+        data: byte[];
     };
 };
 
-struct Trailer {
-    byte[4];
-    struct {
-        u32 c;
+let Trailer = struct {
+    : byte[4];
+    : struct {
+        c: u32;
     };
-    u32 d;
+    d: u32;
 };
 
 file {
-    Foo;
-    Bar;
-    SlackBody;
-    Trailer;
+    : Foo;
+    : Bar;
+    : SlackBody;
+    : Trailer;
 }
 
 """

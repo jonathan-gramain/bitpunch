@@ -22,30 +22,30 @@ import conftest
 @pytest.fixture
 def spec_log():
     fmt = """
-type u8 = byte: integer(signed=false);
-type u16 = byte[2]: integer(signed=false, endian=little);
-type u32 = byte[4]: integer(signed=false, endian=little);
+let u8 = byte: integer { signed: false; };
+let u16 = byte[2]: integer { signed: false; endian: 'little'; };
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
 
 file {
-    LogBlock[] head_blocks;
-    LogTailBlock tail_block;
+    head_blocks: LogBlock[];
+    tail_block:  LogTailBlock;
 }
 
-struct LogBlock {
-    Record[] records;
-    byte[] trailer;
+let LogBlock = struct {
+    records:     Record[];
+    trailer:     byte[];
     span 32768;
 };
 
-struct LogTailBlock {
-    Record[] records;
+let LogTailBlock = struct {
+    records:     Record[];
 };
 
-struct Record {
-    u32 checksum;
-    u16 length;
-    u8 rtype;
-    byte[length] data: string;
+let Record = struct {
+    checksum:    u32;
+    length:      u16;
+    rtype:       u8;
+    data:        byte[length]: string;
 };
 """
 
@@ -177,28 +177,29 @@ def test_leveldb_log_multiblock(spec_log, data_log_multiblock):
 @pytest.fixture
 def spec_sst_index():
     return """
-    type u32 = byte[4]: integer(signed=false, endian=little);
+    let u32 = byte[4]: integer { signed: false; endian: 'little'; };
 
-    type VarInt = byte[]: varint();
+    let VarInt = byte[]: varint {};
 
-    struct BlockHandle {
-        VarInt offset;
-        VarInt size;
+    let BlockHandle = struct {
+        offset:              VarInt;
+        size:                VarInt;
     };
 
-    struct IndexEntry {
-        VarInt key_shared_size;
-        VarInt key_non_shared_size;
-        VarInt value_size;
-        byte[key_non_shared_size] key_non_shared;
-        byte[value_size] value;
+    let IndexEntry = struct {
+        key_shared_size:     VarInt;
+        key_non_shared_size: VarInt;
+        value_size:          VarInt;
+        key_non_shared:      byte[key_non_shared_size];
+        value:               byte[value_size];
+
         let ?data_block = value: BlockHandle;
     };
 
     file {
-        IndexEntry[] entries;
-        u32[nb_restarts] restarts;
-        u32 nb_restarts;
+        entries:     IndexEntry[];
+        restarts:    u32[nb_restarts];
+        nb_restarts: u32;
     }
     """
 

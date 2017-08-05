@@ -4,32 +4,33 @@
  * https://www.xiph.org/ogg/
  */
 
-type s64 = byte[8]: integer(signed=true, endian=little);
+let s64 = byte[8]: integer { signed: true; endian: 'little'; };
 
-type u8 = byte: integer(signed=false);
-type u32 = byte[4]: integer(signed=false, endian=little);
+let u8 = byte: integer { signed: false; };
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
 
 file {
-    OggPage[] ogg_pages;
+    ogg_pages: OggPage[];
 }
 
-struct OggPage {
-    struct OggPageHdr {
-        byte[4] capture_pattern;
-        byte stream_structure_version;
-        byte header_type_flags; // bit-mask
-        s64 absolute_granule_position;
-        u32 stream_serial_number;
-        u32 page_sequence_no;
-        u32 page_checksum;
-        u8 n_page_segments;
-        u8[n_page_segments] segment_sizes;
-    } hdr;
+let OggPage = struct {
+    hdr:      OggPageHdr;
+    segments: OggPageSegment[hdr.n_page_segments];
 
-    OggPageSegment[hdr.n_page_segments] segments;
+    let OggPageHdr = struct {
+        capture_pattern:           byte[4];
+        stream_structure_version:  byte;
+        header_type_flags:         byte; // bit-mask
+        absolute_granule_position: s64;
+        stream_serial_number:      u32;
+        page_sequence_no:          u32;
+        page_checksum:             u32;
+        n_page_segments:           u8;
+        segment_sizes:             u8[n_page_segments];
+    };
 
-    struct OggPageSegment {
-        byte[?segment_size] segment_data;
+    let OggPageSegment = struct {
+        segment_data: byte[?segment_size];
 
         let ?segment_size = hdr.segment_sizes[index(segments, self)];
     };

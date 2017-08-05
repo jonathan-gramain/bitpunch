@@ -10,194 +10,194 @@ import conftest
 #
 
 specs_resolve_types_and_expr = ["""
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    Foo foo;
+    foo: Foo;
 }
 
-struct Foo {
-    u8 length;
-    byte[length] contents;
+let Foo = struct {
+    length:   u8;
+    contents: byte[length];
 };
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    Foo foo;
+    foo: Foo;
 }
 
-struct Foo {
-    u8 length;
-    Bar[length] bars;
+let Foo = struct {
+    length:     u8;
+    bars:       Bar[length];
 };
 
-struct Bar {
-    byte[4] sub_bar;
+let Bar = struct {
+    sub_bar:    byte[4];
 };
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    byte[] data: Foo;
+    data: byte[]: Foo;
 }
 
-struct Foo {
-    u8 length;
-    byte[length] contents;
+let Foo = struct {
+    length:   u8;
+    contents: byte[length];
 };
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    byte[] data: Foo[];
+    data: byte[]: Foo[];
 }
 
-struct Foo {
-    u8 length;
-    byte[length] contents;
+let Foo = struct {
+    length:   u8;
+    contents: byte[length];
 };
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
 }
 
-struct Foo {
-    u8 length;
-    byte[length] contents;
+let Foo = struct {
+    length:   u8;
+    contents: byte[length];
 };
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    byte[] data;
+    data: byte[];
     let ?data = data: Foo;
 }
 
-struct Foo {
-    u8 length;
-    byte[length] contents;
+let Foo = struct {
+    length:   u8;
+    contents: byte[length];
 };
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    byte[] data;
+    data: byte[];
     let ?data1 = data;
     let ?data2 = ?data1: Foo;
 }
 
-struct Foo {
-    u8 length;
-    byte[length] contents;
+let Foo = struct {
+    length:   u8;
+    contents: byte[length];
 };
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    byte[] data;
+    data: byte[];
     let ?data1 = data;
     let ?data2 = ?data1: Foo;
 }
 
-struct Foo {
-    Bar bar;
+let Foo = struct {
+    bar: Bar;
 };
 
-struct Bar {
-    u8 length;
-    byte[length] contents;
+let Bar = struct {
+    length:   u8;
+    contents: byte[length];
 };
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    byte[] data;
+    data: byte[];
     let ?data1 = data;
     let ?data2 = ?data1: Foo;
 }
 
-struct Foo {
-    u8 length;
-    Bar[length] bars;
+let Foo = struct {
+    length: u8;
+    bars:   Bar[length];
 };
 
-struct Bar {
-    byte[4] sub_bar;
+let Bar = struct {
+    sub_bar: byte[4];
 };
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    byte[] data;
+    data: byte[];
     let ?data1 = data;
     let ?data2 = ?data1: Foo;
 }
 
-struct Foo {
-    Bar bar;
+let Foo = struct {
+    bar: Bar;
 
-    struct Bar {
-        u8 length;
-        byte[length] contents;
+    let Bar = struct {
+        length:   u8;
+        contents: byte[length];
     };
 };
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    Foo foo;
+    foo: Foo;
 }
 
-type Foo = struct {
-    u8 length;
-    byte[length] contents;
+let Foo = struct {
+    length:   u8;
+    contents: byte[length];
 };
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    Foo foo;
+    foo: Foo;
 }
 
-type Foo = byte[]: Bar;
+let Foo = byte[]: Bar;
 
-struct Bar {
-    u8 length;
-    byte[length] contents;
+let Bar = struct {
+    length:   u8;
+    contents: byte[length];
 };
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    byte[] data;
+    data: byte[];
     let ?data_slice = data[10..20];
 }
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    byte[] data;
+    data: byte[];
     let ?data = data;
     let ?data_slice1 = ?data[10..20];
 }
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
     let ?data = bytes(file);
@@ -205,7 +205,7 @@ file {
 }
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
     let ?data = bytes(file)[..];
@@ -213,45 +213,45 @@ file {
 }
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
     let ?data = bytes(file)[..]: Foo;
     let ?data_slice1 = ?data;
 }
 
-struct Foo {
-    u8[4] sub_foo;
+let Foo = struct {
+    sub_foo: u8[4];
 };
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    u8 foo_offset;
-    u8 nb_foo;
-    u8 foo_size;
+    foo_offset: u8;
+    nb_foo:     u8;
+    foo_size:   u8;
     let ?data = bytes(file)[foo_offset..]: Foo[nb_foo];
     let ?data_slice = ?data[2..3];
 }
 
-struct Foo {
-    u8[foo_size] sub_foo;
+let Foo = struct {
+    sub_foo: u8[foo_size];
 };
 
 """, """
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    byte foo_offset;
-    byte nb_foo;
-    byte foo_size;
+    foo_offset: byte;
+    nb_foo:     byte;
+    foo_size:   byte;
     let ?data = bytes(file)[foo_offset:u8..]: Foo[nb_foo:u8];
     let ?data_slice = ?data[2..3];
 }
 
-struct Foo {
-    u8[foo_size:u8] sub_foo;
+let Foo = struct {
+    sub_foo: u8[foo_size: u8];
 };
 
 """
@@ -267,10 +267,10 @@ def test_resolve_types_and_expr(spec):
 #
 
 spec_unknown_type_name_1 = """
-type Foo = byte[42];
+let Foo = byte[42];
 
 file {
-    Bar bar;
+    bar: Bar;
 }
 
 """

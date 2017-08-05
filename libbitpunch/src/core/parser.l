@@ -99,9 +99,6 @@ int lit_alloc;
     }
 %}
 
-type       { return KW_TYPE; }
-struct     { return KW_STRUCT; }
-union      { return KW_UNION; }
 file       { return KW_FILE; }
 match      { return KW_MATCH; }
 span       { return KW_SPAN; }

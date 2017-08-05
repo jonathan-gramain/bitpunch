@@ -49,8 +49,9 @@ string_get_size_byte_array_single_char_boundary(
 {
     const char *end;
 
-    end = memchr(data, param_values[REF_BOUNDARY].u.string.str[0],
-                 max_span_size);
+    end = memchr(
+        data, param_values[REF_BOUNDARY].u.rexpr_native.value.string.str[0],
+        max_span_size);
     if (NULL != end) {
         *sizep = end - data + 1;
     } else {
@@ -68,10 +69,11 @@ string_get_size_byte_array_multi_char_boundary(
     const char *end;
 
     end = memmem(data, max_span_size,
-                 param_values[REF_BOUNDARY].u.string.str,
-                 param_values[REF_BOUNDARY].u.string.len);
+                 param_values[REF_BOUNDARY].u.rexpr_native.value.string.str,
+                 param_values[REF_BOUNDARY].u.rexpr_native.value.string.len);
     if (NULL != end) {
-        *sizep = end - data + param_values[REF_BOUNDARY].u.string.len;
+        *sizep = end - data
+            + param_values[REF_BOUNDARY].u.rexpr_native.value.string.len;
     } else {
         *sizep = max_span_size;
     }
@@ -99,7 +101,7 @@ string_read_byte_array_single_char_boundary(
     read_value->string.str = (char *)data;
     if (span_size >= 1
         && (data[span_size - 1]
-            == param_values[REF_BOUNDARY].u.string.str[0])) {
+            == param_values[REF_BOUNDARY].u.rexpr_native.value.string.str[0])) {
         read_value->string.len = span_size - 1;
     } else {
         read_value->string.len = span_size;
@@ -115,7 +117,7 @@ string_read_byte_array_multi_char_boundary(
 {
     struct expr_value_string boundary;
 
-    boundary = param_values[REF_BOUNDARY].u.string;
+    boundary = param_values[REF_BOUNDARY].u.rexpr_native.value.string;
 
     read_value->string.str = (char *)data;
     if (span_size >= boundary.len
@@ -140,27 +142,32 @@ string_write_byte_array(const union expr_value *write_value,
 
 static int
 string_rcall_build(struct ast_node *rcall,
-                   const struct ast_node *call,
+                   const struct ast_node *data_source,
                    const struct ast_node *param_values)
 {
     struct expr_value_string boundary;
 
-    assert(param_values[REF_BOUNDARY].type == AST_NODE_TYPE_STRING ||
-           param_values[REF_BOUNDARY].type == AST_NODE_TYPE_NONE);
+    assert(param_values[REF_BOUNDARY].u.rexpr.value_type
+           == EXPR_VALUE_TYPE_STRING ||
+           param_values[REF_BOUNDARY].u.rexpr.value_type
+           == EXPR_VALUE_TYPE_UNSET);
 
     // default read function, may be overriden next
     rcall->u.rexpr_interpreter.read_func =
         string_read_byte_array_no_boundary;
 
-    if (param_values[REF_BOUNDARY].type != AST_NODE_TYPE_NONE) {
-        if (param_values[REF_BOUNDARY].type != AST_NODE_TYPE_STRING) {
+    if (param_values[REF_BOUNDARY].u.rexpr.value_type
+        != EXPR_VALUE_TYPE_UNSET) {
+        if (param_values[REF_BOUNDARY].u.rexpr.value_type
+            != EXPR_VALUE_TYPE_STRING) {
             semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &call->loc,
+                SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
                 "string boundary must be a string, not \"%s\"",
-                ast_node_type_str(param_values[REF_BOUNDARY].type));
+                expr_value_type_str(
+                    param_values[REF_BOUNDARY].u.rexpr.value_type));
             return -1;
         }
-        boundary = param_values[REF_BOUNDARY].u.string;
+        boundary = param_values[REF_BOUNDARY].u.rexpr_native.value.string;
         switch (boundary.len) {
         case 0:
             /* keep default byte array size */
@@ -194,7 +201,7 @@ interpreter_declare_string(void)
                               string_rcall_build,
                               1,
                               "boundary", REF_BOUNDARY,
-                              AST_NODE_TYPE_STRING,
+                              EXPR_VALUE_TYPE_STRING,
                               0);
     assert(0 == ret);
 }

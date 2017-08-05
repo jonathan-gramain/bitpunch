@@ -1,18 +1,19 @@
-type u8  = byte[1]: integer(signed=false, endian=big);
-type u16 = byte[2]: integer(signed=false, endian=big);
-type u32 = byte[4]: integer(signed=false, endian=big);
-type u64 = byte[8]: integer(signed=false, endian=big);
+let RadioInt = integer { signed: false; endian: 'big'; };
+let u8  = byte[1]: RadioInt;
+let u16 = byte[2]: RadioInt;
+let u32 = byte[4]: RadioInt;
+let u64 = byte[8]: RadioInt;
 
-struct RadioCode {
-    byte[8] codename: string(boundary='\0');
+let RadioCode = struct {
+    codename: byte[8]: string { boundary: '\0'; };
     key codename;
 
     if (codename == 'zulu') {
-        last ;
+        last;
     }
 };
 
 file {
-    RadioCode[] codes;
-    byte[] garbage;
+    codes: RadioCode[];
+    garbage: byte[];
 }

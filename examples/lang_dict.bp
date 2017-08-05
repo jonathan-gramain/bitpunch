@@ -3,8 +3,8 @@
  * in /usr/share/dict.
  */
 
-struct Word {
-    byte[] word: string(boundary='\n');
+let Word = struct {
+    word: byte[]: string { boundary: '\n'; };
     key word;
 };
 

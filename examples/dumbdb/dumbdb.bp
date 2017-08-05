@@ -5,14 +5,14 @@
  * reached.
  */
 
-type u32 = byte[4]: integer(signed=false, endian=big);
+let u32 = byte[4]: integer { signed: false; endian: 'big'; };
 
-struct DumbDBValue {
-    byte flags : integer(signed=false);
+let DumbDBValue = struct {
+    byte flags : integer { signed: false; };
     u32 key_size;
-    byte[key_size] key_data: string;
+    key_data: byte[key_size]: string;
     u32 value_size;
-    byte[value_size] value_data;
+    value_data: byte[value_size];
 };
 
 file {

@@ -49,10 +49,11 @@ enum endian {
     ENDIAN_DEFAULT = ENDIAN_BIG
 };
 
-static enum endian str2endian(const char *str)
+static enum endian str2endian(struct expr_value_string string)
 {
-#define MAP(VALUE_STR, VALUE)                           \
-    if (0 == strcasecmp(str, VALUE_STR)) return VALUE
+#define MAP(VALUE_STR, VALUE)                                           \
+    if (string.len == strlen(VALUE_STR)                                 \
+        && 0 == memcmp(string.str, VALUE_STR, string.len)) return VALUE
     MAP("big", ENDIAN_BIG);
     MAP("little", ENDIAN_LITTLE);
     MAP("native", ENDIAN_NATIVE);
@@ -105,43 +106,33 @@ GEN_ALL_RW_FUNCS
 
 static int
 binary_integer_rcall_build(struct ast_node *rcall,
-                           const struct ast_node *call,
+                           const struct ast_node *data_source,
                            const struct ast_node *param_values)
 {
-    const struct ast_node *data_source;
     struct ast_node *size_value;
+    struct ast_node *endian_value;
     int64_t size;
     int _signed;
     enum endian endian;
     interpreter_read_func_t read_func;
     interpreter_write_func_t write_func;
 
-    assert(param_values[REF_SIGNED].type == AST_NODE_TYPE_BOOLEAN);
-    assert(param_values[REF_ENDIAN].type == AST_NODE_TYPE_IDENTIFIER ||
-           param_values[REF_ENDIAN].type == AST_NODE_TYPE_NONE);
-
-    assert(AST_NODE_TYPE_REXPR_INTERPRETER == call->type);
-    data_source = call->u.rexpr_filter.target;
+    assert(param_values[REF_SIGNED].u.rexpr.value_type
+           == EXPR_VALUE_TYPE_BOOLEAN);
+    assert(param_values[REF_ENDIAN].u.rexpr.value_type
+           == EXPR_VALUE_TYPE_STRING ||
+           param_values[REF_ENDIAN].u.rexpr.value_type
+           == EXPR_VALUE_TYPE_UNSET);
     assert(NULL != data_source);
-    if (ast_node_is_rexpr(data_source)) {
-        if (!ast_node_is_rexpr_to_item(data_source)) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &call->loc,
-                "integer interpreter only supports expressions resolving "
-                "to dpath items (not \"%s\")",
-                ast_node_type_str(data_source->type));
-            return -1;
-        }
-        data_source = data_source->u.rexpr.target_item;
-        assert(NULL != data_source);
-    }
+
     switch (data_source->type) {
     case AST_NODE_TYPE_BYTE_ARRAY:
-        size_value = data_source->u.byte_array.size;
+        size_value = ast_node_get_named_expr_target(
+            data_source->u.byte_array.size);
         assert(ast_node_is_rexpr(size_value));
         if (AST_NODE_TYPE_REXPR_NATIVE != size_value->type) {
             semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &call->loc,
+                SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
                 "integer interpreter only supports fixed-sized "
                 "byte arrays");
             return -1;
@@ -156,23 +147,28 @@ binary_integer_rcall_build(struct ast_node *rcall,
 
     default:
         semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &call->loc,
+            SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
             "integer interpreter can only interpret byte or byte array "
             "types, not %s",
             ast_node_type_str(data_source->type));
         return -1;
     }
-    _signed = param_values[REF_SIGNED].u.boolean;
-    if (param_values[REF_ENDIAN].type == AST_NODE_TYPE_NONE) {
+    _signed = ast_node_get_named_expr_target(
+        (struct ast_node *)&param_values[REF_SIGNED])
+        ->u.rexpr_native.value.boolean;
+    endian_value = ast_node_get_named_expr_target(
+        (struct ast_node *)&param_values[REF_ENDIAN]);
+    if (endian_value->u.rexpr.value_type == EXPR_VALUE_TYPE_UNSET) {
         endian = ENDIAN_DEFAULT;
     } else {
-        endian = str2endian(param_values[REF_ENDIAN].u.identifier);
+        endian = str2endian(endian_value->u.rexpr_native.value.string);
         if (endian == ENDIAN_BAD) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &param_values[REF_ENDIAN].loc,
-                "bad endian value \"%s\": "
+                "bad endian value \"%.*s\": "
                 "must be \"big\", \"little\" or \"native\"",
-                param_values[REF_ENDIAN].u.identifier);
+                (int)param_values[REF_ENDIAN].u.string.len,
+                param_values[REF_ENDIAN].u.string.str);
             return -1;
         }
     }
@@ -234,10 +230,10 @@ interpreter_declare_binary_integer(void)
                               binary_integer_rcall_build,
                               2,
                               "signed", REF_SIGNED,
-                              AST_NODE_TYPE_BOOLEAN,
+                              EXPR_VALUE_TYPE_BOOLEAN,
                               INTERPRETER_PARAM_FLAG_MANDATORY,
                               "endian", REF_ENDIAN,
-                              AST_NODE_TYPE_IDENTIFIER,
+                              EXPR_VALUE_TYPE_STRING,
                               0);
     assert(0 == ret);
 }

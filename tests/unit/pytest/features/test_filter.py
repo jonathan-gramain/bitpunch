@@ -7,54 +7,54 @@ import conftest
 
 spec_file_simple_filter_as_type = """
 
-type u32 = byte[4]: integer(signed=false, endian=little);
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
 
-struct AsContents {
-    u32 n;
-    byte[n] data;
+let AsContents = struct {
+    n: u32;
+    data: byte[n];
 };
 
 file {
-    byte[] contents: AsContents;
+    contents: byte[]: AsContents;
 }
 
 """
 
 spec_file_simple_filter_as_type_twice = """
 
-type u32 = byte[4]: integer(signed=false, endian=little);
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
 
-struct DummyStruct {
-    u32 n;
-    byte[n] dummy;
+let DummyStruct = struct {
+    n: u32;
+    dummy: byte[n];
 };
 
-struct AsContents {
-    u32 n;
-    byte[n] data;
+let AsContents = struct {
+    n: u32;
+    data: byte[n];
 };
 
 file {
-    byte[] contents: DummyStruct: AsContents;
+    contents: byte[]: DummyStruct: AsContents;
 }
 
 """
 
 spec_file_simple_filter_as_type_anon_hop = """
 
-type u32 = byte[4]: integer(signed=false, endian=little);
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
 
-struct HopStruct {
-    u32 n;
-    byte[n]: AsContents;
+let HopStruct = struct {
+    n: u32;
+    : byte[n]: AsContents;
 };
 
-struct AsContents {
-    byte[] data;
+let AsContents = struct {
+    data: byte[];
 };
 
 file {
-    byte[] contents: HopStruct;
+    contents: byte[]: HopStruct;
 }
 
 """
@@ -66,17 +66,17 @@ data_file_simple_filter_as_type = """
 
 spec_file_simple_filter_as_type_constrained = """
 
-type u32 = byte[4]: integer(signed=false, endian=little);
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
 
-struct AsContents {
-    u32 n;
-    byte[n] data;
+let AsContents = struct {
+    n: u32;
+    data: byte[n];
 };
 
 file {
-    byte[30] header;
-    byte[20] contents: AsContents;
-    byte[30] footer;
+    header: byte[30];
+    contents: byte[20]: AsContents;
+    footer: byte[30];
 }
 
 """
@@ -97,19 +97,19 @@ data_file_simple_filter_as_type_constrained_bad = """
 
 spec_file_simple_filter_as_type_base64 = """
 
-type u32 = byte[4]: integer(signed=false, endian=little);
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
 
-struct Base64Block {
-    u32 n;
-    byte[n]: base64: AsContents;
+let Base64Block = struct {
+    n: u32;
+    : byte[n]: base64: AsContents;
 };
 
-struct AsContents {
-    byte[] data;
+let AsContents = struct {
+    data: byte[];
 };
 
 file {
-    byte[] contents: Base64Block;
+    contents: byte[]: Base64Block;
 }
 
 """
@@ -171,40 +171,40 @@ def test_filter(params_filter):
 
 spec_file_simple_filter_line_separated_base64 = """
 
-type u32 = byte[4]: integer(signed=false, endian=little);
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
 
-struct RawBlock {
-    u32 n;
-    byte[n]: AsContents;
+let RawBlock = struct {
+    n: u32;
+    : byte[n]: AsContents;
 };
 
-type Base64Block = byte[]: string(boundary='\\n'): base64: RawBlock;
+let Base64Block = byte[]: string { boundary: '\\n'; }: base64: RawBlock;
 
-struct AsContents {
-    byte[] data;
+let AsContents = struct {
+    data: byte[];
 };
 
 file {
-    Base64Block[] blocks;
+    blocks: Base64Block[];
 }
 
 """
 
 spec_file_simple_filter_line_separated_base64_2 = """
 
-type u32 = byte[4]: integer(signed=false, endian=little);
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
 
-type Base64Block = byte[]: string(boundary='\\n'): base64: struct {
-    u32 n;
-    byte[n]: AsContents;
+let Base64Block = byte[]: string { boundary: '\\n'; }: base64: struct {
+    n: u32;
+    : byte[n]: AsContents;
 };
 
-struct AsContents {
-    byte[] data;
+let AsContents = struct {
+    data: byte[];
 };
 
 file {
-    Base64Block[] blocks;
+    blocks: Base64Block[];
 }
 
 """

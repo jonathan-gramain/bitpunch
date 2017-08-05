@@ -7,14 +7,14 @@ import conftest
 
 spec_file_array_static_sized = """
 
-type u32 = byte[4]: integer(signed=false, endian=big);
+let u32 = byte[4]: integer { signed: false; endian: 'big'; };
 
-struct Item {
-    u32 value;
+let Item = struct {
+    value: u32;
 };
 
 file {
-    Item[10] integers;
+    integers: Item[10];
 }
 
 """
@@ -35,12 +35,12 @@ data_file_array_static_sized = """
 
 spec_file_array_byte_items = """
 
-struct Item {
-    byte value: integer(signed=false);
+let Item = struct {
+    value: byte: integer { signed: false; };
 };
 
 file {
-    Item[10] integers;
+    integers: Item[10];
 }
 
 """
@@ -77,20 +77,20 @@ def test_array_items(params_array_items):
 
 spec_file_array_bytes_as_integers_1 = """
 
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    u8[10] integers;
+    integers: u8[10];
 }
 
 """
 
 spec_file_array_bytes_as_integers_2 = """
 
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    byte[10] integers: u8[];
+    integers: byte[10]: byte[]: byte[10]: u8[];
 }
 
 """
@@ -102,10 +102,10 @@ data_file_array_bytes_as_integers = """
 
 spec_file_array_bytes_as_integers_filtered = """
 
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    byte[] integers: base64: u8[];
+    integers: byte[]: base64: u8[];
 }
 
 """

@@ -58,13 +58,13 @@ struct interpreter_param_def {
     STAILQ_ENTRY(interpreter_param_def) list;
     const char *name;
     int ref_idx;
-    enum ast_node_type type;
+    enum expr_value_type type;
     enum interpreter_param_flags flags;
 };
 
 typedef int
 (*interpreter_rcall_build_func_t)(struct ast_node *rcall,
-                                  const struct ast_node *call,
+                                  const struct ast_node *data_source,
                                   const struct ast_node *param_values);
 
 struct interpreter {
@@ -91,7 +91,9 @@ interpreter_declare_std(void);
 
 struct ast_node *
 interpreter_rcall_build(const struct interpreter *interpreter,
-                        const struct ast_node *filter);
+                        struct statement_list *param_list);
+struct ast_node *
+interpreter_rcall_instanciate(const struct ast_node *rcall);
 
 static inline struct ast_node *
 interpreter_rcall_get_params(const struct ast_node *rcall) {

@@ -1,17 +1,17 @@
-type u8  = byte[1]: integer(signed=false, endian=big);
-type u16 = byte[2]: integer(signed=false, endian=big);
-type u32 = byte[4]: integer(signed=false, endian=big);
-type u64 = byte[8]: integer(signed=false, endian=big);
-
+let RadioInt = integer { signed: false; endian: 'big'; };
+let u8  = byte[1]: RadioInt;
+let u16 = byte[2]: RadioInt;
+let u32 = byte[4]: RadioInt;
+let u64 = byte[8]: RadioInt;
 
 file {
-    u32 n_codes;
-    u8[n_codes] radio_item_sizes;
-    RadioCode[n_codes] codes;
+    n_codes:          u32;
+    radio_item_sizes: u8[n_codes];
+    codes:            RadioCode[n_codes];
 
-    struct RadioCode {
-        byte[6] foo;
-        byte[radio_item_sizes[index(codes, self)]] codename: string;
+    let RadioCode = struct {
+        foo:      byte[6];
+        codename: byte[radio_item_sizes[index(codes, self)]]: string;
         key codename;
     };
 }

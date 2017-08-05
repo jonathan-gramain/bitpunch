@@ -101,16 +101,15 @@ varint_write(const union expr_value *write_value,
 
 static int
 varint_rcall_build(struct ast_node *rcall,
-                   const struct ast_node *call,
+                   const struct ast_node *data_source,
                    const struct ast_node *param_values)
 {
-    const struct ast_node *data_source;
+    assert(NULL != data_source);
 
-    data_source = call->u.rexpr_filter.target;
     if (AST_NODE_TYPE_BYTE != data_source->type &&
         AST_NODE_TYPE_BYTE_ARRAY != data_source->type) {
         semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &call->loc,
+            SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
             "varint interpreter expects a byte array");
         return -1;
     }

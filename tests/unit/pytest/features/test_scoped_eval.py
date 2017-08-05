@@ -7,24 +7,24 @@ import conftest
 
 spec_file_1 = """
 
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
-struct Thing {
-    u8 nb_props;
-    ThingProp[nb_props] props;
+let Thing = struct {
+    nb_props: u8;
+    props:    ThingProp[nb_props];
 };
 
-struct ThingProp {
-    byte[4] name: string;
+let ThingProp = struct {
+    name: byte[4]: string;
 };
 
-struct AsArray {
-    u8[4] values;
+let AsArray = struct {
+    values: u8[4];
 };
 
 file {
-    u8 nb_things;
-    Thing[nb_things] things;
+    nb_things: u8;
+    things:    Thing[nb_things];
 }
 
 """

@@ -43,6 +43,10 @@
 #include "core/expr_internal.h"
 
 
+// helpers
+
+
+
 // value evaluation
 static bitpunch_status_t
 expr_evaluate_value_from_dpath(struct ast_node *expr, struct box *scope,
@@ -72,8 +76,18 @@ static bitpunch_status_t
 expr_evaluate_value_fcall(struct ast_node *expr, struct box *scope,
                           union expr_value *eval_valuep,
                           struct browse_state *bst);
+static bitpunch_status_t
+expr_evaluate_value_named_expr(struct ast_node *expr, struct box *scope,
+                               union expr_value *eval_valuep,
+                               struct browse_state *bst);
 
 // dpath evaluation
+static bitpunch_status_t
+expr_evaluate_dpath_anchor_common(struct ast_node *anchor_expr,
+                                  const struct ast_node *anchor_block,
+                                  struct box *scope,
+                                  struct tracker **tkp,
+                                  struct browse_state *bst);
 static bitpunch_status_t
 expr_evaluate_dpath_file(struct ast_node *expr, struct box *scope,
                          union expr_dpath *eval_dpathp,
@@ -771,7 +785,7 @@ expr_lookup_evaluator(enum ast_node_type op_type,
 
 static bitpunch_status_t
 expr_eval_builtin_bytes(struct ast_node *object,
-                        struct func_param_list *params,
+                        struct statement_list *params,
                         int n_params,
                         struct box *scope,
                         union expr_dpath *eval_dpathp,
@@ -782,7 +796,7 @@ expr_eval_builtin_bytes(struct ast_node *object,
     union expr_dpath dpath_eval;
     struct box *bytes_box;
 
-    expr = STAILQ_FIRST(params)->expr;
+    expr = ((struct named_expr *)TAILQ_FIRST(params))->expr;
     if (EXPR_DPATH_TYPE_NONE == expr->u.rexpr.dpath_type) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
                        "cannot evaluate 'bytes': expression is not "
@@ -816,7 +830,7 @@ expr_eval_builtin_bytes(struct ast_node *object,
 
 static bitpunch_status_t
 expr_eval_builtin_index(struct ast_node *object,
-                        struct func_param_list *params,
+                        struct statement_list *params,
                         int n_params,
                         struct box *scope,
                         union expr_value *eval_valuep,
@@ -836,8 +850,9 @@ expr_eval_builtin_index(struct ast_node *object,
     struct track_path item_track;
     struct track_path cur_track;
 
-    array_dpath = STAILQ_FIRST(params)->expr;
-    item_dpath = STAILQ_NEXT(STAILQ_FIRST(params), list)->expr;
+    array_dpath = ((struct named_expr *)TAILQ_FIRST(params))->expr;
+    item_dpath = ((struct named_expr *)
+                  TAILQ_NEXT(TAILQ_FIRST(params), list))->expr;
     if (EXPR_DPATH_TYPE_NONE == array_dpath->u.rexpr.dpath_type) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &array_dpath->loc,
                        "cannot evaluate 'index': 1st argument is not "
@@ -927,7 +942,7 @@ expr_eval_builtin_index(struct ast_node *object,
 
 static bitpunch_status_t
 expr_eval_builtin_len(struct ast_node *object,
-                      struct func_param_list *params,
+                      struct statement_list *params,
                       int n_params,
                       struct box *scope,
                       union expr_value *eval_valuep,
@@ -939,7 +954,7 @@ expr_eval_builtin_len(struct ast_node *object,
     union expr_dpath dpath_eval;
     struct box *box = NULL;
 
-    expr = STAILQ_FIRST(params)->expr;
+    expr = ((struct named_expr *)TAILQ_FIRST(params))->expr;
     if (EXPR_DPATH_TYPE_NONE == expr->u.rexpr.dpath_type) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
                        "cannot evaluate 'len' on expression: not a dpath");
@@ -1465,6 +1480,67 @@ expr_value_cmp(enum expr_value_type type,
     }
 }
 
+static bitpunch_status_t
+expr_evaluate_named_expr_internal(struct ast_node *expr, struct box *scope,
+                                  const struct named_expr **named_exprp,
+                                  struct box **member_scopep,
+                                  struct browse_state *bst)
+{
+    struct ast_node *anchor_expr;
+    struct ast_node *anchor_block;
+    bitpunch_status_t bt_ret;
+    bitpunch_status_t bt_ret_1st_failure;
+    struct tracker *tk;
+    int cond_eval;
+    struct box *member_scope;
+    const struct named_expr *named_expr;
+
+    anchor_expr = expr->u.rexpr_member_common.anchor_expr;
+    anchor_block = expr->u.rexpr_member_common.anchor_block;
+    bt_ret = expr_evaluate_dpath_anchor_common(anchor_expr, anchor_block,
+                                               scope, &tk, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    member_scope = tk->box;
+    box_acquire(member_scope);
+    tracker_delete(tk);
+
+    bt_ret_1st_failure = BITPUNCH_OK;
+    for (named_expr = expr->u.rexpr_named_expr.named_expr;
+         NULL != named_expr;
+         named_expr =
+             (const struct named_expr *)named_expr->nstmt.next_sibling) {
+        bt_ret = evaluate_conditional_internal(named_expr->nstmt.stmt.cond,
+                                               member_scope, &cond_eval,
+                                               bst);
+        if (BITPUNCH_OK == bt_ret) {
+            if (cond_eval) {
+                break ;
+            }
+        } else {
+            if (BITPUNCH_OK == bt_ret_1st_failure) {
+                bt_ret_1st_failure = bt_ret;
+            }
+        }
+    }
+    if (NULL == named_expr) {
+        box_delete(member_scope);
+        if (BITPUNCH_OK == bt_ret_1st_failure) {
+            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
+                           "no member named '%s' is associated to block in "
+                           "current evaluation context",
+                           expr->u.rexpr_named_expr.named_expr->nstmt.name);
+            return BITPUNCH_INVALID_PARAM;
+        } else {
+            return bt_ret;
+        }
+    }
+    *named_exprp = named_expr;
+    *member_scopep = member_scope;
+    return BITPUNCH_OK;
+}
+
 
 bitpunch_status_t
 expr_evaluate_value_internal(struct ast_node *expr, struct box *scope,
@@ -1507,6 +1583,9 @@ expr_evaluate_value_internal(struct ast_node *expr, struct box *scope,
         return expr_evaluate_value_filter(expr, scope, eval_valuep, bst);
     case AST_NODE_TYPE_REXPR_OP_FCALL:
         return expr_evaluate_value_fcall(expr, scope, eval_valuep, bst);
+    case AST_NODE_TYPE_REXPR_NAMED_EXPR:
+        return expr_evaluate_value_named_expr(expr, scope,
+                                              eval_valuep, bst);
     default:
         if (EXPR_DPATH_TYPE_NONE != expr->u.rexpr.dpath_type) {
             return expr_evaluate_value_from_dpath(expr, scope, eval_valuep,
@@ -1677,19 +1756,48 @@ expr_evaluate_value_fcall(struct ast_node *expr, struct box *scope,
                           struct browse_state *bst)
 {
     const struct expr_builtin_fn *builtin;
-    struct ast_node *object;
-    struct func_param_list *params;
+    struct statement_list *params;
     int n_params;
 
     builtin = expr->u.rexpr_op_fcall.builtin;
-    object = expr->u.rexpr_op_fcall.object;
     params = expr->u.rexpr_op_fcall.func_params;
     n_params = expr->u.rexpr_op_fcall.n_func_params;
 
     assert(NULL != builtin->eval_value_fn);
-    return builtin->eval_value_fn(object, params, n_params,
+    return builtin->eval_value_fn(NULL, params, n_params,
                                   scope, eval_valuep, bst);
 }
+
+static bitpunch_status_t
+expr_evaluate_value_named_expr(struct ast_node *expr, struct box *scope,
+                               union expr_value *eval_valuep,
+                               struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    struct box *member_scope;
+    const struct named_expr *named_expr;
+    union expr_value eval_value;
+
+    bt_ret = expr_evaluate_named_expr_internal(expr, scope,
+                                               &named_expr, &member_scope,
+                                               bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    bt_ret = expr_evaluate_value_internal(named_expr->expr, member_scope,
+                                          &eval_value, bst);
+    box_delete(member_scope);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    if (NULL != eval_valuep) {
+        *eval_valuep = eval_value;
+    } else {
+        expr_value_destroy(expr->u.rexpr.value_type, eval_value);
+    }
+    return bt_ret;
+}
+
 
 bitpunch_status_t
 expr_evaluate_dpath_internal(struct ast_node *expr, struct box *scope,
@@ -1853,108 +1961,31 @@ expr_evaluate_dpath_field(struct ast_node *expr, struct box *scope,
     return BITPUNCH_OK;
 }
 
-bitpunch_status_t
-named_expr_evaluate_dpath_internal(
-    const struct named_expr *named_expr, struct box *scope,
-    enum expr_dpath_type *dpath_typep,
-    union expr_dpath *eval_dpathp,
-    struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    union expr_dpath dst_path_eval;
-
-    bt_ret = expr_evaluate_dpath_internal(named_expr->dst_expr, scope,
-                                          &dst_path_eval, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    *dpath_typep = named_expr->dst_expr->u.rexpr.dpath_type;
-    *eval_dpathp = dst_path_eval;
-    return BITPUNCH_OK;
-}
-
-bitpunch_status_t
-named_expr_evaluate_value_internal(
-    const struct named_expr *named_expr, struct box *scope,
-    enum expr_value_type *value_typep,
-    union expr_value *eval_valuep,
-    struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    union expr_value dst_value_eval;
-
-    bt_ret = expr_evaluate_value_internal(named_expr->dst_expr, scope,
-                                          &dst_value_eval, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    *value_typep = named_expr->dst_expr->u.rexpr.value_type;
-    *eval_valuep = dst_value_eval;
-    return BITPUNCH_OK;
-}
-
 static bitpunch_status_t
 expr_evaluate_dpath_named_expr(struct ast_node *expr, struct box *scope,
                                union expr_dpath *eval_dpathp,
                                struct browse_state *bst)
 {
-    struct ast_node *anchor_expr;
-    struct ast_node *anchor_block;
     bitpunch_status_t bt_ret;
-    bitpunch_status_t bt_ret_1st_failure;
-    struct tracker *tk;
     struct box *member_scope;
     const struct named_expr *named_expr;
-    int cond_eval;
     enum expr_dpath_type dpath_type;
     union expr_dpath eval_dpath;
     union expr_dpath converted_dpath;
 
-    anchor_expr = expr->u.rexpr_member_common.anchor_expr;
-    anchor_block = expr->u.rexpr_member_common.anchor_block;
-    bt_ret = expr_evaluate_dpath_anchor_common(anchor_expr, anchor_block,
-                                               scope, &tk, bst);
+    bt_ret = expr_evaluate_named_expr_internal(expr, scope,
+                                               &named_expr, &member_scope,
+                                               bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    member_scope = tk->box;
-    box_acquire(member_scope);
-    tracker_delete(tk);
-
-    bt_ret_1st_failure = BITPUNCH_OK;
-    for (named_expr = expr->u.rexpr_named_expr.named_expr;
-         NULL != named_expr;
-         named_expr =
-             (const struct named_expr *)named_expr->nstmt.next_sibling) {
-        bt_ret = evaluate_conditional_internal(named_expr->nstmt.stmt.cond,
-                                               member_scope, &cond_eval,
-                                               bst);
-        if (BITPUNCH_OK == bt_ret) {
-            if (cond_eval) {
-                break ;
-            }
-        } else {
-            if (BITPUNCH_OK == bt_ret_1st_failure) {
-                bt_ret_1st_failure = bt_ret;
-            }
-        }
-    }
-    if (NULL == named_expr) {
-        box_delete(member_scope);
-        if (BITPUNCH_OK == bt_ret_1st_failure) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                           "no member named '%s' is associated to block in "
-                           "current evaluation context",
-                           expr->u.rexpr_named_expr.named_expr->nstmt.name);
-            return BITPUNCH_INVALID_PARAM;
-        } else {
-            return bt_ret;
-        }
-    }
-    bt_ret = named_expr_evaluate_dpath_internal(named_expr, member_scope,
-                                                &dpath_type,
-                                                &eval_dpath, bst);
+    bt_ret = expr_evaluate_dpath_internal(named_expr->expr, member_scope,
+                                          &eval_dpath, bst);
     box_delete(member_scope);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    dpath_type = named_expr->expr->u.rexpr.dpath_type;
     if (BITPUNCH_OK == bt_ret && dpath_type != expr->u.rexpr.dpath_type) {
         bt_ret = expr_dpath_to_dpath(dpath_type, eval_dpath,
                                      expr->u.rexpr.dpath_type,
@@ -1962,8 +1993,12 @@ expr_evaluate_dpath_named_expr(struct ast_node *expr, struct box *scope,
         expr_dpath_destroy(dpath_type, eval_dpath);
         eval_dpath = converted_dpath;
     }
-    if (BITPUNCH_OK == bt_ret && NULL != eval_dpathp) {
-        *eval_dpathp = eval_dpath;
+    if (BITPUNCH_OK == bt_ret) {
+        if (NULL != eval_dpathp) {
+            *eval_dpathp = eval_dpath;
+        } else {
+            expr_dpath_destroy(expr->u.rexpr.dpath_type, eval_dpath);
+        }
     }
     return bt_ret;
 }
@@ -2135,17 +2170,15 @@ expr_evaluate_dpath_fcall(struct ast_node *expr, struct box *scope,
                           struct browse_state *bst)
 {
     const struct expr_builtin_fn *builtin;
-    struct ast_node *object;
-    struct func_param_list *params;
+    struct statement_list *params;
     int n_params;
 
     builtin = expr->u.rexpr_op_fcall.builtin;
-    object = expr->u.rexpr_op_fcall.object;
     params = expr->u.rexpr_op_fcall.func_params;
     n_params = expr->u.rexpr_op_fcall.n_func_params;
 
     assert(NULL != builtin->eval_dpath_fn);
-    return builtin->eval_dpath_fn(object, params, n_params,
+    return builtin->eval_dpath_fn(NULL, params, n_params,
                                   scope, eval_dpathp, bst);
 }
 
@@ -2174,7 +2207,8 @@ expr_evaluate_dpath_as_type(struct ast_node *expr, struct box *scope,
     struct box *dst_box;
     struct box *as_box;
 
-    as_type = expr->u.rexpr_filter.filter_type;
+    as_type = ast_node_get_named_expr_target(
+        expr->u.rexpr_filter.filter_type);
     target = expr->u.rexpr_filter.target;
     bt_ret = expr_evaluate_dpath_internal(target,
                                           scope, &source_eval, bst);
@@ -2289,7 +2323,7 @@ expr_read_dpath_value_named_expr(struct ast_node *expr,
                                  struct browse_state *bst)
 {
     return expr_read_dpath_value_internal(
-        expr->u.rexpr_named_expr.named_expr->dst_expr, dpath,
+        expr->u.rexpr_named_expr.named_expr->expr, dpath,
         expr_valuep, bst);
 }
 
@@ -2430,38 +2464,6 @@ expr_evaluate_dpath(struct ast_node *expr, struct box *scope,
     browse_state_init(&bst);
     return transmit_error(
         expr_evaluate_dpath_internal(expr, scope, eval_dpathp, &bst),
-        &bst, errp);
-}
-
-bitpunch_status_t
-named_expr_evaluate_dpath(const struct named_expr *named_expr,
-                          struct box *scope,
-                          enum expr_dpath_type *dpath_typep,
-                          union expr_dpath *eval_dpathp,
-                          struct tracker_error **errp)
-{
-    struct browse_state bst;
-
-    browse_state_init(&bst);
-    return transmit_error(
-        named_expr_evaluate_dpath_internal(named_expr, scope,
-                                           dpath_typep, eval_dpathp, &bst),
-        &bst, errp);
-}
-
-bitpunch_status_t
-named_expr_evaluate_value(const struct named_expr *named_expr,
-                          struct box *scope,
-                          enum expr_value_type *value_typep,
-                          union expr_value *eval_valuep,
-                          struct tracker_error **errp)
-{
-    struct browse_state bst;
-
-    browse_state_init(&bst);
-    return transmit_error(
-        named_expr_evaluate_value_internal(named_expr, scope,
-                                           value_typep, eval_valuep, &bst),
         &bst, errp);
 }
 

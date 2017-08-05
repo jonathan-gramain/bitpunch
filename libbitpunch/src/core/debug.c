@@ -93,10 +93,10 @@ dbg_tracker_dump(const char *tk_str, const struct tracker *tk)
                dbg_tracker_state_str(tracker_get_state(tk)));
         dbg_tracker_dump_flags(tk);
         printf(") ");
-        tracker_dump(tk, stdout);
+        tracker_fdump(tk, stdout);
         if (NULL != tk->item_box) {
             printf("    ITEM ");
-            box_dump(tk->item_box, stdout);
+            box_fdump(tk->item_box, stdout);
         }
     } else {
         printf("%s: null", tk_str);
@@ -108,7 +108,7 @@ dbg_box_dump(const char *box_str, const struct box *box)
 {
     printf("%s (%p): ", box_str, box);
     if (NULL != box) {
-        box_dump(box, stdout);
+        box_fdump(box, stdout);
     } else {
         printf("null");
     }

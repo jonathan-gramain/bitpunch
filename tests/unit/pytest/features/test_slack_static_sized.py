@@ -20,30 +20,30 @@ BLOCK_SIZES = [100, 30, 10, 3]
 spec_static_sized = """
 
 file {
-    HugeBlock[] huge_blocks;
-    BigBlock[] big_blocks;
-    AvgBlock[] avg_blocks;
-    SmallBlock[] small_blocks;
+    huge_blocks: HugeBlock[];
+    big_blocks: BigBlock[];
+    avg_blocks: AvgBlock[];
+    small_blocks: SmallBlock[];
 }
 
-struct HugeBlock {
+let HugeBlock = struct {
     // will be filled with 0x00 bytes
-    byte[100] contents;
+    contents: byte[100];
 };
 
-struct BigBlock {
+let BigBlock = struct {
     // will be filled with 0x01 bytes
-    byte[30] contents;
+    contents: byte[30];
 };
 
-struct AvgBlock {
+let AvgBlock = struct {
     // will be filled with 0x02 bytes
-    byte[10] contents;
+    contents: byte[10];
 };
 
-struct SmallBlock {
+let SmallBlock = struct {
     // will be filled with 0x03 bytes
-    byte[3] contents;
+    contents: byte[3];
 };
 
 """

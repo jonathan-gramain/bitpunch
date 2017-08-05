@@ -123,7 +123,7 @@ tracker_check_item(struct tracker *tk,
 
 bitpunch_status_t
 tracker_goto_field_internal(struct tracker *tk,
-                            const struct field *to_field, int flat,
+                            const struct named_expr *to_field, int flat,
                             struct browse_state *bst);
 bitpunch_status_t
 tracker_goto_index_internal(struct tracker *tk,

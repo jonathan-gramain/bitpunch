@@ -10,29 +10,31 @@
  * Otherwise it's a pretty straightforward format.
  */
 
-type u8 = byte: integer(signed=false);
-type u16 = byte[2]: integer(signed=false, endian=little);
-type u32 = byte[4]: integer(signed=false, endian=little);
+let FixInt = integer { signed: false; endian: 'little'; };
+
+let FixInt8 =  byte:    FixInt;
+let FixInt16 = byte[2]: FixInt;
+let FixInt32 = byte[4]: FixInt;
 
 file {
-    LogBlock[] head_blocks;
-    LogTailBlock tail_block;
+    head_blocks: LogBlock[];
+    tail_block: LogTailBlock;
 }
 
-struct LogBlock {
-       Record[] records;
-       byte[] trailer;
+let LogBlock = struct {
+       records: Record[];
+       trailer: byte[];
        span 32768;
 };
 
-struct LogTailBlock {
-       Record[] records;
+let LogTailBlock = struct {
+       records: Record[];
 };
 
-struct Record {
-       u32 checksum;
-       u16 length;
-       u8 rtype;
-       byte[length] data: string;
+let Record = struct {
+       checksum: FixInt32;
+       length:   FixInt16;
+       rtype:    FixInt8;
+       data:     byte[length]: string;
        minspan 7;
 };

@@ -1,0 +1,185 @@
+#!/usr/bin/env python
+
+import pytest
+
+from bitpunch import model
+from bitpunch_cli import CLI
+import conftest
+
+
+# This one may look like the premises of a filesystem format, but it's
+# purely fictitious :)
+
+spec_file_pseudo_fs = """
+
+let Int = integer { signed: false; endian: 'little'; };
+let u8 = byte: Int;
+let u16 = byte[2]: Int;
+
+file {
+    hdr:     Header;
+    contents: byte[];
+
+    let ?raw_catalog = bytes(file)[hdr.catalog_location..];
+    let ?catalog = ?raw_catalog: Entry[hdr.nb_catalog_entries];
+}
+
+let Header = struct {
+    catalog_location:    u16;
+    nb_catalog_entries:  u16;
+};
+
+let Entry = struct {
+    entry_location: u16;
+    entry_size:     u16;
+    entry_type:     byte[4]: string { boundary: ' '; };
+
+    let ?data = bytes(file)[entry_location .. entry_location + entry_size];
+    if (entry_type == 'file') {
+        let ?file = ?data: File;
+    }
+    if (entry_type == 'dir') {
+        let ?dir = ?data: Dir;
+    }
+
+    let File = struct {
+        filesize:        u16;
+        filedata_offset: u16;
+        dir_entry_index: u16;
+        filename:        byte[]: string;
+
+        let ?dir = ?catalog[dir_entry_index].?data: Dir;
+        let ?filedata = bytes(file)[filedata_offset ..
+                                    filedata_offset + filesize];
+    };
+
+    let Dir = struct {
+        dirname:         byte[]: string;
+    };
+};
+
+"""
+
+data_file_pseudo_fs = """
+# header
+  # catalog location
+  64 00
+  # nb catalog entries
+  07 00
+
+# contents
+    "directory1"
+
+    "directory2"
+
+    0a 00 # file size
+    9c 00 # data offset
+    00 00 # dir entry index
+    "foo"
+
+    0b 00
+    b2 00
+    00 00
+    "bar"
+
+    0c 00
+    a6 00
+    00 00
+    "baz"
+
+    0d 00
+    bd 00
+    01 00
+    "a somewhat long file name"
+
+    0e 00
+    ca 00
+    01 00
+    "shorter name"
+
+# catalog
+    # entry [0]
+    04 00  # location
+    0a 00  # size
+    "dir " # type
+
+    # entry [1]
+    0e 00  # location
+    0a 00  # size
+    "dir " # type
+
+    # entry [2]
+    18 00  # location
+    09 00  # size
+    "file" # type
+
+    # entry [3]
+    21 00  # location
+    09 00  # size
+    "file" # type
+
+    # entry [4]
+    2a 00  # location
+    09 00  # size
+    "file" # type
+
+    # entry [5]
+    33 00  # location
+    1f 00  # size
+    "file" # type
+
+    # entry [6]
+    52 00  # location
+    12 00  # size
+    "file" # type
+
+# raw data
+
+    "1111111111"
+    "333333333333"
+    "22222222222"
+    "4444444444444"
+    "55555555555555"
+"""
+
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_pseudo_fs,
+        'data': data_file_pseudo_fs,
+    }])
+def params_pseudo_fs(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_pseudo_fs(params_pseudo_fs):
+    params = params_pseudo_fs
+    dtree = params['dtree']
+
+    catalog = dtree['?catalog']
+    assert len(catalog) == 7
+
+    assert catalog[2]['?file'].get_location() == (0x18, 0x09)
+
+    assert model.make_python_object(
+        catalog[2]['?file']['?filedata']) == '1111111111'
+
+    assert model.make_python_object(
+        catalog[3]['?file']['?filedata']) == '22222222222'
+
+    assert model.make_python_object(
+        catalog[4]['?file']['?filedata']) == '333333333333'
+
+    assert model.make_python_object(
+        catalog[5]['?file']['?filedata']) == '4444444444444'
+
+    assert model.make_python_object(
+        catalog[6]['?file']['?filedata']) == '55555555555555'
+
+
+    assert catalog[2]['?file']['?dir'].dirname == 'directory1'
+    assert catalog[3]['?file']['?dir'].dirname == 'directory1'
+    assert catalog[4]['?file']['?dir'].dirname == 'directory1'
+    assert catalog[5]['?file']['?dir'].dirname == 'directory2'
+    assert catalog[6]['?file']['?dir'].dirname == 'directory2'

@@ -6,63 +6,64 @@
  * https://github.com/google/leveldb/blob/master/doc/table_format.md
  */
 
-type u32 = byte[4]: integer(signed=false, endian=little);
+let FixInt   = integer { signed: false; endian: 'little'; };
+let FixInt8  = byte: FixInt;
+let FixInt32 = byte[4]: FixInt;
+let VarInt   = byte[]: varint;
 
-type VarInt = byte[]: varint;
+let CompressedDataBlock = byte[]: snappy: DataBlock;
 
-type CompressedDataBlock = byte[]: snappy: DataBlock;
-
-struct DataBlock {
-    KeyValue[] entries;
-    u32[nb_restarts] restarts;
-    u32 nb_restarts;
+let DataBlock = struct {
+    entries:     KeyValue[];
+    restarts:    FixInt32[nb_restarts];
+    nb_restarts: FixInt32;
 };
 
-struct KeyValue {
-    VarInt key_shared_size;
-    VarInt key_non_shared_size;
-    VarInt value_size;
-    byte[key_non_shared_size] key_non_shared;
-    byte[value_size] value;
+let KeyValue = struct {
+    key_shared_size:     VarInt;
+    key_non_shared_size: VarInt;
+    value_size:          VarInt;
+    key_non_shared:      byte[key_non_shared_size];
+    value:               byte[value_size];
 };
 
-struct BlockTrailer {
-    byte blocktype: integer(signed=false);
-    u32 crc;
+let BlockTrailer = struct {
+    blocktype: FixInt8;
+    crc:       FixInt32;
 };
 
-struct FileBlock {
+let FileBlock = struct {
     if (trailer.blocktype == 0) { // uncompressed
-        DataBlock;
+        :    DataBlock;
     }
     if (trailer.blocktype == 1) {
-        CompressedDataBlock;
+        :    CompressedDataBlock;
     }
-    BlockTrailer trailer;
+    trailer: BlockTrailer;
 };
 
-struct BlockHandle {
-    VarInt offset;
-    VarInt size;
+let BlockHandle = struct {
+    offset: VarInt;
+    size:   VarInt;
 
     let ?stored_block =
         file.payload[offset .. offset + size + sizeof(BlockTrailer)]
             : FileBlock;
 };
 
-struct Footer {
-    BlockHandle metaindex_handle;
-    BlockHandle index_handle;
-    byte[];
-    byte[8] magic;
+let Footer = struct {
+    metaindex_handle: BlockHandle;
+    index_handle:     BlockHandle;
+    :                 byte[];
+    magic:            byte[8];
     span 48;
 };
 
 file {
-    byte[] payload;
-    Footer footer;
+    payload: byte[];
+    footer:  Footer;
 
-    let ?index = footer.index_handle;
+    let ?index =     footer.index_handle;
     let ?metaindex = footer.metaindex_handle;
 
     //:BlockHandle {

@@ -7,14 +7,14 @@ import conftest
 
 spec_static_span_and_slack = """
 
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    VarBlock[] blocks;
+    blocks: VarBlock[];
 }
 
-struct VarBlock {
-    byte[] contents;
+let VarBlock = struct {
+    contents: byte[];
     span 10;
 };
 
@@ -30,15 +30,15 @@ data_static_span_and_slack = """
 
 spec_static_span_and_slack_sized = """
 
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    VarBlock[] blocks;
+    blocks: VarBlock[];
 }
 
-struct VarBlock {
-    byte[] contents: string(boundary='\x42');
-    byte[] padding;
+let VarBlock = struct {
+    contents: byte[]: string { boundary: '\x42'; };
+    padding:  byte[];
     span 10;
 };
 
@@ -46,18 +46,18 @@ struct VarBlock {
 
 spec_static_span_and_slack_sized_subblock = """
 
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    VarBlock[] blocks;
+    blocks: VarBlock[];
 }
 
-struct VarBlock {
-    struct BlockContents {
-        byte[] data: string(boundary='\x42');
+let VarBlock = struct {
+    let BlockContents = struct {
+        data: byte[]: string { boundary: '\x42'; };
     };
-    BlockContents contents;
-    byte[] padding;
+    contents: BlockContents;
+    padding:  byte[];
     span 10;
 };
 
@@ -73,17 +73,17 @@ data_static_span_and_slack_sized = """
 
 spec_static_minspan = """
 
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    VarBlock[] blocks;
+    blocks: VarBlock[];
 }
 
-struct VarBlock {
-    u8 length;
-    byte[length] contents;
+let VarBlock = struct {
+    length:   u8;
+    contents: byte[length];
     if (sizeof(length) + sizeof(contents) < 10) {
-        byte[] padding;
+        padding: byte[];
         span 10;
     }
 };
@@ -101,36 +101,36 @@ data_static_minspan = """
 
 spec_length_in_trailer = """
 
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    VarBlock[] blocks;
+    blocks: VarBlock[];
 }
 
-struct VarBlock {
-    byte[length] contents;
-    byte[] padding;
-    u8 length;
+let VarBlock = struct {
+    contents: byte[length];
+    padding:  byte[];
+    length:   u8;
     span 10;
 };
 """
 
 spec_length_in_trailer_conditional = """
 
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    VarBlock[] blocks;
+    blocks: VarBlock[];
 }
 
-struct VarBlock {
+let VarBlock = struct {
     if (length <= 9) {
-        byte[length] contents;
+        contents:         byte[length];
     } else {
-        byte[9] contents_bounded;
+        contents_bounded: byte[9];
     }
-    byte[] padding;
-    u8 length;
+    padding: byte[];
+    length:  u8;
     span 10;
 };
 """
@@ -145,16 +145,16 @@ data_length_in_trailer = """
 
 spec_var_length_trailer = """
 
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    VarBlock[] blocks;
+    blocks: VarBlock[];
 }
 
-struct VarBlock {
-    byte[] contents;
-    byte[padding_length] padding;
-    u8 padding_length;
+let VarBlock = struct {
+    contents:       byte[];
+    padding:        byte[padding_length];
+    padding_length: u8;
     span 10;
 };
 """
@@ -169,17 +169,17 @@ data_var_length_trailer = """
 
 spec_var_length_array_trailer = """
 
-type u8 = byte: integer(signed=false);
-type u16 = byte[2]: integer(signed=false);
+let u8 = byte: integer { signed: false; };
+let u16 = byte[2]: integer { signed: false; };
 
 file {
-    VarBlock[] blocks;
+    blocks: VarBlock[];
 }
 
-struct VarBlock {
-    byte[] contents;
-    u16[n_padding_items] padding;
-    u8 n_padding_items;
+let VarBlock = struct {
+    contents:        byte[];
+    padding:         u16[n_padding_items];
+    n_padding_items: u8;
     span 10;
 };
 """
@@ -194,23 +194,23 @@ data_var_length_array_trailer = """
 
 spec_var_length_block_trailer = """
 
-type u8 = byte: integer(signed=false);
-type u16 = byte[2]: integer(signed=false);
+let u8 = byte: integer { signed: false; };
+let u16 = byte[2]: integer { signed: false; };
 
 file {
-    VarBlock[] blocks;
+    blocks: VarBlock[];
 }
 
-struct VarBlock {
-    byte[] contents;
-    TrailerBlock padding;
-    u8 n_padding_items;
+let VarBlock = struct {
+    contents:        byte[];
+    padding:         TrailerBlock;
+    n_padding_items: u8;
     span 10;
 
-    struct TrailerBlock {
-        u16[n_padding_items] padding_array;
-        byte[1] another_padding_byte_array;
-        u16 yet_another_padding_item;
+    let TrailerBlock = struct {
+        padding_array:              u16[n_padding_items];
+        another_padding_byte_array: byte[1];
+        yet_another_padding_item:   u16;
     };
 };
 """
@@ -225,26 +225,26 @@ ff ff ff ff ff ff ff ff ff 03
 
 spec_var_length_subblock_trailer = """
 
-type u8 = byte: integer(signed=false);
-type u16 = byte[2]: integer(signed=false);
+let u8 = byte: integer { signed: false; };
+let u16 = byte[2]: integer { signed: false; };
 
 file {
-    VarBlock[] blocks;
+    blocks: VarBlock[];
 }
 
-struct VarBlock {
-    byte[] contents;
-    TrailerBlock padding;
-    u8 n_padding_items;
+let VarBlock = struct {
+    contents:        byte[];
+    padding:         TrailerBlock;
+    n_padding_items: u8;
     span 10;
 
-    struct TrailerSubBlock {
-        u16[n_padding_items] padding_array;
-        byte[1] another_padding_byte_array;
+    let TrailerSubBlock = struct {
+        padding_array:              u16[n_padding_items];
+        another_padding_byte_array: byte[1];
     };
-    struct TrailerBlock {
-        TrailerSubBlock sub_block;
-        u16 yet_another_padding_item;
+    let TrailerBlock = struct {
+        sub_block:                TrailerSubBlock;
+        yet_another_padding_item: u16;
     };
 };
 """
@@ -335,41 +335,41 @@ def test_slack_span_simple(params_simple):
 
 spec_static_span_template = """
 
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer {{ signed: false; }};
 
 file {{
-    HugeBlock[] huge_blocks;
-    BigBlock[] big_blocks;
-    AvgBlock[] avg_blocks;
-    SmallBlock[] small_blocks;
+    huge_blocks:  HugeBlock[];
+    big_blocks:   BigBlock[];
+    avg_blocks:   AvgBlock[];
+    small_blocks: SmallBlock[];
 }}
 
-struct VarBlock {{
-    u8 length;
-    byte[length] contents;
+let VarBlock = struct {{
+    length:   u8;
+    contents: byte[length];
 }};
 
-struct HugeBlock {{
+let HugeBlock = struct {{
     // will be filled with 0x00 bytes
-    VarBlock[] sub_blocks;
+    sub_blocks: VarBlock[];
     {span_huge}
 }};
 
-struct BigBlock {{
+let BigBlock = struct {{
     // will be filled with 0x01 bytes
-    VarBlock[] sub_blocks;
+    sub_blocks: VarBlock[];
     {span_big}
 }};
 
-struct AvgBlock {{
+let AvgBlock = struct {{
     // will be filled with 0x02 bytes
-    VarBlock[] sub_blocks;
+    sub_blocks: VarBlock[];
     {span_avg}
 }};
 
-struct SmallBlock {{
+let SmallBlock = struct {{
     // will be filled with 0x03 bytes
-    VarBlock[] sub_blocks;
+    sub_blocks: VarBlock[];
     {span_small}
 }};
 """

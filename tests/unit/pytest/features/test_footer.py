@@ -8,8 +8,8 @@ import conftest
 spec_file_footer_static_sized = """
 
 file {
-    byte[] contents;
-    byte[6] footer;
+    contents: byte[];
+    footer: byte[6];
 }
 
 """
@@ -22,12 +22,12 @@ data_file_footer_static_sized = """
 
 spec_file_footer_dynamic_sized_len_at_start = """
 
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    u8 footer_size;
-    byte[] contents;
-    byte[footer_size] footer;
+    footer_size: u8;
+    contents: byte[];
+    footer: byte[footer_size];
 }
 
 """
@@ -41,12 +41,12 @@ data_file_footer_dynamic_sized_len_at_start = """
 
 spec_file_footer_dynamic_sized_len_in_footer = """
 
-type u8 = byte: integer(signed=false);
+let u8 = byte: integer { signed: false; };
 
 file {
-    byte[] contents;
-    byte[footer_size] footer;
-    u8 footer_size;
+    contents: byte[];
+    footer: byte[footer_size];
+    footer_size: u8;
 }
 
 """
@@ -86,24 +86,24 @@ def test_footer(params_footer):
 
 spec_file_footer_dynamic_sized_complex_footer = """
 
-type u8 = byte: integer(signed=false);
-type u16 = byte[2]: integer(signed=false, endian=big);
+let u8 = byte: integer { signed: false; };
+let u16 = byte[2]: integer { signed: false; endian: 'big'; };
 
-struct Footer {
-    byte[footer_hdr_size] hdr;
-    byte[] footer_contents;
-    u16 footer_size;
-    u8 footer_hdr_size;
+let Footer = struct {
+    hdr: byte[footer_hdr_size];
+    footer_contents: byte[];
+    footer_size: u16;
+    footer_hdr_size: u8;
     span footer_size;
 };
 
-struct Contents {
-    byte[] contents;
-    Footer footer;
+let Contents = struct {
+    contents: byte[];
+    footer: Footer;
 };
 
 file {
-    Contents root;
+    root: Contents;
 }
 
 """
@@ -142,29 +142,29 @@ def test_footer_complex(params_footer_complex):
 
 spec_file_footer_with_implicit_padding = """
 
-type u8 = byte: integer(signed=false);
-type u16 = byte[2]: integer(signed=false, endian=big);
-type u32 = byte[4]: integer(signed=false, endian=big);
+let u8 = byte: integer { signed: false; };
+let u16 = byte[2]: integer { signed: false; endian: 'big'; };
+let u32 = byte[4]: integer { signed: false; endian: 'big'; };
 
-struct Footer {
-    byte[footer_hdr_size] hdr;
-    byte[] footer_contents;
-    u16 footer_size;
-    u8 footer_hdr_size;
+let Footer = struct {
+    hdr: byte[footer_hdr_size];
+    footer_contents: byte[];
+    footer_size: u16;
+    footer_hdr_size: u8;
     span footer_size;
 };
 
-struct Item {
-    u32[3] values;
+let Item = struct {
+    values: u32[3];
 };
 
-struct Contents {
-    Item[] items;
-    Footer footer;
+let Contents = struct {
+    items: Item[];
+    footer: Footer;
 };
 
 file {
-    Contents root;
+    root: Contents;
 }
 
 """

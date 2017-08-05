@@ -153,7 +153,7 @@ base64_write(const union expr_value *write_value,
 
 static int
 base64_rcall_build(struct ast_node *rcall,
-                   const struct ast_node *call,
+                   const struct ast_node *data_source,
                    const struct ast_node *param_values)
 {
     rcall->u.rexpr_interpreter.read_func = base64_read;

@@ -200,18 +200,6 @@ static void
 box_destroy_index_cache_by_key(struct box *box);
 static void
 box_destroy_mark_offsets_repo(struct box *box);
-static bitpunch_status_t
-box_evaluate_named_expr_dpath_internal(struct box *box,
-                                       const char *named_expr_name,
-                                       enum expr_dpath_type *dpath_typep,
-                                       union expr_dpath *eval_dpathp,
-                                       struct browse_state *bst);
-static bitpunch_status_t
-box_evaluate_named_expr_value_internal(struct box *box,
-                                       const char *named_expr_name,
-                                       enum expr_value_type *value_typep,
-                                       union expr_value *eval_valuep,
-                                       struct browse_state *bst);
 static void
 tracker_jump_to_item_internal(struct tracker *tk,
                               const struct ast_node *item_node,
@@ -760,7 +748,13 @@ box_dump_internal(const struct box *box, FILE *out, int indent)
 }
 
 void
-box_dump(const struct box *box, FILE *out)
+box_dump(const struct box *box)
+{
+    box_fdump(box, stdout);
+}
+
+void
+box_fdump(const struct box *box, FILE *out)
 {
     box_dump_internal(box, out, 0);
 }
@@ -809,13 +803,13 @@ box_cache_free(struct box_cache *cache)
 }
 
 void
-box_cache_dump(struct box_cache *cache, FILE *out)
+box_cache_fdump(struct box_cache *cache, FILE *out)
 {
     struct box *box;
 
     fprintf(out, "=== BOX CACHE CONTENTS ===:\n");
     TAILQ_FOREACH(box, &cache->mru_boxes, cached_boxes_list) {
-        box_dump(box, out);
+        box_fdump(box, out);
     }
 }
 
@@ -1240,7 +1234,8 @@ box_apply_filter_interpreter(struct box *unfiltered_box,
                                             FALSE, bst);
         break ;
     default:
-        return box_error(BITPUNCH_INVALID_PARAM, unfiltered_box, filter, bst,
+        return box_error(BITPUNCH_INVALID_PARAM,
+                         unfiltered_box, filter, bst,
                          "cannot create filter box from filtered type %s",
                          expr_value_type_str(filtered_value_type));
     }
@@ -2060,7 +2055,13 @@ tracker_dump_flags(const struct tracker *tk, FILE *out)
 }
 
 void
-tracker_dump(const struct tracker *tk, FILE *out)
+tracker_dump(const struct tracker *tk)
+{
+    tracker_fdump(tk, stdout);
+}
+
+void
+tracker_fdump(const struct tracker *tk, FILE *out)
 {
     fprintf(out,
             "TRACKER @");
@@ -2816,7 +2817,7 @@ tracker_goto_nth_item_with_key_internal(struct tracker *tk,
 
 static void
 tracker_set_field_internal__block(struct tracker *tk,
-                                  const struct field *field,
+                                  const struct named_expr *field,
                                   struct browse_state *bst)
 {
     DPRINT("TK set field "ANSI_COLOR_GREEN"%s"ANSI_COLOR_RESET" on:\n",
@@ -2824,13 +2825,13 @@ tracker_set_field_internal__block(struct tracker *tk,
     DBG_TRACKER_DUMP(tk);
     tracker_set_dangling_internal(tk);
     tk->cur.u.block.field = field;
-    tk->item_node = field->field_type;
+    tk->item_node = field->expr;
     DBG_TRACKER_CHECK_STATE(tk);
 }
 
 bitpunch_status_t
 tracker_goto_field_internal(struct tracker *tk,
-                            const struct field *to_field, int flat,
+                            const struct named_expr *to_field, int flat,
                             struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
@@ -3259,7 +3260,7 @@ track_path_elem_dump(struct track_path tp, int dump_separator,
             return fprintf(stream, "%s<ANON:%s>",
                            (dump_separator ? "." : ""),
                            ast_node_type_str(
-                               tp.u.block.field->field_type->type));
+                               tp.u.block.field->expr->type));
         }
         break ;
     case TRACK_PATH_ARRAY:
@@ -3841,11 +3842,11 @@ box_lookup_statement_recur(struct box *box,
         } else {
             assert(STATEMENT_TYPE_FIELD == stmt_type);
             if (!(stmt->stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
-                const struct field *field;
+                const struct named_expr *field;
                 const struct ast_node *as_type;
 
-                field = (const struct field *)stmt;
-                as_type = ast_node_get_as_type(field->field_type);
+                field = (const struct named_expr *)stmt;
+                as_type = ast_node_get_as_type(field->expr);
                 assert(AST_NODE_TYPE_BLOCK_DEF == as_type->type);
                 bt_ret = box_lookup_statement_recur(
                     box, &as_type->u.block_def.block_stmt_list,
@@ -4023,28 +4024,28 @@ box_evaluate_attribute_internal(struct box *box,
     switch (stmt_type) {
     case STATEMENT_TYPE_NAMED_EXPR: {
         const struct named_expr *named_expr;
-        struct ast_node *dst_expr;
+        struct ast_node *expr;
         union expr_value eval_value;
         union expr_dpath eval_dpath;
         int eval_dpath_computed = FALSE;
 
         named_expr = (const struct named_expr *)named_stmt;
-        dst_expr = named_expr->dst_expr;
+        expr = named_expr->expr;
         if (NULL != eval_dpathp
-            && EXPR_DPATH_TYPE_NONE != dst_expr->u.rexpr.dpath_type) {
-            bt_ret = expr_evaluate_dpath_internal(dst_expr, filtered_box,
+            && EXPR_DPATH_TYPE_NONE != expr->u.rexpr.dpath_type) {
+            bt_ret = expr_evaluate_dpath_internal(expr, filtered_box,
                                                   &eval_dpath, bst);
             eval_dpath_computed = TRUE;
         }
         if (BITPUNCH_OK == bt_ret
             && NULL != eval_valuep
-            && EXPR_VALUE_TYPE_UNSET != dst_expr->u.rexpr.value_type) {
+            && EXPR_VALUE_TYPE_UNSET != expr->u.rexpr.value_type) {
             if (eval_dpath_computed) {
-                bt_ret = expr_read_dpath_value_internal(dst_expr,
+                bt_ret = expr_read_dpath_value_internal(expr,
                                                         eval_dpath,
                                                         &eval_value, bst);
             } else {
-                bt_ret = expr_evaluate_value_internal(dst_expr,
+                bt_ret = expr_evaluate_value_internal(expr,
                                                       filtered_box,
                                                       &eval_value, bst);
             }
@@ -4055,13 +4056,13 @@ box_evaluate_attribute_internal(struct box *box,
                 *eval_valuep = eval_value;
             }
             if (NULL != value_typep) {
-                *value_typep = dst_expr->u.rexpr.value_type;
+                *value_typep = expr->u.rexpr.value_type;
             }
             if (NULL != eval_dpathp) {
                 *eval_dpathp = eval_dpath;
             }
             if (NULL != dpath_typep) {
-                *dpath_typep = dst_expr->u.rexpr.dpath_type;
+                *dpath_typep = expr->u.rexpr.dpath_type;
             }
         }
         return bt_ret;
@@ -4072,7 +4073,7 @@ box_evaluate_attribute_internal(struct box *box,
         tk = tracker_new(filtered_box);
         box_delete(filtered_box);
         bt_ret = tracker_goto_field_internal(
-            tk, (const struct field *)named_stmt, FALSE, bst);
+            tk, (const struct named_expr *)named_stmt, FALSE, bst);
         if (BITPUNCH_OK != bt_ret) {
             tracker_delete(tk);
             return bt_ret;
@@ -4102,47 +4103,6 @@ box_evaluate_attribute_internal(struct box *box,
     }
     /*NOT REACHED*/
 }
-
-static bitpunch_status_t
-box_evaluate_named_expr_dpath_internal(struct box *box,
-                                       const char *named_expr_name,
-                                       enum expr_dpath_type *dpath_typep,
-                                       union expr_dpath *eval_dpathp,
-                                       struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    const struct named_expr *named_expr;
-
-    bt_ret = box_lookup_named_expr_internal(box, named_expr_name,
-                                            &named_expr, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    return named_expr_evaluate_dpath_internal(named_expr, box,
-                                              dpath_typep, eval_dpathp,
-                                              bst);
-}
-
-static bitpunch_status_t
-box_evaluate_named_expr_value_internal(struct box *box,
-                                       const char *named_expr_name,
-                                       enum expr_value_type *value_typep,
-                                       union expr_value *eval_valuep,
-                                       struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    const struct named_expr *named_expr;
-
-    bt_ret = box_lookup_named_expr_internal(box, named_expr_name,
-                                            &named_expr, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    return named_expr_evaluate_value_internal(named_expr, box,
-                                              value_typep, eval_valuep,
-                                              bst);
-}
-
 
 /*
  * tracker error management
@@ -4801,7 +4761,7 @@ tracker_get_item_key__block(struct tracker *tk,
 
 static bitpunch_status_t
 tracker_goto_item_int__block(struct tracker *tk,
-                             const struct field *field, int flat,
+                             const struct named_expr *field, int flat,
                              struct browse_state *bst)
 {
     struct tracker *xtk;
@@ -4836,7 +4796,7 @@ tracker_goto_item_int__block(struct tracker *tk,
             tracker_delete(xtk);
             return bt_ret;
         }
-        field = (const struct field *)stmt;
+        field = (const struct named_expr *)stmt;
     } while (NULL == field->nstmt.name
              && 0 == (field->nstmt.stmt.stmt_flags & FIELD_FLAG_HIDDEN));
     tracker_set(tk, xtk);
@@ -4899,7 +4859,7 @@ tracker_goto_first_item_int__block(struct tracker *tk, int flat,
             return bt_ret;
         }
     }
-    return tracker_goto_item_int__block(tk, (const struct field *)stmt,
+    return tracker_goto_item_int__block(tk, (const struct named_expr *)stmt,
                                         flat, bst);
 }
 
@@ -4962,7 +4922,7 @@ tracker_goto_next_item_int__block(struct tracker *tk, int flat,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    return tracker_goto_item_int__block(tk, (const struct field *)stmt,
+    return tracker_goto_item_int__block(tk, (const struct named_expr *)stmt,
                                         flat, bst);
 }
 
@@ -5129,7 +5089,7 @@ box_get_children_slack__struct(struct box *box,
     int64_t max_offset;
     struct tracker *tk;
     struct statement_iterator stit;
-    const struct field *cur_field;
+    const struct named_expr *cur_field;
 
     DBG_BOX_DUMP(box);
     bt_ret = box_compute_max_span_size(box, bst);
@@ -7739,39 +7699,6 @@ box_iter_named_exprs_next(struct box *box, tnamed_expr_iterator *it,
         box_iter_named_exprs_next_internal(box, it, named_exprp, &bst),
         &bst, errp);
 }
-
-bitpunch_status_t
-box_evaluate_named_expr_dpath(struct box *box, const char *named_expr_name,
-                              enum expr_dpath_type *dpath_typep,
-                              union expr_dpath *eval_dpathp,
-                              struct tracker_error **errp)
-{
-    struct browse_state bst;
-
-    browse_state_init(&bst);
-    return transmit_error(
-        box_evaluate_named_expr_dpath_internal(box, named_expr_name,
-                                               dpath_typep, eval_dpathp,
-                                               &bst),
-        &bst, errp);
-}
-
-bitpunch_status_t
-box_evaluate_named_expr_value(struct box *box, const char *named_expr_name,
-                              enum expr_value_type *value_typep,
-                              union expr_value *eval_valuep,
-                              struct tracker_error **errp)
-{
-    struct browse_state bst;
-
-    browse_state_init(&bst);
-    return transmit_error(
-        box_evaluate_named_expr_value_internal(box, named_expr_name,
-                                               value_typep, eval_valuep,
-                                               &bst),
-        &bst, errp);
-}
-
 
 /*
  *

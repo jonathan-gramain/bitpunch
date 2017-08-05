@@ -250,13 +250,15 @@ struct box *
 box_new_from_file(const struct bitpunch_schema_hdl *def_hdl,
                   struct bitpunch_binary_file_hdl *file_hdl);
 void
-box_dump(const struct box *box, FILE *out);
+box_dump(const struct box *box);
+void
+box_fdump(const struct box *box, FILE *out);
 void
 box_cache_clear(struct box_cache *cache);
 void
 box_cache_free(struct box_cache *cache);
 void
-box_cache_dump(struct box_cache *cache, FILE *out);
+box_cache_fdump(struct box_cache *cache, FILE *out);
 int
 box_get_abs_dpath(const struct box *box,
                   char *dpath_expr_buf, int buf_size);
@@ -272,7 +274,9 @@ tracker_dup(struct tracker *tk);
 void
 tracker_delete(struct tracker *tk);
 void
-tracker_dump(const struct tracker *tk, FILE *out);
+tracker_dump(const struct tracker *tk);
+void
+tracker_fdump(const struct tracker *tk, FILE *out);
 
 enum tracker_state
 tracker_get_state(const struct tracker *tk);
@@ -503,17 +507,6 @@ bitpunch_status_t
 box_iter_named_exprs_next(struct box *box, tnamed_expr_iterator *it,
                           const struct named_expr **named_exprp,
                           struct tracker_error **errp);
-
-bitpunch_status_t
-box_evaluate_named_expr_dpath(struct box *box, const char *named_expr_name,
-                              enum expr_dpath_type *dpath_typep,
-                              union expr_dpath *eval_dpathp,
-                              struct tracker_error **errp);
-bitpunch_status_t
-box_evaluate_named_expr_value(struct box *box, const char *named_expr_name,
-                              enum expr_value_type *value_typep,
-                              union expr_value *eval_valuep,
-                              struct tracker_error **errp);
 
 /* error reporting */
 

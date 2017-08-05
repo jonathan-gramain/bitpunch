@@ -10,18 +10,18 @@ u32[1 == 2] contents;
 Test that contents get a static span size:
 
 
-byte[sizeof (MYTYPE)] contents;
+contents: byte[sizeof (MYTYPE)];
 ...
 
 struct MYTYPE {
-    byte[sizeof (OTHERTYPE)] foo;
+    foo: byte[sizeof (OTHERTYPE)];
 };
 
 struct OTHERTYPE {
     struct INNERTYPE {
-        byte[42] bar;
+        bar: byte[42];
     };
-    byte[sizeof (INNERTYPE)] baz;
+    baz: byte[sizeof (INNERTYPE)];
 };
 
 ===============
@@ -29,12 +29,12 @@ struct OTHERTYPE {
 Test that contents get a static span size:
 
 
-byte[sizeof (MYTYPE)] contents;
+contents: byte[sizeof (MYTYPE)];
 ...
 
 struct MYTYPE {
-    byte[sizeof (bar)] foo;
-    byte[42]           bar;
+    foo: byte[sizeof (bar)];
+    : byte[42]          bar;
 };
 
 ===============

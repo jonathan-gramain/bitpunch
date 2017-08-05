@@ -438,7 +438,6 @@ class CLI(NestedCmd):
 
 
     def load_file(self, data_path=None, bp_path=None):
-
         if bp_path:
             self.format_spec_path = os.path.expanduser(bp_path)
             self.format_spec = model.FormatSpec(open(self.format_spec_path, 'r'))
@@ -463,7 +462,9 @@ class CLI(NestedCmd):
                           else '<not loaded>',
                           fmt=self.format_spec_path if self.format_spec_path
                           else '<not loaded>'));
-                
+
+    def attach_data_tree(self, data_tree):
+        self.data_tree = data_tree
 
     def complete_file(self, text, begin, end):
         logging.debug('complete_file text=%s begin=%d end=%d'

@@ -11,8 +11,8 @@ import conftest
 
 spec_varint = """
 file {
-    byte[] value: varint();
-    byte[] trailer;
+    value:   byte[]: varint;
+    trailer: byte[];
 }
 """
 
@@ -43,24 +43,24 @@ def test_varint(params_varint):
 #
 
 spec_varint_pools = """
-type u8 = byte[1]: integer(signed=false);
-type v8 = byte[1]: varint();
-type v16 = byte[2]: varint();
-type v32 = byte[4]: varint();
-type v64 = byte[8]: varint();
-type vx = byte[]: varint();
+let u8 = byte[1]: integer { signed: false; };
+let v8 = byte[1]: varint;
+let v16 = byte[2]: varint;
+let v32 = byte[4]: varint;
+let v64 = byte[8]: varint;
+let vx = byte[]: varint;
 
 file {
-    u8 v8_count;
-    v8[v8_count] v8_array;
-    u8 v16_count;
-    v16[v16_count] v16_array;
-    u8 v32_count;
-    v32[v32_count] v32_array;
-    u8 v64_count;
-    v64[v64_count] v64_array;
-    u8 vx_count;
-    vx[vx_count] vx_array;
+    v8_count:  u8;
+    v8_array:  v8[v8_count];
+    v16_count: u8;
+    v16_array: v16[v16_count];
+    v32_count: u8;
+    v32_array: v32[v32_count];
+    v64_count: u8;
+    v64_array: v64[v64_count];
+    vx_count:  u8;
+    vx_array:  vx[vx_count];
 }
 """
 
@@ -126,19 +126,19 @@ def test_varint_pools(params_varint_pools):
 
 
 spec_varint_in_blocks = """
-type u8 = byte: integer(signed=false);
-type u16 = byte[2]: integer(signed=false, endian=little);
-type u32 = byte[4]: integer(signed=false, endian=little);
+let u8 = byte: integer { signed: false; };
+let u16 = byte[2]: integer { signed: false; endian: 'little'; };
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
 
-type VarInt = byte[]: varint();
+let VarInt = byte[]: varint;
 
 file {
-    Block[] blocks;
+    blocks: Block[];
 }
 
-struct Block {
-    VarInt length;
-    byte[length] data;
+let Block = struct {
+    length: VarInt;
+    data:   byte[length];
 };
 """
 

@@ -46,6 +46,10 @@ int
 ast_node_is_rexpr(const struct ast_node *node);
 int
 ast_node_is_rexpr_to_item(const struct ast_node *node);
+struct ast_node *
+ast_node_get_target_item(struct ast_node *node);
+struct ast_node *
+ast_node_get_named_expr_target(struct ast_node *node);
 int
 ast_node_is_container(const struct ast_node *node);
 int
@@ -77,9 +81,13 @@ ast_node_get_key_expr(const struct ast_node *node);
 enum expr_value_type
 ast_node_get_key_type(const struct ast_node *node);
 void
-dump_ast_location(struct ast_node *node, FILE *stream);
+dump_ast_location(struct ast_node *node);
 void
-dump_ast(struct ast_node *root, FILE *stream);
+fdump_ast_location(struct ast_node *node, FILE *stream);
+void
+dump_ast(struct ast_node *root);
+void
+fdump_ast(struct ast_node *root, FILE *stream);
 void
 dump_block(const struct ast_node *block, FILE *stream);
 void

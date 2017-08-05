@@ -46,13 +46,13 @@
 #include "check_tracker.h"
 
 static const char *check_slack_def =
-    "type u32 = byte[4]: integer(signed=false, endian=big);\n"
-    "struct MyHdr {\n"
-    "    byte[5] magic;\n"
+    "let u32 = byte[4]: integer { signed: false; endian: 'big'; };\n"
+    "let MyHdr = struct {\n"
+    "    magic: byte[5];\n"
     "};\n"
     "file {\n"
-    "    MyHdr   hdr;\n"
-    "    u32[]   slack_array;\n"
+    "    hdr: MyHdr;\n"
+    "    slack_array: u32[];\n"
     "}\n";
 
 static struct bitpunch_schema_hdl *check_slack_def_hdl;
@@ -126,14 +126,14 @@ static const struct test_tracker_spec check_slack_valid1_spec = {
 
 
 static const char *check_slack_trailing_field_def =
-    "type u32 = byte[4]: integer(signed=false, endian=big);\n"
-    "struct MyHdr {\n"
-    "    byte[5] magic;\n"
+    "let u32 = byte[4]: integer { signed: false; endian: 'big'; };\n"
+    "let MyHdr = struct {\n"
+    "    magic: byte[5];\n"
     "};\n"
     "file {\n"
-    "    MyHdr   hdr;\n"
-    "    u32[]   slack_array;\n"
-    "    byte[7] trailer;\n"
+    "    hdr: MyHdr;\n"
+    "    slack_array: u32[];\n"
+    "    trailer: byte[7];\n"
     "}\n";
 
 static struct bitpunch_schema_hdl *check_slack_trailing_field_def_hdl;
@@ -213,17 +213,17 @@ static const struct test_tracker_spec check_slack_trailing_field_valid1_spec = {
 
 
 static const char *check_slack_byte_array_def =
-    "type u32 = byte[4]: integer(signed=false, endian=big);\n"
-    "struct MyHdr {\n"
-    "    byte[5] magic;\n"
+    "let u32 = byte[4]: integer { signed: false; endian: 'big'; };\n"
+    "let MyHdr = struct {\n"
+    "    magic: byte[5];\n"
     "};\n"
-    "struct MyFtr {\n"
-    "    byte[3] bye;\n"
+    "let MyFtr = struct {\n"
+    "    bye: byte[3];\n"
     "};\n"
     "file {\n"
-    "    MyHdr   hdr;\n"
-    "    byte[]  padding;\n"
-    "    MyHdr   ftr;\n"
+    "    hdr: MyHdr;\n"
+    "    padding: byte[];\n"
+    "    ftr: MyHdr;\n"
     "}\n";
 
 static struct bitpunch_schema_hdl *check_slack_byte_array_def_hdl;
@@ -279,19 +279,19 @@ static const struct test_tracker_spec check_slack_byte_array_valid1_spec = {
 
 
 static const char *check_slack_trailing_field_recur_def =
-    "type u32 = byte[4]: integer(signed=false, endian=big);\n"
-    "struct BOX {\n"
-    "    u32 size;\n"
-    "    byte[8] name: string;\n"
-    "    BOX[] sub_boxes;\n"
-    "    byte[7] trailer_str: string;\n"
+    "let u32 = byte[4]: integer { signed: false; endian: 'big'; };\n"
+    "let BOX = struct {\n"
+    "    size:        u32;\n"
+    "    name:        byte[8]: string;\n"
+    "    sub_boxes:   BOX[];\n"
+    "    trailer_str: byte[7]: string;\n"
     "\n"
     "    span size;\n"
     "};\n"
     "file {\n"
-    "     byte[6] hello_str: string;\n"
-    "     BOX[] boxes;\n"
-    "     byte[10] end_str: string;\n"
+    "     hello_str:  byte[6]: string;\n"
+    "     boxes:      BOX[];\n"
+    "     end_str:    byte[10]: string;\n"
     "}\n";
 
 
