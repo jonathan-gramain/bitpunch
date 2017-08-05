@@ -3,4 +3,4 @@
 export PYTHONPATH=$(dirname $0)/build/lib.linux-x86_64-2.7
 export LD_LIBRARY_PATH=$(dirname $0)/build/lib
 
-python ${PYTHONPATH}/bitpunch_cli/cli.py $@
+python ${PYTHONPATH}/bitpunch_cli/cli.py "$@"

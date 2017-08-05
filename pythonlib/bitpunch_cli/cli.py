@@ -112,10 +112,6 @@ class CLI(NestedCmd):
         super(CLI, self).preloop()
         completer.word_break_characters += '&'
 
-        if len(sys.argv) > 1:
-            print "loading binary file " + sys.argv[1]
-            self.do_file(sys.argv[1])
-
     def open_data_tree(self, cmdname):
         if self.data_tree is not None:
             return
@@ -438,11 +434,16 @@ class CLI(NestedCmd):
                             nargs='?', default=None)
         pargs = parser.parse_args(shlex.split(args, comments=True))
 
-        if pargs.bppath:
-            self.format_spec_path = os.path.expanduser(pargs.bppath)
+        self.load_file(pargs.filepath, pargs.bppath)
+
+
+    def load_file(self, data_path=None, bp_path=None):
+
+        if bp_path:
+            self.format_spec_path = os.path.expanduser(bp_path)
             self.format_spec = model.FormatSpec(open(self.format_spec_path, 'r'))
-        if pargs.filepath:
-            filepath = os.path.expanduser(pargs.filepath)
+        if data_path:
+            filepath = os.path.expanduser(data_path)
             new_bin_file = open(filepath, 'r')
             if self.bin_file:
                 self.bin_file.close()
@@ -570,4 +571,7 @@ class CLI(NestedCmd):
 
 if __name__ == '__main__':
     cli = CLI()
+    if len(sys.argv) > 1:
+        print "loading binary file " + repr(sys.argv[1])
+        cli.load_file(sys.argv[1], bp_path=None)
     cli.cmdloop()
