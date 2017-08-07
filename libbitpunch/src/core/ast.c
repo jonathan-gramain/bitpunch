@@ -1070,11 +1070,6 @@ resolve_names_block(struct ast_node *block,
                     enum resolve_expect_mask expect_mask,
                     struct ast_node **resolved_typep)
 {
-    if (0 == (expect_mask & RESOLVE_EXPECT_TYPE)) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &block->loc,
-                       "unexpected block");
-        return -1;
-    }
     if (-1 == resolve_block_stmt_lists_types(block, visible_refs,
                                              resolve_step)) {
         return -1;
