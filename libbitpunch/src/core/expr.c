@@ -1684,9 +1684,7 @@ expr_evaluate_sizeof(struct ast_node *expr, struct box *scope,
         /* We assert a static size here, because dynamic sizes shall
          * always be specified to sizeof() through use of dpath
          * expressions.
-         *
-         * Note: the parser should have replaced the static sizeof by
-         * constants. But anyway, fallback here in case it hasn't. */
+         */
         assert(0 == (opd->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC));
         item_size = ast_node_get_min_span_size(opd);
     }

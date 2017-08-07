@@ -3422,12 +3422,6 @@ resolve2_ast_node_operator_sizeof(struct ast_node *expr,
         }
         break ;
     }
-    if (NULL != item && 0 == (item->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-        expr->type = AST_NODE_TYPE_REXPR_NATIVE;
-        expr->u.rexpr.value_type = EXPR_VALUE_TYPE_INTEGER;
-        expr->u.rexpr.dpath_type = EXPR_DPATH_TYPE_NONE;
-        expr->u.rexpr_native.value.integer = item->u.item.min_span_size;
-    }
     return 0;
 }
 

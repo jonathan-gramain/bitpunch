@@ -3444,6 +3444,7 @@ tracker_compute_item_size(struct tracker *tk,
     int64_t item_size;
 
     DBG_TRACKER_DUMP(tk);
+    assert(-1 != tk->item_offset);
     if (NULL != tk->item_box
         && -1 != tk->item_box->end_offset_used) {
         tk->item_size =
@@ -3481,6 +3482,12 @@ tracker_get_item_size_internal(struct tracker *tk, int64_t *item_sizep,
     DBG_TRACKER_DUMP(tk);
     if (NULL == tk->item_node) {
         return BITPUNCH_NO_ITEM;
+    }
+    if (0 == (tk->item_node->flags & ASTFLAG_IS_USED_SIZE_DYNAMIC)) {
+        if (NULL != item_sizep) {
+            *item_sizep = tk->item_node->u.item.min_span_size;
+        }
+        return BITPUNCH_OK;
     }
     if (-1 == tk->item_offset) {
         bt_ret = tracker_compute_item_offset(tk, bst);
@@ -3544,12 +3551,13 @@ tracker_get_item_location_internal(struct tracker *tk,
 {
     bitpunch_status_t bt_ret;
 
-    bt_ret = tracker_get_item_size_internal(tk, item_sizep, bst);
-    if (BITPUNCH_OK != bt_ret)
+    bt_ret = tracker_get_item_offset_internal(tk, item_offsetp, bst);
+    if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
-
-    if (NULL != item_offsetp) {
-        *item_offsetp = tk->item_offset;
+    }
+    bt_ret = tracker_get_item_size_internal(tk, item_sizep, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
     }
     return BITPUNCH_OK;
 }
@@ -3562,12 +3570,21 @@ tracker_read_item_raw_internal(struct tracker *tk,
 {
     bitpunch_status_t bt_ret;
 
-    bt_ret = tracker_get_item_size_internal(tk, item_sizep, bst);
+    bt_ret = tracker_compute_item_offset(tk, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
+    bt_ret = tracker_compute_item_size(tk, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    assert(-1 != tk->item_offset);
+    assert(-1 != tk->item_size);
     if (NULL != item_contentsp) {
         *item_contentsp = tk->box->file_hdl->bf_data + tk->item_offset;
+    }
+    if (NULL != item_sizep) {
+        *item_sizep = tk->item_size;
     }
     return BITPUNCH_OK;
 }
@@ -3579,17 +3596,20 @@ tracker_read_item_value_internal(struct tracker *tk,
                                  struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
+    int64_t item_offset;
+    int64_t item_size;
 
     DBG_TRACKER_DUMP(tk);
     if (NULL == tk->item_node) {
         return BITPUNCH_NO_ITEM;
     }
-    bt_ret = tracker_get_item_size_internal(tk, NULL, bst);
+    bt_ret = tracker_get_item_location_internal(tk, &item_offset,
+                                                &item_size, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
     return tk->item_node->u.item.b_item.read_value(
-        tk->item_node, tk->box, tk->item_offset, tk->item_size,
+        tk->item_node, tk->box, item_offset, item_size,
         typep, valuep, bst);
 }
 
@@ -5548,13 +5568,18 @@ tracker_goto_next_item__array(struct tracker *tk,
         }
     }
     if (0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
-        bt_ret = tracker_get_item_size_internal(tk, &item_size, bst);
+        bt_ret = tracker_compute_item_offset(tk, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
+        bt_ret = tracker_compute_item_size(tk, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
+        item_size = tk->item_size;
         box_delete(tk->item_box);
         tk->item_box = NULL;
-        tk->item_offset += item_size;
+        tk->item_offset += tk->item_size;
         if (0 != (tk->item_node->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
             tk->item_size = -1;
         }

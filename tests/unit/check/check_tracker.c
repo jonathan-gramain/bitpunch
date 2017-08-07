@@ -352,6 +352,8 @@ check_tracker_item(struct tracker *tk,
     union expr_value value;
     int iret;
     char dpath_expr[256];
+    int64_t item_offset;
+    int64_t item_size;
 
     ck_assert_ptr_ne(tk->item_node, NULL);
     if (check_verbose) {
@@ -382,9 +384,9 @@ check_tracker_item(struct tracker *tk,
     ck_assert_int_eq(iret, strlen(expect_box->path));
     ck_assert_str_eq(dpath_expr, expect_box->path);
     ck_assert_int_eq(tk->item_offset, expect_box->offset);
-    bt_ret = tracker_get_item_size(tk, NULL, NULL);
+    bt_ret = tracker_get_item_location(tk, &item_offset, &item_size, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-    ck_assert_int_eq(tk->item_size, expect_box->size);
+    ck_assert_int_eq(item_size, expect_box->size);
     if (NULL != tk->item_box) {
         ck_assert_int_ne(-1, tk->item_box->end_offset_used);
         ck_assert_int_eq(tk->item_box->end_offset_used
