@@ -183,3 +183,26 @@ def test_pseudo_fs(params_pseudo_fs):
     assert catalog[4]['?file']['?dir'].dirname == 'directory1'
     assert catalog[5]['?file']['?dir'].dirname == 'directory2'
     assert catalog[6]['?file']['?dir'].dirname == 'directory2'
+
+    assert catalog.get_size() == 56
+    assert catalog[3].get_size() == 8
+    assert catalog[3]['?data'].get_size() == 9
+    assert catalog[3]['?file'].get_size() == 9
+    assert dtree.eval_expr('sizeof(?catalog[3].?file)') == 9
+    assert dtree.eval_expr('sizeof(Entry)') == 8
+    assert dtree.eval_expr('sizeof(Entry.entry_size)') == 2
+    assert dtree.eval_expr('sizeof(Entry.File.filesize)') == 2
+    assert dtree.eval_expr('sizeof(?catalog[3].File.filesize)') == 2
+
+    # cannot do sizeof() on dynamic-sized type name
+    with pytest.raises(ValueError):
+        dtree.eval_expr('sizeof(Entry.Dir)')
+
+    with pytest.raises(ValueError):
+        dtree.eval_expr('sizeof(Entry.File.filename)')
+    with pytest.raises(ValueError):
+        dtree.eval_expr('sizeof(?catalog[3].File.filename)')
+
+    # cannot do sizeof() on non-dpath if not type
+    with pytest.raises(ValueError):
+        dtree.eval_expr('sizeof(Entry.?data)')

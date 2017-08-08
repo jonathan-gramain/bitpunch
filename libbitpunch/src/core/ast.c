@@ -1402,10 +1402,13 @@ resolve_names_in_blocks_op_subscript(
     struct ast_node **resolved_typep)
 {
     struct ast_node *anchor_expr;
+    struct ast_node *anchor_target;
     struct ast_node *resolved_type;
 
     anchor_expr = node->u.op_subscript_common.anchor_expr;
-    if (0 != (expect_mask & RESOLVE_EXPECT_TYPE)) {
+    anchor_target = ast_node_get_named_expr_target(anchor_expr);
+    if (0 != (expect_mask & RESOLVE_EXPECT_TYPE)
+        && !ast_node_is_rexpr(anchor_target)) {
         resolved_type = new_safe(struct ast_node);
         resolved_type->type = AST_NODE_TYPE_ARRAY;
         resolved_type->loc = node->loc;
@@ -2976,9 +2979,11 @@ resolve2_ast_node_member(struct ast_node *expr, struct resolve2_ctx *ctx)
     if (-1 == ret) {
         return -1;
     }
-    assert(ast_node_is_rexpr(anchor_expr));
-    anchor_block = anchor_expr->u.rexpr.target_item;
-
+    if (ast_node_is_rexpr(anchor_expr)) {
+        anchor_block = anchor_expr->u.rexpr.target_item;
+    } else {
+        anchor_block = anchor_expr;
+    }
     if (NULL == anchor_block) {
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
@@ -3002,7 +3007,6 @@ resolve2_ast_node_member(struct ast_node *expr, struct resolve2_ctx *ctx)
     if (NULL != resolved_member) {
         expr->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
         assert(NULL != anchor_expr);
-        assert(ast_node_is_rexpr(anchor_expr));
         expr->u.rexpr_member_common.anchor_expr = anchor_expr;
         expr->u.rexpr_named_expr.named_expr =
             (struct named_expr *)resolved_member;
@@ -3014,7 +3018,6 @@ resolve2_ast_node_member(struct ast_node *expr, struct resolve2_ctx *ctx)
     if (NULL != resolved_member) {
         expr->type = AST_NODE_TYPE_REXPR_FIELD;
         assert(NULL != anchor_expr);
-        assert(ast_node_is_rexpr(anchor_expr));
         expr->u.rexpr_member_common.anchor_expr = anchor_expr;
         expr->u.rexpr_field.field = 
             (struct named_expr *)resolved_member;
@@ -3379,43 +3382,44 @@ resolve2_ast_node_operator_sizeof(struct ast_node *expr,
                                   struct resolve2_ctx *ctx)
 {
     struct ast_node *operand;
-    struct ast_node *item;
+    struct ast_node *target;
+    struct ast_node *anchor;
+    struct ast_node *item = NULL;
 
-    switch (expr->u.rexpr_op.op.operands[0]->type) {
-    case AST_NODE_TYPE_BLOCK_DEF:
-    case AST_NODE_TYPE_ARRAY:
-    case AST_NODE_TYPE_BYTE_ARRAY:
-        operand = expr->u.rexpr_op.op.operands[0];
-        item = ast_node_get_named_expr_target(operand);
-        if (-1 == resolve2_span_size(item, ctx)) {
-            return -1;
-        }
+    operand = expr->u.rexpr_op.op.operands[0];
+    if (-1 == resolve2_ast_node(operand, ctx)) {
+        return -1;
+    }
+    target = ast_node_get_named_expr_target(operand);
+    item = ast_node_get_target_item(target);
+    anchor = target;
+    while (NULL != anchor
+           && AST_NODE_TYPE_REXPR_FIELD == anchor->type) {
+        anchor = ast_node_get_named_expr_target(
+            anchor->u.rexpr_member_common.anchor_expr);
+    }
+    if ((NULL != anchor && ast_node_is_item(anchor))
+        || (NULL == anchor && ast_node_is_item(target))) {
         if (0 != (item->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC)) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
                 "invalid use of sizeof operator on dynamic-sized type name\n"
-                "(use a path to field for computing size dynamically)");
+                "(use a dpath expression for computing size dynamically)");
             return -1;
         }
-        break ;
-    default:
-        operand = expr->u.rexpr_op.op.operands[0];
-        if (-1 == resolve2_ast_node(operand, ctx)) {
+        expr->u.rexpr_op.op.operands[0] = item;
+    } else if (!ast_node_is_rexpr(target)
+               || EXPR_DPATH_TYPE_NONE == target->u.rexpr.dpath_type) {
+        semantic_error(
+            SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
+            "invalid use of sizeof operator on operand of type '%s'",
+            ast_node_type_str(target->type));
+        return -1;
+    }
+    if (NULL != item) {
+        if (-1 == resolve2_span_size(item, ctx)) {
             return -1;
         }
-        if (!ast_node_is_rexpr(operand)
-            || EXPR_DPATH_TYPE_NONE == operand->u.rexpr.dpath_type) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                "invalid use of sizeof operator on operand of type '%s'",
-                ast_node_type_str(operand->type));
-            return -1;
-        }
-        item = operand->u.rexpr.target_item;
-        if (NULL != item && -1 == resolve2_span_size(item, ctx)) {
-            return -1;
-        }
-        break ;
     }
     return 0;
 }

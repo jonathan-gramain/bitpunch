@@ -1664,12 +1664,11 @@ expr_evaluate_sizeof(struct ast_node *expr, struct box *scope,
 {
     struct ast_node *opd;
     int64_t item_size;
+    bitpunch_status_t bt_ret;
+    union expr_dpath dpath_eval;
 
     opd = expr->u.rexpr_op.op.operands[0];
     if (ast_node_is_rexpr(opd)) {
-        bitpunch_status_t bt_ret;
-        union expr_dpath dpath_eval;
-
         bt_ret = expr_evaluate_dpath_internal(opd, scope, &dpath_eval, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
@@ -1681,10 +1680,8 @@ expr_evaluate_sizeof(struct ast_node *expr, struct box *scope,
             return bt_ret;
         }
     } else {
-        /* We assert a static size here, because dynamic sizes shall
-         * always be specified to sizeof() through use of dpath
-         * expressions.
-         */
+        // static sized item
+        assert(ast_node_is_item(opd));
         assert(0 == (opd->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC));
         item_size = ast_node_get_min_span_size(opd);
     }
