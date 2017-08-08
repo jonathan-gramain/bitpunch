@@ -3,7 +3,6 @@
 import pytest
 
 from bitpunch import model
-from bitpunch_cli import CLI
 import conftest
 
 

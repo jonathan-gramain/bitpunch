@@ -158,7 +158,7 @@ resolve_names_array(
     enum resolve_expect_mask expect_mask,
     struct ast_node **resolved_typep);
 static int
-resolve_names_in_blocks_array(
+resolve_names_in_expressions_array(
     struct ast_node *node,
     const struct list_of_visible_refs *visible_refs,
     enum resolve_expect_mask expect_mask,
@@ -182,12 +182,6 @@ resolve_names_op_subscript(
     struct ast_node *node,
     const struct list_of_visible_refs *visible_refs,
     enum resolve_step resolve_step,
-    enum resolve_expect_mask expect_mask,
-    struct ast_node **resolved_typep);
-static int
-resolve_names_in_blocks_op_subscript(
-    struct ast_node *node,
-    const struct list_of_visible_refs *visible_refs,
     enum resolve_expect_mask expect_mask,
     struct ast_node **resolved_typep);
 static int
@@ -1257,9 +1251,10 @@ resolve_names_array(
         }
     }
     switch (resolve_step) {
-    case RESOLVE_NAMES_IN_BLOCKS:
-        return resolve_names_in_blocks_array(node, visible_refs,
-                                             expect_mask, resolved_typep);
+    case RESOLVE_NAMES_IN_EXPRESSIONS:
+        return resolve_names_in_expressions_array(node, visible_refs,
+                                                  expect_mask,
+                                                  resolved_typep);
     default:
         *resolved_typep = NULL;
         return 0;
@@ -1267,7 +1262,7 @@ resolve_names_array(
 }
 
 static int
-resolve_names_in_blocks_array(
+resolve_names_in_expressions_array(
     struct ast_node *node,
     const struct list_of_visible_refs *visible_refs,
     enum resolve_expect_mask expect_mask,
@@ -1382,9 +1377,6 @@ resolve_names_op_subscript(
         return -1;
     }
     switch (resolve_step) {
-    case RESOLVE_NAMES_IN_BLOCKS:
-        return resolve_names_in_blocks_op_subscript(
-            node, visible_refs, expect_mask, resolved_typep);
     case RESOLVE_NAMES_IN_EXPRESSIONS:
         return resolve_names_in_expressions_op_subscript(
             node, visible_refs, expect_mask, resolved_typep);
@@ -1395,7 +1387,7 @@ resolve_names_op_subscript(
 }
 
 static int
-resolve_names_in_blocks_op_subscript(
+resolve_names_in_expressions_op_subscript(
     struct ast_node *node,
     const struct list_of_visible_refs *visible_refs,
     enum resolve_expect_mask expect_mask,
@@ -1425,21 +1417,6 @@ resolve_names_in_blocks_op_subscript(
         *resolved_typep = resolved_type;
         return 0;
     }
-    *resolved_typep = NULL;
-    return 0;
-}
-
-static int
-resolve_names_in_expressions_op_subscript(
-    struct ast_node *node,
-    const struct list_of_visible_refs *visible_refs,
-    enum resolve_expect_mask expect_mask,
-    struct ast_node **resolved_typep)
-{
-    struct ast_node *anchor_expr;
-    struct ast_node *resolved_type;
-
-    anchor_expr = node->u.op_subscript_common.anchor_expr;
     if (0 != (expect_mask & RESOLVE_EXPECT_EXPRESSION)) {
         if (NULL == node->u.op_subscript.index.key) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR, &node->loc,
