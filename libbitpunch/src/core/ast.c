@@ -2104,9 +2104,10 @@ resolve_rexpr_consolidate_named_expr(
         target = target->u.rexpr_named_expr.named_expr->expr;
         assert(NULL != target);
     }
-    if (ast_node_is_item(target)) {
+    if (0 == (expect_mask & RESOLVE_EXPECT_EXPRESSION)) {
         *resolved_typep = target;
     } else {
+        // expressions keep the named expressions nodes for tracking
         *resolved_typep = NULL;
     }
     return 0;
