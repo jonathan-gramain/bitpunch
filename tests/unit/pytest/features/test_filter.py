@@ -114,6 +114,26 @@ file {
 
 """
 
+spec_file_simple_filter_as_type_base64_template = """
+
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let Base64 = base64 {};
+
+let Base64Block = struct {
+    n: u32;
+    : byte[n]: Base64: AsContents;
+};
+
+let AsContents = struct {
+    data: byte[];
+};
+
+file {
+    contents: byte[]: Base64Block;
+}
+
+"""
+
 data_file_simple_filter_as_type_base64 = """
 18 00 00 00
 "YXMgY29udGVudHMgZGF0YQ=="
@@ -145,6 +165,10 @@ data_file_simple_filter_as_type_base64 = """
         'is_bad': True,
     }, {
         'spec': spec_file_simple_filter_as_type_base64,
+        'data': data_file_simple_filter_as_type_base64,
+        'stored_content_length': 24,
+    }, {
+        'spec': spec_file_simple_filter_as_type_base64_template,
         'data': data_file_simple_filter_as_type_base64,
         'stored_content_length': 24,
     }])

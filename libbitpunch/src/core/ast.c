@@ -2098,6 +2098,7 @@ resolve_rexpr_consolidate_named_expr(
     struct ast_node **resolved_typep)
 {
     struct ast_node *target;
+    struct ast_node *filter_target;
 
     // replace named expressions by their target item where types are
     // expected
@@ -2108,22 +2109,20 @@ resolve_rexpr_consolidate_named_expr(
         assert(NULL != target);
     }
     *resolved_typep = NULL; // default
-    if (0 == (expect_mask & RESOLVE_EXPECT_EXPRESSION)) {
-        *resolved_typep = target;
-    } else {
-        struct ast_node *filter_target;
-
-        filter_target = expr->u.rexpr_named_expr.filter_target;
-        if (NULL != filter_target) {
-            assert(AST_NODE_TYPE_REXPR_INTERPRETER == target->type);
-            if (0 != (target->flags & ASTFLAG_TEMPLATE)) {
-                if (-1 == interpreter_build_instance(&target,
-                                                     filter_target)) {
-                    return -1;
-                }
-                *resolved_typep = target;
+    filter_target = expr->u.rexpr_named_expr.filter_target;
+    if (NULL != filter_target) {
+        assert(AST_NODE_TYPE_REXPR_INTERPRETER == target->type);
+        if (0 != (target->flags & ASTFLAG_TEMPLATE)) {
+            if (-1 == interpreter_build_instance(&target,
+                                                 filter_target)) {
+                return -1;
             }
+            *resolved_typep = target;
         }
+    }
+    if (NULL == *resolved_typep
+        && 0 == (expect_mask & RESOLVE_EXPECT_EXPRESSION)) {
+        *resolved_typep = target;
     }
     return 0;
 }
@@ -3008,9 +3007,11 @@ resolve2_ast_node_named_expr(struct ast_node *expr,
         if (-1 == resolve2_ast_node(filter_target, ctx)) {
             return -1;
         }
+        expr->u.rexpr.target_item = filter_target;
+    } else {
+        expr->u.rexpr.target_item = ast_node_get_target_item(target);
     }
     expr->u.rexpr.value_type = expr_value_type_from_node(target);
-    expr->u.rexpr.target_item = ast_node_get_target_item(target);
     if (NULL == named_expr->nstmt.next_sibling) {
         // when named expression has no duplicate in the block
         expr->u.rexpr.dpath_type = target->u.rexpr.dpath_type;
