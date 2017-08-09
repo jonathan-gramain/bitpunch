@@ -279,3 +279,43 @@ def test_filter_3(params_filter_3):
 
     assert dtree.a_as_int == 1
     assert dtree.b_as_int == 2
+
+
+spec_file_filter_invalid_no_data_source_1 = """
+
+let UnsignedTemplate = integer { signed: false; endian: 'little'; };
+
+file {
+    value: UnsignedTemplate;
+}
+
+"""
+
+spec_file_filter_invalid_no_data_source_2 = """
+
+let UnsignedTemplate = integer { signed: false; endian: 'little'; };
+
+file {
+    value: ?ref;
+
+    let ?ref = UnsignedTemplate;
+}
+
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_filter_invalid_no_data_source_1,
+    }, {
+        'spec': spec_file_filter_invalid_no_data_source_2,
+    }])
+def params_filter_invalid(request):
+    return request.param
+
+
+def test_filter_invalid(params_filter_invalid):
+    params = params_filter_invalid
+    spec = params['spec']
+    with pytest.raises(OSError):
+        dtree = model.DataTree('', spec)

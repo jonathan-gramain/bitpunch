@@ -3857,6 +3857,15 @@ resolve2_named_expr(struct named_expr *named_expr, struct resolve2_ctx *ctx)
 static int
 resolve2_field(struct named_expr *field, struct resolve2_ctx *ctx)
 {
+    struct ast_node *target;
+
+    target = ast_node_get_named_expr_target(field->expr);
+    if (!ast_node_is_item(target)) {
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &field->expr->loc,
+                       "expect an item type as field type, not '%s'",
+                       ast_node_type_str(target->type));
+        return -1;
+    }
     schedule_resolve2(field->expr, RESOLVE_EXPRESSION_TYPES, ctx,
                       NULL, NULL);
     return 0;
