@@ -448,10 +448,6 @@ static int
 resolve2_ast_node_interpreter(struct ast_node *expr,
                               struct resolve2_ctx *ctx);
 static int
-resolve2_ast_node_interpreter_build_instance(struct ast_node **expr_p,
-                                             struct ast_node *target,
-                                             struct resolve2_ctx *ctx);
-static int
 resolve2_ast_node_as_type(struct ast_node *expr,
                           struct resolve2_ctx *ctx);
 static int
@@ -1691,6 +1687,7 @@ resolve_names_in_expressions_operator_set_filter(
     struct ast_node *filter;
 
     struct ast_node *target_item;
+    struct ast_node *filter_target;
     struct ast_node *filter_type;
 
     target = node->u.op.operands[0];
@@ -1702,14 +1699,20 @@ resolve_names_in_expressions_operator_set_filter(
         if (ast_node_is_item(target_item)) {
             *resolved_typep = target;
             if (NULL != target_item->u.item.filter) {
-                filter->u.rexpr_filter.target = target_item->u.item.filter;
+                filter_target = target_item->u.item.filter;
             } else {
-                filter->u.rexpr_filter.target = target_item;
+                filter_target = target_item;
             }
             target->u.item.filter = filter;
         } else {
             *resolved_typep = filter;
-            filter->u.rexpr_filter.target = target_item;
+            filter_target = target_item;
+        }
+        if (filter == filter_type) {
+            filter->u.rexpr_filter.target = filter_target;
+        } else {
+            assert(AST_NODE_TYPE_REXPR_NAMED_EXPR == filter->type);
+            filter->u.rexpr_named_expr.filter_target = filter_target;
         }
     } else {
         struct ast_node *as_type;
@@ -2104,11 +2107,23 @@ resolve_rexpr_consolidate_named_expr(
         target = target->u.rexpr_named_expr.named_expr->expr;
         assert(NULL != target);
     }
+    *resolved_typep = NULL; // default
     if (0 == (expect_mask & RESOLVE_EXPECT_EXPRESSION)) {
         *resolved_typep = target;
     } else {
-        // expressions keep the named expressions nodes for tracking
-        *resolved_typep = NULL;
+        struct ast_node *filter_target;
+
+        filter_target = expr->u.rexpr_named_expr.filter_target;
+        if (NULL != filter_target) {
+            assert(AST_NODE_TYPE_REXPR_INTERPRETER == target->type);
+            if (0 != (target->flags & ASTFLAG_TEMPLATE)) {
+                if (-1 == interpreter_build_instance(&target,
+                                                     filter_target)) {
+                    return -1;
+                }
+                *resolved_typep = target;
+            }
+        }
     }
     return 0;
 }
@@ -2848,42 +2863,7 @@ resolve2_ast_node_interpreter(struct ast_node *expr,
     if (-1 == resolve2_ast_node(target, ctx)) {
         return -1;
     }
-    return resolve2_ast_node_interpreter_build_instance(
-        &expr, target, ctx);
-}
-
-static int
-resolve2_ast_node_interpreter_build_instance(struct ast_node **expr_p,
-                                             struct ast_node *target,
-                                             struct resolve2_ctx *ctx)
-{
-    const struct interpreter *interpreter;
-    struct ast_node *interp_inst;
-    struct ast_node *target_item;
-
-    assert(NULL != target);
-
-    interpreter = (*expr_p)->u.rexpr_interpreter.interpreter;
-    if (0 != ((*expr_p)->flags & ASTFLAG_TEMPLATE)) {
-        interp_inst = interpreter_rcall_instanciate(*expr_p);
-    } else {
-        interp_inst = *expr_p;
-    }
-
-    interp_inst->u.rexpr.dpath_type = target->u.rexpr.dpath_type;
-
-    target_item = ast_node_get_target_item(target);
-    if (NULL == target_item) {
-        // pass the rexpr node if no target item configured
-        target_item = target;
-    }
-    if (-1 == interpreter->rcall_build_func(
-            interp_inst, target_item,
-            interpreter_rcall_get_params(interp_inst))) {
-        return -1;
-    }
-    *expr_p = interp_inst;
-    return 0;
+    return interpreter_build_instance(&expr, target);
 }
 
 static int
@@ -3016,13 +2996,18 @@ resolve2_ast_node_named_expr(struct ast_node *expr,
 {
     struct named_expr *named_expr;
     struct ast_node *target;
-    int ret;
+    struct ast_node *filter_target;
 
     named_expr = (struct named_expr *) expr->u.rexpr_named_expr.named_expr;
     target = named_expr->expr;
-    ret = resolve2_ast_node(target, ctx);
-    if (-1 == ret) {
+    filter_target = expr->u.rexpr_named_expr.filter_target;
+    if (-1 == resolve2_ast_node(target, ctx)) {
         return -1;
+    }
+    if (NULL != filter_target) {
+        if (-1 == resolve2_ast_node(filter_target, ctx)) {
+            return -1;
+        }
     }
     expr->u.rexpr.value_type = expr_value_type_from_node(target);
     expr->u.rexpr.target_item = ast_node_get_target_item(target);
@@ -3451,8 +3436,7 @@ resolve2_filter(struct ast_node **filter_p,
     }
     filter_type = ast_node_get_named_expr_target(*filter_p);
     if (0 != (filter_type->flags & ASTFLAG_TEMPLATE)) {
-        if (-1 == resolve2_ast_node_interpreter_build_instance(
-                &filter_type, item, ctx)) {
+        if (-1 == interpreter_build_instance(&filter_type, item)) {
             return -1;
         }
         *filter_p = filter_type;
@@ -3509,12 +3493,14 @@ resolve2_span_size_set_filter_defining_size(struct ast_node *dtype,
     struct ast_node *filter_type;
 
     filter = dtype->u.item.filter;
-    while (NULL != filter && filter != dtype) {
+    while (NULL != filter) {
+        filter_type = ast_node_get_named_expr_target(filter);
+        if (!ast_node_is_filter(filter_type)) {
+            break ;
+        }
         if (-1 == resolve2_ast_node(filter, ctx)) {
             return -1;
         }
-        filter_type = ast_node_get_named_expr_target(filter);
-        assert(ast_node_is_filter(filter_type));
         if (AST_NODE_TYPE_REXPR_INTERPRETER == filter_type->type) {
             if (NULL != filter_type->u.rexpr_interpreter.get_size_func) {
                 // overwrite potential existing value so that value

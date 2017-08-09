@@ -378,6 +378,7 @@
                 /* inherits */
                 struct rexpr_member_common rexpr_member_common;
                 const struct named_expr *named_expr;
+                struct ast_node *filter_target;
             } rexpr_named_expr;
             struct rexpr_builtin {
                 struct rexpr rexpr; /* inherits */

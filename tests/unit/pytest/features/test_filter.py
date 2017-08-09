@@ -220,9 +220,9 @@ data_file_simple_filter_line_separated_base64 = """
     params=[{
         'spec': spec_file_simple_filter_line_separated_base64,
         'data': data_file_simple_filter_line_separated_base64,
-#    }, {
-#        'spec': spec_file_simple_filter_line_separated_base64_2,
-#        'data': data_file_simple_filter_line_separated_base64,
+    }, {
+        'spec': spec_file_simple_filter_line_separated_base64_2,
+        'data': data_file_simple_filter_line_separated_base64,
     }])
 def params_filter_2(request):
     return conftest.make_testcase(request.param)
@@ -235,10 +235,47 @@ def test_filter_2(params_filter_2):
     assert dtree.blocks[1].get_offset() == 29
     assert dtree.blocks[1].get_size() == 33
     assert dtree.blocks[1].n == 18
-    assert memoryview(dtree.blocks[1].data) == 'more contents data'
+    assert str(dtree.blocks[1].data) == 'more contents data'
     assert dtree.blocks[0].n == 16
-    assert memoryview(dtree.blocks[0].data) == 'as contents data'
+    assert str(dtree.blocks[0].data) == 'as contents data'
     assert model.make_python_object(dtree.blocks[2]) == {
         'n': 23,
         'data': 'even more contents data'
     }
+
+
+spec_file_filter_in_field_expression = """
+
+let Int = integer { signed: false; endian: 'big'; };
+
+file {
+    a: byte;
+    b: byte[2];
+
+    let a_as_int = (a: Int);
+    let b_as_int = (b: Int);
+}
+
+"""
+
+data_file_filter_in_field_expression = """
+01   00 02
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_filter_in_field_expression,
+        'data': data_file_filter_in_field_expression,
+    }
+])
+def params_filter_3(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_filter_3(params_filter_3):
+    params = params_filter_3
+    dtree = params['dtree']
+
+    assert dtree.a_as_int == 1
+    assert dtree.b_as_int == 2

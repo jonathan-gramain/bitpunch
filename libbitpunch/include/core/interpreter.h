@@ -92,8 +92,9 @@ interpreter_declare_std(void);
 struct ast_node *
 interpreter_rcall_build(const struct interpreter *interpreter,
                         struct statement_list *param_list);
-struct ast_node *
-interpreter_rcall_instanciate(const struct ast_node *rcall);
+int
+interpreter_build_instance(struct ast_node **template_p,
+                           struct ast_node *target);
 
 static inline struct ast_node *
 interpreter_rcall_get_params(const struct ast_node *rcall) {

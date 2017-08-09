@@ -184,7 +184,7 @@ interpreter_rcall_build(const struct interpreter *interpreter,
     return rcall;
 }
 
-struct ast_node *
+static struct ast_node *
 interpreter_rcall_instanciate(const struct ast_node *rcall)
 {
     const struct interpreter *interpreter;
@@ -200,6 +200,41 @@ interpreter_rcall_instanciate(const struct ast_node *rcall)
            * sizeof (struct ast_node));
     inst->flags &= ~ASTFLAG_TEMPLATE;
     return inst;
+}
+
+int
+interpreter_build_instance(struct ast_node **template_p,
+                           struct ast_node *target)
+{
+    const struct interpreter *interpreter;
+    struct ast_node *interp_inst;
+    struct ast_node *target_item;
+
+    assert(NULL != target);
+
+    interpreter = (*template_p)->u.rexpr_interpreter.interpreter;
+    if (0 != ((*template_p)->flags & ASTFLAG_TEMPLATE)) {
+        interp_inst = interpreter_rcall_instanciate(*template_p);
+    } else {
+        interp_inst = *template_p;
+    }
+
+    interp_inst->u.rexpr.dpath_type = target->u.rexpr.dpath_type;
+    interp_inst->u.rexpr_filter.target = target;
+
+    target_item = ast_node_get_target_item(target);
+    if (NULL == target_item) {
+        // pass the rexpr node if no target item configured
+        target_item = target;
+    }
+    if (-1 == interpreter->rcall_build_func(
+            interp_inst, target_item,
+            interpreter_rcall_get_params(interp_inst))) {
+        return -1;
+    }
+
+    *template_p = interp_inst;
+    return 0;
 }
 
 static int
