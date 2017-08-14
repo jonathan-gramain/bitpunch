@@ -42,6 +42,7 @@
 
 #include "api/bitpunch_api.h"
 #include "core/print.h"
+#include PATH_TO_PARSER_TAB_H
 
 #include "check_tracker.h"
 
@@ -302,6 +303,50 @@ static void array_teardown(void)
     bitpunch_free_schema(check_varray_def_hdl);
 }
 
+START_TEST(sarray_ast)
+{
+    const struct ast_node *root;
+    const struct block_stmt_list *stmt_lists;
+    const struct named_expr *field;
+    const struct ast_node *field_type;
+    const struct ast_node *int_size;
+    const struct ast_node *value_type;
+    const struct ast_node *value_count;
+
+    root = check_sarray_def_hdl->df_file_block.root;
+    ck_assert_int_eq(root->type, AST_NODE_TYPE_BLOCK_DEF);
+    stmt_lists = &root->u.block_def.block_stmt_list;
+
+    field = STATEMENT_FIRST(named_expr, stmt_lists->field_list);
+    ck_assert_str_eq(field->nstmt.name, "int_array");
+    field_type = field->expr;
+    ck_assert_ptr_ne(field_type, NULL);
+    ck_assert_int_eq(field_type->type, AST_NODE_TYPE_ARRAY);
+
+    value_type = field_type->u.array.value_type;
+    ck_assert_ptr_ne(value_type, NULL);
+    ck_assert_int_eq(value_type->type, AST_NODE_TYPE_BYTE_ARRAY);
+    int_size = value_type->u.byte_array.size;
+    ck_assert_ptr_ne(int_size, NULL);
+    ck_assert_int_eq(int_size->type, AST_NODE_TYPE_REXPR_NATIVE);
+    ck_assert_int_eq(int_size->u.rexpr.dpath_type, EXPR_DPATH_TYPE_NONE);
+    ck_assert_int_eq(int_size->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
+    ck_assert_int_eq(int_size->u.rexpr_native.value.integer, 4);
+
+    value_count = field_type->u.array.value_count;
+    ck_assert_ptr_ne(value_count, NULL);
+    ck_assert_int_eq(value_count->type, AST_NODE_TYPE_REXPR_NATIVE);
+    ck_assert_int_eq(value_count->u.rexpr.dpath_type,
+                     EXPR_DPATH_TYPE_NONE);
+    ck_assert_int_eq(value_count->u.rexpr.value_type,
+                     EXPR_VALUE_TYPE_INTEGER);
+    ck_assert_int_eq(value_count->u.rexpr_native.value.integer, 5);
+
+    field = STATEMENT_NEXT(named_expr, field, list);
+    ck_assert_ptr_eq(field, NULL);
+}
+END_TEST
+
 START_TEST(sarray_valid1)
 {
     check_tracker_launch_test(&check_sarray_valid1_spec);
@@ -317,6 +362,80 @@ END_TEST
 START_TEST(sarray_invalid_truncated2)
 {
     check_tracker_launch_test(&check_sarray_invalid_truncated2_spec);
+}
+END_TEST
+
+START_TEST(varray_ast)
+{
+    const struct ast_node *root;
+    const struct block_stmt_list *stmt_lists;
+    const struct named_expr *field;
+    const struct ast_node *int_array_size_node;
+    const struct ast_node *int_array_size;
+    const struct ast_node *field_type;
+    const struct ast_node *int_size;
+    const struct ast_node *value_type;
+    const struct ast_node *value_count;
+    const struct ast_node *op1;
+    const struct ast_node *op2;
+
+    root = check_varray_def_hdl->df_file_block.root;
+    ck_assert_int_eq(root->type, AST_NODE_TYPE_BLOCK_DEF);
+    stmt_lists = &root->u.block_def.block_stmt_list;
+
+    field = STATEMENT_FIRST(named_expr, stmt_lists->field_list);
+    ck_assert_str_eq(field->nstmt.name, "int_array_size");
+    int_array_size_node = field->expr;
+    ck_assert_ptr_ne(int_array_size_node, NULL);
+    ck_assert_int_eq(int_array_size_node->type, AST_NODE_TYPE_BYTE_ARRAY);
+    int_array_size = int_array_size_node->u.byte_array.size;
+    ck_assert_int_ne(int_array_size, NULL);
+    ck_assert_int_eq(int_array_size->type, AST_NODE_TYPE_REXPR_NATIVE);
+    ck_assert_int_eq(int_array_size->u.rexpr.dpath_type,
+                     EXPR_DPATH_TYPE_NONE);
+    ck_assert_int_eq(int_array_size->u.rexpr.value_type,
+                     EXPR_VALUE_TYPE_INTEGER);
+    ck_assert_int_eq(int_array_size->u.rexpr_native.value.integer, 4);
+
+    field = STATEMENT_NEXT(named_expr, field, list);
+    ck_assert_str_eq(field->nstmt.name, "int_array");
+    field_type = field->expr;
+    ck_assert_ptr_ne(field_type, NULL);
+    ck_assert_int_eq(field_type->type, AST_NODE_TYPE_ARRAY);
+
+    value_type = field_type->u.array.value_type;
+    ck_assert_ptr_ne(value_type, NULL);
+    ck_assert_int_eq(value_type->type, AST_NODE_TYPE_BYTE_ARRAY);
+    int_size = value_type->u.byte_array.size;
+    ck_assert_ptr_ne(int_size, NULL);
+    ck_assert_int_eq(int_size->type, AST_NODE_TYPE_REXPR_NATIVE);
+    ck_assert_int_eq(int_size->u.rexpr.dpath_type, EXPR_DPATH_TYPE_NONE);
+    ck_assert_int_eq(int_size->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
+    ck_assert_int_eq(int_size->u.rexpr_native.value.integer, 4);
+
+    value_count = field_type->u.array.value_count;
+    ck_assert_ptr_ne(value_count, NULL);
+    ck_assert_int_eq(value_count->type, AST_NODE_TYPE_REXPR_OP_ADD);
+    ck_assert_int_eq(value_count->u.rexpr.dpath_type,
+                     EXPR_DPATH_TYPE_NONE);
+    ck_assert_int_eq(value_count->u.rexpr.value_type,
+                     EXPR_VALUE_TYPE_INTEGER);
+    op1 = value_count->u.rexpr_op.op.operands[0];
+    op2 = value_count->u.rexpr_op.op.operands[1];
+    ck_assert_ptr_ne(op1, NULL);
+    ck_assert_ptr_ne(op2, NULL);
+    ck_assert_int_eq(op1->type, AST_NODE_TYPE_REXPR_NATIVE);
+    ck_assert_int_eq(op1->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
+    ck_assert_int_eq(op1->u.rexpr.dpath_type, EXPR_DPATH_TYPE_NONE);
+    ck_assert_int_eq(op1->u.rexpr_native.value.integer, 2);
+    ck_assert_int_eq(op2->type, AST_NODE_TYPE_REXPR_FIELD);
+    ck_assert_int_eq(op2->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
+    ck_assert_int_eq(op2->u.rexpr.dpath_type, EXPR_DPATH_TYPE_ITEM);
+    field_type = op2->u.rexpr_field.field->expr;
+    ck_assert_ptr_eq(field_type, int_array_size_node);
+
+    field = STATEMENT_NEXT(named_expr, field, list);
+    ck_assert_ptr_eq(field, NULL);
 }
 END_TEST
 
@@ -337,6 +456,11 @@ void check_array_add_tcases(Suite *s)
 {
     TCase *tc_array;
 
+    tc_array = tcase_create("sarray.ast");
+    tcase_add_unchecked_fixture(tc_array, array_setup, array_teardown);
+    tcase_add_test(tc_array, sarray_ast);
+    suite_add_tcase(s, tc_array);
+
     tc_array = tcase_create("sarray.valid1");
     tcase_add_unchecked_fixture(tc_array, array_setup, array_teardown);
     tcase_add_test(tc_array, sarray_valid1);
@@ -350,6 +474,11 @@ void check_array_add_tcases(Suite *s)
     tc_array = tcase_create("sarray.invalid_truncated2");
     tcase_add_unchecked_fixture(tc_array, array_setup, array_teardown);
     tcase_add_test(tc_array, sarray_invalid_truncated2);
+    suite_add_tcase(s, tc_array);
+
+    tc_array = tcase_create("varray.ast");
+    tcase_add_unchecked_fixture(tc_array, array_setup, array_teardown);
+    tcase_add_test(tc_array, varray_ast);
     suite_add_tcase(s, tc_array);
 
     tc_array = tcase_create("varray.valid1");

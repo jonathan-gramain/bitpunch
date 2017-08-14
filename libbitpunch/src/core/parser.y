@@ -101,11 +101,15 @@
 
     TAILQ_HEAD(statement_list, statement);
 
+#define	STATEMENT_FIRST(stmt_type, head)        \
+    (struct stmt_type *)TAILQ_FIRST((head))
+
+#define STATEMENT_NEXT(stmt_type, var, field)                           \
+    (struct stmt_type *)TAILQ_NEXT(((struct statement *)(var)), field)
+
 #define	STATEMENT_FOREACH(stmt_type, var, head, field)                  \
-    for ((var) = (struct stmt_type *)TAILQ_FIRST((head));               \
-         (var);                                                         \
-         (var) = (struct stmt_type *)TAILQ_NEXT(((struct statement *)var), \
-                                                field))
+    for ((var) = STATEMENT_FIRST(stmt_type, head);                      \
+     (var); (var) = STATEMENT_NEXT(stmt_type, var, field))
 
 
     struct block_stmt_list {
