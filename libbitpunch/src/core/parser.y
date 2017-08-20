@@ -78,6 +78,11 @@
 #define AST_NODE_BYTE_SLICE &shared_ast_node_byte_slice
 #define AST_NODE_AS_BYTES &shared_ast_node_as_bytes
 #define AST_NODE_FILTERED &shared_ast_node_filtered
+#define DPATH_NODE_BYTE &shared_dpath_node_byte
+#define DPATH_NODE_ARRAY_SLICE &shared_dpath_node_array_slice
+#define DPATH_NODE_BYTE_SLICE &shared_dpath_node_byte_slice
+#define DPATH_NODE_AS_BYTES &shared_dpath_node_as_bytes
+#define DPATH_NODE_FILTERED &shared_dpath_node_filtered
 
 #include "utils/queue.h"
 
@@ -152,24 +157,46 @@
     extern struct ast_node shared_ast_node_byte_slice;
     extern struct ast_node shared_ast_node_as_bytes;
     extern struct ast_node shared_ast_node_filtered;
+    extern struct dpath_node shared_dpath_node_byte;
+    extern struct dpath_node shared_dpath_node_array_slice;
+    extern struct dpath_node shared_dpath_node_byte_slice;
+    extern struct dpath_node shared_dpath_node_as_bytes;
+    extern struct dpath_node shared_dpath_node_filtered;
 
     enum ast_node_flag {
         ASTFLAG_IS_SPAN_EXPR                = (1<<0),
         ASTFLAG_PROCESSING                  = (1<<1),
-        ASTFLAG_IS_SPAN_SIZE_DYNAMIC        = (1<<2),
-        ASTFLAG_IS_USED_SIZE_DYNAMIC        = (1<<3),
-        ASTFLAG_NEED_SLACK                  = (1<<4),
         ASTFLAG_PROCESSED_TRACK_BACKEND     = (1<<5),
         ASTFLAG_IS_ROOT_BLOCK               = (1<<6),
         ASTFLAG_REVERSE_COND                = (1<<7),
         ASTFLAG_CONTAINS_LAST_STMT          = (1<<8),
-        ASTFLAG_HAS_UNDETERMINED_SIZE       = (1<<9),
         ASTFLAG_HAS_FOOTER                  = (1<<10),
         ASTFLAG_DUMPING                     = (1<<11),
         ASTFLAG_RESOLVED                    = (1<<12),
         ASTFLAG_PROCESSING_SCHEDULED        = (1<<13),
         /** template interpreter */
         ASTFLAG_TEMPLATE                    = (1<<14),
+    };
+
+    enum item_flag {
+        ITEMFLAG_IS_SPAN_SIZE_DYNAMIC       = (1<<0),
+        ITEMFLAG_IS_USED_SIZE_DYNAMIC       = (1<<1),
+        ITEMFLAG_NEED_SLACK                 = (1<<2),
+        ITEMFLAG_HAS_UNDETERMINED_SIZE      = (1<<3),
+    };
+
+    struct item_node {
+        enum item_flag flags;
+        int64_t min_span_size; /* minimum size */
+    };
+
+    struct dpath_node {
+        union {
+            struct item_node item;
+        } u;
+        struct ast_node *item;
+        struct ast_node *filter;
+        struct ast_node *filter_defining_size;
     };
 
     struct ast_node {
@@ -275,21 +302,12 @@
                 struct param_list *param_list;
                 struct ast_node *target;
             } filter;
-            struct item_node {
-                struct ast_node *filter;
-                struct ast_node *filter_defining_size;
-                struct item_backend b_item;
-                int64_t min_span_size; /* minimum size */
-            } item;
+            struct item_node item;
             struct container_node {
                 struct item_node item; /* inherits */
                 struct box_backend b_box;
                 struct tracker_backend b_tk;
             } container;
-            struct type_name {
-                struct item_node item; /* inherits */
-                const char *name;
-            } type_name;
             struct block_def {
                 struct container_node container; /* inherits */
                 const char *filter_type;
@@ -303,8 +321,8 @@
             } block_def;
             struct array {
                 struct container_node container; /* inherits */
-                struct ast_node *value_type;
-                struct ast_node *value_count;
+                struct dpath_node item_type;
+                struct ast_node *item_count;
             } array;
             struct byte_array {
                 struct container_node container; /* inherits */
@@ -348,8 +366,9 @@
             } rexpr; /* base, not instanciable */
             struct rexpr_filter {
                 struct rexpr rexpr; /* inherits */
+                struct filter_backend b_filter;
                 struct ast_node *target;
-                struct ast_node *filter_type;
+                struct dpath_node filter_dpath;
             } rexpr_filter; /* base, not instanciable */
             struct rexpr_interpreter {
                 struct rexpr_filter rexpr_filter; /* inherits */
@@ -376,7 +395,7 @@
             struct rexpr_field {
                 /* inherits */
                 struct rexpr_member_common rexpr_member_common;
-                const struct named_expr *field;
+                const struct field *field;
             } rexpr_field;
             struct rexpr_named_expr {
                 /* inherits */
@@ -448,6 +467,11 @@
     struct named_expr {
         struct named_statement nstmt; // inherits
         struct ast_node *expr;
+    };
+
+    struct field {
+        struct named_statement nstmt; // inherits
+        struct dpath_node dpath;
     };
 
     enum span_stmt_flag {
@@ -554,6 +578,21 @@
     struct ast_node shared_ast_node_filtered = {
         .type = AST_NODE_TYPE_FILTERED,
     };
+    struct dpath_node shared_dpath_node_byte = {
+        .item = &shared_ast_node_byte,
+    };
+    struct dpath_node shared_dpath_node_array_slice = {
+        .item = &shared_ast_node_array_slice,
+    };
+    struct dpath_node shared_dpath_node_byte_slice = {
+        .item = &shared_ast_node_byte_slice,
+    };
+    struct dpath_node shared_dpath_node_as_bytes = {
+        .item = &shared_ast_node_as_bytes,
+    };
+    struct dpath_node shared_dpath_node_filtered = {
+        .item = &shared_ast_node_filtered,
+    };
 
     static struct ast_node *
     expr_gen_ast_node(enum ast_node_type op_type,
@@ -625,7 +664,7 @@
     enum block_type block_type;
     struct expr_value_string literal;
     struct ast_node *ast_node;
-    struct named_expr *field;
+    struct field *field;
     struct block_stmt_list block_stmt_list;
     struct statement_list *statement_list;
     struct file_block file_block;
@@ -960,7 +999,7 @@ schema:
         }
         /* ignore fields outside file{} */
         TAILQ_INIT($1.field_list);
-        if (-1 == merge_block_stmt_list(&$file_block.root
+        if (-1 == merge_block_stmt_list(&$file_block.root->item
                                         ->u.block_def.block_stmt_list,
                                         &$1)) {
             YYERROR;
@@ -977,10 +1016,14 @@ schema:
   }
 
 file_block: KW_FILE '{' block_stmt_list '}' {
-        $$.root = new_safe(struct ast_node);
-        $$.root->type = AST_NODE_TYPE_BLOCK_DEF;
-        $$.root->loc = @$;
-        $$.root->u.block_def.type = BLOCK_TYPE_STRUCT;
+        struct ast_node *item;
+
+        $$.root = new_safe(struct dpath_node);
+        $$.root->item = new_safe(struct ast_node);
+        item = $$.root->item;
+        item->type = AST_NODE_TYPE_BLOCK_DEF;
+        item->loc = @$;
+        item->u.block_def.type = BLOCK_TYPE_STRUCT;
         if (TAILQ_EMPTY($block_stmt_list.field_list)) {
             semantic_error(SEMANTIC_LOGLEVEL_WARNING, &@$,
                            "file block has zero field");
@@ -1000,9 +1043,9 @@ file_block: KW_FILE '{' block_stmt_list '}' {
                 "file block cannot have key information");
             YYERROR;
         }
-        $$.root->u.block_def.block_stmt_list = $block_stmt_list;
-        $$.root->u.item.min_span_size = SPAN_SIZE_UNDEF;
-        $$.root->flags = ASTFLAG_IS_ROOT_BLOCK;
+        item->u.block_def.block_stmt_list = $block_stmt_list;
+        item->u.item.min_span_size = SPAN_SIZE_UNDEF;
+        item->flags = ASTFLAG_IS_ROOT_BLOCK;
     }
 
 block_def:
@@ -1148,10 +1191,11 @@ block_stmt_list:
 
 field_stmt:
     opt_identifier ':' expr ';' {
-        $$ = new_safe(struct named_expr);
+        $$ = new_safe(struct field);
+        dpath_node_reset(&$$->dpath);
         $$->nstmt.name = $opt_identifier;
         $$->nstmt.stmt.loc = @$;
-        $$->expr = $expr;
+        $$->dpath.item = $expr;
     }
 
 match_stmt:

@@ -35,19 +35,27 @@
 #include <stdio.h>
 
 struct ast_node;
+struct dpath_node;
 struct bitpunch_schema_hdl;
 struct box;
+struct field;
 
 int
 resolve_schema_references(struct bitpunch_schema_hdl *schema);
 int
 resolve_user_expr(struct ast_node **expr_p, struct box *scope);
+void
+dpath_node_reset(struct dpath_node *dpath);
 int
 ast_node_is_rexpr(const struct ast_node *node);
 int
 ast_node_is_rexpr_to_item(const struct ast_node *node);
 struct ast_node *
 ast_node_get_target_item(struct ast_node *node);
+struct ast_node *
+ast_node_get_target_type(struct ast_node *node);
+struct ast_node *
+ast_node_get_target_filter(struct ast_node *node);
 struct ast_node *
 ast_node_get_named_expr_target(struct ast_node *node);
 int
@@ -63,11 +71,9 @@ ast_node_is_slice_container(const struct ast_node *node);
 int
 ast_node_is_item(const struct ast_node *node);
 int
-ast_node_has_filter(const struct ast_node *node);
+ast_node_is_type(const struct ast_node *node);
 int
 ast_node_is_filter(const struct ast_node *node);
-int
-ast_node_has_interpreter(const struct ast_node *node);
 const struct ast_node *
 ast_node_get_as_type(const struct ast_node *node);
 int64_t
@@ -80,6 +86,10 @@ struct ast_node *
 ast_node_get_key_expr(const struct ast_node *node);
 enum expr_value_type
 ast_node_get_key_type(const struct ast_node *node);
+const struct ast_node *
+dpath_node_get_as_type(const struct dpath_node *dpath);
+const struct ast_node *
+dpath_node_get_value_node(const struct dpath_node *dpath);
 void
 dump_ast_location(struct ast_node *node);
 void

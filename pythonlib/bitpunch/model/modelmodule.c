@@ -1858,7 +1858,7 @@ static PyObject *
 DataContainer_box_to_python_object(struct DataTreeObject *dtree,
                                    struct box *box)
 {
-    switch (ast_node_get_as_type(box->node)->type) {
+    switch (dpath_node_get_as_type(&box->dpath)->type) {
     case AST_NODE_TYPE_BLOCK_DEF:
         return DataBlock_box_to_python_object(dtree, box);
     case AST_NODE_TYPE_ARRAY:
@@ -1872,7 +1872,7 @@ DataContainer_box_to_python_object(struct DataTreeObject *dtree,
     default:
         PyErr_Format(PyExc_ValueError,
                      "Cannot convert container type '%s' to python object",
-                     ast_node_type_str(box->node->type));
+                     ast_node_type_str(box->dpath.item->type));
         return NULL;
     }
     /*NOT REACHED*/
@@ -1888,7 +1888,7 @@ DataArray_bytes_box_to_python_object(
     union expr_value value_eval;
     struct tracker_error *tk_err = NULL;
 
-    assert(ast_node_is_item(box->node));
+    assert(ast_node_is_item(box->dpath.item));
 
     bt_ret = box_read_value(box, &value_type, &value_eval, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
@@ -1941,7 +1941,7 @@ typedef struct TrackerObject {
 static int
 Tracker_set_default_iter_mode(TrackerObject *self)
 {
-    switch (self->tk->box->node->type) {
+    switch (self->tk->box->dpath.item->type) {
     case AST_NODE_TYPE_BLOCK_DEF:
         self->iter_mode = TRACKER_ITER_FIELD_NAMES;
         break ;
@@ -1956,7 +1956,7 @@ Tracker_set_default_iter_mode(TrackerObject *self)
     default:
         PyErr_Format(PyExc_TypeError,
                      "container of type '%s' cannot be iterated",
-                     ast_node_type_str(self->tk->box->node->type));
+                     ast_node_type_str(self->tk->box->dpath.item->type));
         return -1;
     }
     self->current_iter_mode = self->iter_mode;
@@ -3160,15 +3160,13 @@ eval_expr_as_python_object(DataContainerObject *cont,
 }
 
 static int
-node_is_complex_type(const struct ast_node *node)
+dpath_is_complex_type(const struct dpath_node *dpath)
 {
-    const struct ast_node *as_type_node;
-
-    as_type_node = ast_node_get_as_type(node);
-    if (NULL != as_type_node->u.item.filter) {
+    if (NULL != dpath->filter
+        && AST_NODE_TYPE_REXPR_INTERPRETER == dpath->filter->type) {
         return FALSE;
     }
-    return ast_node_is_origin_container(as_type_node);
+    return ast_node_is_origin_container(dpath->item);
 }
 
 static PyObject *
@@ -3182,11 +3180,11 @@ tracker_item_to_deep_PyObject(DataTreeObject *dtree,
     int complex_type;
     struct tracker_error *tk_err = NULL;
 
-    if (NULL == tk->item_node) {
+    if (NULL == tk->dpath) {
         Py_INCREF(Py_None);
         return Py_None;
     }
-    complex_type = node_is_complex_type(tk->item_node);
+    complex_type = dpath_is_complex_type(tk->dpath);
     if (complex_type) {
         bt_ret = tracker_create_item_box(tk, &tk_err);
         if (BITPUNCH_OK == bt_ret) {
@@ -3211,18 +3209,16 @@ static PyObject *
 tracker_item_to_shallow_PyObject(DataTreeObject *dtree,
                                  struct tracker *tk)
 {
-    const struct ast_node *item_node;
     PyObject *res = NULL;
     bitpunch_status_t bt_ret;
     int complex_type;
     struct tracker_error *tk_err = NULL;
 
-    item_node = tk->item_node;
-    if (NULL == item_node) {
+    if (NULL == tk->dpath) {
         Py_INCREF(Py_None);
         return Py_None;
     }
-    complex_type = node_is_complex_type(item_node);
+    complex_type = dpath_is_complex_type(tk->dpath);
     if (complex_type) {
         bt_ret = tracker_create_item_box(tk, &tk_err);
         if (BITPUNCH_OK == bt_ret) {
@@ -3256,7 +3252,7 @@ box_to_shallow_PyObject(DataTreeObject *dtree, struct box *box,
     union expr_value value_eval;
     DataContainerObject *dcont;
 
-    switch (ast_node_get_as_type(box->node)->type) {
+    switch (dpath_node_get_as_type(&box->dpath)->type) {
     case AST_NODE_TYPE_BLOCK_DEF:
         dcont = (DataContainerObject *)DataBlock_new(&DataBlockType,
                                                      NULL, NULL);
@@ -3378,7 +3374,7 @@ mod_bitpunch_get_builtin_names(PyObject *self,
                                 "'object' argument must be a "
                                 "'bitpunch.DataContainer' object");
         }
-        object_node = object->box->node;
+        object_node = object->box->dpath.item;
     }
     list = PyList_New(0);
     if (NULL == list) {

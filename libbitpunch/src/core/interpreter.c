@@ -234,6 +234,7 @@ interpreter_build_instance(struct ast_node **template_p,
     }
 
     *template_p = interp_inst;
+    interp_inst->u.rexpr.target_item = target_item;
     return 0;
 }
 
@@ -256,7 +257,7 @@ rcall_build_params(struct ast_node *rcall,
                    const struct interpreter *interpreter,
                    struct statement_list *param_list)
 {
-    struct named_expr *param;
+    struct field *param;
     struct ast_node *param_valuep;
     int param_ref;
     struct interpreter_param_def *param_def;
@@ -267,7 +268,7 @@ rcall_build_params(struct ast_node *rcall,
         param_valuep = INTERPRETER_RCALL_PARAM(rcall, param_ref);
         param_valuep->type = AST_NODE_TYPE_NONE;
     }
-    STATEMENT_FOREACH(named_expr, param, param_list, list) {
+    STATEMENT_FOREACH(field, param, param_list, list) {
         param_ref = get_param_index(interpreter, param->nstmt.name);
         if (-1 == param_ref) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR, &param->nstmt.stmt.loc,
@@ -284,7 +285,7 @@ rcall_build_params(struct ast_node *rcall,
             sem_error = TRUE;
             continue ;
         }
-        *param_valuep = *param->expr;
+        *param_valuep = *param->dpath.item;
     }
     STAILQ_FOREACH(param_def, &interpreter->param_list, list) {
         param_valuep = INTERPRETER_RCALL_PARAM(rcall, param_def->ref_idx);

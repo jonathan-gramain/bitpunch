@@ -133,7 +133,7 @@ expr_dpath_get_size(enum expr_dpath_type type, union expr_dpath dpath,
                     int64_t *dpath_sizep,
                     struct browse_state *bst);
 const struct ast_node *
-expr_dpath_get_node(enum expr_dpath_type type, union expr_dpath dpath);
+expr_dpath_get_item_node(enum expr_dpath_type type, union expr_dpath dpath);
 struct track_path
 expr_dpath_get_track_path(enum expr_dpath_type type,
                           union expr_dpath dpath);

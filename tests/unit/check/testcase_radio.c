@@ -182,13 +182,13 @@ static void check_codename_item(struct radio_source_info *info,
 
     expect_offset = info->codename_offset[code_idx];
 
-    if (NULL != tk->item_node) {
+    if (NULL != tk->dpath) {
         bt_ret = tracker_read_item_value(tk, &type, &value, NULL);
     } else {
         bt_ret = box_read_value(tk->box, &type, &value, NULL);
     }
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-    if (NULL != tk->item_node) {
+    if (NULL != tk->dpath) {
         bt_ret = tracker_get_item_offset(tk, &code_offset, NULL);
         ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     } else {

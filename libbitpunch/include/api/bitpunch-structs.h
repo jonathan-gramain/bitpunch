@@ -57,7 +57,7 @@ struct parser_ctx {
 };
 
 struct file_block {
-    struct ast_node *root;
+    struct dpath_node *root;
 };
 
 enum df_open_type {

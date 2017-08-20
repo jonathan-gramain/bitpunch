@@ -52,7 +52,7 @@ box_new_bytes_box_from_box(struct box *box,
                            struct browse_state *bst);
 struct box *
 box_new_as_box(struct box *parent_box,
-               struct ast_node *as_type, int64_t box_offset,
+               struct dpath_node *as_dpath, int64_t start_offset_used,
                struct browse_state *bst);
 struct box *
 box_new_filter_box(struct box *unfiltered_box,
@@ -67,7 +67,7 @@ box_apply_filters(struct box *unfiltered_box,
                   struct browse_state *bst);
 
 bitpunch_status_t
-box_get_n_items_internal(struct box *box, int64_t *n_itemsp,
+box_get_n_items_internal(struct box *box, int64_t *item_countp,
                          struct browse_state *bst);
 bitpunch_status_t
 box_get_min_span_size(struct box *box, int64_t *min_span_sizep,
@@ -123,7 +123,7 @@ tracker_check_item(struct tracker *tk,
 
 bitpunch_status_t
 tracker_goto_field_internal(struct tracker *tk,
-                            const struct named_expr *to_field, int flat,
+                            const struct field *to_field, int flat,
                             struct browse_state *bst);
 bitpunch_status_t
 tracker_goto_index_internal(struct tracker *tk,
@@ -163,14 +163,5 @@ tracker_read_item_raw_internal(struct tracker *tk,
 bitpunch_status_t
 tracker_reverse_direction_internal(struct tracker *tk,
                                    struct browse_state *bst);
-
-bitpunch_status_t
-item_read_value__interpreter(const struct ast_node *item_node,
-                             struct box *scope,
-                             int64_t item_offset,
-                             int64_t item_size,
-                             enum expr_value_type *typep,
-                             union expr_value *valuep,
-                             struct browse_state *bst);
 
 #endif /* __BROWSE_INTERNAL_H__ */

@@ -50,7 +50,7 @@ struct track_path {
     } type;
     union {
         struct {
-            const struct named_expr *field;
+            const struct field *field;
         } block;
         struct track_path_array {
             int64_t index;
@@ -67,7 +67,7 @@ static const struct track_path TRACK_PATH_NONE = {
 };
 
 static inline struct track_path
-track_path_from_block_field(const struct named_expr *field)
+track_path_from_block_field(const struct field *field)
 {
     struct track_path ret;
 
@@ -127,14 +127,14 @@ struct browse_state {
 };
 
 
-struct item_backend {
-    bitpunch_status_t (*read_value)(const struct ast_node *item_node,
-                                   struct box *scope,
-                                   int64_t item_offset,
-                                   int64_t item_size,
-                                   enum expr_value_type *typep,
-                                   union expr_value *valuep,
-                                   struct browse_state *bst);
+struct filter_backend {
+    bitpunch_status_t (*read_value)(const struct ast_node *item_filter,
+                                    struct box *scope,
+                                    int64_t item_offset,
+                                    int64_t item_size,
+                                    enum expr_value_type *typep,
+                                    union expr_value *valuep,
+                                    struct browse_state *bst);
 };
 
 struct box_backend {

@@ -315,6 +315,56 @@ file {
 
 """
 
+
+spec_file_filter_encoded_integer_field = """
+
+let Int = integer { signed: false; endian: 'big'; };
+
+let Base64Line = byte[]: string { boundary: '\\n'; }: base64 {};
+
+let B64Header = Base64Line: struct {
+    nb_messages: byte[4]: Int;
+};
+
+let B64Message = Base64Line: struct {
+    data: byte[]: string;
+};
+
+file {
+    hdr:      B64Header;
+    messages: B64Message[hdr.nb_messages];
+    garbage:  byte[];
+}
+
+"""
+
+data_file_filter_encoded_integer_field = """
+"AAAAAw==\n"     # nb_messages=3
+"aGVsbG8=\n"     # hello
+"YmVhdXRpZnVs\n" # beautiful
+"d29ybGQ=\n"     " world
+"some random garbage that should not be read\n"
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_filter_encoded_integer_field,
+        'data': data_file_filter_encoded_integer_field,
+    }
+])
+def params_filter_encoded_integer_field(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_filter_encoded_integer_field(params_filter_encoded_integer_field):
+    params = params_filter_encoded_integer_field
+    dtree = params['dtree']
+
+    assert len(dtree.messages) == 3
+
+
+
 spec_file_filter_invalid_no_data_source_2 = """
 
 let UnsignedTemplate = integer { signed: false; endian: 'little'; };

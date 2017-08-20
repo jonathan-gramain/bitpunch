@@ -64,7 +64,7 @@ TAILQ_HEAD(box_tailq, box);
 struct box {
     struct box *parent_box;
     struct box *unfiltered_box;
-    const struct ast_node *node;
+    struct dpath_node dpath;
     const struct bitpunch_binary_file_hdl *file_hdl;
 
     int64_t start_offset_used; /**< absolute start offset of box in file
@@ -148,7 +148,7 @@ struct tracker_error;
 struct tracker {
     struct box *box;         /**< container box */
 
-    const struct ast_node *item_node; /**< tracked item node */
+    const struct dpath_node *dpath; /**< tracked item dpath */
 
     int64_t item_offset;     /**< current item's absolute byte offset
                               * in file data (-1 if unset) */
@@ -520,6 +520,6 @@ tracker_error_destroy(struct tracker_error *tk_err);
 /* internal use for other modules */
 
 int
-browse_setup_backends(struct ast_node *node);
+browse_setup_backends(struct dpath_node *dpath);
 
 #endif /*__BROWSE_H__*/

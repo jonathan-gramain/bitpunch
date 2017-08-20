@@ -118,8 +118,8 @@ static void
 dbg_tracker_check_track_path(const struct tracker *tk,
                              int expect_is_set)
 {
-    assert(NULL != tk->box->node);
-    switch (tk->box->node->type) {
+    assert(NULL != tk->box->dpath.item);
+    switch (tk->box->dpath.item->type) {
     case AST_NODE_TYPE_BLOCK_DEF:
         assert(TRACK_PATH_BLOCK == tk->cur.type);
         if (expect_is_set) {
@@ -154,7 +154,7 @@ dbg_tracker_check_state(const struct tracker *tk)
     reversed_iter = (0 != (tk->flags & TRACKER_REVERSED));
     switch (tracker_get_state(tk)) {
     case TRACKER_STATE_DANGLING:
-        assert(NULL == tk->item_node);
+        assert(NULL == tk->dpath);
         // tk->item_offset may not be -1, and track_path may be set,
         // if pointing at end of slice
         assert(NULL == tk->item_box);
@@ -163,7 +163,7 @@ dbg_tracker_check_state(const struct tracker *tk)
         break ;
 
     case TRACKER_STATE_ITEM:
-        assert(NULL != tk->item_node);
+        assert(NULL != tk->dpath);
         assert(-1 == tk->item_offset);
         assert(-1 == tk->item_size);
         assert(NULL == tk->item_box);
@@ -172,7 +172,7 @@ dbg_tracker_check_state(const struct tracker *tk)
         break ;
 
     case TRACKER_STATE_ITEM_OFFSET:
-        assert(NULL != tk->item_node);
+        assert(NULL != tk->dpath);
         assert(tk->item_offset >= 0);
         assert(tk->item_offset >= tk->box->start_offset_used);
         assert(-1 == tk->box->end_offset_max_span
@@ -186,7 +186,7 @@ dbg_tracker_check_state(const struct tracker *tk)
         break ;
 
     case TRACKER_STATE_ITEM_SIZE:
-        assert(NULL != tk->item_node);
+        assert(NULL != tk->dpath);
         assert(tk->item_offset >= 0);
         assert(tk->item_size >= 0);
         if (0 != (tk->flags & TRACKER_REVERSED)) {
@@ -205,7 +205,7 @@ dbg_tracker_check_state(const struct tracker *tk)
         break ;
 
     case TRACKER_STATE_ITEM_BOX:
-        assert(NULL != tk->item_node);
+        assert(NULL != tk->dpath);
         assert(tk->item_offset >= 0);
         assert(-1 == tk->item_size);
         assert(NULL != tk->item_box);
@@ -221,7 +221,7 @@ dbg_tracker_check_state(const struct tracker *tk)
         break ;
 
     case TRACKER_STATE_ITEM_BOX_SIZE:
-        assert(NULL != tk->item_node);
+        assert(NULL != tk->dpath);
         assert(tk->item_offset >= 0);
         assert(tk->item_size >= 0);
         assert(NULL != tk->item_box);
@@ -245,7 +245,7 @@ dbg_tracker_check_state(const struct tracker *tk)
                || 0 == (tk->flags & TRACKER_NEED_ITEM_OFFSET));
         assert(-1 == tk->item_size);
         assert(0 != (tk->flags & TRACKER_AT_END));
-        assert(NULL == tk->item_node);
+        assert(NULL == tk->dpath);
         assert(NULL == tk->item_box);
         break ;
 

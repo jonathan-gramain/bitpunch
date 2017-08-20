@@ -870,8 +870,8 @@ expr_eval_builtin_index(struct ast_node *object,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    array_node = expr_dpath_get_node(array_dpath->u.rexpr.dpath_type,
-                                     array_dpath_eval);
+    array_node = expr_dpath_get_item_node(array_dpath->u.rexpr.dpath_type,
+                                          array_dpath_eval);
     if (AST_NODE_TYPE_ARRAY != array_node->type) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &array_dpath->loc,
                        "cannot evaluate 'index': 1st argument is not "
@@ -1244,13 +1244,13 @@ expr_dpath_get_size(enum expr_dpath_type type, union expr_dpath dpath,
 }
 
 const struct ast_node *
-expr_dpath_get_node(enum expr_dpath_type type, union expr_dpath dpath)
+expr_dpath_get_item_node(enum expr_dpath_type type, union expr_dpath dpath)
 {
     switch (type) {
     case EXPR_DPATH_TYPE_ITEM:
-        return dpath.item.tk->item_node;
+        return dpath.item.tk->dpath->item;
     case EXPR_DPATH_TYPE_CONTAINER:
-        return dpath.container.box->node;
+        return dpath.container.box->dpath.item;
     default:
         assert(0);
     }
@@ -1682,7 +1682,7 @@ expr_evaluate_sizeof(struct ast_node *expr, struct box *scope,
     } else {
         // static sized item
         assert(ast_node_is_item(opd));
-        assert(0 == (opd->flags & ASTFLAG_IS_SPAN_SIZE_DYNAMIC));
+        assert(0 == (opd->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC));
         item_size = ast_node_get_min_span_size(opd);
     }
     eval_valuep->integer = item_size;
@@ -1852,7 +1852,7 @@ expr_evaluate_dpath_anchor_common(struct ast_node *anchor_expr,
         switch (anchor_expr->u.rexpr.dpath_type) {
         case EXPR_DPATH_TYPE_ITEM:
             tk = anchor_eval.item.tk;
-            assert(NULL != tk->item_node);
+            assert(NULL != tk->dpath);
             bt_ret = tracker_enter_item_internal(tk, bst);
             if (BITPUNCH_OK != bt_ret) {
                 tracker_delete(tk);
@@ -1865,7 +1865,7 @@ expr_evaluate_dpath_anchor_common(struct ast_node *anchor_expr,
         default:
             assert(0);
         }
-        if (AST_NODE_TYPE_BLOCK_DEF != tk->box->node->type) {
+        if (AST_NODE_TYPE_BLOCK_DEF != tk->box->dpath.item->type) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &anchor_expr->loc,
                 "left-side of member operator does not evaluate to a "
@@ -1879,7 +1879,7 @@ expr_evaluate_dpath_anchor_common(struct ast_node *anchor_expr,
         /* find the closest dpath's field in the scope, browsing boxes
          * upwards */
         anchor_box = scope;
-        while (anchor_box->node != anchor_block) {
+        while (anchor_box->dpath.item != anchor_block) {
             anchor_box = (NULL != anchor_box->unfiltered_box ?
                           anchor_box->unfiltered_box :
                           anchor_box->parent_box);
@@ -2196,21 +2196,22 @@ expr_evaluate_dpath_as_type(struct ast_node *expr, struct box *scope,
                             struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    struct ast_node *as_type;
+    struct dpath_node as_dpath;
     struct ast_node *target;
     union expr_dpath source_eval;
     struct box *dst_box;
     struct box *as_box;
 
-    as_type = ast_node_get_named_expr_target(
-        expr->u.rexpr_filter.filter_type);
+    dpath_node_reset(&as_dpath);
+    as_dpath.item = ast_node_get_named_expr_target(
+        expr->u.rexpr_filter.filter_dpath.item);
     target = expr->u.rexpr_filter.target;
     bt_ret = expr_evaluate_dpath_internal(target,
                                           scope, &source_eval, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    if (!ast_node_is_item(as_type)) {
+    if (!ast_node_is_item(as_dpath.item)) {
         *eval_dpathp = source_eval;
         return BITPUNCH_OK;
     }
@@ -2220,7 +2221,7 @@ expr_evaluate_dpath_as_type(struct ast_node *expr, struct box *scope,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    as_box = box_new_as_box(dst_box, as_type,
+    as_box = box_new_as_box(dst_box, &as_dpath,
                             dst_box->start_offset_used, bst);
     box_delete(dst_box);
     if (NULL == as_box) {
@@ -2307,7 +2308,8 @@ expr_read_dpath_value_default(struct ast_node *expr,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    assert(value_type == expr->u.rexpr.value_type);
+    assert(EXPR_VALUE_TYPE_UNSET == expr->u.rexpr.value_type
+           || value_type == expr->u.rexpr.value_type);
     return BITPUNCH_OK;
 }
 

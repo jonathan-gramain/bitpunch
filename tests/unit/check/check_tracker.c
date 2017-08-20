@@ -126,8 +126,8 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
                     expr_value_destroy(dummy_type, dummy_value);
                 }
             }
-            if (ast_node_is_container(tk->item_node)
-                && AST_NODE_TYPE_BYTE_ARRAY != tk->item_node->type) {
+            if (ast_node_is_container(tk->dpath->item)
+                && AST_NODE_TYPE_BYTE_ARRAY != tk->dpath->item->type) {
                 /* recurse in container */
                 bt_ret = tracker_enter_item(tk, NULL);
                 ck_assert(bt_ret == BITPUNCH_OK ||
@@ -210,8 +210,8 @@ check_tracker_browse_sub_trackers_recur(struct tracker *tk,
         if (BITPUNCH_OK != expect_box->read_item_ret) {
             bt_ret = tracker_read_item_value(tk, NULL, NULL, NULL);
             ck_assert_int_eq(bt_ret, expect_box->read_item_ret);
-        } else if (ast_node_is_container(tk->item_node)
-                   && AST_NODE_TYPE_BYTE_ARRAY != tk->item_node->type) {
+        } else if (ast_node_is_container(tk->dpath->item)
+                   && AST_NODE_TYPE_BYTE_ARRAY != tk->dpath->item->type) {
             sub_tk = track_item_contents(tk, NULL);
             ck_assert_ptr_ne(sub_tk, NULL);
         
@@ -322,8 +322,8 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
                     check_tracker_item(tk, expect_box);
                 }
                 if (BITPUNCH_OK == expect_box->read_item_ret
-                    && ast_node_is_container(tk->item_node)
-                    && AST_NODE_TYPE_BYTE_ARRAY != tk->item_node->type) {
+                    && ast_node_is_container(tk->dpath->item)
+                    && AST_NODE_TYPE_BYTE_ARRAY != tk->dpath->item->type) {
                     bt_ret = tracker_enter_item(tk, NULL);
                     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
 
@@ -355,7 +355,7 @@ check_tracker_item(struct tracker *tk,
     int64_t item_offset;
     int64_t item_size;
 
-    ck_assert_ptr_ne(tk->item_node, NULL);
+    ck_assert_ptr_ne(tk->dpath, NULL);
     if (check_verbose) {
         printf("=== Before read ===\n");
         dbg_tracker_dump("", tk);
