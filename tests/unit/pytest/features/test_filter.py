@@ -362,6 +362,14 @@ def test_filter_encoded_integer_field(params_filter_encoded_integer_field):
     dtree = params['dtree']
 
     assert len(dtree.messages) == 3
+    assert len(dtree.messages[0].data) == 5
+    assert str(dtree.messages[0].data) == 'hello'
+    assert len(dtree.messages[1].data) == 9
+    assert str(dtree.messages[1].data) == 'beautiful'
+    assert len(dtree.messages[2].data) == 5
+    assert str(dtree.messages[2].data) == 'world'
+    with pytest.raises(IndexError):
+        print str(dtree.messages[3].data)
 
 
 

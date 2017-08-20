@@ -2418,10 +2418,22 @@ box_read_value_internal(struct box *box,
     }
 
     if (NULL != box->dpath.filter) {
+        enum expr_value_type value_type;
+
         bt_ret = box->dpath.filter->u.rexpr_filter.b_filter.read_value(
             box->dpath.filter, box, box->start_offset_used,
             box->end_offset_used - box->start_offset_used,
-            typep, valuep, bst);
+            &value_type, valuep, bst);
+        if (BITPUNCH_OK == bt_ret) {
+            if (EXPR_VALUE_TYPE_STRING == value_type) {
+                // string values share the box data buffer, so inc ref
+                // count
+                box_acquire(box);
+            }
+            if (NULL != typep) {
+                *typep = value_type;
+            }
+        }
     } else {
         bt_ret = read_value_bytes(
             box, box->start_offset_used,
@@ -3648,9 +3660,22 @@ tracker_read_item_value_internal(struct tracker *tk,
         return bt_ret;
     }
     if (NULL != tk->dpath->filter) {
-        return tk->dpath->filter->u.rexpr_filter.b_filter.read_value(
+        enum expr_value_type value_type;
+
+        bt_ret = tk->dpath->filter->u.rexpr_filter.b_filter.read_value(
             tk->dpath->filter, tk->box, item_offset, item_size,
-            typep, valuep, bst);
+            &value_type, valuep, bst);
+        if (BITPUNCH_OK == bt_ret) {
+            if (EXPR_VALUE_TYPE_STRING == value_type) {
+                // string values share the box data buffer, so inc ref
+                // count
+                box_acquire(tk->box);
+            }
+            if (NULL != typep) {
+                *typep = value_type;
+            }
+        }
+        return bt_ret;
     } else {
         return read_value_bytes(tk->box, item_offset, item_size,
                                 typep, valuep, bst);
