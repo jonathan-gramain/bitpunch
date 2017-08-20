@@ -1337,6 +1337,7 @@ box_free(struct box *box)
     case AST_NODE_TYPE_FILTERED:
         (void)bitpunch_close_binary_file(
             (struct bitpunch_binary_file_hdl *)box->file_hdl);
+        free((struct bitpunch_binary_file_hdl *)box->file_hdl);
         break ;
     default:
         break ;

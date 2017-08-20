@@ -1481,6 +1481,7 @@ DataArray_mp_subscript_slice(DataArrayObject *d_arr, PyObject *key)
         goto end;
     }
     res = box_to_shallow_PyObject(d_arr->container.dtree, slice_box, FALSE);
+    box_delete(slice_box);
   end:
     tracker_delete(tk_start);
     tracker_delete(tk_end);
@@ -3155,6 +3156,9 @@ eval_expr_as_python_object(DataContainerObject *cont,
     } else {
         assert(EXPR_VALUE_TYPE_UNSET != expr_value_type);
         res = expr_value_to_PyObject(dtree, expr_value_type, expr_value);
+        if (EXPR_DPATH_TYPE_UNSET != expr_dpath_type) {
+            expr_dpath_destroy(expr_dpath_type, expr_dpath);
+        }
     }
     return res;
 }
