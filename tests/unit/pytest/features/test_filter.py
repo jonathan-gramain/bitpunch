@@ -322,17 +322,23 @@ let Int = integer { signed: false; endian: 'big'; };
 
 let Base64Line = byte[]: string { boundary: '\\n'; }: base64 {};
 
-let B64Header = Base64Line: struct {
+let Header = struct {
     nb_messages: byte[4]: Int;
+
+    let ?nb_messages = nb_messages;
 };
+
+let B64Header = Base64Line: Header;
 
 let B64Message = Base64Line: struct {
     data: byte[]: string;
+
+    let ?data = data;
 };
 
 file {
-    hdr:      B64Header;
-    messages: B64Message[hdr.nb_messages];
+    hdr:      byte[]: B64Header;
+    messages: B64Message[hdr.?nb_messages];
     garbage:  byte[];
 }
 
@@ -346,11 +352,52 @@ data_file_filter_encoded_integer_field = """
 "some random garbage that should not be read\n"
 """
 
+
+spec_file_filter_nested_base64 = """
+
+let Int = integer { signed: false; endian: 'big'; };
+
+let Base64Line = byte[]: string { boundary: '\\n'; }: base64 {};
+
+let Header = struct {
+    nb_messages: byte[4]: Int;
+
+    let ?nb_messages = nb_messages;
+};
+
+let B64Header = Base64Line: Header;
+
+let B64Message = Base64Line: struct {
+    data: byte[]: string;
+
+    let ?data = data;
+};
+
+file {
+    : byte[]: base64: DecodedFile;
+}
+
+let DecodedFile = struct {
+    hdr:      byte[]: B64Header;
+    messages: B64Message[hdr.?nb_messages];
+    garbage:  byte[];
+};
+
+"""
+
+data_file_filter_nested_base64 = """
+"QUFBQUF3PT0KYUdWc2JHOD0KWW1WaGRYUnBablZzCmQyOXliR1E9CnNvbWUgcm"
+"FuZG9tIGdhcmJhZ2UgdGhhdCBzaG91bGQgbm90IGJlIHJlYWQK"
+"""
+
 @pytest.fixture(
     scope='module',
     params=[{
         'spec': spec_file_filter_encoded_integer_field,
         'data': data_file_filter_encoded_integer_field,
+    }, {
+        'spec': spec_file_filter_nested_base64,
+        'data': data_file_filter_nested_base64,
     }
 ])
 def params_filter_encoded_integer_field(request):
@@ -362,12 +409,14 @@ def test_filter_encoded_integer_field(params_filter_encoded_integer_field):
     dtree = params['dtree']
 
     assert len(dtree.messages) == 3
+    assert dtree.eval_expr('file.hdr.nb_messages') == 3
     assert len(dtree.messages[0].data) == 5
     assert str(dtree.messages[0].data) == 'hello'
     assert len(dtree.messages[1].data) == 9
     assert str(dtree.messages[1].data) == 'beautiful'
     assert len(dtree.messages[2].data) == 5
     assert str(dtree.messages[2].data) == 'world'
+    assert dtree.eval_expr('messages[2].?data') == 'world'
     with pytest.raises(IndexError):
         print str(dtree.messages[3].data)
 

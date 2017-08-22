@@ -562,14 +562,17 @@ find_statement_by_name(enum statement_type stmt_type,
         nstmt = (struct named_statement *)stmt;
         if (NULL == nstmt->name) {
             struct field *field;
+            const struct ast_node *field_type;
 
             // recurse in anonymous struct/union fields
             assert(STATEMENT_TYPE_FIELD == stmt_type);
             field = (struct field *)nstmt;
-            if (AST_NODE_TYPE_BLOCK_DEF == field->dpath.item->type) {
+            field_type = dpath_node_get_as_type(&field->dpath);
+            if (NULL != field_type
+                && AST_NODE_TYPE_BLOCK_DEF == field_type->type) {
                 nstmt = find_statement_by_name(
                     STATEMENT_TYPE_FIELD, identifier,
-                    &field->dpath.item->u.block_def.block_stmt_list);
+                    &field_type->u.block_def.block_stmt_list);
                 if (NULL != nstmt) {
                     return nstmt;
                 }
@@ -2148,14 +2151,13 @@ resolve_rexpr_consolidate_named_expr(
         }
     }
     *resolved_typep = NULL; // default
-    if (NULL != filter_target) {
-        assert(AST_NODE_TYPE_REXPR_INTERPRETER == target->type);
-        if (0 != (target->flags & ASTFLAG_TEMPLATE)) {
-            if (-1 == interpreter_build_instance(&target, filter_target)) {
-                return -1;
-            }
-            *resolved_typep = target;
+    if (NULL != filter_target
+        && AST_NODE_TYPE_REXPR_INTERPRETER == target->type
+        && 0 != (target->flags & ASTFLAG_TEMPLATE)) {
+        if (-1 == interpreter_build_instance(&target, filter_target)) {
+            return -1;
         }
+        *resolved_typep = target;
     }
     if (NULL == *resolved_typep
         && 0 == (expect_mask & RESOLVE_EXPECT_EXPRESSION)) {
@@ -3073,7 +3075,8 @@ resolve2_ast_node_as_type(struct ast_node *expr,
     if (-1 == resolve2_ast_node(expr->u.rexpr_filter.target, ctx)) {
         return -1;
     }
-    target_item = ast_node_get_target_item(expr->u.rexpr_filter.target);
+    target_item = (struct ast_node *)
+        dpath_node_get_as_type(&expr->u.rexpr_filter.filter_dpath);
     dpath_node_reset(&target_dpath);
     target_dpath.filter = expr;
     target_dpath.item = target_item;
@@ -3111,15 +3114,19 @@ resolve2_ast_node_member(struct ast_node *expr, struct resolve2_ctx *ctx)
     if (-1 == ret) {
         return -1;
     }
-    anchor_block = ast_node_get_as_type(anchor_expr);
-    if (NULL == anchor_block) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-            "member operator with computed dpath not supported");
-        return -1;
+    if (ast_node_is_rexpr(anchor_expr)) {
+        anchor_block = anchor_expr->u.rexpr.target_item;
+        if (NULL == anchor_block) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
+                "member operator with computed dpath not supported");
+            return -1;
+        }
+        anchor_block = ast_node_get_named_expr_target(
+            (struct ast_node *)anchor_block);
+    } else {
+        anchor_block = anchor_expr;
     }
-    anchor_block = ast_node_get_named_expr_target(
-        (struct ast_node *)anchor_block);
     assert(ast_node_is_item(anchor_block));
     if (anchor_block->type != AST_NODE_TYPE_BLOCK_DEF) {
         semantic_error(
@@ -3209,7 +3216,8 @@ resolve2_ast_node_field(struct ast_node *expr, struct resolve2_ctx *ctx)
     }
     expr->u.rexpr.value_type = expr_value_type_from_dpath_node(&field->dpath);
     expr->u.rexpr.dpath_type = EXPR_DPATH_TYPE_ITEM;
-    expr->u.rexpr.target_item = expr->u.rexpr_field.field->dpath.item;
+    expr->u.rexpr.target_item = (struct ast_node *)
+        dpath_node_get_as_type(&expr->u.rexpr_field.field->dpath);
     return 0;
 }
 
@@ -3328,7 +3336,8 @@ resolve2_ast_node_subscript(struct ast_node *expr,
         switch (anchor_item->type) {
         case AST_NODE_TYPE_ARRAY:
         case AST_NODE_TYPE_ARRAY_SLICE:
-            target_item = anchor_item->u.array.item_type.item;
+            target_item = (struct ast_node *)
+                dpath_node_get_as_type(&anchor_item->u.array.item_type);
             ret = resolve2_dtype(target_item, ctx);
             if (-1 == ret) {
                 return -1;
