@@ -283,10 +283,13 @@ file {
     let a_as_int = (a: Int);
     let b_as_int = (b: Int);
 
+    let ?a_as_struct = a: AsStruct;
+    let ?b_as_struct = bytes(b)[..]: byte[]: AsStruct;
+
     if (a_as_int == 1) {
-        let nb_as_struct = (bytes(a): AsStruct);
+        let ?nb_as_struct = ?a_as_struct;
     } else {
-        let nb_as_struct = (bytes(b)[..]: AsStruct);
+        let ?nb_as_struct = ?b_as_struct;
     }
 }
 
@@ -313,7 +316,7 @@ def test_filter_3(params_filter_3):
 
     assert dtree.a_as_int == 1
     assert dtree.b_as_int == 2
-    assert dtree.nb_as_struct.value == 1
+    assert dtree['?nb_as_struct'].value == 1
 
 
 spec_file_filter_invalid_no_data_source_1 = """
@@ -401,6 +404,57 @@ data_file_filter_nested_base64 = """
 "FuZG9tIGdhcmJhZ2UgdGhhdCBzaG91bGQgbm90IGJlIHJlYWQK"
 """
 
+
+spec_file_filter_base64_selector = """
+
+let Int = integer { signed: false; endian: 'big'; };
+
+let PlainLine = byte[]: string { boundary: '\\n'; };
+let Base64Line = PlainLine: base64 {};
+
+let Header = struct {
+    nb_messages: byte[4]: Int;
+
+    let ?nb_messages = nb_messages;
+};
+
+let B64Header = Base64Line: Header;
+
+let MessagePayload = struct {
+    data: byte[]: string;
+
+    let ?data = data;
+};
+
+let Message = struct {
+    is_base64: byte: Int;
+    raw_data: PlainLine;
+    if (is_base64 == 1) {
+        let data = raw_data: base64;
+    } else {
+        let data = raw_data;
+    }
+    let ?data = data;
+};
+
+file {
+    hdr:      byte[]: B64Header;
+    messages: Message[hdr.?nb_messages];
+    garbage:  byte[];
+}
+
+"""
+
+data_file_filter_base64_selector = """
+"AAAAAw==\n"     # nb_messages=3
+01 "aGVsbG8=\n"     # hello
+00 "beautiful\n"
+01 "d29ybGQ=\n"     " world
+"some random garbage that should not be read\n"
+"""
+
+
+
 @pytest.fixture(
     scope='module',
     params=[{
@@ -409,14 +463,17 @@ data_file_filter_nested_base64 = """
     }, {
         'spec': spec_file_filter_nested_base64,
         'data': data_file_filter_nested_base64,
+    }, {
+        'spec': spec_file_filter_base64_selector,
+        'data': data_file_filter_base64_selector,
     }
 ])
-def params_filter_encoded_integer_field(request):
+def params_filter_messages(request):
     return conftest.make_testcase(request.param)
 
 
-def test_filter_encoded_integer_field(params_filter_encoded_integer_field):
-    params = params_filter_encoded_integer_field
+def test_filter_messages(params_filter_messages):
+    params = params_filter_messages
     dtree = params['dtree']
 
     assert len(dtree.messages) == 3

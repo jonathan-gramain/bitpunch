@@ -3142,6 +3142,8 @@ resolve2_ast_node_member(struct ast_node *expr, struct resolve2_ctx *ctx)
     if (NULL != resolved_member) {
         expr->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
         assert(NULL != anchor_expr);
+        expr->u.rexpr_member_common.anchor_block =
+            (struct ast_node *)anchor_block;
         expr->u.rexpr_member_common.anchor_expr = anchor_expr;
         expr->u.rexpr_named_expr.named_expr =
             (struct named_expr *)resolved_member;
@@ -3153,6 +3155,8 @@ resolve2_ast_node_member(struct ast_node *expr, struct resolve2_ctx *ctx)
     if (NULL != resolved_member) {
         expr->type = AST_NODE_TYPE_REXPR_FIELD;
         assert(NULL != anchor_expr);
+        expr->u.rexpr_member_common.anchor_block =
+            (struct ast_node *)anchor_block;
         expr->u.rexpr_member_common.anchor_expr = anchor_expr;
         expr->u.rexpr_field.field = 
             (struct field *)resolved_member;

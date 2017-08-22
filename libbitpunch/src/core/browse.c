@@ -1214,13 +1214,15 @@ box_apply_filter(struct box *unfiltered_box,
                  struct box **filtered_boxp,
                  struct browse_state *bst)
 {
+    struct ast_node *target_filter;
     struct box *target_box;
     struct box *filtered_box;
     bitpunch_status_t bt_ret;
 
-    if (ast_node_is_filter(filter->u.rexpr_filter.target)) {
-        bt_ret = box_apply_filter(unfiltered_box,
-                                  filter->u.rexpr_filter.target,
+    target_filter =
+        ast_node_get_named_expr_target(filter->u.rexpr_filter.target);
+    if (ast_node_is_filter(target_filter)) {
+        bt_ret = box_apply_filter(unfiltered_box, target_filter,
                                   &target_box, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;

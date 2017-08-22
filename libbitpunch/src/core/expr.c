@@ -2183,11 +2183,17 @@ expr_evaluate_dpath_interpreter(struct ast_node *expr, struct box *scope,
                                 struct browse_state *bst)
 {
     struct ast_node *target;
+    bitpunch_status_t bt_ret;
+    union expr_dpath target_dpath;
 
     target = expr->u.rexpr_filter.target;
     assert(NULL != target);
-    return expr_evaluate_dpath_internal(target, scope,
-                                        eval_dpathp, bst);
+    bt_ret = expr_evaluate_dpath_internal(target, scope, &target_dpath, bst);
+    if (BITPUNCH_OK == bt_ret) {
+
+        *eval_dpathp = target_dpath;
+    }
+    return bt_ret;
 }
 
 static bitpunch_status_t
@@ -2333,30 +2339,56 @@ expr_read_dpath_value_interpreter(struct ast_node *expr,
     enum expr_value_type value_type;
     bitpunch_status_t bt_ret;
     struct ast_node *target;
+    enum expr_value_type dpath_vtype;
+    union expr_value dpath_value;
     const char *item_data;
     int64_t item_size;
 
-    target = expr->u.rexpr_filter.target;
+    target = ast_node_get_named_expr_target(expr->u.rexpr_filter.target);
 
+    dpath_vtype = EXPR_VALUE_TYPE_UNSET;
     switch (target->u.rexpr.dpath_type) {
     case EXPR_DPATH_TYPE_ITEM:
-        bt_ret = tracker_read_item_raw_internal(
-            dpath.item.tk, &item_data, &item_size, bst);
+        bt_ret = tracker_read_item_value_internal(
+            dpath.item.tk, &dpath_vtype, &dpath_value, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
+        switch (dpath_vtype) {
+        case EXPR_VALUE_TYPE_BYTES:
+            item_data = dpath_value.bytes.buf;
+            item_size = dpath_value.bytes.len;
+            break ;
+        case EXPR_VALUE_TYPE_STRING:
+            item_data = dpath_value.string.str;
+            item_size = dpath_value.string.len;
+            break ;
+        default:
+            expr_value_destroy(dpath_vtype, dpath_value);
+            return tracker_error(BITPUNCH_DATA_ERROR, dpath.item.tk,
+                                 expr, bst,
+                                 "cannot interpret dpath of value type '%s': "
+                                 "must be a string or buffer",
+                                 expr_value_type_str(dpath_vtype));
+        }
         break ;
     case EXPR_DPATH_TYPE_CONTAINER:
         item_data = (dpath.container.box->file_hdl->bf_data
                      + box_get_start_offset(dpath.container.box));
         bt_ret = box_get_used_size(dpath.container.box, &item_size, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
         break;
     default:
         assert(0);
     }
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
     bt_ret = interpreter_rcall_read_value(expr, item_data, item_size,
                                           &value_type, expr_valuep, bst);
 
+    if (EXPR_VALUE_TYPE_UNSET != dpath_vtype) {
+        expr_value_destroy(dpath_vtype, dpath_value);
+    }
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
