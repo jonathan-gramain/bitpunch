@@ -1111,7 +1111,8 @@ box_new_as_box(struct box *parent_box,
     as_box->track_path = TRACK_PATH_NONE;
 
     // limit the available space to the slack size of the parent
-    bt_ret = box_set_end_offset(as_box, parent_box->end_offset_max_span,
+    bt_ret = box_set_end_offset(as_box,
+                                box_get_known_end_offset(parent_box),
                                 BOX_END_OFFSET_SLACK, bst);
     if (BITPUNCH_OK != bt_ret) {
         box_delete_non_null(as_box);

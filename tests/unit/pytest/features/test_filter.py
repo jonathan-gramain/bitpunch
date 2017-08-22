@@ -272,12 +272,22 @@ spec_file_filter_in_field_expression = """
 
 let Int = integer { signed: false; endian: 'big'; };
 
+let AsStruct = struct {
+    value: byte[1]: Int;
+};
+
 file {
-    a: byte;
+    a: byte[1];
     b: byte[2];
 
     let a_as_int = (a: Int);
     let b_as_int = (b: Int);
+
+    if (a_as_int == 1) {
+        let nb_as_struct = (bytes(a): AsStruct);
+    } else {
+        let nb_as_struct = (bytes(b)[..]: AsStruct);
+    }
 }
 
 """
@@ -303,6 +313,7 @@ def test_filter_3(params_filter_3):
 
     assert dtree.a_as_int == 1
     assert dtree.b_as_int == 2
+    assert dtree.nb_as_struct.value == 1
 
 
 spec_file_filter_invalid_no_data_source_1 = """

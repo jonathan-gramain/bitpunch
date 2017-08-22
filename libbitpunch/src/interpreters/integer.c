@@ -129,8 +129,11 @@ binary_integer_rcall_build(struct ast_node *rcall,
     case AST_NODE_TYPE_BYTE_ARRAY:
         size_value = ast_node_get_named_expr_target(
             data_source->u.byte_array.size);
-        assert(ast_node_is_rexpr(size_value));
-        if (AST_NODE_TYPE_REXPR_NATIVE != size_value->type) {
+        if (NULL != size_value) {
+            assert(ast_node_is_rexpr(size_value));
+        }
+        if (NULL == size_value
+            || AST_NODE_TYPE_REXPR_NATIVE != size_value->type) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
                 "integer interpreter only supports fixed-sized "

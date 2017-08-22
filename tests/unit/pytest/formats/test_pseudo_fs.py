@@ -159,6 +159,9 @@ def test_pseudo_fs(params_pseudo_fs):
     catalog = dtree['?catalog']
     assert len(catalog) == 7
 
+    assert catalog[0]['?dir'].get_location() == (0x04, 0x0A)
+    assert catalog[1].eval_expr('?dir.dirname') == 'directory2'
+
     assert catalog[2]['?file'].get_location() == (0x18, 0x09)
 
     assert model.make_python_object(
