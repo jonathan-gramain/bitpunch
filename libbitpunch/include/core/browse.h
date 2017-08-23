@@ -516,6 +516,48 @@ tracker_error_dump(struct tracker_error *tk_err, FILE *out);
 void
 tracker_error_destroy(struct tracker_error *tk_err);
 
+bitpunch_status_t
+tracker_error(bitpunch_status_t bt_ret, struct tracker *tk,
+              const struct ast_node *node,
+              struct browse_state *bst,
+              const char *message_fmt, ...)
+    __attribute__((format(printf, 5, 6)));
+bitpunch_status_t
+box_error(bitpunch_status_t bt_ret, struct box *box,
+          const struct ast_node *node,
+          struct browse_state *bst,
+          const char *message_fmt, ...)
+    __attribute__((format(printf, 5, 6)));
+bitpunch_status_t
+box_error_out_of_bounds(struct box *box,
+                        const struct ast_node *node,
+                        enum box_offset_type requested_end_offset_type,
+                        int64_t requested_end_offset,
+                        enum box_offset_type registered_end_offset_type,
+                        struct browse_state *bst);
+bitpunch_status_t
+tracker_error_item_out_of_bounds(struct tracker *tk,
+                                 struct browse_state *bst);
+void
+tracker_error_add_context_message(struct browse_state *bst,
+                                  const char *context_fmt, ...)
+    __attribute__((format(printf, 2, 3), unused));
+void
+tracker_error_add_tracker_context(struct tracker *tk,
+                                  struct browse_state *bst,
+                                  const char *context_fmt, ...)
+    __attribute__((format(printf, 3, 4), unused));
+void
+tracker_error_add_box_context(struct box *box,
+                              struct browse_state *bst,
+                              const char *context_fmt, ...)
+    __attribute__((format(printf, 3, 4), unused));
+void
+tracker_error_add_node_context(const struct ast_node *node,
+                               struct browse_state *bst,
+                               const char *context_fmt, ...)
+    __attribute__((format(printf, 3, 4), unused));
+
 
 /* internal use for other modules */
 

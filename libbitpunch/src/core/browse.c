@@ -145,49 +145,6 @@ tracker_compute_item_size_internal(struct tracker *tk,
                                    int64_t *item_sizep,
                                    struct browse_state *bst);
 
-static bitpunch_status_t
-tracker_error(bitpunch_status_t bt_ret, struct tracker *tk,
-              const struct ast_node *node,
-              struct browse_state *bst,
-              const char *message_fmt, ...)
-    __attribute__((format(printf, 5, 6)));
-static bitpunch_status_t
-box_error(bitpunch_status_t bt_ret, struct box *box,
-          const struct ast_node *node,
-          struct browse_state *bst,
-          const char *message_fmt, ...)
-    __attribute__((format(printf, 5, 6)));
-static bitpunch_status_t
-box_error_out_of_bounds(struct box *box,
-                        const struct ast_node *node,
-                        enum box_offset_type requested_end_offset_type,
-                        int64_t requested_end_offset,
-                        enum box_offset_type registered_end_offset_type,
-                        struct browse_state *bst);
-static bitpunch_status_t
-tracker_error_item_out_of_bounds(struct tracker *tk,
-                                 struct browse_state *bst);
-static void
-tracker_error_add_context_message(struct browse_state *bst,
-                                  const char *context_fmt, ...)
-    __attribute__((format(printf, 2, 3), unused));
-static void
-tracker_error_add_tracker_context(struct tracker *tk,
-                                  struct browse_state *bst,
-                                  const char *context_fmt, ...)
-    __attribute__((format(printf, 3, 4), unused));
-static void
-tracker_error_add_box_context(struct box *box,
-                              struct browse_state *bst,
-                              const char *context_fmt, ...)
-    __attribute__((format(printf, 3, 4), unused));
-static void
-tracker_error_add_node_context(const struct ast_node *node,
-                               struct browse_state *bst,
-                               const char *context_fmt, ...)
-    __attribute__((format(printf, 3, 4), unused));
-
-
 static void
 box_init_index_cache_by_key(struct box *box);
 static void
@@ -4284,7 +4241,7 @@ tracker_error_dump(struct tracker_error *tk_err, FILE *out)
             tk_err->reason);
 }
 
-static bitpunch_status_t
+bitpunch_status_t
 tracker_error(bitpunch_status_t bt_ret, struct tracker *tk,
               const struct ast_node *node,
               struct browse_state *bst,
@@ -4302,7 +4259,7 @@ tracker_error(bitpunch_status_t bt_ret, struct tracker *tk,
     return bt_ret;
 }
 
-static bitpunch_status_t
+bitpunch_status_t
 box_error(bitpunch_status_t bt_ret, struct box *box,
           const struct ast_node *node,
           struct browse_state *bst,
@@ -4320,7 +4277,7 @@ box_error(bitpunch_status_t bt_ret, struct box *box,
     return bt_ret;
 }
 
-static bitpunch_status_t
+bitpunch_status_t
 box_error_out_of_bounds(struct box *box,
                         const struct ast_node *node,
                         enum box_offset_type requested_end_offset_type,
@@ -4357,7 +4314,7 @@ box_error_out_of_bounds(struct box *box,
     return BITPUNCH_OUT_OF_BOUNDS_ERROR;
 }
 
-static bitpunch_status_t
+bitpunch_status_t
 tracker_error_item_out_of_bounds(struct tracker *tk,
                                  struct browse_state *bst)
 {
@@ -4453,7 +4410,7 @@ tracker_error_add_context_internal(struct tracker *tk,
     }
 }
 
-static void
+void
 tracker_error_add_context_message(struct browse_state *bst,
                                   const char *context_fmt, ...)
 {
@@ -4465,7 +4422,7 @@ tracker_error_add_context_message(struct browse_state *bst,
     va_end(ap);
 }
 
-static void
+void
 tracker_error_add_tracker_context(struct tracker *tk,
                                   struct browse_state *bst,
                                   const char *context_fmt, ...)
@@ -4479,7 +4436,7 @@ tracker_error_add_tracker_context(struct tracker *tk,
     va_end(ap);
 }
 
-static void
+void
 tracker_error_add_box_context(struct box *box,
                               struct browse_state *bst,
                               const char *context_fmt, ...)
@@ -4493,7 +4450,7 @@ tracker_error_add_box_context(struct box *box,
     va_end(ap);
 }
 
-static void
+void
 tracker_error_add_node_context(const struct ast_node *node,
                                struct browse_state *bst,
                                const char *context_fmt, ...)
