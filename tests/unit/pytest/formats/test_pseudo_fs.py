@@ -3,6 +3,7 @@
 import pytest
 
 from bitpunch import model
+from bitpunch_cli import CLI
 import conftest
 
 
@@ -36,9 +37,11 @@ let Entry = struct {
     let ?data = bytes(file)[entry_location .. entry_location + entry_size];
     if (entry_type == 'file') {
         let ?file = ?data: File;
+        let ?props = ?file;
     }
     if (entry_type == 'dir') {
         let ?dir = ?data: Dir;
+        let ?props = ?dir;
     }
 
     let File = struct {
@@ -161,11 +164,17 @@ def test_pseudo_fs(params_pseudo_fs):
 
     assert catalog[0]['?dir'].get_location() == (0x04, 0x0A)
     assert catalog[1].eval_expr('?dir.dirname') == 'directory2'
+    assert catalog[1].eval_expr('?props.dirname') == 'directory2'
 
     assert catalog[2]['?file'].get_location() == (0x18, 0x09)
+    assert catalog[2]['?props'].get_location() == (0x18, 0x09)
 
     assert model.make_python_object(
         catalog[2]['?file']['?filedata']) == '1111111111'
+    assert model.make_python_object(
+        catalog[2]['?props']['?filedata']) == '1111111111'
+    assert model.make_python_object(
+        catalog[2].eval_expr('?props.?filedata')) == '1111111111'
 
     assert model.make_python_object(
         catalog[3]['?file']['?filedata']) == '22222222222'
@@ -208,3 +217,7 @@ def test_pseudo_fs(params_pseudo_fs):
     # cannot do sizeof() on non-dpath if not type
     with pytest.raises(ValueError):
         dtree.eval_expr('sizeof(Entry.?data)')
+
+    #cli = CLI()
+    #cli.attach_data_tree(dtree)
+    #cli.cmdloop()

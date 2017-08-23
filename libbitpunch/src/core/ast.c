@@ -415,10 +415,6 @@ static int
 resolve2_ast_node_byte_array(struct ast_node *node,
                              struct resolve2_ctx *ctx);
 static int
-named_expr_check_duplicates(struct named_expr *named_expr);
-static int
-named_exprs_check_duplicates(struct statement_list *named_expr_list);
-static int
 resolve2_stmt_list_generic(struct statement_list *stmt_list,
                            struct resolve2_ctx *ctx);
 static int
@@ -2800,52 +2796,6 @@ resolve2_stmt_list_generic(struct statement_list *stmt_list,
 }
 
 static int
-named_expr_check_duplicates(struct named_expr *named_expr)
-{
-    const struct ast_node *dst_item;
-    struct named_expr *next_named_expr;
-    const struct ast_node *next_dst_item;
-
-    dst_item = named_expr->expr->u.rexpr.target_item;
-    for (next_named_expr =
-             (struct named_expr *)named_expr->nstmt.next_sibling;
-         NULL != next_named_expr;
-         next_named_expr =
-             (struct named_expr *)next_named_expr->nstmt.next_sibling) {
-        next_dst_item =
-            next_named_expr->expr->u.rexpr.target_item;
-        if (dst_item != next_dst_item) {
-            if (dst_item->type == next_dst_item->type) {
-                if (AST_NODE_TYPE_BYTE_ARRAY == dst_item->type) {
-                    continue ;
-                }
-            }
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &next_named_expr->nstmt.stmt.loc,
-                "different target types across duplicate named expressions");
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &named_expr->nstmt.stmt.loc,
-                "first declaration here");
-            return -1;
-        }
-    }
-    return 0;
-}
-
-static int
-named_exprs_check_duplicates(struct statement_list *named_expr_list)
-{
-    struct named_expr *named_expr;
-
-    STATEMENT_FOREACH(named_expr, named_expr, named_expr_list, list) {
-        if (-1 == named_expr_check_duplicates(named_expr)) {
-            return -1;
-        }
-    }
-    return 0;
-}
-
-static int
 resolve2_stmt_lists(struct block_stmt_list *stmt_lists,
                     struct resolve2_ctx *ctx)
 {
@@ -2856,9 +2806,6 @@ resolve2_stmt_lists(struct block_stmt_list *stmt_lists,
     struct named_expr *named_expr;
 
     if (-1 == resolve2_stmt_list_generic(stmt_lists->named_expr_list, ctx)) {
-        return -1;
-    }
-    if (-1 == named_exprs_check_duplicates(stmt_lists->named_expr_list)) {
         return -1;
     }
     STATEMENT_FOREACH(named_expr, named_expr,
@@ -3103,64 +3050,85 @@ resolve2_ast_node_member(struct ast_node *expr, struct resolve2_ctx *ctx)
 {
     int ret;
     struct op *op;
+    const struct named_expr *named_expr;
     struct ast_node *anchor_expr;
     const struct ast_node *anchor_block, *member;
     struct named_statement *resolved_member;
 
     op = &expr->u.rexpr_op.op;
-    anchor_expr = ast_node_get_named_expr_target(op->operands[0]);
     member = op->operands[1];
-    ret = resolve2_ast_node(anchor_expr, ctx);
-    if (-1 == ret) {
-        return -1;
-    }
-    if (ast_node_is_rexpr(anchor_expr)) {
-        anchor_block = anchor_expr->u.rexpr.target_item;
-        if (NULL == anchor_block) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                "member operator with computed dpath not supported");
-            return -1;
-        }
-        anchor_block = ast_node_get_named_expr_target(
-            (struct ast_node *)anchor_block);
-    } else {
-        anchor_block = anchor_expr;
-    }
-    assert(ast_node_is_item(anchor_block));
-    if (anchor_block->type != AST_NODE_TYPE_BLOCK_DEF) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-            "invalid use of member operator on non-block dpath");
-        return -1;
-    }
     /* checked by parser */
     assert(member->type == AST_NODE_TYPE_IDENTIFIER);
-    resolved_member = find_statement_by_name(
-        STATEMENT_TYPE_NAMED_EXPR, member->u.identifier,
-        &anchor_block->u.block_def.block_stmt_list);
-    if (NULL != resolved_member) {
-        expr->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
-        assert(NULL != anchor_expr);
-        expr->u.rexpr_member_common.anchor_block =
-            (struct ast_node *)anchor_block;
-        expr->u.rexpr_member_common.anchor_expr = anchor_expr;
-        expr->u.rexpr_named_expr.named_expr =
-            (struct named_expr *)resolved_member;
-        return resolve2_ast_node_named_expr(expr, ctx);
+
+    if (AST_NODE_TYPE_REXPR_NAMED_EXPR == op->operands[0]->type) {
+        named_expr = op->operands[0]->u.rexpr_named_expr.named_expr;
+        anchor_expr = named_expr->expr;
+    } else {
+        anchor_expr = op->operands[0];
+        named_expr = NULL;
     }
-    resolved_member = find_statement_by_name(
-        STATEMENT_TYPE_FIELD, member->u.identifier,
-        &anchor_block->u.block_def.block_stmt_list);
-    if (NULL != resolved_member) {
-        expr->type = AST_NODE_TYPE_REXPR_FIELD;
-        assert(NULL != anchor_expr);
-        expr->u.rexpr_member_common.anchor_block =
-            (struct ast_node *)anchor_block;
-        expr->u.rexpr_member_common.anchor_expr = anchor_expr;
-        expr->u.rexpr_field.field = 
-            (struct field *)resolved_member;
-        return resolve2_ast_node_field(expr, ctx);
+    while (NULL != anchor_expr) {
+        ret = resolve2_ast_node(anchor_expr, ctx);
+        if (-1 == ret) {
+            return -1;
+        }
+        anchor_expr = ast_node_get_named_expr_target(anchor_expr);
+
+        if (ast_node_is_rexpr(anchor_expr)) {
+            anchor_block = anchor_expr->u.rexpr.target_item;
+            if (NULL == anchor_block) {
+                semantic_error(
+                    SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
+                    "member operator with computed dpath not supported");
+                return -1;
+            }
+            anchor_block = ast_node_get_named_expr_target(
+                (struct ast_node *)anchor_block);
+        } else {
+            anchor_block = anchor_expr;
+        }
+        assert(ast_node_is_item(anchor_block));
+        if (anchor_block->type != AST_NODE_TYPE_BLOCK_DEF) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
+                "invalid use of member operator on non-block dpath");
+            return -1;
+        }
+        resolved_member = find_statement_by_name(
+            STATEMENT_TYPE_NAMED_EXPR, member->u.identifier,
+            &anchor_block->u.block_def.block_stmt_list);
+        if (NULL != resolved_member) {
+            expr->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
+            assert(NULL != anchor_expr);
+            expr->u.rexpr_member_common.anchor_block =
+                (struct ast_node *)anchor_block;
+            expr->u.rexpr_member_common.anchor_expr = anchor_expr;
+            expr->u.rexpr_named_expr.named_expr =
+                (struct named_expr *)resolved_member;
+            return resolve2_ast_node_named_expr(expr, ctx);
+        }
+        resolved_member = find_statement_by_name(
+            STATEMENT_TYPE_FIELD, member->u.identifier,
+            &anchor_block->u.block_def.block_stmt_list);
+        if (NULL != resolved_member) {
+            expr->type = AST_NODE_TYPE_REXPR_FIELD;
+            assert(NULL != anchor_expr);
+            expr->u.rexpr_member_common.anchor_block =
+                (struct ast_node *)anchor_block;
+            expr->u.rexpr_member_common.anchor_expr = anchor_expr;
+            expr->u.rexpr_field.field =
+                (struct field *)resolved_member;
+            return resolve2_ast_node_field(expr, ctx);
+        }
+
+        if (NULL != named_expr) {
+            named_expr = (struct named_expr *)named_expr->nstmt.next_sibling;
+        }
+        if (NULL != named_expr) {
+            anchor_expr = named_expr->expr;
+        } else {
+            anchor_expr = NULL;
+        }
     }
     semantic_error(
         SEMANTIC_LOGLEVEL_ERROR, &member->loc,
