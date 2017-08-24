@@ -3048,10 +3048,10 @@ resolve2_ast_node_as_type(struct ast_node *expr,
 static int
 resolve2_ast_node_member(struct ast_node *expr, struct resolve2_ctx *ctx)
 {
-    int ret;
     struct op *op;
     const struct named_expr *named_expr;
     struct ast_node *anchor_expr;
+    struct ast_node *anchor_target;
     const struct ast_node *anchor_block, *member;
     struct named_statement *resolved_member;
 
@@ -3060,20 +3060,20 @@ resolve2_ast_node_member(struct ast_node *expr, struct resolve2_ctx *ctx)
     /* checked by parser */
     assert(member->type == AST_NODE_TYPE_IDENTIFIER);
 
+    if (-1 == resolve2_ast_node(op->operands[0], ctx)) {
+        return -1;
+    }
+    anchor_expr = op->operands[0];
     if (AST_NODE_TYPE_REXPR_NAMED_EXPR == op->operands[0]->type) {
         named_expr = op->operands[0]->u.rexpr_named_expr.named_expr;
-        anchor_expr = named_expr->expr;
+        anchor_target = named_expr->expr;
     } else {
-        anchor_expr = op->operands[0];
+        anchor_target = op->operands[0];
         named_expr = NULL;
     }
-    while (NULL != anchor_expr) {
-        ret = resolve2_ast_node(anchor_expr, ctx);
-        if (-1 == ret) {
-            return -1;
-        }
-        if (ast_node_is_rexpr(anchor_expr)) {
-            anchor_block = anchor_expr->u.rexpr.target_item;
+    while (NULL != anchor_target) {
+        if (ast_node_is_rexpr(anchor_target)) {
+            anchor_block = anchor_target->u.rexpr.target_item;
             if (NULL == anchor_block) {
                 semantic_error(
                     SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
@@ -3083,7 +3083,7 @@ resolve2_ast_node_member(struct ast_node *expr, struct resolve2_ctx *ctx)
             anchor_block = ast_node_get_named_expr_target(
                 (struct ast_node *)anchor_block);
         } else {
-            anchor_block = anchor_expr;
+            anchor_block = anchor_target;
         }
         assert(ast_node_is_item(anchor_block));
         if (anchor_block->type != AST_NODE_TYPE_BLOCK_DEF) {
@@ -3123,9 +3123,9 @@ resolve2_ast_node_member(struct ast_node *expr, struct resolve2_ctx *ctx)
             named_expr = (struct named_expr *)named_expr->nstmt.next_sibling;
         }
         if (NULL != named_expr) {
-            anchor_expr = named_expr->expr;
+            anchor_target = named_expr->expr;
         } else {
-            anchor_expr = NULL;
+            anchor_target = NULL;
         }
     }
     semantic_error(

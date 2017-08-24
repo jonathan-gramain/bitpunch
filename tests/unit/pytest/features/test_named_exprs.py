@@ -306,6 +306,79 @@ def test_named_exprs_5(params_named_exprs_5):
     assert dtree['?first_series_first_value'] == 1
     assert dtree.eval_expr('?first_series.values[0]') == 1
 
+
+spec_file_named_exprs_polymorphic = """
+
+let Selector = byte: integer { signed: false; };
+let Count = byte[2]: integer { signed: false; endian: 'big'; };
+let Value = Selector;
+
+
+let IntArray = struct {
+    count: Count;
+    values: Value[count];
+};
+
+let Message = struct {
+    value: byte[]: string { boundary: '\\n'; };
+};
+
+let T = struct {
+    type: Selector;
+    if (type == 1) {
+        array: IntArray;
+        let ?item = array;
+    }
+    if (type == 2) {
+        message: Message;
+        let ?item = message;
+    }
+};
+
+file {
+    items: T[];
+}
+
+"""
+
+data_file_named_exprs_polymorphic = """
+02 // Message
+    "hello\n"
+02 // Message
+    "bonjour\n"
+01 // IntArray
+    00 05 // count
+    01 02 03 04 05
+02 // Message
+    "last message\n"
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_named_exprs_polymorphic,
+        'data': data_file_named_exprs_polymorphic,
+    }])
+def params_named_exprs_polymorphic(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_named_exprs_polymorphic(params_named_exprs_polymorphic):
+    params = params_named_exprs_polymorphic
+    dtree = params['dtree']
+    assert len(dtree.items) == 4
+    assert dtree.items[1].message.value == 'bonjour'
+    assert dtree.items[1]['?item'].value == 'bonjour'
+    assert dtree.eval_expr('items[1].?item.value') == 'bonjour'
+
+    assert model.make_python_object(
+        dtree.items[2].array.values) == [1, 2, 3, 4, 5]
+    assert model.make_python_object(
+        dtree.items[2]['?item'].values) == [1, 2, 3, 4, 5]
+    assert model.make_python_object(
+        dtree.eval_expr('items[2].array.values')) == [1, 2, 3, 4, 5]
+
+
 spec_file_named_exprs_invalid_1 = """
 
 let u16 = byte[2]: integer { signed: false; endian: 'little'; };
