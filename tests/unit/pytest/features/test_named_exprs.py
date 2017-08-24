@@ -272,6 +272,7 @@ file {
     series_length: u8[nb_series];
     series:        Series[nb_series];
     let ?series_type = Series;
+    let ?first_series = series[0];
     let ?first_series_first_value = series[0].values[0];
 }
 
@@ -303,6 +304,7 @@ def test_named_exprs_5(params_named_exprs_5):
     assert model.make_python_object(dtree.series[1].values) == [1, 2]
     assert model.make_python_object(dtree.series[0].values) == [1, 2, 3]
     assert dtree['?first_series_first_value'] == 1
+    assert dtree.eval_expr('?first_series.values[0]') == 1
 
 spec_file_named_exprs_invalid_1 = """
 

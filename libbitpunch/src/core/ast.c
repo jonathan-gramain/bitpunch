@@ -3072,8 +3072,6 @@ resolve2_ast_node_member(struct ast_node *expr, struct resolve2_ctx *ctx)
         if (-1 == ret) {
             return -1;
         }
-        anchor_expr = ast_node_get_named_expr_target(anchor_expr);
-
         if (ast_node_is_rexpr(anchor_expr)) {
             anchor_block = anchor_expr->u.rexpr.target_item;
             if (NULL == anchor_block) {

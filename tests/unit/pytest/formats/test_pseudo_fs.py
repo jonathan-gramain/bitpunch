@@ -172,9 +172,13 @@ def test_pseudo_fs(params_pseudo_fs):
     assert model.make_python_object(
         catalog[2]['?file']['?filedata']) == '1111111111'
     assert model.make_python_object(
+        dtree.eval_expr('?catalog[2].?file.?filedata')) == '1111111111'
+    assert model.make_python_object(
         catalog[2]['?props']['?filedata']) == '1111111111'
     assert model.make_python_object(
         catalog[2].eval_expr('?props.?filedata')) == '1111111111'
+    assert model.make_python_object(
+        dtree.eval_expr('?catalog[2].?props.?filedata')) == '1111111111'
 
     assert model.make_python_object(
         catalog[3]['?file']['?filedata']) == '22222222222'
