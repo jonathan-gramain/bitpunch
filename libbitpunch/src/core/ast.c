@@ -3169,7 +3169,9 @@ resolve2_ast_node_named_expr(struct ast_node *expr,
         // all duplicate dpath expressions use item type, though this
         // requires post-processing when all types have been
         // resolved. Container type is more universal.
-        expr->u.rexpr.dpath_type = EXPR_DPATH_TYPE_CONTAINER;
+        expr->u.rexpr.dpath_type =
+            (EXPR_DPATH_TYPE_NONE != target->u.rexpr.dpath_type ?
+             EXPR_DPATH_TYPE_CONTAINER : EXPR_DPATH_TYPE_NONE);
     }
     return 0;
 }
