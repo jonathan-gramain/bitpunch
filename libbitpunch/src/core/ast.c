@@ -4357,7 +4357,9 @@ ast_node_get_target_filter(struct ast_node *node)
 struct ast_node *
 ast_node_get_named_expr_target(struct ast_node *node)
 {
-    if (NULL == node || AST_NODE_TYPE_REXPR_NAMED_EXPR != node->type) {
+    if (NULL == node
+        || AST_NODE_TYPE_REXPR_NAMED_EXPR != node->type
+        || NULL != node->u.rexpr_named_expr.named_expr->nstmt.next_sibling) {
         return node;
     }
     return ast_node_get_named_expr_target(
