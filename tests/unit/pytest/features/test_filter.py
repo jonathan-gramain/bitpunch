@@ -266,6 +266,10 @@ def test_filter_2(params_filter_2):
         'n': 23,
         'data': 'even more contents data'
     }
+    assert model.make_python_object(dtree.eval_expr('blocks[2]')) == {
+        'n': 23,
+        'data': 'even more contents data'
+    }
 
 
 spec_file_filter_in_field_expression = """
@@ -348,6 +352,10 @@ let B64Message = Base64Line: struct {
     data: byte[]: string;
 
     let ?data = data;
+    let ?data_as_split_strings = data: struct {
+        first_two: byte[2];
+        remain:    byte[];
+    };
 };
 
 file {
@@ -385,6 +393,10 @@ let B64Message = Base64Line: struct {
     data: byte[]: string;
 
     let ?data = data;
+    let ?data_as_split_strings = data: struct {
+        first_two: byte[2];
+        remain:    byte[];
+    };
 };
 
 file {
@@ -435,6 +447,10 @@ let Message = struct {
         let data = raw_data;
     }
     let ?data = data;
+    let ?data_as_split_strings = data: struct {
+        first_two: byte[2];
+        remain:    byte[];
+    };
 };
 
 file {
@@ -485,6 +501,9 @@ def test_filter_messages(params_filter_messages):
     assert len(dtree.messages[2].data) == 5
     assert str(dtree.messages[2].data) == 'world'
     assert dtree.eval_expr('messages[2].?data') == 'world'
+    assert model.make_python_object(
+        dtree.eval_expr('messages[2].?data_as_split_strings')) == {
+            'first_two': 'wo', 'remain': 'rld' };
     with pytest.raises(IndexError):
         print str(dtree.messages[3].data)
 

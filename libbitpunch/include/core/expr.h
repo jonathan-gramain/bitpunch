@@ -55,12 +55,18 @@ enum expr_value_type {
     EXPR_VALUE_TYPE_BYTES,
 };
 
+struct expr_value_from_box {
+    struct box *box;
+};
+
 struct expr_value_string {
+    struct expr_value_from_box from_box; /* inherits */
     const char *str;
     int64_t len;
 };
 
 struct expr_value_bytes {
+    struct expr_value_from_box from_box; /* inherits */
     const char *buf;
     int64_t len;
 };
@@ -68,6 +74,7 @@ struct expr_value_bytes {
 union expr_value {
     int64_t integer;
     int boolean;
+    struct expr_value_from_box from_box;
     struct expr_value_string string;
     struct expr_value_bytes bytes;
 };
@@ -152,26 +159,15 @@ expr_dpath_find_common_ancestor(enum expr_dpath_type type1,
                                 enum expr_dpath_type *ancestor2_typep,
                                 union expr_dpath *ancestor2_dpathp);
 
-static inline void
-expr_dpath_destroy(enum expr_dpath_type type, union expr_dpath dpath)
-{
-    switch (type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        expr_dpath_destroy_item(dpath);
-        break ;
-    case EXPR_DPATH_TYPE_CONTAINER:
-        expr_dpath_destroy_container(dpath);
-        break ;
-    default:
-        break ;
-    }
-}
+void
+expr_dpath_destroy(enum expr_dpath_type type, union expr_dpath dpath);
 
-static inline void
-expr_value_destroy(enum expr_value_type type, union expr_value value)
-{
-    // nothing to destroy for now
-}
+void
+expr_value_destroy(enum expr_value_type type, union expr_value value);
+
+void
+expr_value_attach_box(enum expr_value_type type,
+                      union expr_value *value, struct box *box);
 
 int
 expr_value_cmp_integer(union expr_value expr1, union expr_value expr2);

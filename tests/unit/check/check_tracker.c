@@ -364,6 +364,7 @@ check_tracker_item(struct tracker *tk,
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     ck_assert_int_eq(type, expect_box->key_type);
     check_expr_value_match(type, &value, &expect_box->key);
+    expr_value_destroy(type, value);
 
     bt_ret = tracker_read_item_value(tk, &type, &value, NULL);
     if (check_verbose) {
@@ -377,8 +378,8 @@ check_tracker_item(struct tracker *tk,
     if (EXPR_VALUE_TYPE_UNSET != expect_box->value_type) {
         ck_assert_int_eq(type, expect_box->value_type);
         check_expr_value_match(type, &value, &expect_box->value);
-        expr_value_destroy(type, value);
     }
+    expr_value_destroy(type, value);
     iret = tracker_get_abs_dpath(tk, dpath_expr, sizeof (dpath_expr));
     ck_assert_int_gt(iret, 0);
     ck_assert_int_eq(iret, strlen(expect_box->path));

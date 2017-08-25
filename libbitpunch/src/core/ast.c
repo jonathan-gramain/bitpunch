@@ -3161,17 +3161,29 @@ resolve2_ast_node_named_expr(struct ast_node *expr,
             (struct ast_node *)ast_node_get_as_type(target);
     }
     expr->u.rexpr.value_type = expr_value_type_from_node(target);
-    if (NULL == named_expr->nstmt.next_sibling) {
-        // when named expression has no duplicate in the block
-        expr->u.rexpr.dpath_type = target->u.rexpr.dpath_type;
+
+    if (EXPR_DPATH_TYPE_NONE == target->u.rexpr.dpath_type) {
+        expr->u.rexpr.dpath_type = EXPR_DPATH_TYPE_NONE;
     } else {
+        // default dpath type is container type
         // TODO: We may optimize with EXPR_DPATH_TYPE_ITEM whenever
         // all duplicate dpath expressions use item type, though this
         // requires post-processing when all types have been
         // resolved. Container type is more universal.
-        expr->u.rexpr.dpath_type =
-            (EXPR_DPATH_TYPE_NONE != target->u.rexpr.dpath_type ?
-             EXPR_DPATH_TYPE_CONTAINER : EXPR_DPATH_TYPE_NONE);
+
+        expr->u.rexpr.dpath_type = EXPR_DPATH_TYPE_CONTAINER;
+        do {
+            if (NULL != named_expr->nstmt.next_sibling) {
+                break ;
+            }
+            if (ast_node_is_filter(
+                    ast_node_get_named_expr_target(named_expr->expr))) {
+                break ;
+            }
+            // when all above conditions are unverified, use the original
+            // dpath type
+            expr->u.rexpr.dpath_type = target->u.rexpr.dpath_type;
+        } while (0);
     }
     return 0;
 }

@@ -192,11 +192,16 @@ static void check_codename_item(struct radio_source_info *info,
         bt_ret = tracker_get_item_offset(tk, &code_offset, NULL);
         ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     } else {
-        code_offset = tk->box->start_offset_used;
+        assert(NULL != tk->box->unfiltered_box);
+        assert(NULL != tk->box->dpath.item);
+        assert(AST_NODE_TYPE_FILTERED == tk->box->dpath.item->type);
+        assert(0 == tk->box->start_offset_used);
+        code_offset = tk->box->unfiltered_box->start_offset_used;
     }
     ck_assert_int_eq(code_offset, expect_offset);
 
     check_codename_value(info, type, value, code_idx, is_raw_dpath);
+    expr_value_destroy(type, value);
 }
 
 static void check_codename_entry(struct radio_source_info *info,
@@ -221,6 +226,7 @@ static void check_codename_entry(struct radio_source_info *info,
                                           &type, &value, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     check_codename_value(info, type, value, code_idx, FALSE);
+    expr_value_destroy(type, value);
     if (!info->codename_is_named_expr) {
         bt_ret = tracker_goto_named_item(tk2, "codename", NULL);
         ck_assert_int_eq(bt_ret, BITPUNCH_OK);
@@ -232,6 +238,7 @@ static void check_codename_entry(struct radio_source_info *info,
     ck_assert_int_eq(value.string.len, expect_size);
     ck_assert(0 == memcmp(value.string.str,
                           codename, value.string.len));
+    expr_value_destroy(type, value);
     tracker_delete(tk2);
 }
 
@@ -319,6 +326,7 @@ void testcase_radio_launch_test_index(struct radio_source_info *info)
 
     for (c = 0; c < N_ELEM(radio_codenames); ++c) {
         code_idx = c;
+        memset(&item_key, 0, sizeof(item_key));
         item_key.string.str = radio_codenames[code_idx];
         item_key.string.len = strlen(radio_codenames[code_idx]);
         bt_ret = tracker_goto_first_item_with_key(tk, item_key, NULL);
@@ -335,6 +343,7 @@ void testcase_radio_launch_test_index(struct radio_source_info *info)
     for (c = N_ELEM(radio_codenames) - 1; c >= 0; --c) {
         code_idx = c;
 
+        memset(&item_key, 0, sizeof(item_key));
         item_key.string.str = radio_codenames[code_idx];
         item_key.string.len = strlen(radio_codenames[code_idx]);
         bt_ret = tracker_goto_first_item_with_key(tk, item_key, NULL);
@@ -351,6 +360,7 @@ void testcase_radio_launch_test_index(struct radio_source_info *info)
     for (c = 0; c < N_ELEM(radio_codenames); ++c) {
         code_idx = (c * 7) % 26;
 
+        memset(&item_key, 0, sizeof(item_key));
         item_key.string.str = radio_codenames[code_idx];
         item_key.string.len = strlen(radio_codenames[code_idx]);
         bt_ret = tracker_goto_first_item_with_key(tk, item_key, NULL);

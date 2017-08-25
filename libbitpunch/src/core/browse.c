@@ -1200,11 +1200,11 @@ box_apply_filter_interpreter(struct box *unfiltered_box,
                                             FALSE, bst);
         break ;
     default:
-        return box_error(BITPUNCH_INVALID_PARAM,
-                         unfiltered_box, filter, bst,
-                         "cannot create filter box from filtered type %s",
-                         expr_value_type_str(filtered_value_type));
+        *filtered_boxp = unfiltered_box;
+        box_acquire(unfiltered_box);
+        break ;
     }
+    expr_value_destroy(filtered_value_type, filtered_value);
     return BITPUNCH_OK;
 }
 
@@ -1220,8 +1220,8 @@ box_apply_filter(struct box *unfiltered_box,
     bitpunch_status_t bt_ret;
 
     target_filter =
-        ast_node_get_named_expr_target(filter->u.rexpr_filter.target);
-    if (ast_node_is_filter(target_filter)) {
+        ast_node_get_target_filter(filter->u.rexpr_filter.target);
+    if (NULL != target_filter) {
         bt_ret = box_apply_filter(unfiltered_box, target_filter,
                                   &target_box, bst);
         if (BITPUNCH_OK != bt_ret) {
@@ -1243,11 +1243,11 @@ box_apply_filter(struct box *unfiltered_box,
     default:
         assert(0);
     }
+    box_delete(target_box);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
     *filtered_boxp = filtered_box;
-    box_delete(target_box);
     return BITPUNCH_OK;
 }
 
@@ -2362,6 +2362,7 @@ read_value_bytes(struct box *scope,
         *typep = EXPR_VALUE_TYPE_BYTES;
     }
     if (NULL != valuep) {
+        memset(valuep, 0, sizeof(*valuep));
         valuep->bytes.buf = scope->file_hdl->bf_data + item_offset;
         valuep->bytes.len = item_size;
     }
@@ -2375,38 +2376,44 @@ box_read_value_internal(struct box *box,
                         struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
+    struct box *filtered_box = NULL;
+    struct filter_backend *b_filter = NULL;
+    enum expr_value_type value_type;
 
-    bt_ret = box_compute_used_size(box, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
+    bt_ret = box_apply_filters(box, &filtered_box, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        bt_ret = box_compute_used_size(filtered_box, bst);
     }
-
-    if (NULL != box->dpath.filter) {
-        enum expr_value_type value_type;
-
-        bt_ret = box->dpath.filter->u.rexpr_filter.b_filter.read_value(
-            box->dpath.filter, box, box->start_offset_used,
-            box->end_offset_used - box->start_offset_used,
-            &value_type, valuep, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        if (NULL != box->dpath.filter) {
+            b_filter = &box->dpath.filter->u.rexpr_filter.b_filter;
+            bt_ret = b_filter->read_value(
+                box->dpath.filter,
+                filtered_box,
+                filtered_box->start_offset_used,
+                filtered_box->end_offset_used - filtered_box->start_offset_used,
+                &value_type, valuep, bst);
+        } else {
+            bt_ret = read_value_bytes(
+                filtered_box,
+                filtered_box->start_offset_used,
+                filtered_box->end_offset_used - filtered_box->start_offset_used,
+                &value_type, valuep, bst);
+        }
         if (BITPUNCH_OK == bt_ret) {
-            if (EXPR_VALUE_TYPE_STRING == value_type) {
-                // string values share the box data buffer, so inc ref
-                // count
-                box_acquire(box);
-            }
             if (NULL != typep) {
                 *typep = value_type;
             }
+            if (NULL != valuep) {
+                expr_value_attach_box(value_type, valuep, filtered_box);
+            }
         }
-    } else {
-        bt_ret = read_value_bytes(
-            box, box->start_offset_used,
-            box->end_offset_used - box->start_offset_used,
-            typep, valuep, bst);
     }
     if (BITPUNCH_OK != bt_ret) {
-        tracker_error_add_box_context(box, bst, "when reading value");
+        tracker_error_add_box_context(filtered_box, bst,
+                                      "when reading value");
     }
+    box_delete(filtered_box);
     return bt_ret;
 }
 
@@ -3071,6 +3078,7 @@ tracker_goto_index_internal(struct tracker *tk,
                     (int)item_index.string.len, item_index.string.str,
                     twin_index.integer);
             }
+            expr_value_destroy(index.key->u.rexpr.value_type, item_index);
         }
     } else {
         assert(allow_end_boundary);
@@ -3101,6 +3109,7 @@ tracker_enter_item_internal(struct tracker *tk,
         return bt_ret;
     }
     box_delete_non_null(tk->box);
+    box_delete_non_null(tk->item_box);
     tk->box = filtered_box;
     tk->item_box = NULL;
     tracker_rewind_internal(tk);
@@ -3613,6 +3622,7 @@ tracker_read_item_value_internal(struct tracker *tk,
     bitpunch_status_t bt_ret;
     int64_t item_offset;
     int64_t item_size;
+    enum expr_value_type value_type;
 
     DBG_TRACKER_DUMP(tk);
     if (NULL == tk->dpath) {
@@ -3624,26 +3634,22 @@ tracker_read_item_value_internal(struct tracker *tk,
         return bt_ret;
     }
     if (NULL != tk->dpath->filter) {
-        enum expr_value_type value_type;
-
         bt_ret = tk->dpath->filter->u.rexpr_filter.b_filter.read_value(
             tk->dpath->filter, tk->box, item_offset, item_size,
             &value_type, valuep, bst);
-        if (BITPUNCH_OK == bt_ret) {
-            if (EXPR_VALUE_TYPE_STRING == value_type) {
-                // string values share the box data buffer, so inc ref
-                // count
-                box_acquire(tk->box);
-            }
-            if (NULL != typep) {
-                *typep = value_type;
-            }
-        }
-        return bt_ret;
     } else {
-        return read_value_bytes(tk->box, item_offset, item_size,
-                                typep, valuep, bst);
+        bt_ret = read_value_bytes(tk->box, item_offset, item_size,
+                                  &value_type, valuep, bst);
     }
+    if (BITPUNCH_OK == bt_ret) {
+        if (NULL != typep) {
+            *typep = value_type;
+        }
+        if (NULL != valuep) {
+            expr_value_attach_box(value_type, valuep, tk->box);
+        }
+    }
+    return bt_ret;
 }
 
 bitpunch_status_t
@@ -4803,6 +4809,7 @@ tracker_get_item_key__block(struct tracker *tk,
         *key_typep = EXPR_VALUE_TYPE_STRING;
     }
     if (NULL != keyp) {
+        memset(keyp, 0, sizeof(*keyp));
         keyp->string.str = tk->cur.u.block.field->nstmt.name;
         keyp->string.len = strlen(tk->cur.u.block.field->nstmt.name);
     }
@@ -5212,6 +5219,7 @@ tracker_get_item_key__array_generic(struct tracker *tk,
         *key_typep = EXPR_VALUE_TYPE_INTEGER;
     }
     if (NULL != keyp) {
+        memset(keyp, 0, sizeof(*keyp));
         keyp->integer = tk->cur.u.array.index;
     }
     if (NULL != nth_twinp) {
@@ -5264,6 +5272,7 @@ tracker_get_item_key__indexed_array_internal(
             track_path_from_array_slice(from_index, -1),
             nth_twinp, bst);
         if (BITPUNCH_OK != bt_ret) {
+            expr_value_destroy(key_expr->u.rexpr.value_type, item_key);
             return bt_ret;
         }
     }
@@ -5272,6 +5281,8 @@ tracker_get_item_key__indexed_array_internal(
     }
     if (NULL != keyp) {
         *keyp = item_key;
+    } else {
+        expr_value_destroy(key_expr->u.rexpr.value_type, item_key);
     }
     return BITPUNCH_OK;
 }
@@ -5819,6 +5830,7 @@ tracker_goto_named_item__array(struct tracker *tk, const char *name,
     union expr_value item_key;
 
     DBG_TRACKER_DUMP(tk);
+    memset(&item_key, 0, sizeof(item_key));
     item_key.string.str = name;
     item_key.string.len = strlen(name);
     return tracker_goto_first_item_with_key_internal(tk, item_key, bst);
@@ -5853,6 +5865,7 @@ tracker_goto_next_key_match__generic(struct tracker *tk,
         if (BITPUNCH_OK != bt_ret) {
             tracker_error_add_tracker_context(
                 tk, bst, "when evaluating item key expression");
+            expr_value_destroy(key_expr->u.rexpr.value_type, item_key);
             return bt_ret;
         }
         if (tk->cur.u.array.index ==
@@ -5861,8 +5874,10 @@ tracker_goto_next_key_match__generic(struct tracker *tk,
         }
         if (0 == expr_value_cmp(key_expr->u.rexpr.value_type,
                                 item_key, key)) {
+            expr_value_destroy(key_expr->u.rexpr.value_type, item_key);
             return BITPUNCH_OK;
         }
+        expr_value_destroy(key_expr->u.rexpr.value_type, item_key);
         bt_ret = tracker_goto_next_item_internal(tk, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
@@ -6464,6 +6479,7 @@ tracker_get_item_key__array_slice(struct tracker *tk,
             *key_typep = EXPR_VALUE_TYPE_INTEGER;
         }
         if (NULL != keyp) {
+            memset(keyp, 0, sizeof(*keyp));
             assert(tk->cur.u.array.index >= from_index);
             keyp->integer = tk->cur.u.array.index - from_index;
         }
@@ -6577,6 +6593,7 @@ tracker_goto_named_item__array_slice(struct tracker *tk, const char *name,
     union expr_value item_key;
 
     DBG_TRACKER_DUMP(tk);
+    memset(&item_key, 0, sizeof(item_key));
     item_key.string.str = name;
     item_key.string.len = strlen(name);
     return tracker_goto_first_item_with_key_internal(tk, item_key, bst);

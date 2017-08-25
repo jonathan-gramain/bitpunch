@@ -1897,7 +1897,6 @@ DataArray_bytes_box_to_python_object(
         return NULL;
     }
     res = expr_value_to_PyObject(dtree, value_type, value_eval);
-    expr_value_destroy(value_type, value_eval);
     return res;
 }
 
@@ -3204,7 +3203,6 @@ tracker_item_to_deep_PyObject(DataTreeObject *dtree,
             return NULL;
         }
         res = expr_value_to_PyObject(dtree, value_type, value_eval);
-        expr_value_destroy(value_type, value_eval);
     }
     return res;
 }
@@ -3241,7 +3239,6 @@ tracker_item_to_shallow_PyObject(DataTreeObject *dtree,
             return NULL;
         }
         res = expr_value_to_PyObject(dtree, value_type, value_eval);
-        expr_value_destroy(value_type, value_eval);
     }
     return res;
 }
@@ -3300,7 +3297,6 @@ box_to_shallow_PyObject(DataTreeObject *dtree, struct box *box,
             return NULL;
         }
         res = expr_value_to_PyObject(dtree, value_type, value_eval);
-        expr_value_destroy(value_type, value_eval);
         return res;
     }
     }

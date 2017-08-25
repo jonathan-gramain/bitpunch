@@ -208,6 +208,7 @@ interpreter_build_instance(struct ast_node **template_p,
 {
     const struct interpreter *interpreter;
     struct ast_node *interp_inst;
+    struct ast_node *filter_target;
     struct ast_node *target_item;
 
     assert(NULL != target);
@@ -219,7 +220,15 @@ interpreter_build_instance(struct ast_node **template_p,
         interp_inst = *template_p;
     }
 
-    interp_inst->u.rexpr.dpath_type = target->u.rexpr.dpath_type;
+    filter_target = target;
+    while (ast_node_is_filter(filter_target)) {
+        filter_target = filter_target->u.rexpr_filter.target;
+    }
+    if (ast_node_is_item(filter_target)) {
+        interp_inst->u.rexpr.dpath_type = filter_target->u.rexpr.dpath_type;
+    } else {
+        interp_inst->u.rexpr.dpath_type = EXPR_DPATH_TYPE_CONTAINER;
+    }
     interp_inst->u.rexpr_filter.target = target;
 
     target_item = ast_node_get_target_item(target);
@@ -326,6 +335,7 @@ interpreter_rcall_read_value(const struct ast_node *interpreter,
                    &value_size, item_data, item_size, params)) {
         return BITPUNCH_DATA_ERROR;
     }
+    memset(&value, 0, sizeof(value));
     if (-1 == interpreter->u.rexpr_interpreter.read_func(
             &value, item_data, value_size, params)) {
         return BITPUNCH_DATA_ERROR;

@@ -275,3 +275,6 @@ This is NOT an organized or prioritized list.
   themselves
 
 BUG: rework filter operator '*' to make it work again
+
+BUG: interpreters declared after 'key' statement are not initialized
+correctly (b_filter is empty)
