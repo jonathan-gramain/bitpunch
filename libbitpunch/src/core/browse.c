@@ -5729,16 +5729,18 @@ tracker_goto_nth_item__array_slack_dynamic_item_size(
     bt_ret = BITPUNCH_OK;
     if (box_index_cache_exists(xtk->box)) {
         while (TRUE) {
-            union expr_value index_key;
-
-            bt_ret = tracker_get_item_key_internal(xtk, NULL,
-                                                   &index_key, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                break ;
-            }
             if (xtk->cur.u.array.index
                 == xtk->box->u.array.last_cached_index + 1) {
+                union expr_value index_key;
+
+                bt_ret = tracker_get_item_key_internal(xtk, NULL,
+                                                       &index_key, bst);
+                if (BITPUNCH_OK != bt_ret) {
+                    break ;
+                }
                 tracker_index_cache_add_item(xtk, index_key);
+                expr_value_destroy(
+                    ast_node_get_key_type(xtk->box->dpath.item), index_key);
             }
             if (xtk->cur.u.array.index == index) {
                 break ;
