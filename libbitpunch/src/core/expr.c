@@ -1861,6 +1861,7 @@ expr_evaluate_dpath_anchor_common(struct ast_node *anchor_expr,
             break ;
         case EXPR_DPATH_TYPE_CONTAINER:
             tk = track_box_contents_internal(anchor_eval.container.box, bst);
+            box_delete(anchor_eval.container.box);
             break ;
         default:
             assert(0);
@@ -1981,7 +1982,7 @@ expr_evaluate_dpath_named_expr(struct ast_node *expr, struct box *scope,
         return bt_ret;
     }
     dpath_type = named_expr->expr->u.rexpr.dpath_type;
-    if (BITPUNCH_OK == bt_ret && dpath_type != expr->u.rexpr.dpath_type) {
+    if (dpath_type != expr->u.rexpr.dpath_type) {
         bt_ret = expr_dpath_to_dpath(dpath_type, eval_dpath,
                                      expr->u.rexpr.dpath_type,
                                      &converted_dpath, bst);
