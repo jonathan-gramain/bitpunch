@@ -2130,6 +2130,10 @@ tracker_create_item_box_internal(struct tracker *tk,
             }
             assert(tk->item_offset >= 0);
         }
+    }
+    // need to re-check because tracker_compute_item_offset() may have
+    // set the item box
+    if (NULL == tk->item_box) {
         item_box = box_lookup_cached_child(tk->box, tk->cur, box_flags);
         if (NULL != item_box) {
 #ifdef DEBUG
