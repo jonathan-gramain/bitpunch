@@ -142,3 +142,100 @@ def test_array_flat(params_array_flat):
     for i in range(10):
         mapped_i = (i * 7) % 10
         assert dtree.integers[mapped_i] == mapped_i
+
+
+
+spec_file_array_keyed_items = """
+
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+
+let Item = struct {
+    name: byte[]: string { boundary: '\\0'; };
+    value: u32;
+    key name;
+};
+
+file {
+    integers: Item[];
+}
+
+"""
+
+data_file_array_keyed_items = """
+"alpha" 00 01 00 00 00
+"bravo" 00 02 00 00 00
+"charlie" 00 03 00 00 00
+"""
+
+spec_file_array_keyed_filtered_keys = """
+
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+
+let Item = struct {
+    name: byte[]: string { boundary: '\\0'; }: base64: string;
+    value: u32;
+    key name;
+};
+
+file {
+    integers: Item[];
+}
+
+"""
+
+data_file_array_keyed_filtered_keys = """
+"YWxwaGE=" 00 01 00 00 00
+"YnJhdm8=" 00 02 00 00 00
+"Y2hhcmxpZQ==" 00 03 00 00 00
+"""
+
+spec_file_array_keyed_filtered_items = """
+
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+
+let Item = byte[]: string { boundary: '\\n'; }: base64: struct {
+    name: byte[]: string { boundary: '\\0'; };
+    value: u32;
+    key name;
+};
+
+file {
+    integers: Item[];
+}
+
+"""
+
+data_file_array_keyed_filtered_items = """
+"YWxwaGEAAQAAAA==\n"
+"YnJhdm8AAgAAAA==\n"
+"Y2hhcmxpZQADAAAA\n"
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_array_keyed_items,
+        'data': data_file_array_keyed_items,
+    }, {
+        'spec': spec_file_array_keyed_filtered_keys,
+        'data': data_file_array_keyed_filtered_keys,
+    }, {
+        'spec': spec_file_array_keyed_filtered_items,
+        'data': data_file_array_keyed_filtered_items,
+    }])
+def params_array_keyed_items(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_array_keyed_items(params_array_keyed_items):
+    params = params_array_keyed_items
+    dtree = params['dtree']
+    assert len(dtree.integers) == 3
+    assert dtree.integers['charlie'].value == 3
+    assert dtree.eval_expr('integers["charlie"].value') == 3
+    assert dtree.integers['alpha'].value == 1
+    assert dtree.integers['charlie'].value == 3
+    assert dtree.integers['bravo'].value == 2
+
+    assert ([str(key) for key in dtree.integers.iter_keys()]
+            == ['alpha', 'bravo', 'charlie'])

@@ -3620,6 +3620,7 @@ tracker_read_item_value_internal(struct tracker *tk,
                                  struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
+    struct box *filtered_box = NULL;
     int64_t item_offset;
     int64_t item_size;
     enum expr_value_type value_type;
@@ -3628,16 +3629,44 @@ tracker_read_item_value_internal(struct tracker *tk,
     if (NULL == tk->dpath) {
         return BITPUNCH_NO_ITEM;
     }
-    bt_ret = tracker_get_item_location_internal(tk, &item_offset,
-                                                &item_size, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
     if (NULL != tk->dpath->filter) {
+        if (NULL != tk->dpath->filter->u.rexpr_filter.target
+            && AST_NODE_TYPE_BYTE != tk->dpath->item->type) {
+            bt_ret = tracker_create_item_box_internal(tk, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                return bt_ret;
+            }
+            bt_ret = box_apply_filters(tk->item_box, &filtered_box, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                return bt_ret;
+            }
+            bt_ret = box_compute_used_size(filtered_box, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                box_delete(filtered_box);
+                return bt_ret;
+            }
+            item_offset = filtered_box->start_offset_used;
+            item_size = filtered_box->end_offset_used - item_offset;
+        } else {
+            bt_ret = tracker_get_item_location_internal(tk, &item_offset,
+                                                        &item_size, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                return bt_ret;
+            }
+            filtered_box = tk->box;
+            box_acquire(filtered_box);
+        }
         bt_ret = tk->dpath->filter->u.rexpr_filter.b_filter.read_value(
-            tk->dpath->filter, tk->box, item_offset, item_size,
+            tk->dpath->filter, filtered_box, item_offset, item_size,
             &value_type, valuep, bst);
     } else {
+        bt_ret = tracker_get_item_location_internal(tk, &item_offset,
+                                                    &item_size, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
+        filtered_box = tk->box;
+        box_acquire(filtered_box);
         bt_ret = read_value_bytes(tk->box, item_offset, item_size,
                                   &value_type, valuep, bst);
     }
@@ -3646,9 +3675,10 @@ tracker_read_item_value_internal(struct tracker *tk,
             *typep = value_type;
         }
         if (NULL != valuep) {
-            expr_value_attach_box(value_type, valuep, tk->box);
+            expr_value_attach_box(value_type, valuep, filtered_box);
         }
     }
+    box_delete(filtered_box);
     return bt_ret;
 }
 
@@ -5246,7 +5276,6 @@ tracker_get_item_key__indexed_array_internal(
 
     DBG_TRACKER_DUMP(tk);
     assert(-1 != tk->cur.u.array.index);
-    assert(AST_NODE_TYPE_BLOCK_DEF == tk->dpath->item->type);
     bt_ret = tracker_create_item_box_internal(tk, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
@@ -5892,12 +5921,13 @@ tracker_goto_next_key_match__array(struct tracker *tk,
                                    struct track_path search_boundary,
                                    struct browse_state *bst)
 {
-    struct ast_node *item_type;
+    const struct ast_node *item_type;
     struct ast_node *key_expr;
 
     DBG_TRACKER_DUMP(tk);
     assert(AST_NODE_TYPE_ARRAY == tk->box->dpath.item->type);
-    item_type = tk->box->dpath.item->u.array.item_type.item;
+    item_type = dpath_node_get_as_type(
+        &tk->box->dpath.item->u.array.item_type);
     if (AST_NODE_TYPE_BLOCK_DEF != item_type->type) {
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, item_type, bst,
                              "only arrays which items are structures can "
@@ -6935,8 +6965,7 @@ browse_setup_backends__tracker__array(struct ast_node *item)
     memset(b_tk, 0, sizeof (*b_tk));
     item_type = item->u.array.item_type.item;
 
-    if (AST_NODE_TYPE_BLOCK_DEF == item_type->type
-        && NULL != ast_node_get_key_expr(item)) {
+    if (NULL != ast_node_get_key_expr(item)) {
         b_tk->get_item_key = tracker_get_item_key__indexed_array;
     } else {
         b_tk->get_item_key = tracker_get_item_key__array_generic;

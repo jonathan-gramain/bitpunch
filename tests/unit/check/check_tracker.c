@@ -391,7 +391,7 @@ check_tracker_item(struct tracker *tk,
     if (NULL != tk->item_box) {
         ck_assert_int_ne(-1, tk->item_box->end_offset_used);
         ck_assert_int_eq(tk->item_box->end_offset_used
-                         - tk->item_box->start_offset_used, tk->item_size);
+                         - tk->item_box->start_offset_used, item_size);
     }
 }
 

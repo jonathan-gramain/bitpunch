@@ -1451,9 +1451,11 @@ resolve_names_in_expressions_op_subscript(
             *resolved_typep = resolved_type;
             return 0;
         } else if (0 == (expect_mask & RESOLVE_EXPECT_EXPRESSION)) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &node->loc,
+            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &anchor_expr->loc,
                            "expecting type, got '%s'",
-                           ast_node_type_str(node->type));
+                           ast_node_type_str(
+                               ast_node_get_named_expr_target(anchor_expr)
+                               ->type));
             return -1;
         }
     }
@@ -4754,12 +4756,11 @@ ast_node_is_slack(const struct ast_node *node)
 int
 ast_node_is_indexed(const struct ast_node *node)
 {
-    struct ast_node *target;
+    const struct ast_node *target;
 
     switch (node->type) {
     case AST_NODE_TYPE_ARRAY:
-        target = ast_node_get_named_expr_target(
-            node->u.array.item_type.item);
+        target = dpath_node_get_as_type(&node->u.array.item_type);
         if (AST_NODE_TYPE_BLOCK_DEF != target->type) {
             return FALSE;
         }
@@ -4772,12 +4773,11 @@ ast_node_is_indexed(const struct ast_node *node)
 struct ast_node *
 ast_node_get_key_expr(const struct ast_node *node)
 {
-    struct ast_node *target;
+    const struct ast_node *target;
 
     switch (node->type) {
     case AST_NODE_TYPE_ARRAY:
-        target = ast_node_get_named_expr_target(
-            node->u.array.item_type.item);
+        target = dpath_node_get_as_type(&node->u.array.item_type);
         if (AST_NODE_TYPE_BLOCK_DEF != target->type) {
             return NULL;
         }
