@@ -513,6 +513,17 @@ static int
 setup_track_backends_expr(struct ast_node *expr);
 static int
 setup_track_backends_recur_block(struct ast_node *block);
+static int
+setup_track_backends_stmt_list_generic(struct statement_list *stmt_list);
+static int
+setup_track_backends_subscript_index(struct ast_node *expr,
+                                     struct subscript_index *subscript);
+static int
+setup_track_backends_subscript(struct ast_node *expr);
+static int
+setup_track_backends_subscript_slice(struct ast_node *expr);
+static int
+setup_track_backends_fcall(struct ast_node *expr);
 
 
 static const char *
@@ -3383,12 +3394,6 @@ resolve2_ast_node_subscript_slice(struct ast_node *expr,
     }
     slice_start = &expr->u.rexpr_op_subscript_slice.start;
     slice_end = &expr->u.rexpr_op_subscript_slice.end;
-    if (NULL != slice_start->key) {
-        ret = resolve2_ast_node(slice_start->key, ctx);
-        if (-1 == ret) {
-            return -1;
-        }
-    }
     ret = resolve2_ast_node_subscript_index(expr, slice_start, ctx);
     if (-1 == ret) {
         return -1;
@@ -4132,47 +4137,17 @@ setup_track_backends_dpath(struct dpath_node *dpath)
 {
     int ret = 0;
 
-    if (NULL != dpath->item
-        && 0 == (dpath->item->flags & (ASTFLAG_PROCESSING |
-                                       ASTFLAG_PROCESSED_TRACK_BACKEND))) {
-        dpath->item->flags |= ASTFLAG_PROCESSING;
-        switch (dpath->item->type) {
-        case AST_NODE_TYPE_BLOCK_DEF:
-            ret = setup_track_backends_recur_block(dpath->item);
-            break ;
-        case AST_NODE_TYPE_ARRAY:
-            ret = setup_track_backends_dpath(&dpath->item->u.array.item_type);
-            break ;
-        default:
-            break ;
+    if (NULL != dpath->item) {
+        ret = setup_track_backends_expr(dpath->item);
+        if (0 != ret) {
+            return ret;
         }
-        dpath->item->flags &= ~ASTFLAG_PROCESSING;
-        if (-1 == ret) {
-            return -1;
-        }
-        dpath->item->flags |= ASTFLAG_PROCESSED_TRACK_BACKEND;
     }
-    if (NULL != dpath->filter
-        && AST_NODE_TYPE_REXPR_AS_TYPE == dpath->filter->type
-        && 0 == (dpath->filter->flags & (ASTFLAG_PROCESSING |
-                                         ASTFLAG_PROCESSED_TRACK_BACKEND))) {
-        struct dpath_node *as_dpath;
-
-        dpath->filter->flags |= ASTFLAG_PROCESSING;
-        as_dpath = &dpath->filter->u.rexpr_filter.filter_dpath;
-        ret = setup_track_backends_dpath(as_dpath);
-        dpath->filter->flags &= ~ASTFLAG_PROCESSING;
-        if (0 == ret) {
-            ret = setup_track_backends_expr(
-                dpath->filter->u.rexpr_filter.target);
+    if (NULL != dpath->filter) {
+        ret = setup_track_backends_expr(dpath->filter);
+        if (0 != ret) {
+            return ret;
         }
-        if (-1 == ret) {
-            return -1;
-        }
-        dpath->filter->flags |= ASTFLAG_PROCESSED_TRACK_BACKEND;
-    }
-    if (-1 == browse_setup_backends(dpath)) {
-        return -1;
     }
     return 0;
 }
@@ -4180,33 +4155,243 @@ setup_track_backends_dpath(struct dpath_node *dpath)
 static int
 setup_track_backends_expr(struct ast_node *expr)
 {
-    struct dpath_node dpath;
+    int ret = 0;
 
-    dpath_node_reset(&dpath);
-    dpath.item = ast_node_get_target_item(expr);
-    if (ast_node_is_filter(expr)) {
-        dpath.filter = expr;
+    if (0 != (expr->flags & (ASTFLAG_PROCESSING |
+                             ASTFLAG_PROCESSED_TRACK_BACKEND))) {
+        return 0;
     }
-    return setup_track_backends_dpath(&dpath);
+    expr->flags |= ASTFLAG_PROCESSING;
+    switch (expr->type) {
+    case AST_NODE_TYPE_BLOCK_DEF:
+        ret = setup_track_backends_recur_block(expr);
+        break ;
+    case AST_NODE_TYPE_ARRAY:
+        ret = setup_track_backends_dpath(&expr->u.array.item_type);
+        break ;
+    case AST_NODE_TYPE_CONDITIONAL:
+        ret = setup_track_backends_expr(expr->u.conditional.cond_expr);
+        break ;
+    case AST_NODE_TYPE_REXPR_INTERPRETER:
+        if (NULL != expr->u.rexpr_filter.target) {
+            ret = setup_track_backends_expr(expr->u.rexpr_filter.target);
+        }
+        break ;
+    case AST_NODE_TYPE_REXPR_AS_TYPE:
+        if (NULL != expr->u.rexpr_filter.target) {
+            ret = setup_track_backends_expr(expr->u.rexpr_filter.target);
+        }
+        if (0 == ret) {
+            ret = setup_track_backends_dpath(
+                &expr->u.rexpr_filter.filter_dpath);
+        }
+        break ;
+    case AST_NODE_TYPE_REXPR_FIELD:
+        return setup_track_backends_dpath(
+            (struct dpath_node *)&expr->u.rexpr_field.field->dpath);
+    case AST_NODE_TYPE_REXPR_NAMED_EXPR:
+        return setup_track_backends_expr(
+            expr->u.rexpr_named_expr.named_expr->expr);
+    case AST_NODE_TYPE_REXPR_OP_UPLUS:
+    case AST_NODE_TYPE_REXPR_OP_UMINUS:
+    case AST_NODE_TYPE_REXPR_OP_LNOT:
+    case AST_NODE_TYPE_REXPR_OP_BWNOT:
+    case AST_NODE_TYPE_REXPR_OP_FILTER:
+    case AST_NODE_TYPE_REXPR_OP_EQ:
+    case AST_NODE_TYPE_REXPR_OP_NE:
+    case AST_NODE_TYPE_REXPR_OP_GT:
+    case AST_NODE_TYPE_REXPR_OP_LT:
+    case AST_NODE_TYPE_REXPR_OP_GE:
+    case AST_NODE_TYPE_REXPR_OP_LE:
+    case AST_NODE_TYPE_REXPR_OP_LOR:
+    case AST_NODE_TYPE_REXPR_OP_LAND:
+    case AST_NODE_TYPE_REXPR_OP_BWOR:
+    case AST_NODE_TYPE_REXPR_OP_BWXOR:
+    case AST_NODE_TYPE_REXPR_OP_BWAND:
+    case AST_NODE_TYPE_REXPR_OP_LSHIFT:
+    case AST_NODE_TYPE_REXPR_OP_RSHIFT:
+    case AST_NODE_TYPE_REXPR_OP_ADD:
+    case AST_NODE_TYPE_REXPR_OP_SUB:
+    case AST_NODE_TYPE_REXPR_OP_MUL:
+    case AST_NODE_TYPE_REXPR_OP_DIV:
+    case AST_NODE_TYPE_REXPR_OP_MOD:
+    case AST_NODE_TYPE_REXPR_OP_SIZEOF:
+    case AST_NODE_TYPE_REXPR_OP_ADDROF:
+        ret = setup_track_backends_expr(expr->u.rexpr_op.op.operands[0]);
+        if (0 == ret && NULL != expr->u.rexpr_op.op.operands[1]) {
+            ret = setup_track_backends_expr(expr->u.rexpr_op.op.operands[1]);
+        }
+        break ;
+    case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT:
+        ret = setup_track_backends_subscript(expr);
+        break ;
+    case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE:
+        ret = setup_track_backends_subscript_slice(expr);
+        break ;
+    case AST_NODE_TYPE_REXPR_OP_FCALL:
+        ret = setup_track_backends_fcall(expr);
+        break ;
+    default:
+        break ;
+    }
+    if (-1 == browse_setup_backends(expr)) {
+        return -1;
+    }
+    expr->flags |= ASTFLAG_PROCESSED_TRACK_BACKEND;
+    return 0;
 }
 
 static int
 setup_track_backends_recur_block(struct ast_node *block)
 {
-    struct block_stmt_list *block_lists;
-    const struct field *field;
+    struct block_stmt_list *stmt_lists;
+    struct field *field;
+    struct span_stmt *span_stmt;
+    struct key_stmt *key_stmt;
+    struct match *match;
     struct named_expr *named_expr;
 
-    block_lists = &block->u.block_def.block_stmt_list;
+    stmt_lists = &block->u.block_def.block_stmt_list;
+    if (-1 == setup_track_backends_stmt_list_generic(
+            stmt_lists->named_expr_list)) {
+        return -1;
+    }
+    if (-1 == setup_track_backends_stmt_list_generic(
+            stmt_lists->field_list)) {
+        return -1;
+    }
+    if (-1 == setup_track_backends_stmt_list_generic(
+            stmt_lists->span_list)) {
+        return -1;
+    }
+    if (-1 == setup_track_backends_stmt_list_generic(
+            stmt_lists->last_stmt_list)) {
+        return -1;
+    }
     STATEMENT_FOREACH(named_expr, named_expr,
-                      block_lists->named_expr_list, list) {
+                      stmt_lists->named_expr_list, list) {
         if (-1 == setup_track_backends_expr(named_expr->expr)) {
             return -1;
         }
     }
-    STATEMENT_FOREACH(field, field, block_lists->field_list, list) {
+    STATEMENT_FOREACH(field, field, stmt_lists->field_list, list) {
         if (-1 == setup_track_backends_dpath(
                 (struct dpath_node *)&field->dpath)) {
+            return -1;
+        }
+    }
+    STATEMENT_FOREACH(span_stmt, span_stmt, stmt_lists->span_list, list) {
+        if (-1 == setup_track_backends_expr(span_stmt->span_expr)) {
+            return -1;
+        }
+    }
+    STATEMENT_FOREACH(key_stmt, key_stmt, stmt_lists->key_list, list) {
+        if (-1 == setup_track_backends_expr(key_stmt->key_expr)) {
+            return -1;
+        }
+    }
+    STATEMENT_FOREACH(match, match, stmt_lists->match_list, list) {
+        if (-1 == setup_track_backends_expr(match->expr)) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int
+setup_track_backends_stmt_list_generic(struct statement_list *stmt_list)
+{
+    struct statement *stmt;
+
+    TAILQ_FOREACH(stmt, stmt_list, list) {
+        if (NULL != stmt->cond
+            && -1 == setup_track_backends_expr(stmt->cond)) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int
+setup_track_backends_subscript_index(struct ast_node *expr,
+                                     struct subscript_index *subscript)
+{
+    int ret;
+
+    if (NULL == subscript->key) {
+        return 0;
+    }
+    ret = setup_track_backends_expr(subscript->key);
+    if (-1 == ret) {
+        return -1;
+    }
+    if (NULL != subscript->twin) {
+        ret = setup_track_backends_expr(subscript->twin);
+        if (-1 == ret) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+static int
+setup_track_backends_subscript(struct ast_node *expr)
+{
+    int ret;
+    struct subscript_index *index;
+    struct ast_node *anchor_expr;
+
+    anchor_expr = expr->u.rexpr_op_subscript_common.anchor_expr;
+    assert(NULL != anchor_expr);
+    ret = setup_track_backends_expr(anchor_expr);
+    if (-1 == ret) {
+        return -1;
+    }
+    index = &expr->u.rexpr_op_subscript.index;
+    ret = setup_track_backends_subscript_index(expr, index);
+    if (-1 == ret) {
+        return -1;
+    }
+    return 0;
+}
+
+static int
+setup_track_backends_subscript_slice(struct ast_node *expr)
+{
+    int ret;
+    struct ast_node *anchor_expr;
+    struct subscript_index *slice_start;
+    struct subscript_index *slice_end;
+
+    anchor_expr = expr->u.rexpr_op_subscript_common.anchor_expr;
+    assert(NULL != anchor_expr);
+    ret = setup_track_backends_expr(anchor_expr);
+    if (-1 == ret) {
+        return -1;
+    }
+    slice_start = &expr->u.rexpr_op_subscript_slice.start;
+    slice_end = &expr->u.rexpr_op_subscript_slice.end;
+    ret = setup_track_backends_subscript_index(expr, slice_start);
+    if (-1 == ret) {
+        return -1;
+    }
+    ret = setup_track_backends_subscript_index(expr, slice_end);
+    if (-1 == ret) {
+        return -1;
+    }
+    return 0;
+}
+
+static int
+setup_track_backends_fcall(struct ast_node *expr)
+{
+    struct statement *stmt;
+    struct named_expr *param;
+
+    /* resolve expressions in parameter list */
+    TAILQ_FOREACH(stmt, expr->u.rexpr_op_fcall.func_params, list) {
+        param = (struct named_expr *)stmt;
+        if (-1 == setup_track_backends_expr(param->expr)) {
             return -1;
         }
     }

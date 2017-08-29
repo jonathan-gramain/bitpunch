@@ -6772,12 +6772,10 @@ box_get_n_items__as_bytes(struct box *box, int64_t *item_countp,
  */
 
 static void
-browse_setup_backends__filter__generic(struct dpath_node *dpath)
+browse_setup_backends__filter__generic(struct ast_node *filter)
 {
-    struct ast_node *filter;
     struct filter_backend *b_filter = NULL;
 
-    filter = dpath->filter;
     b_filter = &filter->u.rexpr_filter.b_filter;
     memset(b_filter, 0, sizeof (*b_filter));
 
@@ -6807,12 +6805,10 @@ browse_setup_backends__filter__generic(struct dpath_node *dpath)
 
 
 static void
-browse_setup_backends__box__block(struct dpath_node *dpath)
+browse_setup_backends__box__block(struct ast_node *item)
 {
-    struct ast_node *item;
     struct box_backend *b_box = NULL;
 
-    item = dpath->item;
     b_box = &item->u.container.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
@@ -6860,12 +6856,10 @@ browse_setup_backends__box__block(struct dpath_node *dpath)
 }
 
 static void
-browse_setup_backends__tracker__block(struct dpath_node *dpath)
+browse_setup_backends__tracker__block(struct ast_node *item)
 {
-    struct ast_node *item;
     struct tracker_backend *b_tk = NULL;
 
-    item = dpath->item;
     b_tk = &item->u.container.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
@@ -6887,13 +6881,11 @@ browse_setup_backends__tracker__block(struct dpath_node *dpath)
 }
 
 static void
-browse_setup_backends__box__array(struct dpath_node *dpath)
+browse_setup_backends__box__array(struct ast_node *item)
 {
-    struct ast_node *item;
     struct box_backend *b_box = NULL;
     const struct ast_node *item_type;
 
-    item = dpath->item;
     b_box = &item->u.container.b_box;
     memset(b_box, 0, sizeof (*b_box));
     item_type = item->u.array.item_type.item;
@@ -6934,13 +6926,11 @@ browse_setup_backends__box__array(struct dpath_node *dpath)
 }
 
 static void
-browse_setup_backends__tracker__array(struct dpath_node *dpath)
+browse_setup_backends__tracker__array(struct ast_node *item)
 {
-    struct ast_node *item;
     struct tracker_backend *b_tk = NULL;
     const struct ast_node *item_type;
 
-    item = dpath->item;
     b_tk = &item->u.container.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
     item_type = item->u.array.item_type.item;
@@ -6993,12 +6983,10 @@ browse_setup_backends__tracker__array(struct dpath_node *dpath)
 }
 
 static void
-browse_setup_backends__tracker__byte(struct dpath_node *dpath)
+browse_setup_backends__tracker__byte(struct ast_node *item)
 {
-    struct ast_node *item;
     struct tracker_backend *b_tk = NULL;
 
-    item = dpath->item;
     b_tk = &item->u.container.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
@@ -7007,12 +6995,10 @@ browse_setup_backends__tracker__byte(struct dpath_node *dpath)
 
 
 static void
-browse_setup_backends__box__byte_array(struct dpath_node *dpath)
+browse_setup_backends__box__byte_array(struct ast_node *item)
 {
-    struct ast_node *item;
     struct box_backend *b_box = NULL;
 
-    item = dpath->item;
     b_box = &item->u.container.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
@@ -7039,12 +7025,10 @@ browse_setup_backends__box__byte_array(struct dpath_node *dpath)
 }
 
 static void
-browse_setup_backends__tracker__byte_array(struct dpath_node *dpath)
+browse_setup_backends__tracker__byte_array(struct ast_node *item)
 {
-    struct ast_node *item;
     struct tracker_backend *b_tk = NULL;
 
-    item = dpath->item;
     b_tk = &item->u.container.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
@@ -7073,12 +7057,10 @@ browse_setup_backends__tracker__byte_array(struct dpath_node *dpath)
 
 
 static void
-browse_setup_backends__box__array_slice(struct dpath_node *dpath)
+browse_setup_backends__box__array_slice(struct ast_node *item)
 {
-    struct ast_node *item;
     struct box_backend *b_box = NULL;
 
-    item = dpath->item;
     b_box = &item->u.container.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
@@ -7091,12 +7073,10 @@ browse_setup_backends__box__array_slice(struct dpath_node *dpath)
 }
 
 static void
-browse_setup_backends__tracker__array_slice(struct dpath_node *dpath)
+browse_setup_backends__tracker__array_slice(struct ast_node *item)
 {
-    struct ast_node *item;
     struct tracker_backend *b_tk = NULL;
 
-    item = dpath->item;
     b_tk = &item->u.container.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
@@ -7115,12 +7095,10 @@ browse_setup_backends__tracker__array_slice(struct dpath_node *dpath)
 
 
 static void
-browse_setup_backends__box__byte_slice(struct dpath_node *dpath)
+browse_setup_backends__box__byte_slice(struct ast_node *item)
 {
-    struct ast_node *item;
     struct box_backend *b_box = NULL;
 
-    item = dpath->item;
     b_box = &item->u.container.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
@@ -7132,12 +7110,10 @@ browse_setup_backends__box__byte_slice(struct dpath_node *dpath)
 }
 
 static void
-browse_setup_backends__tracker__byte_slice(struct dpath_node *dpath)
+browse_setup_backends__tracker__byte_slice(struct ast_node *item)
 {
-    struct ast_node *item;
     struct tracker_backend *b_tk = NULL;
 
-    item = dpath->item;
     b_tk = &item->u.container.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
@@ -7156,12 +7132,10 @@ browse_setup_backends__tracker__byte_slice(struct dpath_node *dpath)
 
 
 static void
-browse_setup_backends__box__as_bytes(struct dpath_node *dpath)
+browse_setup_backends__box__as_bytes(struct ast_node *item)
 {
-    struct ast_node *item;
     struct box_backend *b_box = NULL;
 
-    item = dpath->item;
     b_box = &item->u.container.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
@@ -7173,12 +7147,10 @@ browse_setup_backends__box__as_bytes(struct dpath_node *dpath)
 }
 
 static void
-browse_setup_backends__tracker__as_bytes(struct dpath_node *dpath)
+browse_setup_backends__tracker__as_bytes(struct ast_node *item)
 {
-    struct ast_node *item;
     struct tracker_backend *b_tk = NULL;
 
-    item = dpath->item;
     b_tk = &item->u.container.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
@@ -7194,12 +7166,10 @@ browse_setup_backends__tracker__as_bytes(struct dpath_node *dpath)
 }
 
 static void
-browse_setup_backends__box__filtered(struct dpath_node *dpath)
+browse_setup_backends__box__filtered(struct ast_node *item)
 {
-    struct ast_node *item;
     struct box_backend *b_box = NULL;
 
-    item = dpath->item;
     b_box = &item->u.container.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
@@ -7211,12 +7181,10 @@ browse_setup_backends__box__filtered(struct dpath_node *dpath)
 }
 
 static void
-browse_setup_backends__tracker__filtered(struct dpath_node *dpath)
+browse_setup_backends__tracker__filtered(struct ast_node *item)
 {
-    struct ast_node *item;
     struct tracker_backend *b_tk = NULL;
 
-    item = dpath->item;
     b_tk = &item->u.container.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
@@ -7232,47 +7200,46 @@ browse_setup_backends__tracker__filtered(struct dpath_node *dpath)
 }
 
 int
-browse_setup_backends(struct dpath_node *dpath)
+browse_setup_backends(struct ast_node *node)
 {
-    if (NULL != dpath->item) {
-        switch (dpath->item->type) {
-        case AST_NODE_TYPE_BLOCK_DEF:
-            browse_setup_backends__box__block(dpath);
-            browse_setup_backends__tracker__block(dpath);
-            break ;
-        case AST_NODE_TYPE_ARRAY:
-            browse_setup_backends__box__array(dpath);
-            browse_setup_backends__tracker__array(dpath);
-            break ;
-        case AST_NODE_TYPE_BYTE:
-            browse_setup_backends__tracker__byte(dpath);
-            break ;
-        case AST_NODE_TYPE_BYTE_ARRAY:
-            browse_setup_backends__box__byte_array(dpath);
-            browse_setup_backends__tracker__byte_array(dpath);
-            break ;
-        case AST_NODE_TYPE_ARRAY_SLICE:
-            browse_setup_backends__box__array_slice(dpath);
-            browse_setup_backends__tracker__array_slice(dpath);
-            break ;
-        case AST_NODE_TYPE_BYTE_SLICE:
-            browse_setup_backends__box__byte_slice(dpath);
-            browse_setup_backends__tracker__byte_slice(dpath);
-            break ;
-        case AST_NODE_TYPE_AS_BYTES:
-            browse_setup_backends__box__as_bytes(dpath);
-            browse_setup_backends__tracker__as_bytes(dpath);
-            break ;
-        case AST_NODE_TYPE_FILTERED:
-            browse_setup_backends__box__filtered(dpath);
-            browse_setup_backends__tracker__filtered(dpath);
-            break ;
-        default:
-            break ;
-        }
-    }
-    if (NULL != dpath->filter) {
-        browse_setup_backends__filter__generic(dpath);
+    switch (node->type) {
+    case AST_NODE_TYPE_BLOCK_DEF:
+        browse_setup_backends__box__block(node);
+        browse_setup_backends__tracker__block(node);
+        break ;
+    case AST_NODE_TYPE_ARRAY:
+        browse_setup_backends__box__array(node);
+        browse_setup_backends__tracker__array(node);
+        break ;
+    case AST_NODE_TYPE_BYTE:
+        browse_setup_backends__tracker__byte(node);
+        break ;
+    case AST_NODE_TYPE_BYTE_ARRAY:
+        browse_setup_backends__box__byte_array(node);
+        browse_setup_backends__tracker__byte_array(node);
+        break ;
+    case AST_NODE_TYPE_ARRAY_SLICE:
+        browse_setup_backends__box__array_slice(node);
+        browse_setup_backends__tracker__array_slice(node);
+        break ;
+    case AST_NODE_TYPE_BYTE_SLICE:
+        browse_setup_backends__box__byte_slice(node);
+        browse_setup_backends__tracker__byte_slice(node);
+        break ;
+    case AST_NODE_TYPE_AS_BYTES:
+        browse_setup_backends__box__as_bytes(node);
+        browse_setup_backends__tracker__as_bytes(node);
+        break ;
+    case AST_NODE_TYPE_FILTERED:
+        browse_setup_backends__box__filtered(node);
+        browse_setup_backends__tracker__filtered(node);
+        break ;
+    case AST_NODE_TYPE_REXPR_INTERPRETER:
+    case AST_NODE_TYPE_REXPR_AS_TYPE:
+        browse_setup_backends__filter__generic(node);
+        break ;
+    default:
+        break ;
     }
     return 0;
 }

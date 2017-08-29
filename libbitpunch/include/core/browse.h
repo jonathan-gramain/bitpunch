@@ -562,6 +562,6 @@ tracker_error_add_node_context(const struct ast_node *node,
 /* internal use for other modules */
 
 int
-browse_setup_backends(struct dpath_node *dpath);
+browse_setup_backends(struct ast_node *node);
 
 #endif /*__BROWSE_H__*/

@@ -64,7 +64,7 @@ let Number = struct {
     let ?byte_count = ?global_byte_count;
     let ?value = raw: integer { signed: false; endian: 'little'; };
 
-    key ?value;
+    key raw: integer { signed: false; endian: 'little'; };
 };
 
 file {
