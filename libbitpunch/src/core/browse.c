@@ -5159,7 +5159,7 @@ box_get_children_slack__struct(struct box *box,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    max_offset = box->end_offset_max_span;
+    max_offset = box_get_known_end_offset(box);
 
     /* To compute the maximum slack offset, jump to first non-slack
      * field following a slack field. For this, first find this field,
