@@ -3280,6 +3280,9 @@ resolve2_ast_node_subscript_index(struct ast_node *expr,
             /* integer subscript accesses items by raw index */
             if (EXPR_VALUE_TYPE_INTEGER != key->u.rexpr.value_type) {
                 key_expr = ast_node_get_key_expr(anchor_item);
+                if (-1 == resolve2_ast_node(key_expr, ctx)) {
+                    return -1;
+                }
                 assert(ast_node_is_rexpr(key));
                 assert(ast_node_is_rexpr(key_expr));
                 if (key->u.rexpr.value_type
