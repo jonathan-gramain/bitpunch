@@ -362,6 +362,8 @@ file {
     hdr:      byte[]: B64Header;
     messages: B64Message[hdr.?nb_messages];
     garbage:  byte[];
+
+    let ?first_message_data_3_chars = messages[0].data: byte[3]: string;
 }
 
 """
@@ -401,6 +403,8 @@ let B64Message = Base64Line: struct {
 
 file {
     : byte[]: base64: DecodedFile;
+
+    let ?first_message_data_3_chars = messages[0].data: byte[3]: string;
 }
 
 let DecodedFile = struct {
@@ -457,6 +461,8 @@ file {
     hdr:      byte[]: B64Header;
     messages: Message[hdr.?nb_messages];
     garbage:  byte[];
+
+    let ?first_message_data_3_chars = messages[0].data: byte[3]: string;
 }
 
 """
@@ -504,6 +510,7 @@ def test_filter_messages(params_filter_messages):
     assert model.make_python_object(
         dtree.eval_expr('messages[2].?data_as_split_strings')) == {
             'first_two': 'wo', 'remain': 'rld' };
+    assert dtree['?first_message_data_3_chars'] == 'hel'
     with pytest.raises(IndexError):
         print str(dtree.messages[3].data)
 

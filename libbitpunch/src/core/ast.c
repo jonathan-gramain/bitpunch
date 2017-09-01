@@ -126,6 +126,12 @@ resolve_names_in_blocks_identifier(
     enum resolve_expect_mask expect_mask,
     struct ast_node **resolved_typep);
 static int
+resolve_names_in_expressions_identifier(
+    struct ast_node *node,
+    const struct list_of_visible_refs *visible_refs,
+    enum resolve_expect_mask expect_mask,
+    struct ast_node **resolved_typep);
+static int
 resolve_names_byte(
     struct ast_node *node,
     const struct list_of_visible_refs *visible_refs,
@@ -980,6 +986,9 @@ resolve_names_identifier(
     case RESOLVE_NAMES_IN_BLOCKS:
         return resolve_names_in_blocks_identifier(
             node, visible_refs, expect_mask, resolved_typep);
+    case RESOLVE_NAMES_IN_EXPRESSIONS:
+        return resolve_names_in_expressions_identifier(
+            node, visible_refs, expect_mask, resolved_typep);
     default:
         return 0;
     }
@@ -995,20 +1004,20 @@ resolve_names_in_blocks_identifier(
     struct ast_node *resolved_type;
     const struct ast_node *resolved_block;
     const struct named_expr *resolved_named_expr;
-    const struct field *resolved_field;
     const struct interpreter *interpreter;
-    const struct expr_builtin_fn *builtin;
 
-    if (0 != (expect_mask & RESOLVE_EXPECT_TYPE)) {
-        if (0 == strcmp(node->u.identifier, "byte")) {
-            /* native 'byte' type */
-            resolved_type = new_safe(struct ast_node);
-            resolved_type->type = AST_NODE_TYPE_BYTE;
-            resolved_type->loc = node->loc;
-            resolved_type->u.item.min_span_size = 1;
-            *resolved_typep = resolved_type;
-            return 0;
-        }
+    if (0 == (expect_mask & RESOLVE_EXPECT_TYPE)) {
+        *resolved_typep = NULL;
+        return 0;
+    }
+    if (0 == strcmp(node->u.identifier, "byte")) {
+        /* native 'byte' type */
+        resolved_type = new_safe(struct ast_node);
+        resolved_type->type = AST_NODE_TYPE_BYTE;
+        resolved_type->loc = node->loc;
+        resolved_type->u.item.min_span_size = 1;
+        *resolved_typep = resolved_type;
+        return 0;
     }
     if (-1 != lookup_named_expr(node->u.identifier, visible_refs,
                                 &resolved_block,
@@ -1026,7 +1035,56 @@ resolve_names_in_blocks_identifier(
         *resolved_typep = resolved_type;
         return 0;
     }
+    if (0 != (expect_mask & RESOLVE_EXPECT_INTERPRETER)) {
+        interpreter = interpreter_lookup(node->u.identifier);
+        if (NULL != interpreter) {
+            struct statement_list empty_param_list;
+
+            TAILQ_INIT(&empty_param_list);
+            resolved_type = interpreter_rcall_build(interpreter,
+                                                    &empty_param_list);
+            if (NULL == resolved_type) {
+                return -1;
+            }
+            resolved_type->loc = node->loc;
+            *resolved_typep = resolved_type;
+            return 0;
+        }
+    }
+    *resolved_typep = NULL;
+    return 0;
+}
+
+static int
+resolve_names_in_expressions_identifier(
+    struct ast_node *node,
+    const struct list_of_visible_refs *visible_refs,
+    enum resolve_expect_mask expect_mask,
+    struct ast_node **resolved_typep)
+{
+    struct ast_node *resolved_type;
+    const struct ast_node *resolved_block;
+    const struct named_expr *resolved_named_expr;
+    const struct field *resolved_field;
+    const struct expr_builtin_fn *builtin;
+
     if (0 != (expect_mask & RESOLVE_EXPECT_EXPRESSION)) {
+        if (-1 != lookup_named_expr(node->u.identifier, visible_refs,
+                                    &resolved_block,
+                                    &resolved_named_expr)) {
+            resolved_type = new_safe(struct ast_node);
+            resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
+            resolved_type->loc = node->loc;
+            resolved_type->u.rexpr.dpath_type = EXPR_DPATH_TYPE_UNSET;
+            resolved_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
+            assert(NULL != resolved_block);
+            resolved_type->u.rexpr_member_common.anchor_block =
+                (struct ast_node *)resolved_block;
+            resolved_type->u.rexpr_named_expr.named_expr =
+                resolved_named_expr;
+            *resolved_typep = resolved_type;
+            return 0;
+        }
         if (-1 != lookup_field(node->u.identifier, visible_refs,
                                &resolved_block, &resolved_field)) {
             resolved_type = new_safe(struct ast_node);
@@ -1049,22 +1107,6 @@ resolve_names_in_blocks_identifier(
             resolved_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
             resolved_type->u.rexpr.dpath_type = EXPR_DPATH_TYPE_UNSET;
             resolved_type->u.rexpr_builtin.builtin = builtin;
-            *resolved_typep = resolved_type;
-            return 0;
-        }
-    }
-    if (0 != (expect_mask & RESOLVE_EXPECT_INTERPRETER)) {
-        interpreter = interpreter_lookup(node->u.identifier);
-        if (NULL != interpreter) {
-            struct statement_list empty_param_list;
-
-            TAILQ_INIT(&empty_param_list);
-            resolved_type = interpreter_rcall_build(interpreter,
-                                                    &empty_param_list);
-            if (NULL == resolved_type) {
-                return -1;
-            }
-            resolved_type->loc = node->loc;
             *resolved_typep = resolved_type;
             return 0;
         }
@@ -2132,7 +2174,7 @@ resolve_names_in_expressions_named_expr(
     named_expr = (struct named_expr *)expr->u.rexpr_named_expr.named_expr;
 
     *resolved_typep = NULL;
-    return resolve_names(&named_expr->expr, NULL,
+    return resolve_names(&named_expr->expr, visible_refs,
                          RESOLVE_NAMES_IN_EXPRESSIONS, expect_mask);
 }
 
@@ -2159,18 +2201,27 @@ resolve_rexpr_consolidate_named_expr(
             break ;
         }
     }
-    *resolved_typep = NULL; // default
     if (NULL != filter_target
         && AST_NODE_TYPE_REXPR_INTERPRETER == target->type
         && 0 != (target->flags & ASTFLAG_TEMPLATE)) {
         if (-1 == interpreter_build_instance(&target, filter_target)) {
             return -1;
         }
+        if (0 != (expect_mask & RESOLVE_EXPECT_EXPRESSION)) {
+            struct named_expr *named_expr_dup;
+
+            named_expr_dup = (struct named_expr *)
+                dup_safe(expr->u.rexpr_named_expr.named_expr);
+            named_expr_dup->expr = target;
+            expr->u.rexpr_named_expr.named_expr = named_expr_dup;
+            *resolved_typep = NULL;
+        } else {
+            *resolved_typep = target;
+        }
+    } else if (0 == (expect_mask & RESOLVE_EXPECT_EXPRESSION)) {
         *resolved_typep = target;
-    }
-    if (NULL == *resolved_typep
-        && 0 == (expect_mask & RESOLVE_EXPECT_EXPRESSION)) {
-        *resolved_typep = target;
+    } else {
+        *resolved_typep = NULL;
     }
     return 0;
 }
@@ -4682,7 +4733,6 @@ ast_node_get_as_type__rexpr(const struct ast_node *expr)
 {
     const struct ast_node *as_type;
 
-    assert(ast_node_is_rexpr(expr));
     switch (expr->type) {
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
         as_type = ast_node_get_as_type(
@@ -4705,8 +4755,17 @@ ast_node_get_as_type__rexpr(const struct ast_node *expr)
         }
         return ast_node_get_as_type(expr->u.rexpr_field.field->dpath.filter);
 
+    case AST_NODE_TYPE_OP_SET_FILTER:
+        return ast_node_get_as_type(expr->u.op.operands[1]);
+
     default:
-        return expr->u.rexpr.target_item;
+        if (ast_node_is_rexpr(expr)) {
+            return expr->u.rexpr.target_item;
+        }
+        if (ast_node_is_item(expr)) {
+            return expr;
+        }
+        return NULL;
     }
 }
 
@@ -4814,7 +4873,7 @@ dpath_node_get_as_type(const struct dpath_node *dpath)
     if (NULL != dpath->filter) {
         return ast_node_get_as_type(dpath->filter);
     } else {
-        return ast_node_get_target_item(dpath->item);
+        return ast_node_get_as_type(dpath->item);
     }
 }
 

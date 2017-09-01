@@ -1221,7 +1221,10 @@ box_apply_filter(struct box *unfiltered_box,
 
     target_filter =
         ast_node_get_target_filter(filter->u.rexpr_filter.target);
-    if (NULL != target_filter) {
+    if (NULL != target_filter
+        && (AST_NODE_TYPE_REXPR_AS_TYPE != target_filter->type
+            || ast_node_get_as_type(target_filter)
+            != unfiltered_box->dpath.item)) {
         bt_ret = box_apply_filter(unfiltered_box, target_filter,
                                   &target_box, bst);
         if (BITPUNCH_OK != bt_ret) {
