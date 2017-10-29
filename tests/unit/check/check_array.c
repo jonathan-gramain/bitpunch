@@ -394,7 +394,7 @@ START_TEST(varray_ast)
                      AST_NODE_TYPE_REXPR_INTERPRETER);
 
     int_array_size = field->dpath.item->u.byte_array.size;
-    ck_assert_int_ne(int_array_size, NULL);
+    ck_assert_ptr_ne(int_array_size, NULL);
     ck_assert_int_eq(int_array_size->type, AST_NODE_TYPE_REXPR_NATIVE);
     ck_assert_int_eq(int_array_size->u.rexpr.dpath_type,
                      EXPR_DPATH_TYPE_NONE);
