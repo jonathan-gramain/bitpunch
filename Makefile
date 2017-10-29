@@ -34,27 +34,16 @@ LIBS_CHECK_BITPUNCH = $(LIBS_LBITPUNCH) -Wl,-rpath=. -L$(LIB_DIR) -lbitpunch $(C
 LBITPUNCH = $(LIB_DIR)/libbitpunch.so
 CHECK_BITPUNCH = $(BIN_DIR)/check_bitpunch
 
-DIRS = \
-$(BUILD_DIR)/$(LBITPUNCH_DIR) \
-$(BUILD_DIR)/$(LBITPUNCH_OBJDIR) \
-$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/core \
-$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/api \
-$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/interpreters \
-$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/utils \
-$(BUILD_DIR)/$(LBITPUNCH_TMPDIR) \
-$(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/core \
-$(LIB_DIR) \
-$(BIN_DIR) \
-$(BUILD_DIR)/$(CHECK_DIR) \
-$(BUILD_DIR)/$(CHECK_OBJDIR)
-
-.PHONY: pythonlib clean
+.PHONY: all pythonlib clean
 
 
 all: $(LBITPUNCH) $(CHECK_BITPUNCH) pythonlib
 
-$(DIRS):
-	mkdir -p $@
+%/.dir:
+	mkdir -p $(dir $@)
+	touch $@
+
+.PRECIOUS: %/.dir
 
 # prevent automatic removal of these files
 .SECONDARY: $(LEXSRC_LBITPUNCH) $(LEXHDR_LBITPUNCH)
@@ -72,38 +61,38 @@ pythonlib:
 # needed to expand $(dir ...) to pre-create directories
 .SECONDEXPANSION:
 
-$(LBITPUNCH): $$(OBJ_LBITPUNCH) | $$(dir $$@)
+$(LBITPUNCH): $$(OBJ_LBITPUNCH) | $$(@D)/.dir
 	$(CC) $(LDFLAGS) -shared -o $@ $(OBJ_LBITPUNCH) $(LIBS_LBITPUNCH)
 
-$(CHECK_BITPUNCH): $$(OBJ_CHECK_BITPUNCH) $$(LBITPUNCH) | $$(dir $$@)
+$(CHECK_BITPUNCH): $$(OBJ_CHECK_BITPUNCH) $$(LBITPUNCH) | $$(@D)/.dir
 	$(CC) $(LDFLAGS) -o $@ $(OBJ_LBITPUNCH) $(OBJ_CHECK_BITPUNCH) $(INCS) $(LIBS_CHECK_BITPUNCH)
 
 $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.o $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.d: CFLAGS = $(CFLAGS_LBITPUNCH)
 $(BUILD_DIR)/$(UTESTS_DIR)/%.o $(BUILD_DIR)/$(UTESTS_DIR)/%.d: CFLAGS = $(CFLAGS_CHECK)
 
 
-$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.o $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.d: $(LBITPUNCH_SRCDIR)/%.c | $$(dir $$@)
+$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.o $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.d: $(LBITPUNCH_SRCDIR)/%.c | $$(@D)/.dir
 	gcc -c $(CFLAGS) -MM -MG -MT$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/$*.o $(INCS) -I$(EXTRA_INCDIR) -o $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/$*.d $<
 	gcc -c $(CFLAGS) $(INCS) -I$(EXTRA_INCDIR) -o $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/$*.o $<
 
-$(BUILD_DIR)/$(CHECK_OBJDIR)/%.o $(BUILD_DIR)/$(CHECK_OBJDIR)/%.d: $(CHECK_SRCDIR)/%.c | $$(dir $$@)
+$(BUILD_DIR)/$(CHECK_OBJDIR)/%.o $(BUILD_DIR)/$(CHECK_OBJDIR)/%.d: $(CHECK_SRCDIR)/%.c | $$(@D)/.dir
 	gcc -c $(CFLAGS) -MM -MG -MT$(BUILD_DIR)/$(CHECK_OBJDIR)/$*.o $(INCS) -I$(EXTRA_INCDIR) -o $(BUILD_DIR)/$(CHECK_OBJDIR)/$*.d $<
 	gcc -c $(CFLAGS) $(INCS) -I$(EXTRA_INCDIR) -o $(BUILD_DIR)/$(CHECK_OBJDIR)/$*.o $<
 
 
 
-$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.l.o $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.l.d: $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.l.c | $$(dir $$@)
+$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.l.o $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.l.d: $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.l.c | $$(@D)/.dir
 	gcc -c $(CFLAGS_YACC) -MM -MG -MT$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/$*.l.o $(INCS) -I$(EXTRA_INCDIR) -o $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/$*.l.d $<
 	gcc -c $(CFLAGS_YACC) $(INCS) -I$(EXTRA_INCDIR) -o $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/$*.l.o $<
 
-$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.tab.o $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.tab.d: $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.tab.c | $$(dir $$@)
+$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.tab.o $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.tab.d: $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.tab.c | $$(@D)/.dir
 	gcc -c $(CFLAGS) -MM -MG -MT$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/$*.tab.o $(INCS) -I$(EXTRA_INCDIR) -o $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/$*.tab.d $<
 	gcc -c $(CFLAGS) $(INCS) -I$(EXTRA_INCDIR) -o $(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/$*.tab.o $<
 
-$(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.l.c: $(LBITPUNCH_SRCDIR)/%.l $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.tab.h | $$(dir $$@)
+$(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.l.c: $(LBITPUNCH_SRCDIR)/%.l $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.tab.h | $$(@D)/.dir
 	flex --yylineno -o $@ $<
 
-$(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.tab.c $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.tab.h: $(LBITPUNCH_SRCDIR)/%.y | $$(dir $$@)
+$(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.tab.c $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.tab.h: $(LBITPUNCH_SRCDIR)/%.y | $$(@D)/.dir
 	bison --defines=$(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/$*.tab.h -o $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/$*.tab.c $<
 
 -include $(shell find $(BUILD_DIR) -name '*.d')
