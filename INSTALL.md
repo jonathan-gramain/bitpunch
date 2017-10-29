@@ -42,12 +42,7 @@ To compile everything, run:
 
 ```
 make
-make
 ```
-
-Yes, run it twice, a dependency issue makes the first one complain
-about a missing generated file but creates it anyway (did not yet take
-the time to find a workaround for this).
 
 ## Getting started
 

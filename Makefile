@@ -27,6 +27,8 @@ SRC_LBITPUNCH = $(addprefix $(LBITPUNCH_SRCDIR)/,api/bitpunch_api.c core/ast.c c
 SRC_CHECK_BITPUNCH = $(addprefix $(CHECK_SRCDIR)/,check_bitpunch.c check_array.c check_struct.c check_slack.c check_tracker.c check_cond.c check_dynarray.c testcase_radio.c)
 OBJ_LBITPUNCH = $(patsubst $(LBITPUNCH_SRCDIR)/%.c,$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.o,$(SRC_LBITPUNCH)) $(patsubst $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.c,$(BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.o,$(LEXSRC_LBITPUNCH))
 OBJ_CHECK_BITPUNCH = $(patsubst $(CHECK_SRCDIR)/%.c,$(BUILD_DIR)/$(CHECK_OBJDIR)/%.o,$(SRC_CHECK_BITPUNCH))
+OBJ_ALL = $(OBJ_LBITPUNCH) $(OBJ_CHECK_BITPUNCH)
+DEPS_ALL = $(patsubst %.o,%.d,$(OBJ_ALL))
 CHECK_LIBS = `pkg-config --libs check`
 LIBS_LBITPUNCH = -lfl -L/usr/local/lib -lreadline -ltermcap $(CHECK_LIBS) -lsnappy
 LIBS_CHECK_BITPUNCH = $(LIBS_LBITPUNCH) -Wl,-rpath=. -L$(LIB_DIR) -lbitpunch $(CHECK_LIBS) -lm
@@ -95,4 +97,4 @@ $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.l.c: $(LBITPUNCH_SRCDIR)/%.l $(BUILD_DIR)/$(L
 $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.tab.c $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.tab.h: $(LBITPUNCH_SRCDIR)/%.y | $$(@D)/.dir
 	bison --defines=$(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/$*.tab.h -o $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/$*.tab.c $<
 
--include $(shell find $(BUILD_DIR) -name '*.d')
+-include $(DEPS_ALL)
