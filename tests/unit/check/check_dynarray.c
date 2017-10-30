@@ -102,6 +102,7 @@ void check_dynarray_add_tcases(Suite *s)
     TCase *tc_dynarray;
 
     tc_dynarray = tcase_create("dynarray");
+    tcase_set_timeout(tc_dynarray, 30);
     tcase_add_test(tc_dynarray, test_dynarray);
     suite_add_tcase(s, tc_dynarray);
 }

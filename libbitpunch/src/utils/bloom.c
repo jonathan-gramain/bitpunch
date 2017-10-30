@@ -562,6 +562,7 @@ void check_index_add_tcases(Suite *s)
     TCase *tc_index;
 
     tc_index = tcase_create("index");
+    tcase_set_timeout(tc_index, 30);
     tcase_add_test(tc_index, test_index_simple);
     tcase_add_test(tc_index, test_index_100K);
     suite_add_tcase(s, tc_index);
