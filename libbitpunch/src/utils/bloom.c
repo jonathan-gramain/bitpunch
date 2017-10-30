@@ -485,6 +485,7 @@ START_TEST(test_index_simple)
 }
 END_TEST
 
+#ifdef ENABLE_LENGTHY_TESTS
 START_TEST(test_index_100K)
 {
     const char *word_chars = "0123456789abcdefghijklmnopqrstuvwxyz";
@@ -556,6 +557,7 @@ START_TEST(test_index_100K)
     bloom_book_destroy(book);
 }
 END_TEST
+#endif
 
 void check_index_add_tcases(Suite *s)
 {
@@ -564,6 +566,8 @@ void check_index_add_tcases(Suite *s)
     tc_index = tcase_create("index");
     tcase_set_timeout(tc_index, 30);
     tcase_add_test(tc_index, test_index_simple);
+#ifdef ENABLE_LENGTHY_TESTS
     tcase_add_test(tc_index, test_index_100K);
+#endif
     suite_add_tcase(s, tc_index);
 }

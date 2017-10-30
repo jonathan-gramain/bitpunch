@@ -78,6 +78,7 @@ START_TEST(test_dynarray)
     }
     ARRAY_DESTROY(&array);
 
+#ifdef ENABLE_LENGTHY_TESTS
     ARRAY_INIT(&array, 1234, struct test_item);
     for (i = 0; i < 200000; ++i) {
         item.a = i;
@@ -93,6 +94,7 @@ START_TEST(test_dynarray)
 
     }
     ARRAY_DESTROY(&array);
+#endif
 }
 END_TEST
 
