@@ -305,43 +305,43 @@ static void array_teardown(void)
 
 START_TEST(sarray_ast)
 {
-    const struct ast_node *root;
+    const struct ast_node_hdl *root;
     const struct block_stmt_list *stmt_lists;
     const struct field *field;
-    const struct ast_node *int_size;
+    const struct ast_node_hdl *int_size;
     const struct dpath_node *item_type;
-    const struct ast_node *item_count;
+    const struct ast_node_hdl *item_count;
 
     root = check_sarray_def_hdl->df_file_block.root->item;
-    ck_assert_int_eq(root->type, AST_NODE_TYPE_BLOCK_DEF);
-    stmt_lists = &root->u.block_def.block_stmt_list;
+    ck_assert_int_eq(root->ndat->type, AST_NODE_TYPE_BLOCK_DEF);
+    stmt_lists = &root->ndat->u.block_def.block_stmt_list;
 
     field = STATEMENT_FIRST(field, stmt_lists->field_list);
     ck_assert_str_eq(field->nstmt.name, "int_array");
     ck_assert_ptr_ne(field->dpath.item, NULL);
-    ck_assert_int_eq(field->dpath.item->type, AST_NODE_TYPE_ARRAY);
+    ck_assert_int_eq(field->dpath.item->ndat->type, AST_NODE_TYPE_ARRAY);
 
-    item_type = &field->dpath.item->u.array.item_type;
+    item_type = &field->dpath.item->ndat->u.array.item_type;
     ck_assert_ptr_ne(item_type->filter, NULL);
-    ck_assert_int_eq(item_type->filter->type,
+    ck_assert_int_eq(item_type->filter->ndat->type,
                      AST_NODE_TYPE_REXPR_INTERPRETER);
     ck_assert_ptr_ne(item_type->item, NULL);
-    ck_assert_int_eq(item_type->item->type, AST_NODE_TYPE_BYTE_ARRAY);
-    int_size = item_type->item->u.byte_array.size;
+    ck_assert_int_eq(item_type->item->ndat->type, AST_NODE_TYPE_BYTE_ARRAY);
+    int_size = item_type->item->ndat->u.byte_array.size;
     ck_assert_ptr_ne(int_size, NULL);
-    ck_assert_int_eq(int_size->type, AST_NODE_TYPE_REXPR_NATIVE);
-    ck_assert_int_eq(int_size->u.rexpr.dpath_type, EXPR_DPATH_TYPE_NONE);
-    ck_assert_int_eq(int_size->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
-    ck_assert_int_eq(int_size->u.rexpr_native.value.integer, 4);
+    ck_assert_int_eq(int_size->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
+    ck_assert_int_eq(int_size->ndat->u.rexpr.dpath_type, EXPR_DPATH_TYPE_NONE);
+    ck_assert_int_eq(int_size->ndat->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
+    ck_assert_int_eq(int_size->ndat->u.rexpr_native.value.integer, 4);
 
-    item_count = field->dpath.item->u.array.item_count;
+    item_count = field->dpath.item->ndat->u.array.item_count;
     ck_assert_ptr_ne(item_count, NULL);
-    ck_assert_int_eq(item_count->type, AST_NODE_TYPE_REXPR_NATIVE);
-    ck_assert_int_eq(item_count->u.rexpr.dpath_type,
+    ck_assert_int_eq(item_count->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
+    ck_assert_int_eq(item_count->ndat->u.rexpr.dpath_type,
                      EXPR_DPATH_TYPE_NONE);
-    ck_assert_int_eq(item_count->u.rexpr.value_type,
+    ck_assert_int_eq(item_count->ndat->u.rexpr.value_type,
                      EXPR_VALUE_TYPE_INTEGER);
-    ck_assert_int_eq(item_count->u.rexpr_native.value.integer, 5);
+    ck_assert_int_eq(item_count->ndat->u.rexpr_native.value.integer, 5);
 
     field = STATEMENT_NEXT(field, field, list);
     ck_assert_ptr_eq(field, NULL);
@@ -368,77 +368,77 @@ END_TEST
 
 START_TEST(varray_ast)
 {
-    const struct ast_node *root;
+    const struct ast_node_hdl *root;
     const struct block_stmt_list *stmt_lists;
     const struct field *field;
-    const struct ast_node *int_array_size_item;
-    const struct ast_node *int_array_size;
-    const struct ast_node *field_type;
-    const struct ast_node *int_size;
+    const struct ast_node_hdl *int_array_size_item;
+    const struct ast_node_hdl *int_array_size;
+    const struct ast_node_hdl *field_type;
+    const struct ast_node_hdl *int_size;
     const struct dpath_node *item_type;
-    const struct ast_node *item_count;
-    const struct ast_node *op1;
-    const struct ast_node *op2;
+    const struct ast_node_hdl *item_count;
+    const struct ast_node_hdl *op1;
+    const struct ast_node_hdl *op2;
 
     root = check_varray_def_hdl->df_file_block.root->item;
-    ck_assert_int_eq(root->type, AST_NODE_TYPE_BLOCK_DEF);
-    stmt_lists = &root->u.block_def.block_stmt_list;
+    ck_assert_int_eq(root->ndat->type, AST_NODE_TYPE_BLOCK_DEF);
+    stmt_lists = &root->ndat->u.block_def.block_stmt_list;
 
     field = STATEMENT_FIRST(field, stmt_lists->field_list);
     ck_assert_str_eq(field->nstmt.name, "int_array_size");
     int_array_size_item = field->dpath.item;
     ck_assert_ptr_ne(field->dpath.item, NULL);
-    ck_assert_int_eq(field->dpath.item->type, AST_NODE_TYPE_BYTE_ARRAY);
+    ck_assert_int_eq(field->dpath.item->ndat->type, AST_NODE_TYPE_BYTE_ARRAY);
     ck_assert_ptr_ne(field->dpath.filter, NULL);
-    ck_assert_int_eq(field->dpath.filter->type,
+    ck_assert_int_eq(field->dpath.filter->ndat->type,
                      AST_NODE_TYPE_REXPR_INTERPRETER);
 
-    int_array_size = field->dpath.item->u.byte_array.size;
+    int_array_size = field->dpath.item->ndat->u.byte_array.size;
     ck_assert_ptr_ne(int_array_size, NULL);
-    ck_assert_int_eq(int_array_size->type, AST_NODE_TYPE_REXPR_NATIVE);
-    ck_assert_int_eq(int_array_size->u.rexpr.dpath_type,
+    ck_assert_int_eq(int_array_size->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
+    ck_assert_int_eq(int_array_size->ndat->u.rexpr.dpath_type,
                      EXPR_DPATH_TYPE_NONE);
-    ck_assert_int_eq(int_array_size->u.rexpr.value_type,
+    ck_assert_int_eq(int_array_size->ndat->u.rexpr.value_type,
                      EXPR_VALUE_TYPE_INTEGER);
-    ck_assert_int_eq(int_array_size->u.rexpr_native.value.integer, 4);
+    ck_assert_int_eq(int_array_size->ndat->u.rexpr_native.value.integer, 4);
 
     field = STATEMENT_NEXT(field, field, list);
     ck_assert_str_eq(field->nstmt.name, "int_array");
     field_type = field->dpath.item;
     ck_assert_ptr_ne(field_type, NULL);
-    ck_assert_int_eq(field_type->type, AST_NODE_TYPE_ARRAY);
+    ck_assert_int_eq(field_type->ndat->type, AST_NODE_TYPE_ARRAY);
 
-    item_type = &field_type->u.array.item_type;
+    item_type = &field_type->ndat->u.array.item_type;
     ck_assert_ptr_ne(item_type->filter, NULL);
-    ck_assert_int_eq(item_type->filter->type,
+    ck_assert_int_eq(item_type->filter->ndat->type,
                      AST_NODE_TYPE_REXPR_INTERPRETER);
-    ck_assert_int_eq(item_type->item->type, AST_NODE_TYPE_BYTE_ARRAY);
-    int_size = item_type->item->u.byte_array.size;
+    ck_assert_int_eq(item_type->item->ndat->type, AST_NODE_TYPE_BYTE_ARRAY);
+    int_size = item_type->item->ndat->u.byte_array.size;
     ck_assert_ptr_ne(int_size, NULL);
-    ck_assert_int_eq(int_size->type, AST_NODE_TYPE_REXPR_NATIVE);
-    ck_assert_int_eq(int_size->u.rexpr.dpath_type, EXPR_DPATH_TYPE_NONE);
-    ck_assert_int_eq(int_size->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
-    ck_assert_int_eq(int_size->u.rexpr_native.value.integer, 4);
+    ck_assert_int_eq(int_size->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
+    ck_assert_int_eq(int_size->ndat->u.rexpr.dpath_type, EXPR_DPATH_TYPE_NONE);
+    ck_assert_int_eq(int_size->ndat->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
+    ck_assert_int_eq(int_size->ndat->u.rexpr_native.value.integer, 4);
 
-    item_count = field_type->u.array.item_count;
+    item_count = field_type->ndat->u.array.item_count;
     ck_assert_ptr_ne(item_count, NULL);
-    ck_assert_int_eq(item_count->type, AST_NODE_TYPE_REXPR_OP_ADD);
-    ck_assert_int_eq(item_count->u.rexpr.dpath_type,
+    ck_assert_int_eq(item_count->ndat->type, AST_NODE_TYPE_REXPR_OP_ADD);
+    ck_assert_int_eq(item_count->ndat->u.rexpr.dpath_type,
                      EXPR_DPATH_TYPE_NONE);
-    ck_assert_int_eq(item_count->u.rexpr.value_type,
+    ck_assert_int_eq(item_count->ndat->u.rexpr.value_type,
                      EXPR_VALUE_TYPE_INTEGER);
-    op1 = item_count->u.rexpr_op.op.operands[0];
-    op2 = item_count->u.rexpr_op.op.operands[1];
+    op1 = item_count->ndat->u.rexpr_op.op.operands[0];
+    op2 = item_count->ndat->u.rexpr_op.op.operands[1];
     ck_assert_ptr_ne(op1, NULL);
     ck_assert_ptr_ne(op2, NULL);
-    ck_assert_int_eq(op1->type, AST_NODE_TYPE_REXPR_NATIVE);
-    ck_assert_int_eq(op1->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
-    ck_assert_int_eq(op1->u.rexpr.dpath_type, EXPR_DPATH_TYPE_NONE);
-    ck_assert_int_eq(op1->u.rexpr_native.value.integer, 2);
-    ck_assert_int_eq(op2->type, AST_NODE_TYPE_REXPR_FIELD);
-    ck_assert_int_eq(op2->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
-    ck_assert_int_eq(op2->u.rexpr.dpath_type, EXPR_DPATH_TYPE_ITEM);
-    field_type = op2->u.rexpr_field.field->dpath.item;
+    ck_assert_int_eq(op1->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
+    ck_assert_int_eq(op1->ndat->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
+    ck_assert_int_eq(op1->ndat->u.rexpr.dpath_type, EXPR_DPATH_TYPE_NONE);
+    ck_assert_int_eq(op1->ndat->u.rexpr_native.value.integer, 2);
+    ck_assert_int_eq(op2->ndat->type, AST_NODE_TYPE_REXPR_FIELD);
+    ck_assert_int_eq(op2->ndat->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
+    ck_assert_int_eq(op2->ndat->u.rexpr.dpath_type, EXPR_DPATH_TYPE_ITEM);
+    field_type = op2->ndat->u.rexpr_field.field->dpath.item;
     ck_assert_ptr_eq(field_type, int_array_size_item);
 
     field = STATEMENT_NEXT(field, field, list);

@@ -41,7 +41,7 @@
 struct tracker_error;
 
 enum ast_node_type;
-struct ast_node;
+struct ast_node_hdl;
 struct browse_state;
 struct box;
 struct statement_list;
@@ -97,13 +97,13 @@ union expr_dpath {
 
 const struct expr_builtin_fn *
 expr_lookup_builtin_fn(const char *name,
-                       const struct ast_node *object);
+                       const struct ast_node_hdl *object);
 const char *
 expr_find_first_builtin(const char *prefix,
-                        const struct ast_node *object);
+                        const struct ast_node_hdl *object);
 const char *
 expr_find_next_builtin(const char *name,
-                       const struct ast_node *object);
+                       const struct ast_node_hdl *object);
 
 void
 expr_dpath_destroy_item(union expr_dpath dpath);
@@ -139,7 +139,7 @@ bitpunch_status_t
 expr_dpath_get_size(enum expr_dpath_type type, union expr_dpath dpath,
                     int64_t *dpath_sizep,
                     struct browse_state *bst);
-const struct ast_node *
+const struct ast_node_hdl *
 expr_dpath_get_item_node(enum expr_dpath_type type, union expr_dpath dpath);
 struct track_path
 expr_dpath_get_track_path(enum expr_dpath_type type,
@@ -180,19 +180,19 @@ expr_value_cmp(enum expr_value_type type,
                union expr_value expr1, union expr_value expr2);
 
 bitpunch_status_t
-expr_evaluate_value(struct ast_node *expr, struct box *scope,
+expr_evaluate_value(struct ast_node_hdl *expr, struct box *scope,
                     union expr_value *eval_valuep,
                     struct tracker_error **errp);
 bitpunch_status_t
-expr_evaluate_dpath(struct ast_node *expr, struct box *scope,
+expr_evaluate_dpath(struct ast_node_hdl *expr, struct box *scope,
                     union expr_dpath *eval_dpathp,
                     struct tracker_error **errp);
 bitpunch_status_t
-evaluate_conditional(struct ast_node *cond, struct box *scope,
+evaluate_conditional(struct ast_node_hdl *cond, struct box *scope,
                      int *evalp,
                      struct tracker_error **errp);
 bitpunch_status_t
-expr_read_dpath_value(struct ast_node *expr, union expr_dpath dpath,
+expr_read_dpath_value(struct ast_node_hdl *expr, union expr_dpath dpath,
                       union expr_value *expr_valuep,
                       struct tracker_error **errp);
 const char *

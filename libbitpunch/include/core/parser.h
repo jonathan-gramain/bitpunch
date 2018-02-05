@@ -36,15 +36,11 @@
 
 #define PATH_TO_PARSER_TAB_H "build/libbitpunch/tmp/core/parser.tab.h"
 
-struct ast_node;
+struct ast_node_hdl;
 struct parser_ctx;
 struct bitpunch_schema_hdl;
 
 int
 bitpunch_parse_schema(struct bitpunch_schema_hdl *schema);
-int
-bitpunch_parse_expr(const char *expr,
-                   struct ast_node **expr_nodep,
-                   struct parser_ctx **parser_ctxp);
 
 #endif /*__PARSER_H__*/

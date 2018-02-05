@@ -305,7 +305,7 @@ bitpunch_parse_schema(struct bitpunch_schema_hdl *schema)
 
 int
 bitpunch_parse_expr(const char *expr,
-                    struct ast_node **expr_nodep,
+                    struct ast_node_hdl *expr_node,
                     struct parser_ctx **parser_ctxp)
 {
     yyscan_t scanner;
@@ -330,7 +330,7 @@ bitpunch_parse_expr(const char *expr,
 
     yylex_init(&scanner);
     yyset_in(expr_stream, scanner);
-    ret = yyparse(scanner, parser_ctx, expr_nodep);
+    ret = yyparse(scanner, parser_ctx, expr_node);
     yylex_destroy(scanner);
     fclose(expr_stream);
     if (0 != ret) {

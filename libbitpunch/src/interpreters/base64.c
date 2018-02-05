@@ -121,7 +121,7 @@ base64_decode(const char *encoded, size_t encoded_size,
 static int
 base64_read(union expr_value *read_value,
             const char *data, size_t span_size,
-            const struct ast_node *param_values)
+            const struct ast_node_hdl *param_values)
 {
     size_t decoded_max_length;
     int64_t decoded_length;
@@ -145,19 +145,20 @@ base64_read(union expr_value *read_value,
 static int
 base64_write(const union expr_value *write_value,
              char *data, size_t span_size,
-             const struct ast_node *param_values)
+             const struct ast_node_hdl *param_values)
 {
     return -1;
 }
 
 
 static int
-base64_rcall_build(struct ast_node *rcall,
-                   const struct ast_node *data_source,
-                   const struct ast_node *param_values)
+base64_rcall_build(struct ast_node_hdl *rcall,
+                   const struct ast_node_hdl *data_source,
+                   const struct ast_node_hdl *param_values,
+                   struct compile_ctx *ctx)
 {
-    rcall->u.rexpr_interpreter.read_func = base64_read;
-    rcall->u.rexpr_interpreter.write_func = base64_write;
+    rcall->ndat->u.rexpr_interpreter.read_func = base64_read;
+    rcall->ndat->u.rexpr_interpreter.write_func = base64_write;
     return 0;
 }
 

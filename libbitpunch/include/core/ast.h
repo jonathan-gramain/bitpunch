@@ -34,74 +34,135 @@
 
 #include <stdio.h>
 
-struct ast_node;
+#include "utils/dep_resolver.h"
+
+struct ast_node_data;
+struct ast_node_hdl;
 struct dpath_node;
 struct bitpunch_schema_hdl;
 struct box;
 struct field;
+struct parser_location;
+
+enum resolve_expect_mask {
+    RESOLVE_EXPECT_TYPE             = (1u<<0),
+    RESOLVE_EXPECT_INTERPRETER      = (1u<<1),
+    RESOLVE_EXPECT_VALUE_EXPRESSION = (1u<<2),
+    RESOLVE_EXPECT_DPATH_EXPRESSION = (1u<<3),
+    RESOLVE_EXPECT_EXPRESSION = (RESOLVE_EXPECT_DPATH_EXPRESSION |
+                                 RESOLVE_EXPECT_VALUE_EXPRESSION),
+};
+
+enum resolve_identifiers_tag {
+    RESOLVE_TYPE_IDENTIFIERS = (1u<<0),
+    RESOLVE_EXPRESSION_IDENTIFIERS = (1u<<1),
+    RESOLVE_ALL_IDENTIFIERS = ~0u,
+};
+
+enum compile_tag {
+    COMPILE_TAG_NODE_TYPE = (1u<<0),
+    COMPILE_TAG_NODE_SPAN_SIZE = (1u<<1),
+    COMPILE_TAG_NODE_FLAGS = (1u<<2),
+};
+
+struct compile_ctx {
+    struct dep_resolver *dep_resolver;
+    struct compile_req *current_req;
+    struct dep_resolver_node *current_node;
+    dep_resolver_tagset_t current_tags;
+    const char *current_node_family;
+    FILE *deps_dot;
+    struct ast_node_hdl *ast_root;
+};
 
 int
-resolve_schema_references(struct bitpunch_schema_hdl *schema);
+bitpunch_compile_schema(struct bitpunch_schema_hdl *schema);
+
 int
-resolve_user_expr(struct ast_node **expr_p, struct box *scope);
+compile_node(struct ast_node_hdl *node,
+             struct compile_ctx *ctx,
+             dep_resolver_tagset_t tags_pre,
+             dep_resolver_tagset_t tags_post,
+             enum resolve_expect_mask expect_mask);
+int
+compile_expr(struct ast_node_hdl *node, struct compile_ctx *ctx,
+             int is_dependency);
+int
+compile_dpath(struct dpath_node *node,
+              struct compile_ctx *ctx,
+              dep_resolver_tagset_t tags_pre,
+              dep_resolver_tagset_t tags_post);
+
+int
+compile_continue(struct compile_ctx *ctx);
+
+int
+resolve_user_expr(struct ast_node_hdl *expr, struct box *scope);
 void
 dpath_node_reset(struct dpath_node *dpath);
 int
-ast_node_is_rexpr(const struct ast_node *node);
+ast_node_is_rexpr(const struct ast_node_hdl *node);
 int
-ast_node_is_rexpr_to_item(const struct ast_node *node);
-struct ast_node *
-ast_node_get_target_item(struct ast_node *node);
-struct ast_node *
-ast_node_get_target_type(struct ast_node *node);
-struct ast_node *
-ast_node_get_target_filter(struct ast_node *node);
-struct ast_node *
-ast_node_get_named_expr_target(struct ast_node *node);
+ast_node_is_rexpr_to_item(const struct ast_node_hdl *node);
+struct ast_node_hdl *
+ast_node_get_target_item(struct ast_node_hdl *node);
+struct ast_node_hdl *
+ast_node_get_target_type(struct ast_node_hdl *node);
+struct ast_node_hdl *
+ast_node_get_target_filter(struct ast_node_hdl *node);
+struct ast_node_hdl *
+ast_node_get_named_expr_target(struct ast_node_hdl *node);
 int
-ast_node_is_container(const struct ast_node *node);
+ast_node_is_container(const struct ast_node_hdl *node);
 int
-ast_node_is_origin_container(const struct ast_node *node);
+ast_node_is_origin_container(const struct ast_node_hdl *node);
 int
-ast_node_is_byte_container(const struct ast_node *node);
+ast_node_is_byte_container(const struct ast_node_hdl *node);
 int
-ast_node_is_subscriptable_container(const struct ast_node *node);
+ast_node_is_subscriptable_container(const struct ast_node_hdl *node);
 int
-ast_node_is_slice_container(const struct ast_node *node);
+ast_node_is_slice_container(const struct ast_node_hdl *node);
 int
-ast_node_is_item(const struct ast_node *node);
+ast_node_is_item(const struct ast_node_hdl *node);
 int
-ast_node_is_type(const struct ast_node *node);
+ast_node_is_type(const struct ast_node_hdl *node);
 int
-ast_node_is_filter(const struct ast_node *node);
-const struct ast_node *
-ast_node_get_as_type(const struct ast_node *node);
+ast_node_is_filter(const struct ast_node_hdl *node);
+const struct ast_node_hdl *
+ast_node_get_as_type(const struct ast_node_hdl *node);
 int64_t
-ast_node_get_min_span_size(const struct ast_node *node);
+ast_node_get_min_span_size(const struct ast_node_hdl *node);
 int
-ast_node_is_slack(const struct ast_node *node);
+ast_node_is_slack(const struct ast_node_hdl *node);
 int
-ast_node_is_indexed(const struct ast_node *node);
-struct ast_node *
-ast_node_get_key_expr(const struct ast_node *node);
+ast_node_is_indexed(const struct ast_node_hdl *node);
+struct ast_node_hdl *
+ast_node_get_key_expr(const struct ast_node_hdl *node);
 enum expr_value_type
-ast_node_get_key_type(const struct ast_node *node);
-const struct ast_node *
+ast_node_get_key_type(const struct ast_node_hdl *node);
+const struct ast_node_hdl *
 dpath_node_get_as_type(const struct dpath_node *dpath);
-const struct ast_node *
+const struct ast_node_hdl *
 dpath_node_get_value_node(const struct dpath_node *dpath);
 void
-dump_ast_location(struct ast_node *node);
+dump_ast_location(struct ast_node_hdl *node);
 void
-fdump_ast_location(struct ast_node *node, FILE *stream);
+fdump_ast_location(struct ast_node_hdl *node, FILE *stream);
 void
-dump_ast(struct ast_node *root);
+dump_ast_dot(struct ast_node_hdl *node,
+             const char *node_family, dep_resolver_tagset_t tag);
 void
-fdump_ast(struct ast_node *root, FILE *stream);
+fdump_ast_dot(struct ast_node_hdl *node,
+              const char *node_family, dep_resolver_tagset_t tag,
+              FILE *out);
 void
-dump_block(const struct ast_node *block, FILE *stream);
+dump_ast(struct ast_node_hdl *root);
 void
-dump_ast_node_input_text(const struct ast_node *node,
+fdump_ast(struct ast_node_hdl *root, FILE *stream);
+void
+dump_block(const struct ast_node_hdl *block, FILE *stream);
+void
+dump_ast_node_input_text(const struct ast_node_hdl *node,
                          struct bitpunch_schema_hdl *schema,
                          FILE *stream);
 

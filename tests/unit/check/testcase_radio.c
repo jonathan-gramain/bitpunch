@@ -194,7 +194,7 @@ static void check_codename_item(struct radio_source_info *info,
     } else {
         assert(NULL != tk->box->unfiltered_box);
         assert(NULL != tk->box->dpath.item);
-        assert(AST_NODE_TYPE_FILTERED == tk->box->dpath.item->type);
+        assert(AST_NODE_TYPE_FILTERED == tk->box->dpath.item->ndat->type);
         assert(0 == tk->box->start_offset_used);
         code_offset = tk->box->unfiltered_box->start_offset_used;
     }

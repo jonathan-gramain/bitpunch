@@ -35,15 +35,15 @@
 #include "core/expr.h"
 
 bitpunch_status_t
-expr_evaluate_value_internal(struct ast_node *expr, struct box *scope,
+expr_evaluate_value_internal(struct ast_node_hdl *expr, struct box *scope,
                              union expr_value *eval_valuep,
                              struct browse_state *bst);
 bitpunch_status_t
-expr_evaluate_dpath_internal(struct ast_node *expr, struct box *scope,
+expr_evaluate_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
                              union expr_dpath *eval_dpathp,
                              struct browse_state *bst);
 bitpunch_status_t
-expr_read_dpath_value_internal(struct ast_node *expr,
+expr_read_dpath_value_internal(struct ast_node_hdl *expr,
                                union expr_dpath dpath,
                                union expr_value *expr_valuep,
                                struct browse_state *bst);
@@ -61,7 +61,7 @@ named_expr_evaluate_value_internal(
     union expr_value *eval_valuep,
     struct browse_state *bst);
 bitpunch_status_t
-evaluate_conditional_internal(struct ast_node *cond, struct box *scope,
+evaluate_conditional_internal(struct ast_node_hdl *cond, struct box *scope,
                               int *evalp, struct browse_state *bst);
 
 #endif /* __EXPR_INTERNAL_H__ */

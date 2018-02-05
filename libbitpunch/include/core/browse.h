@@ -188,7 +188,7 @@ struct tracker_error_context_info {
     const char *message;
     struct tracker *tk;
     struct box *box;
-    const struct ast_node *node;
+    const struct ast_node_hdl *node;
 };
 
 /**
@@ -209,7 +209,7 @@ struct tracker_error {
         TRACKER_ERROR_STATIC = (1<<0), /**< error is statically allocated */
     } flags;               /**< error flags */
 
-    const struct ast_node *node; /**< node that relates to the error */
+    const struct ast_node_hdl *node; /**< node that relates to the error */
 
 #define BITPUNCH_ERROR_BUF_SIZE 2048
     /**< string table holding custom error message and context
@@ -244,7 +244,7 @@ int
 box_contains_indexed_items(const struct box *box);
 enum expr_value_type
 box_get_index_type(const struct box *box);
-struct ast_node *
+struct ast_node_hdl *
 box_get_index_expr(const struct box *box);
 struct box *
 box_new_from_file(const struct bitpunch_schema_hdl *def_hdl,
@@ -518,19 +518,19 @@ tracker_error_destroy(struct tracker_error *tk_err);
 
 bitpunch_status_t
 tracker_error(bitpunch_status_t bt_ret, struct tracker *tk,
-              const struct ast_node *node,
+              const struct ast_node_hdl *node,
               struct browse_state *bst,
               const char *message_fmt, ...)
     __attribute__((format(printf, 5, 6)));
 bitpunch_status_t
 box_error(bitpunch_status_t bt_ret, struct box *box,
-          const struct ast_node *node,
+          const struct ast_node_hdl *node,
           struct browse_state *bst,
           const char *message_fmt, ...)
     __attribute__((format(printf, 5, 6)));
 bitpunch_status_t
 box_error_out_of_bounds(struct box *box,
-                        const struct ast_node *node,
+                        const struct ast_node_hdl *node,
                         enum box_offset_type requested_end_offset_type,
                         int64_t requested_end_offset,
                         enum box_offset_type registered_end_offset_type,
@@ -553,7 +553,7 @@ tracker_error_add_box_context(struct box *box,
                               const char *context_fmt, ...)
     __attribute__((format(printf, 3, 4), unused));
 void
-tracker_error_add_node_context(const struct ast_node *node,
+tracker_error_add_node_context(const struct ast_node_hdl *node,
                                struct browse_state *bst,
                                const char *context_fmt, ...)
     __attribute__((format(printf, 3, 4), unused));
@@ -562,6 +562,6 @@ tracker_error_add_node_context(const struct ast_node *node,
 /* internal use for other modules */
 
 int
-browse_setup_backends(struct ast_node *node);
+browse_setup_backends(struct ast_node_hdl *node);
 
 #endif /*__BROWSE_H__*/

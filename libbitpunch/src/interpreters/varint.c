@@ -42,7 +42,7 @@
 static int
 varint_get_size(size_t *sizep,
                 const char *data, size_t max_span_size,
-                const struct ast_node *param_values)
+                const struct ast_node_hdl *param_values)
 {
     size_t bytepos;
 
@@ -60,7 +60,7 @@ varint_get_size(size_t *sizep,
 static int
 varint_read(union expr_value *read_value,
             const char *data, size_t span_size,
-            const struct ast_node *param_values)
+            const struct ast_node_hdl *param_values)
 {
     // FIXME optimize
     const unsigned char *udata = (const unsigned char *)data;
@@ -93,29 +93,30 @@ varint_read(union expr_value *read_value,
 static int
 varint_write(const union expr_value *write_value,
              char *data, size_t span_size,
-             const struct ast_node *param_values)
+             const struct ast_node_hdl *param_values)
 {
     return -1;
 }
 
 
 static int
-varint_rcall_build(struct ast_node *rcall,
-                   const struct ast_node *data_source,
-                   const struct ast_node *param_values)
+varint_rcall_build(struct ast_node_hdl *rcall,
+                   const struct ast_node_hdl *data_source,
+                   const struct ast_node_hdl *param_values,
+                   struct compile_ctx *ctx)
 {
     assert(NULL != data_source);
 
-    if (AST_NODE_TYPE_BYTE != data_source->type &&
-        AST_NODE_TYPE_BYTE_ARRAY != data_source->type) {
+    if (AST_NODE_TYPE_BYTE != data_source->ndat->type &&
+        AST_NODE_TYPE_BYTE_ARRAY != data_source->ndat->type) {
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
             "varint interpreter expects a byte array");
         return -1;
     }
-    rcall->u.rexpr_interpreter.get_size_func = varint_get_size;
-    rcall->u.rexpr_interpreter.read_func = varint_read;
-    rcall->u.rexpr_interpreter.write_func = varint_write;
+    rcall->ndat->u.rexpr_interpreter.get_size_func = varint_get_size;
+    rcall->ndat->u.rexpr_interpreter.read_func = varint_read;
+    rcall->ndat->u.rexpr_interpreter.write_func = varint_write;
     return 0;
 }
 

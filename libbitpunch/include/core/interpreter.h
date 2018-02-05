@@ -41,14 +41,14 @@
 #include PATH_TO_PARSER_TAB_H
 
 #define INTERPRETER_RCALL_BASE_SIZE                     \
-    offsetof(struct ast_node, u.rexpr_interpreter)      \
+    offsetof(struct ast_node_data, u.rexpr_interpreter) \
     + sizeof (struct rexpr_interpreter)
 
 #define INTERPRETER_RCALL_PARAM(rcall, n)               \
-    ((struct ast_node *) (                         \
-        (((char *)(rcall))                              \
+    ((struct ast_node_hdl *) (                          \
+        (((char *)((rcall)->ndat))                      \
          + INTERPRETER_RCALL_BASE_SIZE                  \
-         + (n) * sizeof (struct ast_node))))
+         + (n) * sizeof (struct ast_node_hdl))))
 
 enum interpreter_param_flags {
     INTERPRETER_PARAM_FLAG_MANDATORY = 1,
@@ -63,9 +63,10 @@ struct interpreter_param_def {
 };
 
 typedef int
-(*interpreter_rcall_build_func_t)(struct ast_node *rcall,
-                                  const struct ast_node *data_source,
-                                  const struct ast_node *param_values);
+(*interpreter_rcall_build_func_t)(struct ast_node_hdl *rcall,
+                                  const struct ast_node_hdl *data_source,
+                                  const struct ast_node_hdl *param_values,
+                                  struct compile_ctx *ctx);
 
 struct interpreter {
     const char *name;
@@ -89,20 +90,20 @@ interpreter_lookup(const char *name);
 void
 interpreter_declare_std(void);
 
-struct ast_node *
-interpreter_rcall_build(const struct interpreter *interpreter,
-                        struct statement_list *param_list);
 int
-interpreter_build_instance(struct ast_node **template_p,
-                           struct ast_node *target);
+interpreter_rcall_build(struct ast_node_hdl *node,
+                        const struct interpreter *interpreter,
+                        struct statement_list *param_list);
+struct ast_node_data *
+interpreter_rcall_instanciate(struct ast_node_hdl *rcall);
 
-static inline struct ast_node *
-interpreter_rcall_get_params(const struct ast_node *rcall) {
+static inline struct ast_node_hdl *
+interpreter_rcall_get_params(const struct ast_node_hdl *rcall) {
     return INTERPRETER_RCALL_PARAM(rcall, 0);
 }
 
 bitpunch_status_t
-interpreter_rcall_read_value(const struct ast_node *interpreter,
+interpreter_rcall_read_value(const struct ast_node_hdl *interpreter,
                              const char *item_data,
                              int64_t item_size,
                              enum expr_value_type *typep,

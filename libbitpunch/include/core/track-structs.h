@@ -128,7 +128,7 @@ struct browse_state {
 
 
 struct filter_backend {
-    bitpunch_status_t (*read_value)(const struct ast_node *item_filter,
+    bitpunch_status_t (*read_value)(const struct ast_node_hdl *item_filter,
                                     struct box *scope,
                                     int64_t item_offset,
                                     int64_t item_size,

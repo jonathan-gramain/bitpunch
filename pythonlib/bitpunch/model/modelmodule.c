@@ -1859,7 +1859,7 @@ static PyObject *
 DataContainer_box_to_python_object(struct DataTreeObject *dtree,
                                    struct box *box)
 {
-    switch (dpath_node_get_as_type(&box->dpath)->type) {
+    switch (dpath_node_get_as_type(&box->dpath)->ndat->type) {
     case AST_NODE_TYPE_BLOCK_DEF:
         return DataBlock_box_to_python_object(dtree, box);
     case AST_NODE_TYPE_ARRAY:
@@ -1873,7 +1873,7 @@ DataContainer_box_to_python_object(struct DataTreeObject *dtree,
     default:
         PyErr_Format(PyExc_ValueError,
                      "Cannot convert container type '%s' to python object",
-                     ast_node_type_str(box->dpath.item->type));
+                     ast_node_type_str(box->dpath.item->ndat->type));
         return NULL;
     }
     /*NOT REACHED*/
@@ -1941,7 +1941,7 @@ typedef struct TrackerObject {
 static int
 Tracker_set_default_iter_mode(TrackerObject *self)
 {
-    switch (self->tk->box->dpath.item->type) {
+    switch (self->tk->box->dpath.item->ndat->type) {
     case AST_NODE_TYPE_BLOCK_DEF:
         self->iter_mode = TRACKER_ITER_FIELD_NAMES;
         break ;
@@ -1956,7 +1956,7 @@ Tracker_set_default_iter_mode(TrackerObject *self)
     default:
         PyErr_Format(PyExc_TypeError,
                      "container of type '%s' cannot be iterated",
-                     ast_node_type_str(self->tk->box->dpath.item->type));
+                     ast_node_type_str(self->tk->box->dpath.item->ndat->type));
         return -1;
     }
     self->current_iter_mode = self->iter_mode;
@@ -3166,7 +3166,7 @@ static int
 dpath_is_complex_type(const struct dpath_node *dpath)
 {
     if (NULL != dpath->filter
-        && AST_NODE_TYPE_REXPR_INTERPRETER == dpath->filter->type) {
+        && AST_NODE_TYPE_REXPR_INTERPRETER == dpath->filter->ndat->type) {
         return FALSE;
     }
     return ast_node_is_origin_container(dpath->item);
@@ -3253,7 +3253,7 @@ box_to_shallow_PyObject(DataTreeObject *dtree, struct box *box,
     union expr_value value_eval;
     DataContainerObject *dcont;
 
-    switch (dpath_node_get_as_type(&box->dpath)->type) {
+    switch (dpath_node_get_as_type(&box->dpath)->ndat->type) {
     case AST_NODE_TYPE_BLOCK_DEF:
         dcont = (DataContainerObject *)DataBlock_new(&DataBlockType,
                                                      NULL, NULL);
@@ -3357,7 +3357,7 @@ mod_bitpunch_get_builtin_names(PyObject *self,
     static char *kwlist[] = { "prefix", "object", NULL };
     const char *prefix = "";
     DataContainerObject *object = NULL;
-    const struct ast_node *object_node = NULL;
+    const struct ast_node_hdl *object_node = NULL;
     int prefix_len;
     const char *prev_builtin_name;
     const char *next_builtin_name;

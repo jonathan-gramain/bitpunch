@@ -43,7 +43,7 @@
 static int
 snappy_read(union expr_value *read_value,
             const char *data, size_t span_size,
-            const struct ast_node *param_values)
+            const struct ast_node_hdl *param_values)
 {
     size_t uncompressed_length;
     char *uncompressed;
@@ -72,19 +72,20 @@ snappy_read(union expr_value *read_value,
 static int
 snappy_write(const union expr_value *write_value,
              char *data, size_t span_size,
-             const struct ast_node *param_values)
+             const struct ast_node_hdl *param_values)
 {
     return -1;
 }
 
 
 static int
-snappy_rcall_build(struct ast_node *rcall,
-                   const struct ast_node *data_source,
-                   const struct ast_node *param_values)
+snappy_rcall_build(struct ast_node_hdl *rcall,
+                   const struct ast_node_hdl *data_source,
+                   const struct ast_node_hdl *param_values,
+                   struct compile_ctx *ctx)
 {
-    rcall->u.rexpr_interpreter.read_func = snappy_read;
-    rcall->u.rexpr_interpreter.write_func = snappy_write;
+    rcall->ndat->u.rexpr_interpreter.read_func = snappy_read;
+    rcall->ndat->u.rexpr_interpreter.write_func = snappy_write;
     return 0;
 }
 

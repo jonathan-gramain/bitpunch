@@ -35,6 +35,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <inttypes.h>
+#include <stddef.h>
 
 #define ERRBUF_MAXSIZE 4096
 
@@ -80,6 +81,12 @@ void *realloc_safe(void *pt, size_t new_size);
 #define new_safe(type) ((type *) malloc0_safe(sizeof (type)))
 #define dup_safe(pt) ((typeof (pt)) memcpy(malloc_safe(sizeof (*(pt))), (pt), sizeof (*(pt))))
 char *strdup_safe(const char *s);
+// offsetof() may not be available on all platforms or in GDB debug
+// sessions, so define one
+#define offset_of(type, member)                                 \
+    (((char *)&((type *)0)->member) - ((char *)((type *)0)))
+#define container_of(ptr, type, member)                 \
+    ((type *)((char *)(ptr) - offset_of(type, member)))
 int is_little_endian(void);
 
 static inline int is_pow2(unsigned int n)

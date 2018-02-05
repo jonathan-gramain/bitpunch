@@ -56,7 +56,7 @@ box_new_as_box(struct box *parent_box,
                struct browse_state *bst);
 struct box *
 box_new_filter_box(struct box *unfiltered_box,
-                   const struct ast_node *filter,
+                   const struct ast_node_hdl *filter,
                    const char *filtered_data,
                    size_t filtered_size,
                    int own_buffer,

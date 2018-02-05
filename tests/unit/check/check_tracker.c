@@ -122,12 +122,9 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
                 bt_ret = tracker_read_item_value(tk, &dummy_type,
                                                  &dummy_value, NULL);
                 ck_assert_int_eq(bt_ret, expect_box->read_item_ret);
-                if (BITPUNCH_OK == bt_ret) {
-                    expr_value_destroy(dummy_type, dummy_value);
-                }
             }
             if (ast_node_is_container(tk->dpath->item)
-                && AST_NODE_TYPE_BYTE_ARRAY != tk->dpath->item->type) {
+                && AST_NODE_TYPE_BYTE_ARRAY != tk->dpath->item->ndat->type) {
                 /* recurse in container */
                 bt_ret = tracker_enter_item(tk, NULL);
                 ck_assert(bt_ret == BITPUNCH_OK ||
@@ -211,7 +208,7 @@ check_tracker_browse_sub_trackers_recur(struct tracker *tk,
             bt_ret = tracker_read_item_value(tk, NULL, NULL, NULL);
             ck_assert_int_eq(bt_ret, expect_box->read_item_ret);
         } else if (ast_node_is_container(tk->dpath->item)
-                   && AST_NODE_TYPE_BYTE_ARRAY != tk->dpath->item->type) {
+                   && AST_NODE_TYPE_BYTE_ARRAY != tk->dpath->item->ndat->type) {
             sub_tk = track_item_contents(tk, NULL);
             ck_assert_ptr_ne(sub_tk, NULL);
         
@@ -323,7 +320,7 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
                 }
                 if (BITPUNCH_OK == expect_box->read_item_ret
                     && ast_node_is_container(tk->dpath->item)
-                    && AST_NODE_TYPE_BYTE_ARRAY != tk->dpath->item->type) {
+                    && AST_NODE_TYPE_BYTE_ARRAY != tk->dpath->item->ndat->type) {
                     bt_ret = tracker_enter_item(tk, NULL);
                     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
 

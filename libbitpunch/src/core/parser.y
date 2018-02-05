@@ -50,6 +50,7 @@
 #include "core/ast.h"
 #include "core/expr.h"
 #include "core/track-structs.h"
+#include "utils/dep_resolver.h"
 
 #define YYLTYPE struct parser_location
 #define YYLLOC_DEFAULT(Cur, Rhs, N)                             \
@@ -99,7 +100,8 @@
         size_t end_offset;
     };
 
-    struct ast_node;
+    struct ast_node_data;
+    struct ast_node_ref;
     struct param;
 
     struct statement;
@@ -129,15 +131,15 @@
     typedef int
         (*interpreter_read_func_t)(union expr_value *read_value,
                                    const char *data, size_t span_size,
-                                   const struct ast_node *param_values);
+                                   const struct ast_node_hdl *param_values);
     typedef int
         (*interpreter_write_func_t)(const union expr_value *write_value,
                                     char *data, size_t span_size,
-                                    const struct ast_node *param_values);
+                                    const struct ast_node_hdl *param_values);
     typedef int
         (*interpreter_get_size_func_t)(size_t *sizep,
                                        const char *data, size_t span_size,
-                                       const struct ast_node *param_values);
+                                       const struct ast_node_hdl *param_values);
 
     typedef union expr_value
         (*expr_evalop_fn_t)(union expr_value operands[]);
@@ -152,11 +154,11 @@
                               enum expr_value_type opd_types[]);
 
     extern const int SPAN_SIZE_UNDEF;
-    extern struct ast_node shared_ast_node_byte;
-    extern struct ast_node shared_ast_node_array_slice;
-    extern struct ast_node shared_ast_node_byte_slice;
-    extern struct ast_node shared_ast_node_as_bytes;
-    extern struct ast_node shared_ast_node_filtered;
+    extern struct ast_node_hdl shared_ast_node_byte;
+    extern struct ast_node_hdl shared_ast_node_array_slice;
+    extern struct ast_node_hdl shared_ast_node_byte_slice;
+    extern struct ast_node_hdl shared_ast_node_as_bytes;
+    extern struct ast_node_hdl shared_ast_node_filtered;
     extern struct dpath_node shared_dpath_node_byte;
     extern struct dpath_node shared_dpath_node_array_slice;
     extern struct dpath_node shared_dpath_node_byte_slice;
@@ -165,17 +167,28 @@
 
     enum ast_node_flag {
         ASTFLAG_IS_SPAN_EXPR                = (1<<0),
-        ASTFLAG_PROCESSING                  = (1<<1),
-        ASTFLAG_PROCESSED_TRACK_BACKEND     = (1<<5),
+        ASTFLAG_IS_KEY_EXPR                 = (1<<1),
+        ASTFLAG_IS_MATCH_EXPR               = (1<<2),
         ASTFLAG_IS_ROOT_BLOCK               = (1<<6),
         ASTFLAG_REVERSE_COND                = (1<<7),
         ASTFLAG_CONTAINS_LAST_STMT          = (1<<8),
         ASTFLAG_HAS_FOOTER                  = (1<<10),
         ASTFLAG_DUMPING                     = (1<<11),
-        ASTFLAG_RESOLVED                    = (1<<12),
-        ASTFLAG_PROCESSING_SCHEDULED        = (1<<13),
+        ASTFLAG_RESOLVE_IDENTIFIERS_IN_PROGRESS   = (1<<14),
+        ASTFLAG_RESOLVE_IDENTIFIERS_COMPLETED     = (1<<15),
+        ASTFLAG_COMPILE_NODE_REQUESTED      = (1<<16),
+        ASTFLAG_COMPILE_NODE_IN_PROGRESS    = (1<<17),
+        ASTFLAG_COMPILE_NODE_COMPLETED      = (1<<18),
+        ASTFLAG_RESOLVE_SPAN_SIZE_REQUESTED = (1<<19),
+        ASTFLAG_RESOLVE_SPAN_SIZE_IN_PROGRESS = (1<<20),
+        ASTFLAG_RESOLVE_SPAN_SIZE_COMPLETED = (1<<21),
+        ASTFLAG_SETUP_TRACK_BACKENDS_IN_PROGRESS = (1<<22),
+        ASTFLAG_SETUP_TRACK_BACKENDS_COMPLETED   = (1<<23),
+    };
+
+    enum ast_node_data_flag {
         /** template interpreter */
-        ASTFLAG_TEMPLATE                    = (1<<14),
+        ASTFLAG_DATA_TEMPLATE               = (1<<0),
     };
 
     enum item_flag {
@@ -194,12 +207,13 @@
         union {
             struct item_node item;
         } u;
-        struct ast_node *item;
-        struct ast_node *filter;
-        struct ast_node *filter_defining_size;
+        struct ast_node_hdl *item;
+        struct ast_node_hdl *filter;
+        struct ast_node_hdl *filter_defining_size;
+        struct dep_resolver_node dr_node;
     };
 
-    struct ast_node {
+    struct ast_node_data {
         /* when changing this enum, don't forget to update
          * ast_node_type_str() */
         enum ast_node_type {
@@ -289,8 +303,7 @@
             AST_NODE_TYPE_REXPR_SELF,
             AST_NODE_TYPE_REXPR_STAR_WILDCARD,
         } type;
-        struct parser_location loc;
-        enum ast_node_flag flags;
+        enum ast_node_data_flag flags;
         union {
             int64_t integer;
             int boolean;
@@ -298,9 +311,9 @@
             char *identifier;
             const char *operator;
             struct filter {
-                struct ast_node *filter_type;
+                struct ast_node_hdl *filter_type;
                 struct param_list *param_list;
-                struct ast_node *target;
+                struct ast_node_hdl *target;
             } filter;
             struct item_node item;
             struct container_node {
@@ -322,27 +335,28 @@
             struct array {
                 struct container_node container; /* inherits */
                 struct dpath_node item_type;
-                struct ast_node *item_count;
+                struct ast_node_hdl *item_count;
             } array;
             struct byte_array {
                 struct container_node container; /* inherits */
-                struct ast_node *size;
+                struct ast_node_hdl *size;
             } byte_array;
             struct conditional {
-                struct ast_node *cond_expr;
-                struct ast_node *outer_cond;
+                struct ast_node_hdl *cond_expr;
+                struct ast_node_hdl *outer_cond;
             } conditional;
             struct op {
-                struct ast_node *operands[2];
+                struct ast_node_hdl *operands[2];
             } op;
             struct subscript_common {
-                struct ast_node *anchor_expr;
+                struct ast_node_hdl *anchor_expr;
             } op_subscript_common;
             struct subscript {
                 struct subscript_common common; /* inherits */
                 struct subscript_index {
-                    struct ast_node *key;
-                    struct ast_node *twin;
+                    struct ast_node_hdl *key;
+                    struct ast_node_hdl *twin;
+                    struct dep_resolver_node dr_node;
                 } index;
             } op_subscript;
             struct subscript_slice {
@@ -351,23 +365,23 @@
                 struct subscript_index end;
             } op_subscript_slice;
             struct fcall {
-                struct ast_node *object;
-                struct ast_node *func;
+                struct ast_node_hdl *object;
+                struct ast_node_hdl *func;
                 struct statement_list *func_params;
             } op_fcall;
             struct file_attr {
-                struct ast_node *attr_name;
+                struct ast_node_hdl *attr_name;
             } file_attr;
             struct rexpr {
                 enum expr_value_type value_type;
                 enum expr_dpath_type dpath_type;
                 /** expression item type, or NULL if not applicable */
-                struct ast_node *target_item;
+                struct ast_node_hdl *target_item;
             } rexpr; /* base, not instanciable */
             struct rexpr_filter {
                 struct rexpr rexpr; /* inherits */
                 struct filter_backend b_filter;
-                struct ast_node *target;
+                struct ast_node_hdl *target;
                 struct dpath_node filter_dpath;
             } rexpr_filter; /* base, not instanciable */
             struct rexpr_interpreter {
@@ -378,7 +392,7 @@
                 interpreter_get_size_func_t get_size_func;
                 /* cannot declare the following array but that's how
                  * it will be interpreted */
-                /* struct ast_node params[]; */
+                /* struct ast_node_hdl params[]; */
             } rexpr_interpreter;
             struct rexpr_as_type {
                 struct rexpr_filter rexpr_filter; /* inherits */
@@ -389,8 +403,8 @@
             } rexpr_native;
             struct rexpr_member_common {
                 struct rexpr rexpr; /* inherits */
-                struct ast_node *anchor_expr;
-                struct ast_node *anchor_block;
+                struct ast_node_hdl *anchor_expr;
+                struct ast_node_hdl *anchor_block;
             } rexpr_member_common;
             struct rexpr_field {
                 /* inherits */
@@ -401,11 +415,11 @@
                 /* inherits */
                 struct rexpr_member_common rexpr_member_common;
                 const struct named_expr *named_expr;
-                struct ast_node *filter_target;
+                struct ast_node_hdl *filter_target;
             } rexpr_named_expr;
             struct rexpr_builtin {
                 struct rexpr rexpr; /* inherits */
-                //struct ast_node *anchor_expr;
+                //struct ast_node_hdl *anchor_expr;
                 const struct expr_builtin_fn *builtin;
             } rexpr_builtin;
             struct rexpr_op {
@@ -415,7 +429,7 @@
             } rexpr_op;
             struct rexpr_op_subscript_common {
                 struct rexpr rexpr; /* inherits */
-                struct ast_node *anchor_expr;
+                struct ast_node_hdl *anchor_expr;
             } rexpr_op_subscript_common;
             struct rexpr_op_subscript {
                 struct rexpr_op_subscript_common common; /* inherits */
@@ -441,11 +455,18 @@
         } u;
     };
 
+    struct ast_node_hdl {
+        struct ast_node_data *ndat;
+        struct parser_location loc;
+        enum ast_node_flag flags;
+        struct dep_resolver_node dr_node;
+    };
+
     struct statement {
         TAILQ_ENTRY(statement) list;
         struct parser_location loc;
         int stmt_flags; // type-specific flags
-        struct ast_node *cond;
+        struct ast_node_hdl *cond;
     };
 
     struct named_statement {
@@ -461,17 +482,18 @@
 
     struct match {
         struct statement stmt; // inherits
-        struct ast_node *expr;
+        struct ast_node_hdl *expr;
     };
 
     struct named_expr {
         struct named_statement nstmt; // inherits
-        struct ast_node *expr;
+        struct ast_node_hdl *expr;
     };
 
     struct field {
         struct named_statement nstmt; // inherits
         struct dpath_node dpath;
+        struct dep_resolver_node dr_node;
     };
 
     enum span_stmt_flag {
@@ -480,12 +502,12 @@
     };
     struct span_stmt {
         struct statement stmt; // inherits
-        struct ast_node *span_expr;
+        struct ast_node_hdl *span_expr;
     };
 
     struct key_stmt {
         struct statement stmt; // inherits
-        struct ast_node *key_expr;
+        struct ast_node_hdl *key_expr;
     };
 
     struct last_stmt {
@@ -493,7 +515,7 @@
     };
 
     typedef bitpunch_status_t
-        (*expr_eval_value_builtin_fn_t)(struct ast_node *object,
+        (*expr_eval_value_builtin_fn_t)(struct ast_node_hdl *object,
                                         struct statement_list *params,
                                         int n_params,
                                         struct box *scope,
@@ -501,7 +523,7 @@
                                         struct browse_state *bst);
 
     typedef bitpunch_status_t
-        (*expr_eval_dpath_builtin_fn_t)(struct ast_node *object,
+        (*expr_eval_dpath_builtin_fn_t)(struct ast_node_hdl *object,
                                         struct statement_list *params,
                                         int n_params,
                                         struct box *scope,
@@ -558,7 +580,7 @@
 
 %code {
     const int SPAN_SIZE_UNDEF = (int64_t)-1;
-    struct ast_node shared_ast_node_byte = {
+    struct ast_node_data shared_ast_node_data_byte = {
         .type = AST_NODE_TYPE_BYTE,
         .u = {
             .item = {
@@ -566,18 +588,38 @@
             }
         }
     };
-    struct ast_node shared_ast_node_array_slice = {
+    struct ast_node_hdl shared_ast_node_byte = {
+        .ndat = &shared_ast_node_data_byte,
+    };
+
+    struct ast_node_data shared_ast_node_data_array_slice = {
         .type = AST_NODE_TYPE_ARRAY_SLICE,
     };
-    struct ast_node shared_ast_node_byte_slice = {
+    struct ast_node_hdl shared_ast_node_array_slice = {
+        .ndat = &shared_ast_node_data_array_slice,
+    };
+
+    struct ast_node_data shared_ast_node_data_byte_slice = {
         .type = AST_NODE_TYPE_BYTE_SLICE,
     };
-    struct ast_node shared_ast_node_as_bytes = {
+    struct ast_node_hdl shared_ast_node_byte_slice = {
+        .ndat = &shared_ast_node_data_byte_slice,
+    };
+
+    struct ast_node_data shared_ast_node_data_as_bytes = {
         .type = AST_NODE_TYPE_AS_BYTES,
     };
-    struct ast_node shared_ast_node_filtered = {
+    struct ast_node_hdl shared_ast_node_as_bytes = {
+        .ndat = &shared_ast_node_data_as_bytes,
+    };
+
+    struct ast_node_data shared_ast_node_data_filtered = {
         .type = AST_NODE_TYPE_FILTERED,
     };
+    struct ast_node_hdl shared_ast_node_filtered = {
+        .ndat = &shared_ast_node_data_filtered,
+    };
+
     struct dpath_node shared_dpath_node_byte = {
         .item = &shared_ast_node_byte,
     };
@@ -594,20 +636,33 @@
         .item = &shared_ast_node_filtered,
     };
 
-    static struct ast_node *
+    static struct ast_node_hdl *
+    ast_node_hdl_create(enum ast_node_type type,
+                        const struct parser_location *loc)
+    {
+        struct ast_node_hdl *nhdl;
+
+        nhdl = new_safe(struct ast_node_hdl);
+        if (NULL != loc) {
+            nhdl->loc = *loc;
+        }
+        nhdl->ndat = new_safe(struct ast_node_data);
+        nhdl->ndat->type = type;
+        return nhdl;
+    }
+
+    static struct ast_node_hdl *
     expr_gen_ast_node(enum ast_node_type op_type,
-                      struct ast_node *opd1,
-                      struct ast_node *opd2,
+                      struct ast_node_hdl *opd1,
+                      struct ast_node_hdl *opd2,
                       const struct parser_location *loc)
     {
-        struct ast_node *node;
+        struct ast_node_hdl *nhdl;
 
-        node = new_safe(struct ast_node);
-        node->type = op_type;
-        node->loc = *loc;
-        node->u.op.operands[0] = opd1;
-        node->u.op.operands[1] = opd2;
-        return node;
+        nhdl = ast_node_hdl_create(op_type, loc);
+        nhdl->ndat->u.op.operands[0] = opd1;
+        nhdl->ndat->u.op.operands[1] = opd2;
+        return nhdl;
     }
 
     static void
@@ -642,14 +697,14 @@
     }
 
     static void
-    attach_outer_conditional(struct ast_node **inner_condp,
-                             struct ast_node *outer_cond)
+    attach_outer_conditional(struct ast_node_hdl **inner_condp,
+                             struct ast_node_hdl *outer_cond)
     {
-        struct ast_node **condp;
+        struct ast_node_hdl **condp;
 
         for (condp = inner_condp;
              NULL != *condp && *condp != outer_cond;
-             condp = &(*condp)->u.conditional.outer_cond)
+             condp = &(*condp)->ndat->u.conditional.outer_cond)
             ;
         if (NULL == *condp) {
             *condp = outer_cond;
@@ -663,7 +718,7 @@
     char *ident;
     enum block_type block_type;
     struct expr_value_string literal;
-    struct ast_node *ast_node;
+    struct ast_node_hdl *ast_node_hdl;
     struct field *field;
     struct block_stmt_list block_stmt_list;
     struct statement_list *statement_list;
@@ -712,7 +767,7 @@
 %left  OP_BRACKETS
 
 %type <ident> opt_identifier
-%type <ast_node> g_integer g_boolean g_identifier g_literal block block_def expr twin_index opt_twin_index
+%type <ast_node_hdl> g_integer g_boolean g_identifier g_literal block block_def expr twin_index opt_twin_index
 %type <file_block> file_block
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
 %type <field> field_stmt
@@ -746,48 +801,38 @@ opt_identifier:
 
 g_integer:
     INTEGER {
-        $$ = new_safe(struct ast_node);
-        $$->type = AST_NODE_TYPE_INTEGER;
-        $$->loc = @$;
-        $$->u.integer = $1;
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_INTEGER, &@$);
+        $$->ndat->u.integer = $1;
     }
 g_boolean:
     KW_TRUE {
-        $$ = new_safe(struct ast_node);
-        $$->type = AST_NODE_TYPE_BOOLEAN;
-        $$->loc = @$;
-        $$->u.boolean = 1;
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_BOOLEAN, &@$);
+        $$->ndat->u.boolean = 1;
     }
   | KW_FALSE {
-        $$ = new_safe(struct ast_node);
-        $$->type = AST_NODE_TYPE_BOOLEAN;
-        $$->loc = @$;
-        $$->u.boolean = 0;
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_BOOLEAN, &@$);
+        $$->ndat->u.boolean = 0;
     }
 g_identifier:
     IDENTIFIER {
-        $$ = new_safe(struct ast_node);
-        $$->type = AST_NODE_TYPE_IDENTIFIER;
-        $$->loc = @$;
-        $$->u.identifier = $1;
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_IDENTIFIER, &@$);
+        $$->ndat->u.identifier = $1;
     }
 g_literal:
     LITERAL {
-        $$ = new_safe(struct ast_node);
-        $$->type = AST_NODE_TYPE_STRING;
-        $$->loc = @$;
-        $$->u.string.str = $1.str;
-        $$->u.string.len = $1.len;
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_STRING, &@$);
+        $$->ndat->u.string.str = $1.str;
+        $$->ndat->u.string.len = $1.len;
     }
   | g_literal LITERAL {
       int64_t new_len;
 
       // concatenate consecutive string literals
       $$ = $1;
-      new_len = $$->u.string.len + $2.len;
-      $$->u.string.str = realloc_safe((char *)$$->u.string.str, new_len);
-      memcpy((char *)$$->u.string.str + $$->u.string.len, $2.str, $2.len);
-      $$->u.string.len = new_len;
+      new_len = $$->ndat->u.string.len + $2.len;
+      $$->ndat->u.string.str = realloc_safe((char *)$$->ndat->u.string.str, new_len);
+      memcpy((char *)$$->ndat->u.string.str + $$->ndat->u.string.len, $2.str, $2.len);
+      $$->ndat->u.string.len = new_len;
     }
 
 start_expr: expr {
@@ -800,14 +845,10 @@ expr:
   | g_identifier
   | g_literal
   | KW_FILE {
-        $$ = new_safe(struct ast_node);
-        $$->type = AST_NODE_TYPE_EXPR_FILE;
-        $$->loc = @KW_FILE;
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_EXPR_FILE, &@KW_FILE);
     }
   | KW_SELF {
-        $$ = new_safe(struct ast_node);
-        $$->type = AST_NODE_TYPE_EXPR_SELF;
-        $$->loc = @KW_SELF;
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_EXPR_SELF, &@KW_SELF);
     }
   | block_def
   | '+' expr %prec OP_ARITH_UNARY_OP {
@@ -893,27 +934,23 @@ expr:
         $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_SET_FILTER, $1, $3, &@2);
     }
   | expr '[' opt_key_expr ']' %prec OP_SUBSCRIPT {
-        $$ = new_safe(struct ast_node);
-        $$->type = AST_NODE_TYPE_OP_SUBSCRIPT;
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_OP_SUBSCRIPT, NULL);
         parser_location_make_span(&$$->loc, &@2, &@4);
-        $$->u.op_subscript_common.anchor_expr = $1;
-        $$->u.op_subscript.index = $3;
+        $$->ndat->u.op_subscript_common.anchor_expr = $1;
+        $$->ndat->u.op_subscript.index = $3;
     }
   | expr '['
     opt_key_expr TOK_RANGE opt_key_expr ']' %prec OP_SUBSCRIPT {
-        $$ = new_safe(struct ast_node);
-        $$->type = AST_NODE_TYPE_OP_SUBSCRIPT_SLICE;
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_OP_SUBSCRIPT_SLICE, &@$);
         parser_location_make_span(&$$->loc, &@2, &@6);
-        $$->u.op_subscript_common.anchor_expr = $1;
-        $$->u.op_subscript_slice.start = $3;
-        $$->u.op_subscript_slice.end = $5;
+        $$->ndat->u.op_subscript_common.anchor_expr = $1;
+        $$->ndat->u.op_subscript_slice.start = $3;
+        $$->ndat->u.op_subscript_slice.end = $5;
     }
   | expr '(' func_params ')' %prec OP_FCALL {
-        $$ = new_safe(struct ast_node);
-        $$->type = AST_NODE_TYPE_OP_FCALL;
-        $$->loc = $1->loc;
-        $$->u.op_fcall.func = $1;
-        $$->u.op_fcall.func_params = $func_params;
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_OP_FCALL, &$1->loc);
+        $$->ndat->u.op_fcall.func = $1;
+        $$->ndat->u.op_fcall.func_params = $func_params;
     }
   | '(' expr ')' {
         $$ = $2;
@@ -921,14 +958,14 @@ expr:
 
 key_expr:
     expr opt_twin_index {
+      memset(&$$, 0, sizeof ($$));
       $$.key = $expr;
       $$.twin = $opt_twin_index;
     }
 
 opt_key_expr:
     /* empty */ {
-      $$.key = NULL;
-      $$.twin = NULL;
+      memset(&$$, 0, sizeof ($$));
     }
   | key_expr
 
@@ -943,9 +980,7 @@ twin_index:
         $$ = $2;
     }
   | '{' '*' '}' {
-        $$ = new_safe(struct ast_node);
-        $$->type = AST_NODE_TYPE_EXPR_STAR_WILDCARD;
-        $$->loc = @2;
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_EXPR_STAR_WILDCARD, &@2);
     }
 
 func_params:
@@ -1000,7 +1035,7 @@ schema:
         /* ignore fields outside file{} */
         TAILQ_INIT($1.field_list);
         if (-1 == merge_block_stmt_list(&$file_block.root->item
-                                        ->u.block_def.block_stmt_list,
+                                        ->ndat->u.block_def.block_stmt_list,
                                         &$1)) {
             YYERROR;
         }
@@ -1016,13 +1051,11 @@ schema:
   }
 
 file_block: KW_FILE '{' block_stmt_list '}' {
-        struct ast_node *item;
+        struct ast_node_data *item;
 
         $$.root = new_safe(struct dpath_node);
-        $$.root->item = new_safe(struct ast_node);
-        item = $$.root->item;
-        item->type = AST_NODE_TYPE_BLOCK_DEF;
-        item->loc = @$;
+        $$.root->item = ast_node_hdl_create(AST_NODE_TYPE_BLOCK_DEF, &@$);
+        item = $$.root->item->ndat;
         item->u.block_def.type = BLOCK_TYPE_STRUCT;
         if (TAILQ_EMPTY($block_stmt_list.field_list)) {
             semantic_error(SEMANTIC_LOGLEVEL_WARNING, &@$,
@@ -1045,36 +1078,32 @@ file_block: KW_FILE '{' block_stmt_list '}' {
         }
         item->u.block_def.block_stmt_list = $block_stmt_list;
         item->u.item.min_span_size = SPAN_SIZE_UNDEF;
-        item->flags = ASTFLAG_IS_ROOT_BLOCK;
+        $$.root->item->flags = ASTFLAG_IS_ROOT_BLOCK;
     }
 
 block_def:
     IDENTIFIER block {
         $$ = $block;
         $$->loc = @IDENTIFIER;
-        $$->u.block_def.type = BLOCK_TYPE_UNDEF;
-        $$->u.block_def.filter_type = $IDENTIFIER;
+        $$->ndat->u.block_def.type = BLOCK_TYPE_UNDEF;
+        $$->ndat->u.block_def.filter_type = $IDENTIFIER;
     }
 
 block:
     '{' block_stmt_list '}' {
-        $$ = new_safe(struct ast_node);
-        $$->type = AST_NODE_TYPE_BLOCK_DEF;
-        $$->loc = @$;
-        $$->u.block_def.type = BLOCK_TYPE_UNDEF;
-        $$->u.block_def.block_stmt_list = $block_stmt_list;
-        $$->u.item.min_span_size = SPAN_SIZE_UNDEF;
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_BLOCK_DEF, &@$);
+        $$->ndat->u.block_def.type = BLOCK_TYPE_UNDEF;
+        $$->ndat->u.block_def.block_stmt_list = $block_stmt_list;
+        $$->ndat->u.item.min_span_size = SPAN_SIZE_UNDEF;
     }
 
 if_block:
     KW_IF '(' expr ')' '{' block_stmt_list '}' opt_else_block {
-        struct ast_node *cond;
+        struct ast_node_hdl *cond;
         struct statement *stmt;
 
-        cond = new_safe(struct ast_node);
-        cond->type = AST_NODE_TYPE_CONDITIONAL;
-        cond->loc = @$;
-        cond->u.conditional.cond_expr = $expr;
+        cond = ast_node_hdl_create(AST_NODE_TYPE_CONDITIONAL, &@$);
+        cond->ndat->u.conditional.cond_expr = $expr;
 
         TAILQ_FOREACH(stmt, $block_stmt_list.field_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
@@ -1093,10 +1122,8 @@ if_block:
         }
         $$ = $block_stmt_list;
 
-        cond = new_safe(struct ast_node);
-        cond->type = AST_NODE_TYPE_CONDITIONAL;
-        cond->loc = @$;
-        cond->u.conditional.cond_expr = $expr;
+        cond = ast_node_hdl_create(AST_NODE_TYPE_CONDITIONAL, &@$);
+        cond->ndat->u.conditional.cond_expr = $expr;
         cond->flags |= ASTFLAG_REVERSE_COND;
 
         TAILQ_FOREACH(stmt, $opt_else_block.field_list, list) {
@@ -1203,6 +1230,7 @@ match_stmt:
         $$ = new_safe(struct match);
         $$->stmt.loc = @$;
         $$->expr = $expr;
+        $$->expr->flags |= ASTFLAG_IS_MATCH_EXPR;
     }
 
 span_stmt:
@@ -1233,6 +1261,7 @@ key_stmt:
         $$ = new_safe(struct key_stmt);
         $$->stmt.loc = @$;
         $$->key_expr = $expr;
+        $$->key_expr->flags |= ASTFLAG_IS_KEY_EXPR;
     }
 
 let_stmt:

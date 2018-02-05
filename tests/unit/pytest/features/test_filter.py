@@ -233,6 +233,28 @@ file {
 
 """
 
+spec_file_simple_filter_line_separated_base64_template = """
+
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let CustomBase64Filter = base64 {};
+
+let Base64Block = byte[]
+  : string { boundary: '\\n'; }
+  : CustomBase64Filter: struct {
+      n: u32;
+      : byte[n]: AsContents;
+  };
+
+let AsContents = struct {
+    data: byte[];
+};
+
+file {
+    blocks: Base64Block[];
+}
+
+"""
+
 data_file_simple_filter_line_separated_base64 = """
 "EAAAAGFzIGNvbnRlbnRzIGRhdGE=\n"
 "EgAAAG1vcmUgY29udGVudHMgZGF0YQ==\n"
@@ -246,6 +268,9 @@ data_file_simple_filter_line_separated_base64 = """
         'data': data_file_simple_filter_line_separated_base64,
     }, {
         'spec': spec_file_simple_filter_line_separated_base64_2,
+        'data': data_file_simple_filter_line_separated_base64,
+    }, {
+        'spec': spec_file_simple_filter_line_separated_base64_template,
         'data': data_file_simple_filter_line_separated_base64,
     }])
 def params_filter_2(request):
@@ -528,12 +553,22 @@ file {
 
 """
 
+spec_file_filter_invalid_bad_filter_type = """
+
+file {
+    value: 42;
+}
+
+"""
+
 @pytest.fixture(
     scope='module',
     params=[{
         'spec': spec_file_filter_invalid_no_data_source_1,
     }, {
         'spec': spec_file_filter_invalid_no_data_source_2,
+    }, {
+        'spec': spec_file_filter_invalid_bad_filter_type,
     }])
 def params_filter_invalid(request):
     return request.param

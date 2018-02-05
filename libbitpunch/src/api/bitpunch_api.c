@@ -101,7 +101,7 @@ load_schema_common(struct bitpunch_schema_hdl *schema)
     if (-1 == bitpunch_parse_schema(schema)) {
         return -1;
     }
-    if (-1 == resolve_schema_references(schema)) {
+    if (-1 == bitpunch_compile_schema(schema)) {
         return -1;
     }
     //dump_ast(schema->df_file_block.root, stdout);
@@ -204,7 +204,7 @@ bitpunch_load_schema_from_fd(int fd,
 
 int
 bitpunch_load_schema_from_buffer(const char *buf, size_t buf_size,
-                                  struct bitpunch_schema_hdl **schemap)
+                                 struct bitpunch_schema_hdl **schemap)
 {
     struct bitpunch_schema_hdl *schema;
 
@@ -223,10 +223,9 @@ bitpunch_load_schema_from_buffer(const char *buf, size_t buf_size,
 
 int
 bitpunch_load_schema_from_string(const char *str,
-                                  struct bitpunch_schema_hdl **schemap)
+                                 struct bitpunch_schema_hdl **schemap)
 {
-    return bitpunch_load_schema_from_buffer(str, strlen(str),
-                                             schemap);
+    return bitpunch_load_schema_from_buffer(str, strlen(str), schemap);
 }
 
 void
@@ -423,9 +422,9 @@ bitpunch_free_binary_file(struct bitpunch_binary_file_hdl *bf)
 }
 
 int
-bitpunch_resolve_expr(struct ast_node **expr_p, struct box *scope)
+bitpunch_resolve_expr(struct ast_node_hdl *expr, struct box *scope)
 {
-    return resolve_user_expr(expr_p, scope);
+    return resolve_user_expr(expr, scope);
 }
 
 int
@@ -439,7 +438,7 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
                    union expr_dpath *expr_dpathp,
                    struct tracker_error **errp)
 {
-    struct ast_node *expr_node = NULL;
+    struct ast_node_hdl *expr_node = NULL;
     struct parser_ctx *parser_ctx = NULL;
     union expr_value expr_value;
     union expr_dpath expr_dpath;
@@ -464,16 +463,16 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
     } else {
         scope = NULL; // just in case
     }
-    if (-1 == bitpunch_resolve_expr(&expr_node, scope)) {
+    if (-1 == bitpunch_resolve_expr(expr_node, scope)) {
         goto err;
     }
     assert(ast_node_is_rexpr(expr_node));
     compute_dpath =
         (NULL != expr_dpathp
-         && EXPR_DPATH_TYPE_NONE != expr_node->u.rexpr.dpath_type);
+         && EXPR_DPATH_TYPE_NONE != expr_node->ndat->u.rexpr.dpath_type);
     compute_value =
         (NULL != expr_valuep
-         && EXPR_VALUE_TYPE_UNSET != expr_node->u.rexpr.value_type);
+         && EXPR_VALUE_TYPE_UNSET != expr_node->ndat->u.rexpr.value_type);
 
     if (compute_dpath) {
         bt_ret = expr_evaluate_dpath(expr_node, scope,
@@ -496,13 +495,13 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
     }
     box_delete(scope);
     if (NULL != expr_value_typep) {
-        *expr_value_typep = expr_node->u.rexpr.value_type;
+        *expr_value_typep = expr_node->ndat->u.rexpr.value_type;
     }
     if (NULL != expr_valuep) {
         *expr_valuep = expr_value;
     }
     if (NULL != expr_dpath_typep) {
-        *expr_dpath_typep = expr_node->u.rexpr.dpath_type;
+        *expr_dpath_typep = expr_node->ndat->u.rexpr.dpath_type;
     }
     if (NULL != expr_dpathp) {
         *expr_dpathp = expr_dpath;

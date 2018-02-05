@@ -278,3 +278,9 @@ BUG: rework filter operator '*' to make it work again
 
 BUG: interpreters declared after 'key' statement are not initialized
 correctly (b_filter is empty)
+
+- instead of "file {}" syntax, let user choose the type of file with
+  e.g. "let file = struct {}" or "file = struct {}" (the latter needs
+  support for globals)
+
+- insert type ITEM_ARRAY to distinguish with BYTE_ARRAY after compilation

@@ -156,20 +156,21 @@ interpreter_declare_std(void)
 }
 
 static int
-rcall_build_params(struct ast_node *rcall,
+rcall_build_params(struct ast_node_hdl *node,
                    const struct interpreter *interpreter,
                    struct statement_list *param_list);
 
 
-struct ast_node *
-interpreter_rcall_build(const struct interpreter *interpreter,
+int
+interpreter_rcall_build(struct ast_node_hdl *node,
+                        const struct interpreter *interpreter,
                         struct statement_list *param_list)
 {
-    struct ast_node *rcall;
+    struct ast_node_data *rcall;
 
     rcall = malloc0_safe(INTERPRETER_RCALL_BASE_SIZE
                          + (interpreter->max_param_ref + 1)
-                         * sizeof (struct ast_node));
+                         * sizeof (struct ast_node_hdl));
     rcall->type = AST_NODE_TYPE_REXPR_INTERPRETER;
     // default dpath type for type-declared interpreters, may be
     // overriden in expressions
@@ -177,74 +178,31 @@ interpreter_rcall_build(const struct interpreter *interpreter,
     rcall->u.rexpr.value_type = interpreter->semantic_type;
     rcall->u.rexpr_interpreter.interpreter = interpreter;
     rcall->u.rexpr_interpreter.get_size_func = NULL;
-    if (-1 == rcall_build_params(rcall, interpreter, param_list)) {
+    node->ndat = rcall;
+    if (-1 == rcall_build_params(node, interpreter, param_list)) {
         free(rcall);
-        return NULL;
-    }
-    return rcall;
-}
-
-static struct ast_node *
-interpreter_rcall_instanciate(const struct ast_node *rcall)
-{
-    const struct interpreter *interpreter;
-    struct ast_node *inst;
-
-    assert(AST_NODE_TYPE_REXPR_INTERPRETER == rcall->type);
-    interpreter = rcall->u.rexpr_interpreter.interpreter;
-    inst = malloc0_safe(INTERPRETER_RCALL_BASE_SIZE
-                         + (interpreter->max_param_ref + 1)
-                         * sizeof (struct ast_node));
-    memcpy(inst, rcall, INTERPRETER_RCALL_BASE_SIZE
-           + (interpreter->max_param_ref + 1)
-           * sizeof (struct ast_node));
-    inst->flags &= ~ASTFLAG_TEMPLATE;
-    return inst;
-}
-
-int
-interpreter_build_instance(struct ast_node **template_p,
-                           struct ast_node *target)
-{
-    const struct interpreter *interpreter;
-    struct ast_node *interp_inst;
-    struct ast_node *filter_target;
-    struct ast_node *target_item;
-
-    assert(NULL != target);
-
-    interpreter = (*template_p)->u.rexpr_interpreter.interpreter;
-    if (0 != ((*template_p)->flags & ASTFLAG_TEMPLATE)) {
-        interp_inst = interpreter_rcall_instanciate(*template_p);
-    } else {
-        interp_inst = *template_p;
-    }
-
-    filter_target = target;
-    while (ast_node_is_filter(filter_target)) {
-        filter_target = filter_target->u.rexpr_filter.target;
-    }
-    if (ast_node_is_item(filter_target)) {
-        interp_inst->u.rexpr.dpath_type = filter_target->u.rexpr.dpath_type;
-    } else {
-        interp_inst->u.rexpr.dpath_type = EXPR_DPATH_TYPE_CONTAINER;
-    }
-    interp_inst->u.rexpr_filter.target = target;
-
-    target_item = ast_node_get_target_item(target);
-    if (NULL == target_item) {
-        // pass the rexpr node if no target item configured
-        target_item = target;
-    }
-    if (-1 == interpreter->rcall_build_func(
-            interp_inst, target_item,
-            interpreter_rcall_get_params(interp_inst))) {
+        node->ndat = NULL;
         return -1;
     }
-
-    *template_p = interp_inst;
-    interp_inst->u.rexpr.target_item = target_item;
     return 0;
+}
+
+struct ast_node_data *
+interpreter_rcall_instanciate(struct ast_node_hdl *rcall)
+{
+    const struct interpreter *interpreter;
+    struct ast_node_data *inst;
+
+    assert(AST_NODE_TYPE_REXPR_INTERPRETER == rcall->ndat->type);
+    interpreter = rcall->ndat->u.rexpr_interpreter.interpreter;
+    inst = malloc0_safe(INTERPRETER_RCALL_BASE_SIZE
+                         + (interpreter->max_param_ref + 1)
+                         * sizeof (struct ast_node_hdl));
+    memcpy(inst, rcall->ndat, INTERPRETER_RCALL_BASE_SIZE
+           + (interpreter->max_param_ref + 1)
+           * sizeof (struct ast_node_hdl));
+    inst->flags &= ~ASTFLAG_DATA_TEMPLATE;
+    return inst;
 }
 
 static int
@@ -262,21 +220,16 @@ get_param_index(const struct interpreter *interpreter,
 }
 
 static int
-rcall_build_params(struct ast_node *rcall,
+rcall_build_params(struct ast_node_hdl *node,
                    const struct interpreter *interpreter,
                    struct statement_list *param_list)
 {
     struct field *param;
-    struct ast_node *param_valuep;
+    struct ast_node_hdl *param_valuep;
     int param_ref;
     struct interpreter_param_def *param_def;
     int sem_error = FALSE;
 
-    for (param_ref = 0;
-         param_ref <= interpreter->max_param_ref; ++param_ref) {
-        param_valuep = INTERPRETER_RCALL_PARAM(rcall, param_ref);
-        param_valuep->type = AST_NODE_TYPE_NONE;
-    }
     STATEMENT_FOREACH(field, param, param_list, list) {
         param_ref = get_param_index(interpreter, param->nstmt.name);
         if (-1 == param_ref) {
@@ -287,8 +240,8 @@ rcall_build_params(struct ast_node *rcall,
             continue ;
         }
         assert(param_ref >= 0 && param_ref <= interpreter->max_param_ref);
-        param_valuep = INTERPRETER_RCALL_PARAM(rcall, param_ref);
-        if (param_valuep->type != AST_NODE_TYPE_NONE) {
+        param_valuep = INTERPRETER_RCALL_PARAM(node, param_ref);
+        if (NULL != param_valuep->ndat) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR, &param->nstmt.stmt.loc,
                            "duplicate parameter \"%s\"", param->nstmt.name);
             sem_error = TRUE;
@@ -297,14 +250,17 @@ rcall_build_params(struct ast_node *rcall,
         *param_valuep = *param->dpath.item;
     }
     STAILQ_FOREACH(param_def, &interpreter->param_list, list) {
-        param_valuep = INTERPRETER_RCALL_PARAM(rcall, param_def->ref_idx);
-        if ((INTERPRETER_PARAM_FLAG_MANDATORY & param_def->flags)
-            && AST_NODE_TYPE_NONE == param_valuep->type) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
-                           "missing mandatory parameter \"%s\"",
-                           param_def->name);
-            sem_error = TRUE;
-            continue ;
+        param_valuep = INTERPRETER_RCALL_PARAM(node, param_def->ref_idx);
+        if (NULL == param_valuep->ndat) {
+            if (0 != (INTERPRETER_PARAM_FLAG_MANDATORY & param_def->flags)) {
+                semantic_error(SEMANTIC_LOGLEVEL_ERROR, &node->loc,
+                               "missing mandatory parameter \"%s\"",
+                               param_def->name);
+                sem_error = TRUE;
+                continue ;
+            }
+            param_valuep->ndat = new_safe(struct ast_node_data);
+            param_valuep->ndat->type = AST_NODE_TYPE_NONE;
         }
     }
     if (!sem_error) {
@@ -316,37 +272,37 @@ rcall_build_params(struct ast_node *rcall,
 
 
 bitpunch_status_t
-interpreter_rcall_read_value(const struct ast_node *interpreter,
+interpreter_rcall_read_value(const struct ast_node_hdl *interpreter,
                              const char *item_data,
                              int64_t item_size,
                              enum expr_value_type *typep,
                              union expr_value *valuep,
                              struct browse_state *bst)
 {
-    struct ast_node *params;
+    struct ast_node_hdl *params;
     size_t value_size;
     union expr_value value;
 
     params = interpreter_rcall_get_params(interpreter);
 
-    if (NULL == interpreter->u.rexpr_interpreter.get_size_func) {
+    if (NULL == interpreter->ndat->u.rexpr_interpreter.get_size_func) {
         value_size = (size_t)item_size;
-    } else if (-1 == interpreter->u.rexpr_interpreter.get_size_func(
+    } else if (-1 == interpreter->ndat->u.rexpr_interpreter.get_size_func(
                    &value_size, item_data, item_size, params)) {
         return BITPUNCH_DATA_ERROR;
     }
     memset(&value, 0, sizeof(value));
-    if (-1 == interpreter->u.rexpr_interpreter.read_func(
+    if (-1 == interpreter->ndat->u.rexpr_interpreter.read_func(
             &value, item_data, value_size, params)) {
         return BITPUNCH_DATA_ERROR;
     }
     if (NULL != typep) {
-        *typep = interpreter->u.rexpr.value_type;
+        *typep = interpreter->ndat->u.rexpr.value_type;
     }
     if (NULL != valuep) {
         *valuep = value;
     } else {
-        expr_value_destroy(interpreter->u.rexpr.value_type, value);
+        expr_value_destroy(interpreter->ndat->u.rexpr.value_type, value);
     }
     return BITPUNCH_OK;
 }
