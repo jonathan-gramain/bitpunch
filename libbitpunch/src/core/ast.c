@@ -2134,7 +2134,12 @@ compile_expr_operator_subscript(struct ast_node_hdl *node,
                 value_type = EXPR_VALUE_TYPE_BYTES;
                 break ;
             default:
-                assert(0);
+                semantic_error(
+                    SEMANTIC_LOGLEVEL_ERROR, &node->loc,
+                    "invalid use of subscript operator on non-subscriptable "
+                    "path of type '%s'",
+                    ast_node_type_str(anchor_item->ndat->type));
+                return -1;
             }
         }
         if (-1 == compile_subscript_index(node, index, ctx)) {
@@ -2183,7 +2188,8 @@ compile_expr_operator_subscript_slice(struct ast_node_hdl *node,
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &node->loc,
                 "invalid use of subscript operator on non-subscriptable "
-                "path");
+                "path of type '%s'",
+                ast_node_type_str(anchor_item->ndat->type));
             return -1;
         }
     } else {

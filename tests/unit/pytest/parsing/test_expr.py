@@ -95,3 +95,43 @@ def test_string_literals():
 
     with pytest.raises(ValueError):
         model.eval_expr('hello')
+
+
+
+spec_file_illegal_expr = """
+
+let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+
+let Contents = struct {
+    a: u32;
+    b: u32;
+};
+
+file {
+    contents_struct: Contents;
+}
+
+"""
+
+data_file_illegal_expr = """
+01 00 00 00 02 00 00 00
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_illegal_expr,
+        'data': data_file_illegal_expr,
+    }])
+def params_illegal_expr(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_illegal_expr(params_illegal_expr):
+    params = params_illegal_expr
+    dtree = params['dtree']
+
+    with pytest.raises(ValueError):
+        dtree.eval_expr('this_field_does_not_exist')
+    with pytest.raises(ValueError):
+        dtree.eval_expr('contents_struct[42]')
