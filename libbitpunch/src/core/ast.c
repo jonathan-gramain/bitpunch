@@ -1262,6 +1262,28 @@ dep_resolver_node_to_ast_node(struct dep_resolver_node *node,
     return subscript->key;
 }
 
+static struct parser_location *
+dep_resolver_node_get_location(struct dep_resolver_node *node,
+                               struct compile_req *req)
+{
+    struct dpath_node *dpath;
+    struct subscript_index *subscript;
+
+    if (req->compile_cb == compile_node_cb) {
+        return &container_of(node, struct ast_node_hdl, dr_node)->loc;
+    }
+    if (req->compile_cb == compile_dpath_cb) {
+        dpath = container_of(node, struct dpath_node, dr_node);
+        return &(NULL != dpath->filter ? dpath->filter : dpath->item)->loc;
+    }
+    if (req->compile_cb == compile_field_cb) {
+        return &container_of(node, struct field, dr_node)->nstmt.stmt.loc;
+    }
+    assert(req->compile_cb == compile_subscript_index_cb);
+    subscript = container_of(node, struct subscript_index, dr_node);
+    return &subscript->key->loc;
+}
+
 static const char *
 compile_func_to_node_family(compile_func_t compile_cb)
 {
@@ -1423,45 +1445,19 @@ compile_all(struct ast_node_hdl *ast_root,
         struct dep_resolver_node_entry **circ_entries;
         struct dep_resolver_node_entry *entry;
         struct compile_req *req;
-        struct ast_node_hdl *node;
         const struct parser_location *loc;
         int i;
-        char node_dot[128];
-        FILE *node_dot_f;
 
         circ_entries = dep_resolver_get_circular_dependency(ctx.dep_resolver);
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, NULL,
+                       "circular dependency across the following nodes:");
         for (i = 0; NULL != (entry = circ_entries[i]); ++i) {
             req = (struct compile_req *)entry->arg;
-            node = dep_resolver_node_to_ast_node(entry->node, req);
-            loc = &node->loc;
-            node_dot_f = fmemopen(node_dot, sizeof (node_dot), "w");
-            fdump_ast_dot(node,
-                          compile_func_to_node_family(req->compile_cb),
-                          entry->tags,
-                          node_dot_f);
-            fclose(node_dot_f);
-            if (i == 0) {
-                if (NULL != circ_entries[i + 1]) {
-                    semantic_error(
-                        SEMANTIC_LOGLEVEL_ERROR, loc,
-                        "node %s has a circular dependency ...",
-                        node_dot);
-                } else {
-                    semantic_error(
-                        SEMANTIC_LOGLEVEL_ERROR, loc,
-                        "node %s has a circular dependency on itself",
-                        node_dot);
-                }
-            } else if (NULL != circ_entries[i + 1]) {
-                semantic_error(SEMANTIC_LOGLEVEL_ERROR, loc,
-                               "... on node %s ...",
-                               node_dot);
-            } else {
-                semantic_error(
-                    SEMANTIC_LOGLEVEL_ERROR, loc,
-                    "... on node %s, which depends on the first listed",
-                    node_dot);
+            if (req->compile_cb == compile_dpath_cb) {
+                continue ;
             }
+            loc = dep_resolver_node_get_location(entry->node, req);
+            semantic_error(SEMANTIC_LOGLEVEL_INFO, loc, NULL);
         }
         free(circ_entries);
         break ;
@@ -1469,12 +1465,12 @@ compile_all(struct ast_node_hdl *ast_root,
     case DEP_RESOLVER_ERROR: {
         struct dep_resolver_node_entry *entry;
         struct compile_req *req;
-        struct ast_node_hdl *node;
+        const struct parser_location *loc;
 
         entry = dep_resolver_get_error_entry(ctx.dep_resolver);
         req = (struct compile_req *)entry->arg;
-        node = dep_resolver_node_to_ast_node(entry->node, req);
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &node->loc,
+        loc = dep_resolver_node_get_location(entry->node, req);
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, loc,
                        "compile error");
         break ;
     }
