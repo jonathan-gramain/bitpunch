@@ -1868,7 +1868,6 @@ DataContainer_box_to_python_object(struct DataTreeObject *dtree,
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_FILTERED:
         return DataArray_bytes_box_to_python_object(dtree, box);
     default:
         PyErr_Format(PyExc_ValueError,
@@ -3278,7 +3277,6 @@ box_to_shallow_PyObject(DataTreeObject *dtree, struct box *box,
         return res;
 
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_FILTERED:
         dcont = (DataContainerObject *)DataContainer_new(&DataContainerType,
                                                          NULL, NULL);
         if (NULL == dcont) {

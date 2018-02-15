@@ -645,7 +645,6 @@ box_construct(struct box *o_box,
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_FILTERED:
         o_box->u.array_generic.n_items = -1;
         break ;
     default:
@@ -663,6 +662,7 @@ box_dump_flags(const struct box *box, FILE *out)
         "BOX_CACHED",
         "BOX_REVERSED",
         "BOX_FILTER",
+        "BOX_DATA_FILTER",
     };
     int flag;
     int i;
@@ -929,7 +929,6 @@ box_new_slice_box(struct tracker *slice_start,
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_FILTERED:
         slice_node = DPATH_NODE_BYTE_SLICE;
         break ;
     default:
@@ -1096,20 +1095,20 @@ create_data_hdl_from_buffer(
 }
 
 struct box *
-box_new_filter_box(struct box *unfiltered_box,
-                   const struct ast_node_hdl *filter,
-                   const char *filtered_data,
-                   size_t filtered_size,
-                   int own_buffer,
-                   struct browse_state *bst)
+box_new_data_filter_box(struct box *unfiltered_box,
+                        const struct ast_node_hdl *filter,
+                        const char *filtered_data,
+                        size_t filtered_size,
+                        int own_buffer,
+                        struct browse_state *bst)
 {
     struct bitpunch_binary_file_hdl *filtered_data_hdl;
     struct box *box;
     bitpunch_status_t bt_ret;
 
     box = new_safe(struct box);
-    bt_ret = box_construct(box, NULL, DPATH_NODE_FILTERED, 0,
-                           BOX_FILTER, bst);
+    bt_ret = box_construct(box, NULL, &unfiltered_box->dpath, 0,
+                           BOX_FILTER | BOX_DATA_FILTER, bst);
     if (BITPUNCH_OK != bt_ret) {
         free(box);
         return NULL;
@@ -1188,16 +1187,16 @@ box_apply_filter_interpreter(struct box *unfiltered_box,
     }
     switch (filtered_value_type) {
     case EXPR_VALUE_TYPE_BYTES:
-        *filtered_boxp = box_new_filter_box(unfiltered_box, filter,
-                                            filtered_value.bytes.buf,
-                                            filtered_value.bytes.len,
-                                            TRUE, bst);
+        *filtered_boxp = box_new_data_filter_box(unfiltered_box, filter,
+                                                 filtered_value.bytes.buf,
+                                                 filtered_value.bytes.len,
+                                                 TRUE, bst);
         break ;
     case EXPR_VALUE_TYPE_STRING:
-        *filtered_boxp = box_new_filter_box(unfiltered_box, filter,
-                                            filtered_value.string.str,
-                                            filtered_value.string.len,
-                                            FALSE, bst);
+        *filtered_boxp = box_new_data_filter_box(unfiltered_box, filter,
+                                                 filtered_value.string.str,
+                                                 filtered_value.string.len,
+                                                 FALSE, bst);
         break ;
     default:
         *filtered_boxp = unfiltered_box;
@@ -1297,13 +1296,13 @@ box_free(struct box *box)
         }
         box_destroy_mark_offsets_repo(box);
         break ;
-    case AST_NODE_TYPE_FILTERED:
+    default:
+        break ;
+    }
+    if (0 != (box->flags & BOX_DATA_FILTER)) {
         (void)bitpunch_close_binary_file(
             (struct bitpunch_binary_file_hdl *)box->file_hdl);
         free((struct bitpunch_binary_file_hdl *)box->file_hdl);
-        break ;
-    default:
-        break ;
     }
     free(box);
 }
@@ -1911,7 +1910,6 @@ tracker_reset_track_path(struct tracker *tk)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_FILTERED:
         tk->cur = track_path_from_array_index(-1);
         break ;
     default:
@@ -2477,7 +2475,6 @@ box_get_end_path(struct box *box, struct track_path *end_pathp,
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_FILTERED:
         bt_ret = box_get_n_items_internal(box, &n_items, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
@@ -2585,7 +2582,6 @@ tracker_compute_item_offset(struct tracker *tk,
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_FILTERED:
         return tracker_goto_nth_item_internal(tk, tk->cur.u.array.index,
                                               bst);
     case AST_NODE_TYPE_ARRAY_SLICE:
@@ -6405,8 +6401,7 @@ box_array_slice_get_ancestor_array(struct box *box)
     array_box = box->parent_box;
     while (AST_NODE_TYPE_ARRAY != array_box->dpath.item->ndat->type &&
            AST_NODE_TYPE_BYTE_ARRAY != array_box->dpath.item->ndat->type &&
-           AST_NODE_TYPE_AS_BYTES != array_box->dpath.item->ndat->type &&
-           AST_NODE_TYPE_FILTERED != array_box->dpath.item->ndat->type) {
+           AST_NODE_TYPE_AS_BYTES != array_box->dpath.item->ndat->type) {
         array_box = array_box->parent_box;
         /* An array slice box shall always have a real array ancestor. */
         assert(NULL != array_box);
@@ -7199,40 +7194,6 @@ browse_setup_backends__tracker__as_bytes(struct ast_node_hdl *item)
         tracker_goto_nth_item_with_key__default;
 }
 
-static void
-browse_setup_backends__box__filtered(struct ast_node_hdl *item)
-{
-    struct box_backend *b_box = NULL;
-
-    b_box = &item->ndat->u.container.b_box;
-    memset(b_box, 0, sizeof (*b_box));
-
-    b_box->compute_slack_size = NULL; // set at construction
-    b_box->compute_max_span_size = NULL; // set at construction
-    b_box->compute_used_size = NULL; // set at construction
-    b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
-    b_box->get_n_items = box_get_n_items__as_bytes;
-}
-
-static void
-browse_setup_backends__tracker__filtered(struct ast_node_hdl *item)
-{
-    struct tracker_backend *b_tk = NULL;
-
-    b_tk = &item->ndat->u.container.b_tk;
-    memset(b_tk, 0, sizeof (*b_tk));
-
-    b_tk->get_item_key = tracker_get_item_key__array_generic;
-    b_tk->compute_item_size = tracker_compute_item_size__item_box;
-    b_tk->goto_first_item = tracker_goto_first_item__byte_array_generic;
-    b_tk->goto_next_item = tracker_goto_next_item__byte_array_generic;
-    b_tk->goto_nth_item = tracker_goto_nth_item__byte_array_generic;
-    b_tk->goto_next_item_with_key =
-        tracker_goto_next_item_with_key__default;
-    b_tk->goto_nth_item_with_key =
-        tracker_goto_nth_item_with_key__default;
-}
-
 int
 browse_setup_backends(struct ast_node_hdl *node)
 {
@@ -7263,10 +7224,6 @@ browse_setup_backends(struct ast_node_hdl *node)
     case AST_NODE_TYPE_AS_BYTES:
         browse_setup_backends__box__as_bytes(node);
         browse_setup_backends__tracker__as_bytes(node);
-        break ;
-    case AST_NODE_TYPE_FILTERED:
-        browse_setup_backends__box__filtered(node);
-        browse_setup_backends__tracker__filtered(node);
         break ;
     case AST_NODE_TYPE_REXPR_INTERPRETER:
     case AST_NODE_TYPE_REXPR_AS_TYPE:

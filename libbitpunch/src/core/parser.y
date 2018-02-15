@@ -78,12 +78,10 @@
 #define AST_NODE_ARRAY_SLICE &shared_ast_node_array_slice
 #define AST_NODE_BYTE_SLICE &shared_ast_node_byte_slice
 #define AST_NODE_AS_BYTES &shared_ast_node_as_bytes
-#define AST_NODE_FILTERED &shared_ast_node_filtered
 #define DPATH_NODE_BYTE &shared_dpath_node_byte
 #define DPATH_NODE_ARRAY_SLICE &shared_dpath_node_array_slice
 #define DPATH_NODE_BYTE_SLICE &shared_dpath_node_byte_slice
 #define DPATH_NODE_AS_BYTES &shared_dpath_node_as_bytes
-#define DPATH_NODE_FILTERED &shared_dpath_node_filtered
 
 #include "utils/queue.h"
 
@@ -158,12 +156,10 @@
     extern struct ast_node_hdl shared_ast_node_array_slice;
     extern struct ast_node_hdl shared_ast_node_byte_slice;
     extern struct ast_node_hdl shared_ast_node_as_bytes;
-    extern struct ast_node_hdl shared_ast_node_filtered;
     extern struct dpath_node shared_dpath_node_byte;
     extern struct dpath_node shared_dpath_node_array_slice;
     extern struct dpath_node shared_dpath_node_byte_slice;
     extern struct dpath_node shared_dpath_node_as_bytes;
-    extern struct dpath_node shared_dpath_node_filtered;
 
     enum ast_node_flag {
         ASTFLAG_IS_SPAN_EXPR                = (1<<0),
@@ -229,7 +225,6 @@
             AST_NODE_TYPE_ARRAY_SLICE,
             AST_NODE_TYPE_BYTE_SLICE,
             AST_NODE_TYPE_AS_BYTES,
-            AST_NODE_TYPE_FILTERED,
             AST_NODE_TYPE_CONDITIONAL,
             AST_NODE_TYPE_OP_EQ,
             AST_NODE_TYPE_OP_NE,
@@ -613,13 +608,6 @@
         .ndat = &shared_ast_node_data_as_bytes,
     };
 
-    struct ast_node_data shared_ast_node_data_filtered = {
-        .type = AST_NODE_TYPE_FILTERED,
-    };
-    struct ast_node_hdl shared_ast_node_filtered = {
-        .ndat = &shared_ast_node_data_filtered,
-    };
-
     struct dpath_node shared_dpath_node_byte = {
         .item = &shared_ast_node_byte,
     };
@@ -631,9 +619,6 @@
     };
     struct dpath_node shared_dpath_node_as_bytes = {
         .item = &shared_ast_node_as_bytes,
-    };
-    struct dpath_node shared_dpath_node_filtered = {
-        .item = &shared_ast_node_filtered,
     };
 
     static struct ast_node_hdl *
@@ -1389,7 +1374,6 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_ARRAY_SLICE: return "slice";
     case AST_NODE_TYPE_BYTE_SLICE: return "byte slice";
     case AST_NODE_TYPE_AS_BYTES: return "as bytes";
-    case AST_NODE_TYPE_FILTERED: return "filtered";
     case AST_NODE_TYPE_CONDITIONAL: return "conditional";
     case AST_NODE_TYPE_REXPR_NATIVE: return "native type";
     case AST_NODE_TYPE_OP_FCALL:

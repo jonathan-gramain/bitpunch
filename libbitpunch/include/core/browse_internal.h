@@ -55,12 +55,12 @@ box_new_as_box(struct box *parent_box,
                struct dpath_node *as_dpath, int64_t start_offset_used,
                struct browse_state *bst);
 struct box *
-box_new_filter_box(struct box *unfiltered_box,
-                   const struct ast_node_hdl *filter,
-                   const char *filtered_data,
-                   size_t filtered_size,
-                   int own_buffer,
-                   struct browse_state *bst);
+box_new_data_filter_box(struct box *unfiltered_box,
+                        const struct ast_node_hdl *filter,
+                        const char *filtered_data,
+                        size_t filtered_size,
+                        int own_buffer,
+                        struct browse_state *bst);
 bitpunch_status_t
 box_apply_filters(struct box *unfiltered_box,
                   struct box **filtered_boxp,

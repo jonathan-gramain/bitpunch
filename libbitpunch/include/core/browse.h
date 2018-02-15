@@ -94,6 +94,7 @@ struct box {
         BOX_CACHED                 = (1u<<2),
         BOX_REVERSED               = (1u<<3),
         BOX_FILTER                 = (1u<<4),
+        BOX_DATA_FILTER            = (1u<<5),
     } flags;
     union {
         struct box_block {

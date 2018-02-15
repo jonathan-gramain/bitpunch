@@ -133,7 +133,6 @@ dbg_tracker_check_track_path(const struct tracker *tk,
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_FILTERED:
         if (expect_is_set) {
             assert(-1 != tk->cur.u.array.index);
         } else {

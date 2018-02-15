@@ -3562,9 +3562,6 @@ setup_global_track_backends(void)
     if (-1 == setup_track_backends_dpath(DPATH_NODE_AS_BYTES)) {
         return -1;
     }
-    if (-1 == setup_track_backends_dpath(DPATH_NODE_FILTERED)) {
-        return -1;
-    }
     return 0;
 }
 
@@ -4009,7 +4006,6 @@ ast_node_is_container(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_FILTERED:
         return TRUE;
     default:
         return FALSE;
@@ -4036,7 +4032,6 @@ ast_node_is_byte_container(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_FILTERED:
         return TRUE;
     default:
         return FALSE;
@@ -4080,7 +4075,6 @@ ast_node_is_item(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_FILTERED:
         return TRUE;
     default:
         return FALSE;
@@ -4476,7 +4470,6 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_FILTERED:
         fprintf(out, "\n%*s\\_ static node (%s)\n",
                 (depth + 1) * INDENT_N_SPACES, "",
                 ast_node_type_str(node->ndat->type));
@@ -4832,7 +4825,6 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_FILTERED:
     case AST_NODE_TYPE_CONDITIONAL:
     case AST_NODE_TYPE_OP_EQ:
     case AST_NODE_TYPE_OP_NE:

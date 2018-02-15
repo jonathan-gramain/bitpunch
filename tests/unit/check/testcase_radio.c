@@ -147,8 +147,7 @@ static void testcase_radio_teardown(void)
 static void check_codename_value(struct radio_source_info *info,
                                  enum expr_value_type type,
                                  union expr_value value,
-                                 int code_idx,
-                                 int is_raw_dpath)
+                                 int code_idx)
 {
     const char *codename;
     int64_t expect_size;
@@ -156,23 +155,15 @@ static void check_codename_value(struct radio_source_info *info,
     codename = radio_codenames[code_idx];
     expect_size = strlen(codename);
 
-    if (is_raw_dpath) {
-        ck_assert_int_eq(type, EXPR_VALUE_TYPE_BYTES);
-        ck_assert_int_eq(value.bytes.len, expect_size);
-        ck_assert(0 == memcmp(value.bytes.buf,
-                              codename, value.bytes.len));
-    } else {
-        ck_assert_int_eq(type, EXPR_VALUE_TYPE_STRING);
-        ck_assert_int_eq(value.string.len, expect_size);
-        ck_assert(0 == memcmp(value.string.str,
-                              codename, value.string.len));
-    }
+    ck_assert_int_eq(type, EXPR_VALUE_TYPE_STRING);
+    ck_assert_int_eq(value.string.len, expect_size);
+    ck_assert(0 == memcmp(value.string.str,
+                          codename, value.string.len));
 }
 
 static void check_codename_item(struct radio_source_info *info,
                                 struct tracker *tk,
-                                int code_idx,
-                                int is_raw_dpath)
+                                int code_idx)
 {
     bitpunch_status_t bt_ret;
     int64_t code_offset;
@@ -194,13 +185,12 @@ static void check_codename_item(struct radio_source_info *info,
     } else {
         assert(NULL != tk->box->unfiltered_box);
         assert(NULL != tk->box->dpath.item);
-        assert(AST_NODE_TYPE_FILTERED == tk->box->dpath.item->ndat->type);
         assert(0 == tk->box->start_offset_used);
         code_offset = tk->box->unfiltered_box->start_offset_used;
     }
     ck_assert_int_eq(code_offset, expect_offset);
 
-    check_codename_value(info, type, value, code_idx, is_raw_dpath);
+    check_codename_value(info, type, value, code_idx);
     expr_value_destroy(type, value);
 }
 
@@ -225,12 +215,12 @@ static void check_codename_entry(struct radio_source_info *info,
     bt_ret = box_evaluate_attribute_value(tk2->box, "codename",
                                           &type, &value, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-    check_codename_value(info, type, value, code_idx, FALSE);
+    check_codename_value(info, type, value, code_idx);
     expr_value_destroy(type, value);
     if (!info->codename_is_named_expr) {
         bt_ret = tracker_goto_named_item(tk2, "codename", NULL);
         ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-        check_codename_item(info, tk2, code_idx, FALSE);
+        check_codename_item(info, tk2, code_idx);
     }
     bt_ret = tracker_get_item_key(tk, &type, &value, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
@@ -481,7 +471,7 @@ static void check_goto_dpath(struct radio_source_info *info,
     bt_ret = tracker_goto_abs_dpath(tk, dpath_expr, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
 
-    check_codename_item(info, tk, code_idx, info->codename_is_named_expr);
+    check_codename_item(info, tk, code_idx);
 }
 
 void testcase_radio_launch_test_dpath(struct radio_source_info *info)
