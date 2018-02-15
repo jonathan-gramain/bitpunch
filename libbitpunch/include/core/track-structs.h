@@ -46,8 +46,11 @@ struct track_path {
         TRACK_PATH_NOTYPE,
         TRACK_PATH_BLOCK,
         TRACK_PATH_ARRAY,
-        TRACK_PATH_ARRAY_SLICE
+        TRACK_PATH_ARRAY_SLICE,
     } type;
+    enum track_path_flags {
+        TRACK_PATH_IS_ANCESTOR = (1u<<0),
+    } flags;
     union {
         struct {
             const struct field *field;

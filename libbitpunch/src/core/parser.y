@@ -250,7 +250,7 @@
             AST_NODE_TYPE_OP_BWNOT,
             AST_NODE_TYPE_OP_SIZEOF,
             AST_NODE_TYPE_OP_ADDROF,
-            AST_NODE_TYPE_OP_FILTER,
+            AST_NODE_TYPE_OP_ANCESTOR,
             AST_NODE_TYPE_OP_SUBSCRIPT,
             AST_NODE_TYPE_OP_SUBSCRIPT_SLICE,
             AST_NODE_TYPE_OP_MEMBER,
@@ -284,7 +284,7 @@
             AST_NODE_TYPE_REXPR_OP_BWNOT,
             AST_NODE_TYPE_REXPR_OP_SIZEOF,
             AST_NODE_TYPE_REXPR_OP_ADDROF,
-            AST_NODE_TYPE_REXPR_OP_FILTER,
+            AST_NODE_TYPE_REXPR_OP_ANCESTOR,
             AST_NODE_TYPE_REXPR_INTERPRETER,
             AST_NODE_TYPE_REXPR_AS_TYPE,
             AST_NODE_TYPE_REXPR_OP_MEMBER,
@@ -854,8 +854,8 @@ expr:
   | '&' expr %prec OP_ARITH_UNARY_OP {
         $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_ADDROF, $2, NULL, &@1);
     }
-  | '*' expr %prec OP_ARITH_UNARY_OP {
-        $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_FILTER, $2, NULL, &@1);
+  | '^' expr %prec OP_ARITH_UNARY_OP {
+        $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_ANCESTOR, $2, NULL, &@1);
     }
   | expr "||" expr {
         $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_LOR, $1, $3, &@2);
@@ -1435,8 +1435,8 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_REXPR_OP_SIZEOF: return "operator 'sizeof'";
     case AST_NODE_TYPE_OP_ADDROF:
     case AST_NODE_TYPE_REXPR_OP_ADDROF: return "operator 'addr of'";
-    case AST_NODE_TYPE_OP_FILTER:
-    case AST_NODE_TYPE_REXPR_OP_FILTER: return "operator 'filter'";
+    case AST_NODE_TYPE_OP_ANCESTOR:
+    case AST_NODE_TYPE_REXPR_OP_ANCESTOR: return "operator 'ancestor'";
     case AST_NODE_TYPE_OP_SUBSCRIPT:
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT: return "array subscript";
     case AST_NODE_TYPE_OP_SUBSCRIPT_SLICE:

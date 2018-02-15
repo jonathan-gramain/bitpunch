@@ -159,11 +159,6 @@ data_file_simple_filter_as_type_base64 = """
         'data': data_file_simple_filter_as_type_constrained,
         'stored_content_length': 16,
     }, {
-        'spec': spec_file_simple_filter_as_type_constrained,
-        'data': data_file_simple_filter_as_type_constrained_bad,
-        'stored_content_length': 16,
-        'is_bad': True,
-    }, {
         'spec': spec_file_simple_filter_as_type_base64,
         'data': data_file_simple_filter_as_type_base64,
         'stored_content_length': 24,
@@ -180,17 +175,35 @@ def test_filter(params_filter):
     params = params_filter
     dtree, stored_content_length = (params['dtree'],
                                     params['stored_content_length'])
-    if 'is_bad' in params:
-        with pytest.raises(model.OutOfBoundsError):
-            print(model.make_python_object(dtree.contents))
-    else:
-        assert dtree.contents.n == stored_content_length
-        assert len(dtree.contents.data) == 16
-        assert memoryview(dtree.contents.data) == 'as contents data'
-        assert model.make_python_object(dtree.contents) == {
-            'n': stored_content_length,
-            'data': 'as contents data'
-        }
+
+    assert dtree.contents.n == stored_content_length
+    assert len(dtree.contents.data) == 16
+    assert memoryview(dtree.contents.data) == 'as contents data'
+    assert model.make_python_object(dtree.contents) == {
+        'n': stored_content_length,
+        'data': 'as contents data'
+    }
+    assert dtree.contents.n == stored_content_length
+    assert dtree.eval_expr('contents.n') == stored_content_length
+    assert model.make_python_object(dtree.eval_expr('^contents.n')) == \
+        chr(stored_content_length) + '\x00\x00\x00'
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_simple_filter_as_type_constrained,
+        'data': data_file_simple_filter_as_type_constrained_bad,
+    }])
+def params_filter_bad(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_filter_bad(params_filter_bad):
+    params = params_filter_bad
+    dtree = params['dtree']
+
+    with pytest.raises(model.OutOfBoundsError):
+        print(model.make_python_object(dtree.contents))
 
 
 spec_file_simple_filter_line_separated_base64 = """
@@ -579,3 +592,106 @@ def test_filter_invalid(params_filter_invalid):
     spec = params['spec']
     with pytest.raises(OSError):
         dtree = model.DataTree('', spec)
+
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_simple_filter_as_type,
+        'data': data_file_simple_filter_as_type,
+    }])
+def params_ancestor_operator__as_type(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_ancestor_operator__as_type(params_ancestor_operator__as_type):
+    params = params_ancestor_operator__as_type
+    dtree = params['dtree']
+
+    assert model.make_python_object(dtree.eval_expr('^contents')) == \
+        '\x10\x00\x00\x00as contents data'
+    assert model.make_python_object(dtree.eval_expr('^^contents')) == \
+        '\x10\x00\x00\x00as contents data'
+
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_simple_filter_as_type_twice,
+        'data': data_file_simple_filter_as_type,
+    }])
+def params_ancestor_operator__as_type_twice(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_ancestor_operator__as_type_twice(params_ancestor_operator__as_type_twice):
+    params = params_ancestor_operator__as_type_twice
+    dtree = params['dtree']
+
+    assert model.make_python_object(dtree.eval_expr('^contents')) == {
+        'n': 16,
+        'dummy': 'as contents data'
+    }
+    assert model.make_python_object(dtree.eval_expr('^^contents')) == \
+        '\x10\x00\x00\x00as contents data'
+    assert model.make_python_object(dtree.eval_expr('^^^contents')) == \
+        '\x10\x00\x00\x00as contents data'
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_simple_filter_as_type_anon_hop,
+        'data': data_file_simple_filter_as_type,
+    }])
+def params_ancestor_operator__as_type_anon_hop(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_ancestor_operator__as_type_anon_hop(params_ancestor_operator__as_type_anon_hop):
+    params = params_ancestor_operator__as_type_anon_hop
+    dtree = params['dtree']
+
+    assert model.make_python_object(dtree.eval_expr('^contents')) == \
+        '\x10\x00\x00\x00as contents data'
+
+    assert model.make_python_object(dtree.eval_expr('^^contents')) == \
+        '\x10\x00\x00\x00as contents data'
+
+
+
+spec_file_ancestor_of_u8 = """
+
+let u8 = byte: integer { signed: false; };
+
+file {
+    contents: u8[5];
+}
+
+"""
+
+data_file_ancestor_of_u8 = """
+01 02 03 04 05
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_ancestor_of_u8,
+        'data': data_file_ancestor_of_u8,
+    }])
+def params_ancestor_of_u8(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_ancestor_of_u8(params_ancestor_of_u8):
+    params = params_ancestor_of_u8
+    dtree = params['dtree']
+
+    assert model.make_python_object(dtree.eval_expr('contents')) == \
+        [1, 2, 3, 4, 5]
+    # contents itself has no attached filter, so result is unchanged
+    assert model.make_python_object(dtree.eval_expr('^contents')) == \
+        [1, 2, 3, 4, 5]
+
+    assert model.make_python_object(dtree.eval_expr('contents[3]')) == 4
+    assert model.make_python_object(dtree.eval_expr('^contents[3]')) == '\x04'

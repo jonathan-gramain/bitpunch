@@ -1089,7 +1089,7 @@ resolve_identifiers(struct ast_node_hdl *node,
         return resolve_identifiers_operator_set_filter(
             node, visible_refs, expect_mask, resolve_tags);
     case AST_NODE_TYPE_OP_ADDROF:
-    case AST_NODE_TYPE_OP_FILTER:
+    case AST_NODE_TYPE_OP_ANCESTOR:
         return resolve_identifiers_operator_on_dpath(node, visible_refs,
                                                      expect_mask, resolve_tags);
     case AST_NODE_TYPE_OP_SIZEOF:
@@ -1169,8 +1169,8 @@ op_type_ast2rexpr(enum ast_node_type type)
         return AST_NODE_TYPE_REXPR_OP_SIZEOF;
     case AST_NODE_TYPE_OP_ADDROF:
         return AST_NODE_TYPE_REXPR_OP_ADDROF;
-    case AST_NODE_TYPE_OP_FILTER:
-        return AST_NODE_TYPE_REXPR_OP_FILTER;
+    case AST_NODE_TYPE_OP_ANCESTOR:
+        return AST_NODE_TYPE_REXPR_OP_ANCESTOR;
     case AST_NODE_TYPE_OP_SUBSCRIPT:
         return AST_NODE_TYPE_REXPR_OP_SUBSCRIPT;
     case AST_NODE_TYPE_OP_SUBSCRIPT_SLICE:
@@ -2379,7 +2379,7 @@ compile_expr_operator_addrof(struct ast_node_hdl *expr,
 }
 
 /**
- * @brief first compile pass of filter (unary *) operator
+ * @brief first compile pass of ancestor (unary ^) operator
  *
  * The first pass focuses on resolving data types and dpaths of addrof
  * argument expression. Second pass will compute static address or
@@ -2387,47 +2387,28 @@ compile_expr_operator_addrof(struct ast_node_hdl *expr,
  * first.
  */
 static int
-compile_expr_operator_filter(struct ast_node_hdl *expr,
-                             struct compile_ctx *ctx,
-                             enum resolve_expect_mask expect_mask)
+compile_expr_operator_ancestor(struct ast_node_hdl *expr,
+                               struct compile_ctx *ctx,
+                               enum resolve_expect_mask expect_mask)
 {
-    struct op op;
+    struct ast_node_hdl *operand;
     struct ast_node_hdl *target;
-    struct ast_node_hdl *filter;
-    const struct interpreter *interpreter;
     struct ast_node_data *compiled_type;
 
-    op = expr->ndat->u.op;
-    target = op.operands[0]->ndat->u.rexpr.target_item;
-    if (NULL == target
-        || EXPR_DPATH_TYPE_NONE == op.operands[0]->ndat->u.rexpr.dpath_type) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-            "invalid use of filter (*) operator on non-dpath node of type "
-            "'%s'",
-            ast_node_type_str(op.operands[0]->ndat->type));
+    operand = expr->ndat->u.op.operands[0];
+    if (-1 == compile_node(operand, ctx,
+                           COMPILE_TAG_NODE_TYPE, 0u,
+                           RESOLVE_EXPECT_DPATH_EXPRESSION)) {
         return -1;
     }
-    assert(ast_node_is_item(target));
-    filter = ast_node_get_target_filter(op.operands[0]);
-    if (NULL == filter
-        || AST_NODE_TYPE_REXPR_OP_FILTER == op.operands[0]->ndat->type
-        || AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE == op.operands[0]->ndat->type) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-            "filter (*) operand has no attached interpreter");
-        return -1;
-    }
-    interpreter = filter->ndat->u.rexpr_interpreter.interpreter;
-
+    assert(ast_node_is_rexpr(operand));
+    target = operand->ndat->u.rexpr.target_item;
     compiled_type = new_safe(struct ast_node_data);
-    compiled_type->type = AST_NODE_TYPE_REXPR_OP_FILTER;
-    compiled_type->u.rexpr.value_type = interpreter->semantic_type;
-    compiled_type->u.rexpr.dpath_type =
-        (EXPR_VALUE_TYPE_BYTES == interpreter->semantic_type ?
-         EXPR_DPATH_TYPE_CONTAINER : EXPR_DPATH_TYPE_NONE);
+    compiled_type->type = AST_NODE_TYPE_REXPR_OP_ANCESTOR;
+    compiled_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
+    compiled_type->u.rexpr.dpath_type = EXPR_DPATH_TYPE_CONTAINER;
     compiled_type->u.rexpr.target_item = target;
-    compiled_type->u.rexpr_op.op = op;
+    compiled_type->u.rexpr_op.op = expr->ndat->u.op;
     expr->ndat = compiled_type;
     return 0;
 }
@@ -2810,8 +2791,8 @@ compile_node_type_int(struct ast_node_hdl *node,
         return compile_expr_operator_set_filter(node, ctx);
     case AST_NODE_TYPE_OP_ADDROF:
         return compile_expr_operator_addrof(node, ctx, expect_mask);
-    case AST_NODE_TYPE_OP_FILTER:
-        return compile_expr_operator_filter(node, ctx, expect_mask);
+    case AST_NODE_TYPE_OP_ANCESTOR:
+        return compile_expr_operator_ancestor(node, ctx, expect_mask);
     case AST_NODE_TYPE_OP_SUBSCRIPT:
         return compile_expr_operator_subscript(node, ctx, expect_mask);
     case AST_NODE_TYPE_OP_SUBSCRIPT_SLICE:
@@ -3786,7 +3767,7 @@ setup_track_backends_expr(struct ast_node_hdl *expr)
     case AST_NODE_TYPE_REXPR_OP_UMINUS:
     case AST_NODE_TYPE_REXPR_OP_LNOT:
     case AST_NODE_TYPE_REXPR_OP_BWNOT:
-    case AST_NODE_TYPE_REXPR_OP_FILTER:
+    case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
     case AST_NODE_TYPE_REXPR_OP_EQ:
     case AST_NODE_TYPE_REXPR_OP_NE:
     case AST_NODE_TYPE_REXPR_OP_GT:
@@ -3868,7 +3849,7 @@ ast_node_is_rexpr(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_OP_BWNOT:
     case AST_NODE_TYPE_REXPR_OP_SIZEOF:
     case AST_NODE_TYPE_REXPR_OP_ADDROF:
-    case AST_NODE_TYPE_REXPR_OP_FILTER:
+    case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
     case AST_NODE_TYPE_REXPR_FIELD:
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
     case AST_NODE_TYPE_REXPR_BUILTIN:
@@ -3976,6 +3957,9 @@ ast_node_get_target_filter(struct ast_node_hdl *node)
             return ast_node_get_target_filter(
                 node->ndat->u.rexpr_field.field->dpath.item);
         }
+    case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
+        return ast_node_get_target_filter(
+            node->ndat->u.rexpr_op.op.operands[0]);
     case AST_NODE_TYPE_REXPR_INTERPRETER:
     case AST_NODE_TYPE_REXPR_AS_TYPE:
         return node;
@@ -4530,7 +4514,7 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_OP_BWNOT:
     case AST_NODE_TYPE_OP_SIZEOF:
     case AST_NODE_TYPE_OP_ADDROF:
-    case AST_NODE_TYPE_OP_FILTER:
+    case AST_NODE_TYPE_OP_ANCESTOR:
         fprintf(out, "\n");
         fdump_ast_recur(node->ndat->u.op.operands[0], depth + 1, visible_refs,
                         out);
@@ -4694,7 +4678,7 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_REXPR_OP_BWNOT:
     case AST_NODE_TYPE_REXPR_OP_SIZEOF:
     case AST_NODE_TYPE_REXPR_OP_ADDROF:
-    case AST_NODE_TYPE_REXPR_OP_FILTER:
+    case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
         dump_ast_rexpr(node, out);
         fprintf(out, "\n");
         fdump_ast_recur(node->ndat->u.rexpr_op.op.operands[0], depth + 1,
@@ -4850,7 +4834,7 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_OP_BWNOT:
     case AST_NODE_TYPE_OP_SIZEOF:
     case AST_NODE_TYPE_OP_ADDROF:
-    case AST_NODE_TYPE_OP_FILTER:
+    case AST_NODE_TYPE_OP_ANCESTOR:
     case AST_NODE_TYPE_OP_SUBSCRIPT:
     case AST_NODE_TYPE_OP_SUBSCRIPT_SLICE:
     case AST_NODE_TYPE_OP_MEMBER:
@@ -4880,7 +4864,7 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_REXPR_OP_BWNOT:
     case AST_NODE_TYPE_REXPR_OP_SIZEOF:
     case AST_NODE_TYPE_REXPR_OP_ADDROF:
-    case AST_NODE_TYPE_REXPR_OP_FILTER:
+    case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
     case AST_NODE_TYPE_REXPR_OP_MEMBER:
     case AST_NODE_TYPE_REXPR_FIELD:
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:

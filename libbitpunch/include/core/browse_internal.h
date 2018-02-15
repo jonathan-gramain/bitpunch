@@ -51,6 +51,10 @@ struct box *
 box_new_bytes_box_from_box(struct box *box,
                            struct browse_state *bst);
 struct box *
+box_new_ancestor_box_from_item(struct tracker *tk, struct browse_state *bst);
+struct box *
+box_new_ancestor_box_from_box(struct box *box, struct browse_state *bst);
+struct box *
 box_new_as_box(struct box *parent_box,
                struct dpath_node *as_dpath, int64_t start_offset_used,
                struct browse_state *bst);
