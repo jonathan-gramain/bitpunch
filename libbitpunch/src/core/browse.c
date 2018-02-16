@@ -1018,6 +1018,46 @@ box_new_bytes_box_internal(struct box *parent_box,
 }
 
 struct box *
+box_new_from_expr_value(enum expr_value_type value_type,
+                        union expr_value value,
+                        struct browse_state *bst)
+{
+    struct box *from_box;
+    const char *value_data;
+    int64_t value_len;
+    const char *file_data;
+    bitpunch_status_t bt_ret;
+
+    switch (value_type) {
+    case EXPR_VALUE_TYPE_STRING:
+        from_box = value.string.from_box.box;
+        value_data = value.string.str;
+        value_len = value.string.len;
+        break ;
+    case EXPR_VALUE_TYPE_BYTES:
+        from_box = value.bytes.from_box.box;
+        value_data = value.bytes.buf;
+        value_len = value.bytes.len;
+        break ;
+    default:
+        return NULL;
+    }
+    if (NULL == from_box) {
+        return NULL;
+    }
+    assert(NULL != value_data);
+    file_data = from_box->file_hdl->bf_data;
+    bt_ret = box_compute_used_size(from_box, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return NULL;
+    }
+    assert(value_data >= file_data + from_box->start_offset_used);
+    assert(value_data + value_len <= file_data + from_box->end_offset_used);
+    return box_new_bytes_box_internal(from_box, value_data - file_data,
+                                      value_len, bst);
+}
+
+struct box *
 box_new_bytes_box_from_item(struct tracker *tk, struct browse_state *bst)
 {
     int64_t box_size;

@@ -67,4 +67,4 @@ def test_string(params_string):
 
     assert len(dtree.string_table) == len(expected)
     for i, s in enumerate(dtree.string_table):
-        assert dtree.string_table[i] == expected[i]
+        assert model.make_python_object(dtree.string_table[i]) == expected[i]

@@ -43,6 +43,10 @@ struct box *
 box_new_slice_box(struct tracker *slice_start,
                   struct tracker *slice_end,
                   struct browse_state *bst);
+struct box *
+box_new_from_expr_value(enum expr_value_type value_type,
+                        union expr_value value,
+                        struct browse_state *bst);
 
 struct box *
 box_new_bytes_box_from_item(struct tracker *tk,
