@@ -43,39 +43,47 @@
 
 static int
 string_get_size_byte_array_single_char_boundary(
-    size_t *sizep,
-    const char *data, size_t max_span_size,
+    int64_t *span_sizep,
+    int64_t *used_sizep,
+    const char *data, int64_t max_span_size,
     const struct ast_node_hdl *param_values)
 {
     const char *end;
 
-    end = memchr(
-        data, param_values[REF_BOUNDARY].ndat->u.rexpr_native.value.string.str[0],
-        max_span_size);
+    end = memchr(data, param_values[REF_BOUNDARY].ndat
+                 ->u.rexpr_native.value.string.str[0],
+                 max_span_size);
     if (NULL != end) {
-        *sizep = end - data + 1;
+        *span_sizep = end - data + 1;
+        *used_sizep = end - data;
     } else {
-        *sizep = max_span_size;
+        *span_sizep = max_span_size;
+        *used_sizep = max_span_size;
     }
     return 0;
 }
 
 static int
 string_get_size_byte_array_multi_char_boundary(
-    size_t *sizep,
-    const char *data, size_t max_span_size,
+    int64_t *span_sizep,
+    int64_t *used_sizep,
+    const char *data, int64_t max_span_size,
     const struct ast_node_hdl *param_values)
 {
     const char *end;
 
     end = memmem(data, max_span_size,
-                 param_values[REF_BOUNDARY].ndat->u.rexpr_native.value.string.str,
-                 param_values[REF_BOUNDARY].ndat->u.rexpr_native.value.string.len);
+                 param_values[REF_BOUNDARY].ndat
+                 ->u.rexpr_native.value.string.str,
+                 param_values[REF_BOUNDARY].ndat
+                 ->u.rexpr_native.value.string.len);
     if (NULL != end) {
-        *sizep = end - data
-            + param_values[REF_BOUNDARY].ndat->u.rexpr_native.value.string.len;
+        *span_sizep = end - data + param_values[REF_BOUNDARY].ndat
+            ->u.rexpr_native.value.string.len;
+        *used_sizep = end - data;
     } else {
-        *sizep = max_span_size;
+        *span_sizep = max_span_size;
+        *used_sizep = max_span_size;
     }
     return 0;
 }

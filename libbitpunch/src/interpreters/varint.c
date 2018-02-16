@@ -40,8 +40,9 @@
 #include "core/interpreter.h"
 
 static int
-varint_get_size(size_t *sizep,
-                const char *data, size_t max_span_size,
+varint_get_size(int64_t *span_sizep,
+                int64_t *used_sizep,
+                const char *data, int64_t max_span_size,
                 const struct ast_node_hdl *param_values)
 {
     size_t bytepos;
@@ -49,7 +50,8 @@ varint_get_size(size_t *sizep,
     // FIXME optimize
     for (bytepos = 0; bytepos < max_span_size; ++bytepos) {
         if (!(data[bytepos] & 0x80)) {
-            *sizep = bytepos + 1;
+            *span_sizep = bytepos + 1;
+            *used_sizep = bytepos + 1;
             return 0;
         }
     }

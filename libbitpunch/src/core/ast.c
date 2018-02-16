@@ -2110,7 +2110,8 @@ compile_expr_operator_subscript(struct ast_node_hdl *node,
         if (-1 == compile_expr(anchor_expr, ctx, TRUE)) {
             return -1;
         }
-        anchor_item = anchor_expr->ndat->u.rexpr.target_item;
+        anchor_item = ast_node_get_target_item(
+            anchor_expr->ndat->u.rexpr.target_item);
         if (NULL != anchor_item) {
             switch (anchor_item->ndat->type) {
             case AST_NODE_TYPE_ARRAY:
@@ -2178,7 +2179,8 @@ compile_expr_operator_subscript_slice(struct ast_node_hdl *node,
     if (-1 == compile_expr(anchor_expr, ctx, TRUE)) {
         return -1;
     }
-    anchor_item = anchor_expr->ndat->u.rexpr.target_item;
+    anchor_item = ast_node_get_target_item(
+        anchor_expr->ndat->u.rexpr.target_item);
     if (NULL != anchor_item) {
         if (! ast_node_is_subscriptable_container(anchor_item)) {
             semantic_error(

@@ -280,20 +280,21 @@ interpreter_rcall_read_value(const struct ast_node_hdl *interpreter,
                              struct browse_state *bst)
 {
     struct ast_node_hdl *params;
-    size_t value_size;
+    int64_t span_size;
+    int64_t used_size;
     union expr_value value;
 
     params = interpreter_rcall_get_params(interpreter);
 
     if (NULL == interpreter->ndat->u.rexpr_interpreter.get_size_func) {
-        value_size = (size_t)item_size;
+        span_size = item_size;
     } else if (-1 == interpreter->ndat->u.rexpr_interpreter.get_size_func(
-                   &value_size, item_data, item_size, params)) {
+                   &span_size, &used_size, item_data, item_size, params)) {
         return BITPUNCH_DATA_ERROR;
     }
     memset(&value, 0, sizeof(value));
     if (-1 == interpreter->ndat->u.rexpr_interpreter.read_func(
-            &value, item_data, value_size, params)) {
+            &value, item_data, span_size, params)) {
         return BITPUNCH_DATA_ERROR;
     }
     if (NULL != typep) {

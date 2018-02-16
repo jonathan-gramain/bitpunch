@@ -126,18 +126,21 @@
         struct statement_list *match_list;
     };
 
-    typedef int
-        (*interpreter_read_func_t)(union expr_value *read_value,
-                                   const char *data, size_t span_size,
-                                   const struct ast_node_hdl *param_values);
-    typedef int
-        (*interpreter_write_func_t)(const union expr_value *write_value,
-                                    char *data, size_t span_size,
-                                    const struct ast_node_hdl *param_values);
-    typedef int
-        (*interpreter_get_size_func_t)(size_t *sizep,
-                                       const char *data, size_t span_size,
-                                       const struct ast_node_hdl *param_values);
+    typedef int (*interpreter_read_func_t)(
+        union expr_value *read_value,
+        const char *data, size_t used_size,
+        const struct ast_node_hdl *param_values);
+
+    typedef int (*interpreter_write_func_t)(
+        const union expr_value *write_value,
+        char *data, size_t used_size,
+        const struct ast_node_hdl *param_values);
+
+    typedef int (*interpreter_get_size_func_t)(
+        int64_t *span_sizep,
+        int64_t *used_sizep,
+        const char *data, int64_t max_span_size,
+        const struct ast_node_hdl *param_values);
 
     typedef union expr_value
         (*expr_evalop_fn_t)(union expr_value operands[]);

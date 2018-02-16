@@ -1157,9 +1157,12 @@ box_new_data_filter_box(struct box *unfiltered_box,
     struct bitpunch_binary_file_hdl *filtered_data_hdl;
     struct box *box;
     bitpunch_status_t bt_ret;
+    struct dpath_node dpath;
 
+    dpath.item = AST_NODE_AS_BYTES;
+    dpath.filter = unfiltered_box->dpath.filter;
     box = new_safe(struct box);
-    bt_ret = box_construct(box, NULL, &unfiltered_box->dpath, 0,
+    bt_ret = box_construct(box, NULL, &dpath, 0,
                            BOX_FILTER | BOX_DATA_FILTER, bst);
     if (BITPUNCH_OK != bt_ret) {
         free(box);
@@ -1334,6 +1337,21 @@ box_get_unfiltered_parent(struct box *box)
         }
     }
     return box;
+}
+
+static struct box *
+box_get_scope_box(struct box *box)
+{
+    struct box *scope;
+
+    scope = box;
+    while (NULL != scope
+           && (scope == box
+               || AST_NODE_TYPE_BLOCK_DEF != scope->dpath.item->ndat->type)) {
+        scope = (NULL != scope->parent_box ?
+                 scope->parent_box : scope->unfiltered_box);
+    }
+    return scope;
 }
 
 static void
@@ -3378,10 +3396,12 @@ box_get_abs_dpath(const struct box *box,
         dpath_expr_buf = NULL;
         buf_size = 0;
     }
-    n_out += track_path_elem_dump_to_buf(box->track_path,
-                                         /* dump separator? */
-                                         NULL != box->parent_box->parent_box,
-                                         dpath_expr_buf, buf_size);
+    n_out += track_path_elem_dump_to_buf(
+        box->track_path,
+        /* dump separator? */
+        NULL != box->parent_box->parent_box
+        || NULL != box->parent_box->unfiltered_box,
+        dpath_expr_buf, buf_size);
     return n_out;
 }
 
@@ -3445,7 +3465,8 @@ tracker_get_abs_dpath(const struct tracker *tk,
     }
     n_out += track_path_elem_dump_to_buf(tk->cur,
                                          /* dump separator? */
-                                         NULL != tk->box->parent_box,
+                                         NULL != tk->box->parent_box
+                                         || NULL != tk->box->unfiltered_box,
                                          dpath_expr_buf, buf_size);
     return n_out;
 }
@@ -6198,18 +6219,21 @@ box_compute_item_size_internal__byte_array_interpreter_size(
     struct box *box,
     const struct dpath_node *item_dpath,
     int64_t item_offset,
-    int64_t *item_sizep,
+    int64_t *span_sizep,
+    int64_t *used_sizep,
     struct browse_state *bst)
 {
     const struct ast_node_hdl *interpreter;
     const char *item_data;
     struct ast_node_hdl *params;
-    size_t value_size;
+    int64_t span_size;
+    int64_t used_size;
     bitpunch_status_t bt_ret;
     int64_t max_slack_offset;
 
     DBG_BOX_DUMP(box);
     interpreter = item_dpath->filter_defining_size;
+    assert(NULL != interpreter);
     assert(NULL != interpreter->ndat->u.rexpr_interpreter.get_size_func);
     item_data = box->file_hdl->bf_data + item_offset;
     params = interpreter_rcall_get_params(interpreter);
@@ -6227,13 +6251,17 @@ box_compute_item_size_internal__byte_array_interpreter_size(
         }
     }
     if (-1 == interpreter->ndat->u.rexpr_interpreter.get_size_func(
-            &value_size, item_data,
-            max_slack_offset - item_offset,
-            params)) {
+            &span_size, &used_size, item_data,
+            max_slack_offset - item_offset, params)) {
         return box_error(BITPUNCH_DATA_ERROR, box, item_dpath->item, bst,
                          "interpreter couldn't return field's size");
     }
-    *item_sizep = value_size;
+    if (NULL != span_sizep) {
+        *span_sizep = span_size;
+    }
+    if (NULL != used_sizep) {
+        *used_sizep = used_size;
+    }
     return BITPUNCH_OK;
 }
 
@@ -6248,7 +6276,7 @@ tracker_compute_item_size__byte_array_slack(
 
     if (NULL != tk->dpath->filter_defining_size) {
         return box_compute_item_size_internal__byte_array_interpreter_size(
-            tk->box, tk->dpath, tk->item_offset, item_sizep, bst);
+            tk->box, tk->dpath, tk->item_offset, item_sizep, NULL, bst);
     }
     DBG_TRACKER_DUMP(tk);
     if ((tk->box->flags & COMPUTING_MAX_SLACK_OFFSET)) {
@@ -6270,14 +6298,20 @@ box_compute_used_size__byte_array_dynamic_size(struct box *box,
                                                struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    int64_t size;
+    int64_t span_size;
 
     DBG_BOX_DUMP(box);
-    bt_ret = box_get_n_items_internal(box, &size, bst);
+    if (NULL != box->dpath.filter_defining_size) {
+        bt_ret = box_compute_item_size_internal__byte_array_interpreter_size(
+            box, &box->dpath, box->start_offset_used,
+            &span_size, NULL, bst);
+    } else {
+        bt_ret = box_get_n_items_internal(box, &span_size, bst);
+    }
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    return box_set_used_size(box, size, bst);
+    return box_set_used_size(box, span_size, bst);
 }
 
 static bitpunch_status_t
@@ -6291,13 +6325,14 @@ box_get_n_items__byte_array_non_slack(
     DBG_BOX_DUMP(box);
     if (-1 == box->u.array_generic.n_items) {
         bitpunch_status_t bt_ret;
+        struct box *scope;
 
         byte_array = &box->dpath.item->ndat->u.byte_array;
         assert(byte_array->size->ndat->u.rexpr.value_type == EXPR_VALUE_TYPE_INTEGER);
-        /* root box is a block so a byte array always has a parent box */
-        assert(NULL != box->parent_box);
+        scope = box_get_scope_box(box);
+        assert(NULL != scope);
         bt_ret = expr_evaluate_value_internal(byte_array->size,
-                                              box->parent_box, &size, bst);
+                                              scope, &size, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
@@ -6306,7 +6341,21 @@ box_get_n_items__byte_array_non_slack(
                              "evaluation of byte array size gives "
                              "negative value (%"PRIi64")", size.integer);
         }
-        box->u.array_generic.n_items = size.integer;
+        bt_ret = box_set_max_span_size(box, size.integer, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
+        if (NULL != box->dpath.filter_defining_size) {
+            bt_ret =
+                box_compute_item_size_internal__byte_array_interpreter_size(
+                    box, &box->dpath, box->start_offset_used,
+                    NULL, &box->u.array_generic.n_items, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                return bt_ret;
+            }
+        } else {
+            box->u.array_generic.n_items = size.integer;
+        }
     }
     if (NULL != item_countp) {
         *item_countp = box->u.array_generic.n_items;
@@ -6326,7 +6375,7 @@ box_get_n_items__byte_array_slack(struct box *box, int64_t *item_countp,
             bt_ret =
                 box_compute_item_size_internal__byte_array_interpreter_size(
                     box, &box->dpath, box->start_offset_used,
-                    &box->u.array_generic.n_items, bst);
+                    NULL, &box->u.array_generic.n_items, bst);
         } else {
             bt_ret = box_compute_slack_size(box, bst);
             if (BITPUNCH_OK != bt_ret) {

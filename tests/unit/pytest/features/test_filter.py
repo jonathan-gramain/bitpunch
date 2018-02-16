@@ -695,3 +695,42 @@ def test_ancestor_of_u8(params_ancestor_of_u8):
 
     assert model.make_python_object(dtree.eval_expr('contents[3]')) == 4
     assert model.make_python_object(dtree.eval_expr('^contents[3]')) == '\x04'
+
+spec_file_non_slack_array_filtered = """
+
+let u32 = byte[4]: integer { signed: false; };
+let NullTermFixedString = byte[8]: string { boundary: '\\0'; };
+
+file {
+    contents: NullTermFixedString;
+}
+
+"""
+
+data_file_non_slack_array_filtered = """
+"hello" 00 00 00
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_non_slack_array_filtered,
+        'data': data_file_non_slack_array_filtered,
+    }])
+def params_non_slack_array_filtered(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_non_slack_array_filtered(params_non_slack_array_filtered):
+    params = params_non_slack_array_filtered
+    dtree = params['dtree']
+
+    assert dtree.contents == 'hello'
+    assert dtree.contents[1:] == 'ello'
+    assert model.make_python_object(
+        dtree.eval_expr('contents')) == 'hello'
+    assert model.make_python_object(
+        dtree.eval_expr('contents[1..]')) == 'ello'
+    # FIXME when len != span_size, len should be 5
+    assert dtree.eval_expr('len(contents)') == 5
+    assert dtree.eval_expr('len(contents[1..])') == 4
