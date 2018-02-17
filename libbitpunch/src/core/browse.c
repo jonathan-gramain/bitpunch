@@ -939,14 +939,10 @@ box_new_slice_box(struct tracker *slice_start,
         return NULL;
     }
     index_start = slice_start->cur.u.array.index;
-    index_end = (NULL != slice_end ? slice_end->cur.u.array.index : -1);
-
-    slice_path.type = TRACK_PATH_ARRAY_SLICE;
     if (-1 == index_start) {
         index_start = 0;
     }
-    slice_path.u.array.index = index_start;
-
+    index_end = (NULL != slice_end ? slice_end->cur.u.array.index : -1);
     if (index_end != -1 && index_end < index_start) {
         (void) tracker_error(BITPUNCH_DATA_ERROR, slice_start, NULL,
                              bst,
@@ -955,8 +951,8 @@ box_new_slice_box(struct tracker *slice_start,
                              index_end, index_start);
         return NULL;
     }
-    slice_path.u.array_slice.index_end = index_end;
 
+    slice_path = track_path_from_array_slice(index_start, index_end);
     if (-1 != slice_start->cur.u.array.index) {
         if (-1 == slice_start->item_offset) {
             bt_ret = tracker_compute_item_offset(slice_start, bst);
