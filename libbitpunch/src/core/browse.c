@@ -4790,14 +4790,15 @@ box_compute_min_span_size__span_expr(struct box *box,
     bt_ret = box_get_first_statement_internal(
         box, STATEMENT_TYPE_SPAN, SPAN_FLAG_MIN,
         (const struct statement **)&span_stmt, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        if (BITPUNCH_NO_ITEM == bt_ret) {
-            // no dynamic span enabled by conditional: min span is the
-            // hard minimum
-            return box_compute_min_span_size__as_hard_min(box, bst);
-        } else {
-            return bt_ret;
-        }
+    switch (bt_ret) {
+    case BITPUNCH_OK:
+        break ;
+    case BITPUNCH_NO_ITEM:
+        // no dynamic span enabled by conditional: min span is the
+        // hard minimum
+        return box_compute_min_span_size__as_hard_min(box, bst);
+    default:
+        return bt_ret;
     }
     span_expr = span_stmt->span_expr;
     bt_ret = expr_evaluate_value_internal(span_expr, box, &span_size, bst);
@@ -4833,18 +4834,14 @@ box_compute_max_span_size__span_expr(struct box *box,
     bt_ret = box_get_first_statement_internal(
         box, STATEMENT_TYPE_SPAN, SPAN_FLAG_MAX,
         (const struct statement **)&span_stmt, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        if (BITPUNCH_NO_ITEM == bt_ret) {
-            // no dynamic span enabled by conditional
-            if (0 == (box->dpath.u.item.flags
-                      & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-                return box_compute_max_span_size__as_used(box, bst);
-            } else {
-                return box_compute_max_span_size__as_slack(box, bst);
-            }
-        } else {
-            return bt_ret;
-        }
+    switch (bt_ret) {
+    case BITPUNCH_OK:
+        break ;
+    case BITPUNCH_NO_ITEM:
+        // no dynamic span enabled by conditional
+        return box_compute_max_span_size__as_slack(box, bst);
+    default:
+        return bt_ret;
     }
     span_expr = span_stmt->span_expr;
     bt_ret = expr_evaluate_value_internal(span_expr, box, &span_size, bst);
