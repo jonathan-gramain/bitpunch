@@ -1870,6 +1870,7 @@ DataContainer_box_to_python_object(struct DataTreeObject *dtree,
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_DATA_FILTER:
         return DataArray_bytes_box_to_python_object(dtree, box);
     default:
         PyErr_Format(PyExc_ValueError,
@@ -2752,6 +2753,9 @@ Tracker_bf_getbuffer(TrackerObject *exporter,
     tk = exporter->tk;
     bt_ret = tracker_get_item_location(tk, &item_offset, &item_size,
                                        &tk_err);
+    if (BITPUNCH_OK == bt_ret) {
+        bt_ret = box_apply_filter(tk->box, &tk_err);
+    }
     if (BITPUNCH_OK != bt_ret) {
         PyObject *errobj;
 
@@ -2846,6 +2850,7 @@ DataContainer_eval_expr(DataContainerObject *cont,
 static PyObject *
 DataContainer_get_size(DataContainerObject *self, PyObject *args)
 {
+    int64_t start_offset;
     int64_t item_size;
     bitpunch_status_t bt_ret;
     struct tracker_error *tk_err = NULL;
@@ -2857,8 +2862,9 @@ DataContainer_get_size(DataContainerObject *self, PyObject *args)
         set_tracker_error(tk_err, bt_ret);
         return NULL;
     }
-    assert(end_offset >= box_get_start_offset(self->box));
-    item_size = end_offset - box_get_start_offset(self->box);
+    start_offset = box_get_start_offset(self->box);
+    assert(end_offset >= start_offset);
+    item_size = end_offset - start_offset;
     return PyInt_FromLong(item_size);
 }
 
@@ -2906,6 +2912,9 @@ DataContainer_str(DataContainerObject *self)
     box = self->box;
     bt_ret = box_compute_end_offset(box, BOX_END_OFFSET_USED, &end_offset,
                                     &tk_err);
+    if (BITPUNCH_OK == bt_ret) {
+        bt_ret = box_apply_filter(box, &tk_err);
+    }
     if (BITPUNCH_OK != bt_ret) {
         set_tracker_error(tk_err, bt_ret);
         return NULL;
@@ -2928,6 +2937,9 @@ DataContainer___unicode__(DataContainerObject *self, PyObject *args)
     box = self->box;
     bt_ret = box_compute_end_offset(box, BOX_END_OFFSET_USED, &end_offset,
                                     &tk_err);
+    if (BITPUNCH_OK == bt_ret) {
+        bt_ret = box_apply_filter(box, &tk_err);
+    }
     if (BITPUNCH_OK != bt_ret) {
         set_tracker_error(tk_err, bt_ret);
         return NULL;
@@ -2962,6 +2974,9 @@ DataContainer_bf_getbuffer(DataContainerObject *exporter,
     box = exporter->box;
     bt_ret = box_compute_end_offset(box, BOX_END_OFFSET_USED, &end_offset,
                                     &tk_err);
+    if (BITPUNCH_OK == bt_ret) {
+        bt_ret = box_apply_filter(box, &tk_err);
+    }
     if (BITPUNCH_OK != bt_ret) {
         PyObject *errmsg;
 
@@ -3220,6 +3235,7 @@ tracker_item_to_deep_PyObject(DataTreeObject *dtree,
     enum expr_value_type value_type;
     union expr_value value_eval;
     int complex_type;
+    struct box *filtered_box;
     struct tracker_error *tk_err = NULL;
 
     if (NULL == tk->dpath) {
@@ -3228,9 +3244,10 @@ tracker_item_to_deep_PyObject(DataTreeObject *dtree,
     }
     complex_type = dpath_is_complex_type(tk->dpath);
     if (complex_type) {
-        bt_ret = tracker_create_item_box(tk, &tk_err);
+        bt_ret = tracker_get_filtered_item_box(tk, &filtered_box, &tk_err);
         if (BITPUNCH_OK == bt_ret) {
-            res = DataContainer_box_to_python_object(dtree, tk->item_box);
+            res = DataContainer_box_to_python_object(dtree, filtered_box);
+            box_delete(filtered_box);
         } else {
             set_tracker_error(tk_err, bt_ret);
         }
@@ -3253,6 +3270,7 @@ tracker_item_to_shallow_PyObject(DataTreeObject *dtree,
     PyObject *res = NULL;
     bitpunch_status_t bt_ret;
     int complex_type;
+    struct box *filtered_box;
     struct tracker_error *tk_err = NULL;
 
     if (NULL == tk->dpath) {
@@ -3261,9 +3279,10 @@ tracker_item_to_shallow_PyObject(DataTreeObject *dtree,
     }
     complex_type = dpath_is_complex_type(tk->dpath);
     if (complex_type) {
-        bt_ret = tracker_create_item_box(tk, &tk_err);
+        bt_ret = tracker_get_filtered_item_box(tk, &filtered_box, &tk_err);
         if (BITPUNCH_OK == bt_ret) {
-            res = box_to_shallow_PyObject(dtree, tk->item_box, FALSE);
+            res = box_to_shallow_PyObject(dtree, filtered_box, FALSE);
+            box_delete(filtered_box);
         } else {
             set_tracker_error(tk_err, bt_ret);
         }
@@ -3314,6 +3333,7 @@ box_to_shallow_PyObject(DataTreeObject *dtree, struct box *box,
         return (PyObject *)dcont;
 
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_DATA_FILTER:
         dcont = (DataContainerObject *)DataContainer_new(&DataContainerType,
                                                          NULL, NULL);
         if (NULL == dcont) {

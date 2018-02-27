@@ -214,6 +214,13 @@ dep_resolver_resolve(struct dep_resolver *dr)
     return DEP_RESOLVER_OK;
 }
 
+void
+dep_resolver_set_resolved(struct dep_resolver_node *node,
+                          dep_resolver_tagset_t tags)
+{
+    set_resolved(node, tags);
+}
+
 struct dep_resolver_node_entry *
 dep_resolver_get_error_entry(struct dep_resolver *dr)
 {

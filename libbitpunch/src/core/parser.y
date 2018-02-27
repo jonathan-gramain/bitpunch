@@ -78,7 +78,8 @@
 #define AST_NODE_ARRAY_SLICE &shared_ast_node_array_slice
 #define AST_NODE_BYTE_SLICE &shared_ast_node_byte_slice
 #define AST_NODE_AS_BYTES &shared_ast_node_as_bytes
-#define DPATH_NODE_BYTE &shared_dpath_node_byte
+#define AST_NODE_DATA_FILTER &shared_ast_node_data_filter
+#define DPATH_NODE_RAW_BYTE &shared_dpath_node_raw_byte
 #define DPATH_NODE_ARRAY_SLICE &shared_dpath_node_array_slice
 #define DPATH_NODE_BYTE_SLICE &shared_dpath_node_byte_slice
 #define DPATH_NODE_AS_BYTES &shared_dpath_node_as_bytes
@@ -159,7 +160,8 @@
     extern struct ast_node_hdl shared_ast_node_array_slice;
     extern struct ast_node_hdl shared_ast_node_byte_slice;
     extern struct ast_node_hdl shared_ast_node_as_bytes;
-    extern struct dpath_node shared_dpath_node_byte;
+    extern struct ast_node_hdl shared_ast_node_data_filter;
+    extern struct dpath_node shared_dpath_node_raw_byte;
     extern struct dpath_node shared_dpath_node_array_slice;
     extern struct dpath_node shared_dpath_node_byte_slice;
     extern struct dpath_node shared_dpath_node_as_bytes;
@@ -228,6 +230,7 @@
             AST_NODE_TYPE_ARRAY_SLICE,
             AST_NODE_TYPE_BYTE_SLICE,
             AST_NODE_TYPE_AS_BYTES,
+            AST_NODE_TYPE_DATA_FILTER,
             AST_NODE_TYPE_CONDITIONAL,
             AST_NODE_TYPE_OP_EQ,
             AST_NODE_TYPE_OP_NE,
@@ -290,6 +293,7 @@
             AST_NODE_TYPE_REXPR_OP_ANCESTOR,
             AST_NODE_TYPE_REXPR_INTERPRETER,
             AST_NODE_TYPE_REXPR_AS_TYPE,
+            AST_NODE_TYPE_REXPR_ITEM,
             AST_NODE_TYPE_REXPR_OP_MEMBER,
             AST_NODE_TYPE_REXPR_FIELD,
             AST_NODE_TYPE_REXPR_NAMED_EXPR,
@@ -395,6 +399,10 @@
             struct rexpr_as_type {
                 struct rexpr_filter rexpr_filter; /* inherits */
             } rexpr_as_type;
+            struct rexpr_item {
+                struct rexpr rexpr; /* inherits */
+                struct ast_node_hdl *item_type;
+            } rexpr_item;
             struct rexpr_native {
                 struct rexpr rexpr; /* inherits */
                 union expr_value value;
@@ -610,8 +618,15 @@
     struct ast_node_hdl shared_ast_node_as_bytes = {
         .ndat = &shared_ast_node_data_as_bytes,
     };
+    struct ast_node_data shared_ast_node_data_data_filter = {
+        .type = AST_NODE_TYPE_DATA_FILTER,
+    };
+    struct ast_node_hdl shared_ast_node_data_filter = {
+        .ndat = &shared_ast_node_data_data_filter,
+    };
 
-    struct dpath_node shared_dpath_node_byte = {
+    struct dpath_node shared_dpath_node_raw_byte = {
+        .u = { .item = { .min_span_size = 1 } },
         .item = &shared_ast_node_byte,
     };
     struct dpath_node shared_dpath_node_array_slice = {
@@ -1377,6 +1392,7 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_ARRAY_SLICE: return "slice";
     case AST_NODE_TYPE_BYTE_SLICE: return "byte slice";
     case AST_NODE_TYPE_AS_BYTES: return "as bytes";
+    case AST_NODE_TYPE_DATA_FILTER: return "data filter";
     case AST_NODE_TYPE_CONDITIONAL: return "conditional";
     case AST_NODE_TYPE_REXPR_NATIVE: return "native type";
     case AST_NODE_TYPE_OP_FCALL:
@@ -1426,6 +1442,7 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_OP_SET_FILTER: return "operator 'set filter'";
     case AST_NODE_TYPE_REXPR_INTERPRETER: return "interpreter";
     case AST_NODE_TYPE_REXPR_AS_TYPE: return "as type";
+    case AST_NODE_TYPE_REXPR_ITEM: return "item";
     case AST_NODE_TYPE_OP_UPLUS:
     case AST_NODE_TYPE_REXPR_OP_UPLUS: return "unary 'plus'";
     case AST_NODE_TYPE_OP_UMINUS:

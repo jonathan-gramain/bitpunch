@@ -1884,6 +1884,7 @@ compile_expr_operator_set_filter(
     struct ast_node_hdl *target;
     struct ast_node_hdl *filter;
     struct ast_node_hdl *filter_type;
+    struct ast_node_hdl *filter_target;
 
     target = node->ndat->u.op.operands[0];
     filter = node->ndat->u.op.operands[1];
@@ -1900,6 +1901,19 @@ compile_expr_operator_set_filter(
     }
     filter_type = ast_node_get_named_expr_target(filter);
 
+    if (ast_node_is_item(target)) {
+        filter_target = new_safe(struct ast_node_hdl);
+        filter_target->loc = target->loc;
+        filter_target->ndat = new_safe(struct ast_node_data);
+        filter_target->ndat->type = AST_NODE_TYPE_REXPR_ITEM;
+        filter_target->ndat->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
+        filter_target->ndat->u.rexpr.dpath_type = EXPR_DPATH_TYPE_CONTAINER;
+        filter_target->ndat->u.rexpr_item.item_type = target;
+        dep_resolver_set_resolved(&filter_target->dr_node,
+                                  COMPILE_TAG_NODE_TYPE);
+    } else {
+        filter_target = target;
+    }
     if (ast_node_is_item(filter_type)) {
         struct ast_node_data *as_type;
 
@@ -1908,10 +1922,11 @@ compile_expr_operator_set_filter(
         as_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
         as_type->u.rexpr.dpath_type = EXPR_DPATH_TYPE_CONTAINER;
         as_type->u.rexpr_filter.filter_dpath.item = filter_type;
-        as_type->u.rexpr_filter.target = target;
+        as_type->u.rexpr_filter.target = filter_target;
         node->ndat = as_type;
     } else if (AST_NODE_TYPE_REXPR_INTERPRETER == filter_type->ndat->type) {
-        if (-1 == interpreter_build_instance(filter_type, target, ctx)) {
+        if (-1 == interpreter_build_instance(filter_type,
+                                             filter_target, ctx)) {
             return -1;
         }
         node->ndat = filter_type->ndat;
@@ -2381,7 +2396,7 @@ compile_expr_operator_addrof(struct ast_node_hdl *expr,
 }
 
 /**
- * @brief first compile pass of ancestor (unary ^) operator
+ * @brief compile ancestor (unary ^) operator
  *
  * The first pass focuses on resolving data types and dpaths of addrof
  * argument expression. Second pass will compute static address or
@@ -2395,6 +2410,9 @@ compile_expr_operator_ancestor(struct ast_node_hdl *expr,
 {
     struct ast_node_hdl *operand;
     struct ast_node_hdl *target;
+    struct ast_node_hdl *target_item;
+    struct ast_node_hdl *target_filter;
+    enum expr_value_type value_type;
     struct ast_node_data *compiled_type;
 
     operand = expr->ndat->u.op.operands[0];
@@ -2404,12 +2422,22 @@ compile_expr_operator_ancestor(struct ast_node_hdl *expr,
         return -1;
     }
     assert(ast_node_is_rexpr(operand));
-    target = operand->ndat->u.rexpr.target_item;
+    target_filter = ast_node_get_target_filter(operand);
+    if (NULL != target_filter) {
+        assert(ast_node_is_filter(target_filter));
+        target = target_filter->ndat->u.rexpr_filter.target;
+        value_type = (ast_node_is_rexpr(target) ?
+                      target->ndat->u.rexpr.value_type :
+                      EXPR_VALUE_TYPE_UNSET);
+    } else {
+        value_type = EXPR_VALUE_TYPE_UNSET;
+    }
+    target_item = operand->ndat->u.rexpr.target_item;
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_OP_ANCESTOR;
-    compiled_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
+    compiled_type->u.rexpr.value_type = value_type;
     compiled_type->u.rexpr.dpath_type = EXPR_DPATH_TYPE_CONTAINER;
-    compiled_type->u.rexpr.target_item = target;
+    compiled_type->u.rexpr.target_item = target_item;
     compiled_type->u.rexpr_op.op = expr->ndat->u.op;
     expr->ndat = compiled_type;
     return 0;
@@ -3533,7 +3561,7 @@ compile_node_post_check(struct ast_node_hdl *expr,
 static int
 setup_global_track_backends(void)
 {
-    if (-1 == setup_track_backends_dpath(DPATH_NODE_BYTE)) {
+    if (-1 == setup_track_backends_dpath(DPATH_NODE_RAW_BYTE)) {
         return -1;
     }
     if (-1 == setup_track_backends_dpath(DPATH_NODE_ARRAY_SLICE)) {
@@ -3543,6 +3571,9 @@ setup_global_track_backends(void)
         return -1;
     }
     if (-1 == setup_track_backends_dpath(DPATH_NODE_AS_BYTES)) {
+        return -1;
+    }
+    if (-1 == setup_track_backends_expr(AST_NODE_DATA_FILTER)) {
         return -1;
     }
     return 0;
@@ -3864,6 +3895,7 @@ ast_node_is_rexpr(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_SELF:
     case AST_NODE_TYPE_REXPR_STAR_WILDCARD:
     case AST_NODE_TYPE_REXPR_INTERPRETER:
+    case AST_NODE_TYPE_REXPR_ITEM:
         return TRUE;
     default:
         return FALSE;
@@ -3885,6 +3917,7 @@ ast_node_is_rexpr_to_item(const struct ast_node_hdl *node)
     switch (node->ndat->type) {
     case AST_NODE_TYPE_REXPR_INTERPRETER:
     case AST_NODE_TYPE_REXPR_AS_TYPE:
+    case AST_NODE_TYPE_REXPR_ITEM:
     case AST_NODE_TYPE_REXPR_FIELD:
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
@@ -3914,6 +3947,8 @@ ast_node_get_target_item(struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_INTERPRETER:
     case AST_NODE_TYPE_REXPR_AS_TYPE:
         return ast_node_get_target_item(node->ndat->u.rexpr_filter.target);
+    case AST_NODE_TYPE_REXPR_ITEM:
+        return node->ndat->u.rexpr_item.item_type;
     default:
         return NULL;
     }
@@ -3937,6 +3972,8 @@ ast_node_get_target_type(struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_INTERPRETER:
     case AST_NODE_TYPE_REXPR_AS_TYPE:
         return ast_node_get_target_type(node->ndat->u.rexpr_filter.target);
+    case AST_NODE_TYPE_REXPR_ITEM:
+        return node->ndat->u.rexpr_item.item_type;
     default:
         return NULL;
     }
@@ -3945,7 +3982,7 @@ ast_node_get_target_type(struct ast_node_hdl *node)
 struct ast_node_hdl *
 ast_node_get_target_filter(struct ast_node_hdl *node)
 {
-    if (NULL == node || ast_node_is_item(node)) {
+    if (NULL == node) {
         return NULL;
     }
     switch (node->ndat->type) {
@@ -3992,6 +4029,7 @@ ast_node_is_container(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_DATA_FILTER:
         return TRUE;
     default:
         return FALSE;
@@ -4018,6 +4056,7 @@ ast_node_is_byte_container(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_DATA_FILTER:
         return TRUE;
     default:
         return FALSE;
@@ -4032,6 +4071,7 @@ ast_node_is_subscriptable_container(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
+    case AST_NODE_TYPE_DATA_FILTER:
         return TRUE;
     default:
         return FALSE;
@@ -4061,6 +4101,7 @@ ast_node_is_item(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_DATA_FILTER:
         return TRUE;
     default:
         return FALSE;
@@ -4456,6 +4497,7 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_DATA_FILTER:
         fprintf(out, "\n%*s\\_ static node (%s)\n",
                 (depth + 1) * INDENT_N_SPACES, "",
                 ast_node_type_str(node->ndat->type));
@@ -4472,7 +4514,6 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         dump_ast_container(node, depth, visible_refs, out);
         break ;
     case AST_NODE_TYPE_CONDITIONAL:
-        assert(NULL != visible_refs); /* must be in a block */
         fprintf(out, "\n%*s\\_ condition expr:\n",
                 (depth + 1) * INDENT_N_SPACES, "");
         fdump_ast_recur(node->ndat->u.conditional.cond_expr,
@@ -4674,6 +4715,13 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         fdump_ast_recur(node->ndat->u.rexpr_filter.filter_dpath.item, depth + 2,
                         visible_refs, out);
         break ;
+    case AST_NODE_TYPE_REXPR_ITEM:
+        dump_ast_rexpr(node, out);
+        fprintf(out, "\n%*s\\_ item_type:\n",
+                (depth + 1) * INDENT_N_SPACES, "");
+        fdump_ast_recur(node->ndat->u.rexpr_item.item_type, depth + 2,
+                        visible_refs, out);
+        break ;
     case AST_NODE_TYPE_REXPR_OP_UPLUS:
     case AST_NODE_TYPE_REXPR_OP_UMINUS:
     case AST_NODE_TYPE_REXPR_OP_LNOT:
@@ -4801,6 +4849,7 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
     case AST_NODE_TYPE_REXPR_STAR_WILDCARD:
+    case AST_NODE_TYPE_DATA_FILTER:
         /* leaf */
         fprintf(out, "%*s|- (%s) ", depth * INDENT_N_SPACES, "",
                 ast_node_type_str(node->ndat->type));
@@ -4875,6 +4924,7 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE:
     case AST_NODE_TYPE_REXPR_OP_FCALL:
     case AST_NODE_TYPE_REXPR_AS_TYPE:
+    case AST_NODE_TYPE_REXPR_ITEM:
         /* intermediate node */
         fprintf(out, "%*s\\_ (%s) ", depth * INDENT_N_SPACES, "",
                 ast_node_type_str(node->ndat->type));

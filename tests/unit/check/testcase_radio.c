@@ -166,6 +166,7 @@ static void check_codename_item(struct radio_source_info *info,
                                 int code_idx)
 {
     bitpunch_status_t bt_ret;
+    struct box *parent_box;
     int64_t code_offset;
     int64_t expect_offset;
     enum expr_value_type type;
@@ -183,10 +184,15 @@ static void check_codename_item(struct radio_source_info *info,
         bt_ret = tracker_get_item_offset(tk, &code_offset, NULL);
         ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     } else {
-        assert(NULL != tk->box->unfiltered_box);
+        if (NULL != tk->box->parent_box) {
+            parent_box = tk->box->parent_box;
+        } else {
+            assert(NULL != tk->box->unfiltered_box);
+            parent_box = tk->box->unfiltered_box;
+            assert(0 == tk->box->start_offset_used);
+        }
         assert(NULL != tk->box->dpath.item);
-        assert(0 == tk->box->start_offset_used);
-        code_offset = tk->box->unfiltered_box->start_offset_used;
+        code_offset = parent_box->start_offset_used;
     }
     ck_assert_int_eq(code_offset, expect_offset);
 

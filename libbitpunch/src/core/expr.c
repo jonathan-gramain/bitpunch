@@ -130,6 +130,10 @@ expr_evaluate_dpath_as_type(struct ast_node_hdl *expr, struct box *scope,
                             union expr_dpath *eval_dpathp,
                             struct browse_state *bst);
 static bitpunch_status_t
+expr_evaluate_dpath_item(struct ast_node_hdl *expr, struct box *scope,
+                         union expr_dpath *eval_dpathp,
+                         struct browse_state *bst);
+static bitpunch_status_t
 expr_read_dpath_value_default(struct ast_node_hdl *expr,
                               union expr_dpath dpath,
                               union expr_value *expr_valuep,
@@ -1132,19 +1136,19 @@ expr_dpath_to_box(enum expr_dpath_type type, union expr_dpath dpath,
 
     switch (type) {
     case EXPR_DPATH_TYPE_ITEM:
-        bt_ret = tracker_create_item_box_internal(dpath.item.tk, bst);
+        bt_ret = tracker_get_filtered_item_box_internal(dpath.item.tk,
+                                                        &box, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        box = dpath.item.tk->item_box;
         break ;
     case EXPR_DPATH_TYPE_CONTAINER:
         box = dpath.container.box;
+        box_acquire(box);
         break ;
     default:
         assert(0);
     }
-    box_acquire(box);
     *boxp = box;
     return BITPUNCH_OK;
 }
@@ -1855,11 +1859,11 @@ expr_evaluate_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
     case AST_NODE_TYPE_REXPR_OP_FCALL:
         return expr_evaluate_dpath_fcall(expr, scope, eval_dpathp, bst);
     case AST_NODE_TYPE_REXPR_INTERPRETER:
-        return expr_evaluate_dpath_interpreter(expr, scope,
-                                               eval_dpathp, bst);
+        return expr_evaluate_dpath_interpreter(expr, scope, eval_dpathp, bst);
     case AST_NODE_TYPE_REXPR_AS_TYPE:
-        return expr_evaluate_dpath_as_type(expr, scope,
-                                           eval_dpathp, bst);
+        return expr_evaluate_dpath_as_type(expr, scope, eval_dpathp, bst);
+    case AST_NODE_TYPE_REXPR_ITEM:
+        return expr_evaluate_dpath_item(expr, scope, eval_dpathp, bst);
     default:
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
                        "cannot evaluate dpath on expression of type '%s'",
@@ -1917,7 +1921,8 @@ expr_evaluate_dpath_anchor_common(struct ast_node_hdl *anchor_expr,
         /* find the closest dpath's field in the scope, browsing boxes
          * upwards */
         anchor_box = scope;
-        while (anchor_box->dpath.item->ndat != anchor_block->ndat) {
+        while (dpath_node_get_as_type(&anchor_box->dpath)->ndat
+               != anchor_block->ndat) {
             anchor_box = (NULL != anchor_box->unfiltered_box ?
                           anchor_box->unfiltered_box :
                           anchor_box->parent_box);
@@ -2172,7 +2177,7 @@ expr_evaluate_dpath_ancestor(struct ast_node_hdl *expr, struct box *scope,
     struct ast_node_hdl *opd;
     bitpunch_status_t bt_ret;
     union expr_dpath dpath_eval;
-    struct box *bytes_box;
+    struct box *ancestor_box;
 
     opd = expr->ndat->u.rexpr_op.op.operands[0];
     if (EXPR_DPATH_TYPE_NONE == opd->ndat->u.rexpr.dpath_type) {
@@ -2187,22 +2192,23 @@ expr_evaluate_dpath_ancestor(struct ast_node_hdl *expr, struct box *scope,
     }
     switch (opd->ndat->u.rexpr.dpath_type) {
     case EXPR_DPATH_TYPE_ITEM:
-        bytes_box = box_new_ancestor_box_from_item(dpath_eval.item.tk, bst);
+        ancestor_box = box_new_ancestor_box_from_item(dpath_eval.item.tk,
+                                                      bst);
         tracker_delete(dpath_eval.item.tk);
         break ;
     case EXPR_DPATH_TYPE_CONTAINER:
-        bytes_box = box_new_ancestor_box_from_box(dpath_eval.container.box,
-                                                  bst);
+        ancestor_box = box_new_ancestor_box_from_box(dpath_eval.container.box,
+                                                     bst);
         box_delete(dpath_eval.container.box);
         break ;
     default:
         assert(0);
     }
-    if (NULL == bytes_box) {
+    if (NULL == ancestor_box) {
         // FIXME transmit code from above functions
         return BITPUNCH_DATA_ERROR;
     }
-    eval_dpathp->container.box = bytes_box;
+    eval_dpathp->container.box = ancestor_box;
     return BITPUNCH_OK;
 }
 
@@ -2233,25 +2239,43 @@ expr_evaluate_dpath_interpreter(struct ast_node_hdl *expr, struct box *scope,
     bitpunch_status_t bt_ret;
     union expr_dpath target_dpath;
     union expr_dpath converted_dpath;
+    struct box *filtered_box;
 
     target = expr->ndat->u.rexpr_filter.target;
     assert(NULL != target);
     bt_ret = expr_evaluate_dpath_internal(target, scope, &target_dpath, bst);
-    if (BITPUNCH_OK == bt_ret) {
-        if (target->ndat->u.rexpr.dpath_type != expr->ndat->u.rexpr.dpath_type) {
-            bt_ret = expr_dpath_to_dpath(target->ndat->u.rexpr.dpath_type,
-                                         target_dpath,
-                                         expr->ndat->u.rexpr.dpath_type,
-                                         &converted_dpath, bst);
-            expr_dpath_destroy(target->ndat->u.rexpr.dpath_type, target_dpath);
-            target_dpath = converted_dpath;
-        }
-        if (EXPR_DPATH_TYPE_CONTAINER == expr->ndat->u.rexpr.dpath_type) {
-            target_dpath.container.box->dpath.filter = expr;
-        }
-        *eval_dpathp = target_dpath;
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
     }
-    return bt_ret;
+    if (target->ndat->u.rexpr.dpath_type
+        != expr->ndat->u.rexpr.dpath_type) {
+        bt_ret = expr_dpath_to_dpath(target->ndat->u.rexpr.dpath_type,
+                                     target_dpath,
+                                     expr->ndat->u.rexpr.dpath_type,
+                                     &converted_dpath, bst);
+        expr_dpath_destroy(target->ndat->u.rexpr.dpath_type,
+                           target_dpath);
+        target_dpath = converted_dpath;
+    }
+    // if not a container dpath type, no need for a filter box
+    if (EXPR_DPATH_TYPE_CONTAINER == expr->ndat->u.rexpr.dpath_type) {
+        switch (expr->ndat->u.rexpr.value_type) {
+        case EXPR_VALUE_TYPE_BYTES:
+            filtered_box = box_new_filter_box_plain(
+                target_dpath.container.box, expr, bst);
+            expr_dpath_destroy_container(target_dpath);
+            target_dpath.container.box = filtered_box;
+            break ;
+        default:
+            filtered_box = box_new_filter_box_inlay(
+                target_dpath.container.box, expr, bst);
+            expr_dpath_destroy_container(target_dpath);
+            target_dpath.container.box = filtered_box;
+            break ;
+        }
+    }
+    *eval_dpathp = target_dpath;
+    return BITPUNCH_OK;
 }
 
 static bitpunch_status_t
@@ -2264,21 +2288,20 @@ expr_evaluate_dpath_as_type(struct ast_node_hdl *expr, struct box *scope,
     struct ast_node_hdl *target;
     union expr_dpath source_eval;
     struct box *dst_box;
-    struct box *filtered_box;
     struct box *as_box;
 
-    dpath_node_reset(&as_dpath);
-    as_dpath.item = ast_node_get_named_expr_target(
-        expr->ndat->u.rexpr_filter.filter_dpath.item);
     target = expr->ndat->u.rexpr_filter.target;
-    bt_ret = expr_evaluate_dpath_internal(target,
-                                          scope, &source_eval, bst);
+    as_dpath = expr->ndat->u.rexpr_filter.filter_dpath;
+    if (!ast_node_is_container(as_dpath.item)) {
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR,
+                       &as_dpath.item->loc,
+                       "item type '%s' is not a container",
+                       ast_node_type_str(as_dpath.item->ndat->type));
+        return BITPUNCH_NOT_CONTAINER;
+    }
+    bt_ret = expr_evaluate_dpath_internal(target, scope, &source_eval, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
-    }
-    if (!ast_node_is_item(as_dpath.item)) {
-        *eval_dpathp = source_eval;
-        return BITPUNCH_OK;
     }
     bt_ret = expr_dpath_to_box(target->ndat->u.rexpr.dpath_type,
                                source_eval, &dst_box, bst);
@@ -2286,18 +2309,28 @@ expr_evaluate_dpath_as_type(struct ast_node_hdl *expr, struct box *scope,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    bt_ret = box_apply_filters(dst_box, &filtered_box, bst);
-    box_delete(dst_box);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    as_box = box_new_as_box(filtered_box, &as_dpath,
-                            filtered_box->start_offset_used, bst);
-    box_delete(filtered_box);
+    as_box = box_new_as_box(dst_box, &as_dpath, bst);
     if (NULL == as_box) {
         return BITPUNCH_DATA_ERROR;
     }
     eval_dpathp->container.box = as_box;
+    return BITPUNCH_OK;
+}
+
+static bitpunch_status_t
+expr_evaluate_dpath_item(struct ast_node_hdl *expr, struct box *scope,
+                         union expr_dpath *eval_dpathp,
+                         struct browse_state *bst)
+{
+    struct source_box_stack_item *item;
+    struct box *source_box;
+
+    item = SLIST_FIRST(&bst->source_box_stack);
+    assert(NULL != item);
+    source_box = item->source_box;
+
+    eval_dpathp->container.box = source_box;
+    box_acquire(source_box);
     return BITPUNCH_OK;
 }
 

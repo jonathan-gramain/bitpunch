@@ -95,6 +95,7 @@ struct box {
         BOX_REVERSED               = (1u<<3),
         BOX_FILTER                 = (1u<<4),
         BOX_DATA_FILTER            = (1u<<5),
+        BOX_FILTER_APPLIED         = (1u<<6),
     } flags;
     union {
         struct box_block {
@@ -302,6 +303,9 @@ box_compute_end_offset(struct box *box,
                        struct tracker_error **errp);
 struct tracker *
 track_box_contents_internal(struct box *box, struct browse_state *bst);
+bitpunch_status_t
+box_apply_filter(struct box *box,
+                 struct tracker_error **errp);
 struct tracker *
 track_item_contents(struct tracker *tk,
                     struct tracker_error **errp);

@@ -100,6 +100,9 @@ dep_resolver_status_t
 dep_resolver_get_status(struct dep_resolver *dr);
 dep_resolver_status_t
 dep_resolver_resolve(struct dep_resolver *dr);
+void
+dep_resolver_set_resolved(struct dep_resolver_node *node,
+                          dep_resolver_tagset_t tags);
 struct dep_resolver_node_entry *
 dep_resolver_get_error_entry(struct dep_resolver *dr);
 struct dep_resolver_node_entry **

@@ -120,15 +120,12 @@ data_file_array_bytes_as_integers_filtered = """
     params=[{
         'spec': spec_file_array_bytes_as_integers_1,
         'data': data_file_array_bytes_as_integers,
-        'sizeof_array': 10,
     }, {
         'spec': spec_file_array_bytes_as_integers_2,
         'data': data_file_array_bytes_as_integers,
-        'sizeof_array': 10,
     }, {
         'spec': spec_file_array_bytes_as_integers_filtered,
         'data': data_file_array_bytes_as_integers_filtered,
-        'sizeof_array': 16,
     }])
 def params_array_flat(request):
     return conftest.make_testcase(request.param)
@@ -136,9 +133,9 @@ def params_array_flat(request):
 
 def test_array_flat(params_array_flat):
     params = params_array_flat
-    dtree, sizeof_array = params['dtree'], params['sizeof_array']
+    dtree = params['dtree']
     assert len(dtree.integers) == 10
-    assert dtree.integers.get_size() == sizeof_array
+    assert dtree.integers.get_size() == 10
     for i in range(10):
         mapped_i = (i * 7) % 10
         assert dtree.integers[mapped_i] == mapped_i
@@ -239,3 +236,38 @@ def test_array_keyed_items(params_array_keyed_items):
 
     assert ([str(key) for key in dtree.integers.iter_keys()]
             == ['alpha', 'bravo', 'charlie'])
+
+
+
+spec_file_array_raw_bytes = """
+
+file {
+    integers: byte[];
+}
+
+"""
+
+data_file_array_raw_bytes = """
+00 01 02 03 04 05 06 07 08 09
+"""
+
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_array_raw_bytes,
+        'data': data_file_array_raw_bytes,
+    }])
+def params_array_raw_bytes(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_array_raw_bytes(params_array_raw_bytes):
+    params = params_array_raw_bytes
+    dtree = params['dtree']
+    assert len(dtree.integers) == 10
+    assert dtree.integers.get_size() == 10
+    for i in range(10):
+        mapped_i = (i * 7) % 10
+        assert model.make_python_object(dtree.integers[mapped_i]) \
+            == chr(mapped_i)

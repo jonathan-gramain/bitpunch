@@ -124,9 +124,16 @@ track_path_eq(struct track_path p1, struct track_path p2)
     }
 }
 
+struct source_box_stack_item {
+    SLIST_ENTRY(source_box_stack_item) stack;
+    struct box *source_box;
+};
+
 struct browse_state {
     struct tracker_error_slist *expected_errors;
     struct tracker_error *last_error;
+    SLIST_HEAD(source_box_stack,
+               source_box_stack_item) source_box_stack;
 };
 
 
