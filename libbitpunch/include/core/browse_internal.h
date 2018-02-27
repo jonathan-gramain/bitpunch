@@ -34,6 +34,27 @@
 
 #include "core/browse.h"
 
+extern struct ast_node_hdl shared_ast_node_byte;
+extern struct ast_node_hdl shared_ast_node_array_slice;
+extern struct ast_node_hdl shared_ast_node_byte_slice;
+extern struct ast_node_hdl shared_ast_node_as_bytes;
+extern struct ast_node_hdl shared_ast_node_as_bytes_filter;
+extern struct ast_node_hdl shared_ast_node_raw_byte_filter;
+extern struct dpath_node shared_dpath_node_raw_byte;
+extern struct dpath_node shared_dpath_node_array_slice;
+extern struct dpath_node shared_dpath_node_byte_slice;
+extern struct dpath_node shared_dpath_node_as_bytes;
+
+#define AST_NODE_BYTE &shared_ast_node_byte
+#define AST_NODE_ARRAY_SLICE &shared_ast_node_array_slice
+#define AST_NODE_BYTE_SLICE &shared_ast_node_byte_slice
+#define AST_NODE_AS_BYTES &shared_ast_node_as_bytes
+#define AST_NODE_DATA_FILTER &shared_ast_node_data_filter
+#define DPATH_NODE_RAW_BYTE &shared_dpath_node_raw_byte
+#define DPATH_NODE_ARRAY_SLICE &shared_dpath_node_array_slice
+#define DPATH_NODE_BYTE_SLICE &shared_dpath_node_byte_slice
+#define DPATH_NODE_AS_BYTES &shared_dpath_node_as_bytes
+
 void
 browse_state_init(struct browse_state *bst);
 void
@@ -44,8 +65,7 @@ box_new_slice_box(struct tracker *slice_start,
                   struct tracker *slice_end,
                   struct browse_state *bst);
 struct box *
-box_new_from_expr_value(enum expr_value_type value_type,
-                        union expr_value value,
+box_new_from_expr_value(expr_value_t value,
                         struct browse_state *bst);
 
 struct box *
@@ -54,10 +74,6 @@ box_new_bytes_box_from_item(struct tracker *tk,
 struct box *
 box_new_bytes_box_from_box(struct box *box,
                            struct browse_state *bst);
-struct box *
-box_new_ancestor_box_from_item(struct tracker *tk, struct browse_state *bst);
-struct box *
-box_new_ancestor_box_from_box(struct box *box, struct browse_state *bst);
 struct box *
 box_new_as_box(struct box *parent_box,
                struct dpath_node *as_dpath,
@@ -69,6 +85,7 @@ box_new_filter_box_plain(struct box *unfiltered_box,
 struct box *
 box_new_filter_box_inlay(struct box *parent_box,
                          struct ast_node_hdl *filter,
+                         struct ast_node_hdl *filter_defining_used_size,
                          struct browse_state *bst);
 bitpunch_status_t
 box_apply_filter_internal(struct box *box,
@@ -84,9 +101,11 @@ bitpunch_status_t
 box_get_used_size(struct box *box, int64_t *used_sizep,
                   struct browse_state *bst);
 bitpunch_status_t
+box_get_slack_size(struct box *box, int64_t *slack_sizep,
+                   struct browse_state *bst);
+bitpunch_status_t
 box_read_value_internal(struct box *box,
-                        enum expr_value_type *typep,
-                        union expr_value *valuep,
+                        expr_value_t *valuep,
                         struct browse_state *bst);
 
 bitpunch_status_t
@@ -101,16 +120,13 @@ box_lookup_attribute_internal(struct box *box, const char *name,
                               struct browse_state *bst);
 bitpunch_status_t
 box_evaluate_attribute_value_internal(struct box *box, const char *name,
-                                      enum expr_value_type *value_typep,
-                                      union expr_value *eval_valuep,
+                                      expr_value_t *eval_valuep,
                                       struct browse_state *bst);
 bitpunch_status_t
 box_evaluate_attribute_internal(struct box *box,
                                 const char *attr_name,
-                                enum expr_value_type *value_typep,
-                                union expr_value *eval_valuep,
-                                enum expr_dpath_type *dpath_typep,
-                                union expr_dpath *eval_dpathp,
+                                expr_value_t *eval_valuep,
+                                expr_dpath_t *eval_dpathp,
                                 struct browse_state *bst);
 
 bitpunch_status_t
@@ -122,8 +138,16 @@ tracker_create_item_box(struct tracker *tk,
                         struct tracker_error **errp);
 
 bitpunch_status_t
+tracker_get_filtered_dpath_internal(struct tracker *tk,
+                                    expr_dpath_t *filtered_dpathp,
+                                    struct browse_state *bst);
+bitpunch_status_t
+tracker_get_filtered_dpath(struct tracker *tk,
+                           expr_dpath_t *filtered_dpathp,
+                           struct tracker_error **errp);
+bitpunch_status_t
 tracker_get_filtered_item_box_internal(struct tracker *tk,
-                                       struct box **boxp,
+                                       struct box **filtered_boxp,
                                        struct browse_state *bst);
 bitpunch_status_t
 tracker_get_filtered_item_box(struct tracker *tk,
@@ -143,6 +167,11 @@ tracker_goto_field_internal(struct tracker *tk,
                             const struct field *to_field, int flat,
                             struct browse_state *bst);
 bitpunch_status_t
+tracker_goto_field_internal2(struct tracker *tk,
+                             const struct field *to_field, int flat,
+                             int is_trailer_field,
+                             struct browse_state *bst);
+bitpunch_status_t
 tracker_goto_index_internal(struct tracker *tk,
                             struct subscript_index index,
                             const char *index_desc,
@@ -154,6 +183,9 @@ tracker_goto_index_internal(struct tracker *tk,
 bitpunch_status_t
 tracker_enter_item_internal(struct tracker *tk,
                             struct browse_state *bst);
+bitpunch_status_t
+tracker_return_internal(struct tracker *tk,
+                        struct browse_state *bst);
 
 bitpunch_status_t
 tracker_get_item_offset_internal(struct tracker *tk, int64_t *item_offsetp,
@@ -168,9 +200,12 @@ tracker_get_item_location_internal(struct tracker *tk,
                                    struct browse_state *bst);
 bitpunch_status_t
 tracker_read_item_value_internal(struct tracker *tk,
-                                 enum expr_value_type *typep,
-                                 union expr_value *valuep,
+                                 expr_value_t *valuep,
                                  struct browse_state *bst);
+bitpunch_status_t
+tracker_read_item_value_direct_internal(struct tracker *tk,
+                                        expr_value_t *valuep,
+                                        struct browse_state *bst);
 
 bitpunch_status_t
 tracker_read_item_raw_internal(struct tracker *tk,

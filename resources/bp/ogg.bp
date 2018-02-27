@@ -4,10 +4,13 @@
  * https://www.xiph.org/ogg/
  */
 
-let s64 = byte[8]: integer { signed: true; endian: 'little'; };
+let SignedInt = integer { signed: true; endian: 'little'; };
+let UnsignedInt = integer { signed: false; endian: 'little'; };
 
-let u8 = byte: integer { signed: false; };
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let s64 = byte[8]: SignedInt;
+
+let u8 = byte: UnsignedInt;
+let u32 = byte[4]: UnsignedInt;
 
 file {
     ogg_pages: OggPage[];
@@ -18,9 +21,9 @@ let OggPage = struct {
     segments: OggPageSegment[hdr.n_page_segments];
 
     let OggPageHdr = struct {
-        capture_pattern:           byte[4];
-        stream_structure_version:  byte;
-        header_type_flags:         byte; // bit-mask
+        capture_pattern:           byte[4]: string;
+        stream_structure_version:  u8;
+        header_type_flags:         u8; // bit-mask
         absolute_granule_position: s64;
         stream_serial_number:      u32;
         page_sequence_no:          u32;

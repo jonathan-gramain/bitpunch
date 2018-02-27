@@ -38,6 +38,7 @@
 
 #include "core/interpreter.h"
 #include "core/browse_internal.h"
+#include "core/expr_internal.h"
 
 #define MAX_INTERPRETER_COUNT           256
 
@@ -76,7 +77,7 @@ interpreter_param_def_new(void)
 
 int
 interpreter_declare(const char *name,
-                    enum expr_value_type semantic_type,
+                    enum expr_value_type value_type,
                     interpreter_rcall_build_func_t rcall_build_func,
                     int n_params,
                     ... /* params: (name, type, flags) tuples */)
@@ -100,7 +101,7 @@ interpreter_declare(const char *name,
         return -1;
     }
     interpreter->name = name;
-    interpreter->semantic_type = semantic_type;
+    interpreter->value_type = value_type;
     interpreter->rcall_build_func = rcall_build_func;
     interpreter->n_params = n_params;
     max_param_ref = -1;
@@ -172,10 +173,7 @@ interpreter_rcall_build(struct ast_node_hdl *node,
                          + (interpreter->max_param_ref + 1)
                          * sizeof (struct ast_node_hdl));
     rcall->type = AST_NODE_TYPE_REXPR_INTERPRETER;
-    // default dpath type for type-declared interpreters, may be
-    // overriden in expressions
-    rcall->u.rexpr.dpath_type = EXPR_DPATH_TYPE_ITEM;
-    rcall->u.rexpr.value_type = interpreter->semantic_type;
+    rcall->u.rexpr.value_type = interpreter->value_type;
     rcall->u.rexpr_interpreter.interpreter = interpreter;
     rcall->u.rexpr_interpreter.get_size_func = NULL;
     node->ndat = rcall;
@@ -185,24 +183,6 @@ interpreter_rcall_build(struct ast_node_hdl *node,
         return -1;
     }
     return 0;
-}
-
-struct ast_node_data *
-interpreter_rcall_instanciate(struct ast_node_hdl *rcall)
-{
-    const struct interpreter *interpreter;
-    struct ast_node_data *inst;
-
-    assert(AST_NODE_TYPE_REXPR_INTERPRETER == rcall->ndat->type);
-    interpreter = rcall->ndat->u.rexpr_interpreter.interpreter;
-    inst = malloc0_safe(INTERPRETER_RCALL_BASE_SIZE
-                         + (interpreter->max_param_ref + 1)
-                         * sizeof (struct ast_node_hdl));
-    memcpy(inst, rcall->ndat, INTERPRETER_RCALL_BASE_SIZE
-           + (interpreter->max_param_ref + 1)
-           * sizeof (struct ast_node_hdl));
-    inst->flags &= ~ASTFLAG_DATA_TEMPLATE;
-    return inst;
 }
 
 static int
@@ -270,40 +250,115 @@ rcall_build_params(struct ast_node_hdl *node,
     }
 }
 
+bitpunch_status_t
+interpreter_rcall_evaluate_params(struct ast_node_hdl *expr,
+                                  struct box *scope,
+                                  int **param_is_specifiedp,
+                                  expr_value_t **param_valuep,
+                                  struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    const struct interpreter *interpreter;
+    int p_idx;
+    struct ast_node_hdl *param_node;
+    expr_value_t *param_value;
+    int *param_is_specified;
+
+    interpreter = expr->ndat->u.rexpr_interpreter.interpreter;
+
+    param_value = new_n_safe(expr_value_t, interpreter->n_params);
+    param_is_specified = new_n_safe(int, interpreter->n_params);
+
+    for (p_idx = 0; p_idx < interpreter->n_params; ++p_idx) {
+        param_node = INTERPRETER_RCALL_PARAM(expr, p_idx);
+        if (AST_NODE_TYPE_NONE == param_node->ndat->type) {
+            continue ;
+        }
+        param_is_specified[p_idx] = TRUE;
+        bt_ret = expr_evaluate_value_internal(param_node, scope,
+                                              &param_value[p_idx], bst);
+        if (BITPUNCH_OK != bt_ret) {
+            for (--p_idx; p_idx >= 0; --p_idx) {
+                if (AST_NODE_TYPE_NONE != param_node->ndat->type) {
+                    expr_value_destroy(param_value[p_idx]);
+                }
+            }
+            free(param_value);
+            free(param_is_specified);
+            return bt_ret;
+        }
+    }
+    *param_valuep = param_value;
+    *param_is_specifiedp = param_is_specified;
+    return BITPUNCH_OK;
+}
+
+void
+interpreter_rcall_destroy_param_values(struct ast_node_hdl *expr,
+                                       int *param_is_specified,
+                                       expr_value_t *param_value)
+{
+    const struct interpreter *interpreter;
+    int p_idx;
+    struct ast_node_hdl *param_node;
+
+    interpreter = expr->ndat->u.rexpr_interpreter.interpreter;
+    if (NULL != param_value) {
+        for (p_idx = 0; p_idx < interpreter->n_params; ++p_idx) {
+            param_node = INTERPRETER_RCALL_PARAM(expr, p_idx);
+            if (AST_NODE_TYPE_NONE != param_node->ndat->type) {
+                expr_value_destroy(param_value[p_idx]);
+            }
+        }
+        free(param_value);
+        free(param_is_specified);
+    }
+}
 
 bitpunch_status_t
-interpreter_rcall_read_value(const struct ast_node_hdl *interpreter,
+interpreter_rcall_read_value(struct ast_node_hdl *expr,
+                             struct box *scope,
                              const char *item_data,
                              int64_t item_size,
-                             enum expr_value_type *typep,
-                             union expr_value *valuep,
+                             expr_value_t *valuep,
                              struct browse_state *bst)
 {
-    struct ast_node_hdl *params;
+    bitpunch_status_t bt_ret;
+    int *param_is_specified = NULL;
+    expr_value_t *param_value = NULL;
     int64_t span_size;
     int64_t used_size;
-    union expr_value value;
+    expr_value_t value;
 
-    params = interpreter_rcall_get_params(interpreter);
-
-    if (NULL == interpreter->ndat->u.rexpr_interpreter.get_size_func) {
-        span_size = item_size;
-    } else if (-1 == interpreter->ndat->u.rexpr_interpreter.get_size_func(
-                   &span_size, &used_size, item_data, item_size, params)) {
-        return BITPUNCH_DATA_ERROR;
+    value.type = EXPR_VALUE_TYPE_UNSET;
+    bt_ret = interpreter_rcall_evaluate_params(expr, scope,
+                                               &param_is_specified,
+                                               &param_value, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        if (NULL == expr->ndat->u.rexpr_interpreter.get_size_func) {
+            span_size = item_size;
+        } else if (-1 == expr->ndat->u.rexpr_interpreter.get_size_func(
+                       expr,
+                       &span_size, &used_size, item_data, item_size,
+                       param_is_specified, param_value)) {
+            bt_ret = BITPUNCH_DATA_ERROR;
+        }
     }
-    memset(&value, 0, sizeof(value));
-    if (-1 == interpreter->ndat->u.rexpr_interpreter.read_func(
-            &value, item_data, span_size, params)) {
-        return BITPUNCH_DATA_ERROR;
+    if (BITPUNCH_OK == bt_ret) {
+        memset(&value, 0, sizeof(value));
+        if (-1 == expr->ndat->u.rexpr_interpreter.read_func(
+                expr,
+                &value, item_data, span_size,
+                param_is_specified, param_value)) {
+            bt_ret = BITPUNCH_DATA_ERROR;
+        }
     }
-    if (NULL != typep) {
-        *typep = interpreter->ndat->u.rexpr.value_type;
-    }
-    if (NULL != valuep) {
+    if (BITPUNCH_OK == bt_ret && NULL != valuep) {
         *valuep = value;
     } else {
-        expr_value_destroy(interpreter->ndat->u.rexpr.value_type, value);
+        expr_value_destroy(value);
     }
-    return BITPUNCH_OK;
+    interpreter_rcall_destroy_param_values(expr, param_is_specified,
+                                           param_value);
+    return bt_ret;
 }

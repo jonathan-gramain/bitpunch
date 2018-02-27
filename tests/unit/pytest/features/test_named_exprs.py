@@ -369,9 +369,9 @@ def test_named_exprs_polymorphic(params_named_exprs_polymorphic):
     params = params_named_exprs_polymorphic
     dtree = params['dtree']
     assert len(dtree.items) == 4
-    assert dtree.items[1].message.value == 'bonjour'
-    assert dtree.items[1]['?item'].value == 'bonjour'
-    assert dtree.eval_expr('items[1].?item.value') == 'bonjour'
+    assert str(dtree.items[1].message.value) == 'bonjour'
+    assert str(dtree.items[1]['?item'].value) == 'bonjour'
+    assert str(dtree.eval_expr('items[1].?item.value')) == 'bonjour'
     assert dtree.items[1]['?type'] == 'message'
     assert dtree.eval_expr('items[1].?type') == 'message'
     assert dtree.eval_expr('items[1].?type == "message"') == True

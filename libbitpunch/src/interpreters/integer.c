@@ -66,10 +66,14 @@ static enum endian str2endian(struct expr_value_string string)
 #define htobe8(nb) (nb)
 #define htole8(nb) (nb)
 
+
+#if 0 // optimized code that sets the ad-hoc function depending on the
+      // source, keep for later
+
 #define GEN_RW_FUNCS(NBITS, ENDIAN_STR, SIGN)                           \
     static int                                                          \
     binary_integer_read_##SIGN##int##NBITS##_##ENDIAN_STR(              \
-        union expr_value *read_value,                                  \
+        expr_value_t *read_value,                                  \
         const char *data, size_t span_size,                             \
         const struct ast_node_hdl *param_values)                            \
     {                                                                   \
@@ -79,7 +83,7 @@ static enum endian str2endian(struct expr_value_string string)
                                                                         \
     static int                                                          \
     binary_integer_write_##SIGN##int##NBITS##_##ENDIAN_STR(             \
-        const union expr_value *write_value,                           \
+        const expr_value_t *write_value,                           \
         char *data, size_t span_size,                                   \
         const struct ast_node_hdl *param_values)                            \
     {                                                                   \
@@ -226,6 +230,111 @@ binary_integer_rcall_build(struct ast_node_hdl *rcall,
     rcall->ndat->u.rexpr_interpreter.write_func = write_func;
     return 0;
 }
+
+#else
+
+static int
+binary_integer_read_generic(
+    struct ast_node_hdl *rcall,
+    expr_value_t *read_value,
+    const char *data, size_t span_size,
+    int *param_is_specified, expr_value_t *param_value)
+{
+    int _signed;
+    enum endian endian;
+
+    _signed = param_value[REF_SIGNED].boolean;
+    if (param_is_specified[REF_ENDIAN]) {
+        endian = str2endian(param_value[REF_ENDIAN].string);
+        if (endian == ENDIAN_BAD) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
+                "bad endian value \"%.*s\": "
+                "must be \"big\", \"little\" or \"native\"",
+                (int)param_value[REF_ENDIAN].string.len,
+                param_value[REF_ENDIAN].string.str);
+            return -1;
+        }
+    } else {
+        endian = ENDIAN_DEFAULT;
+    }
+    if (endian == ENDIAN_NATIVE) {
+        if (is_little_endian()) {
+            endian = ENDIAN_LITTLE;
+        } else {
+            endian = ENDIAN_BIG;
+        }
+    }
+    assert(endian == ENDIAN_BIG || endian == ENDIAN_LITTLE);
+
+#define READ_BRANCH_3(NBITS, ENDIAN_STR, SIGN) do {                     \
+        read_value->integer = (int64_t)(SIGN##int##NBITS##_t)ENDIAN_STR##NBITS##toh(*(uint##NBITS##_t *)data); \
+    } while (0)
+
+#define READ_BRANCH_2(NBITS, ENDIAN, ENDIAN_STR)        \
+    case ENDIAN:                                        \
+        if (_signed) {                                  \
+            READ_BRANCH_3(NBITS, ENDIAN_STR, );         \
+        } else {                                        \
+            READ_BRANCH_3(NBITS, ENDIAN_STR, u);        \
+        }                                               \
+        break
+
+#define READ_BRANCH_1(NBITS)                            \
+    case NBITS / NBBY:                                  \
+        switch (endian) {                               \
+            READ_BRANCH_2(NBITS, ENDIAN_BIG, be);       \
+            READ_BRANCH_2(NBITS, ENDIAN_LITTLE, le);    \
+        default: assert(0);                             \
+        }                                               \
+        break
+
+    read_value->type = EXPR_VALUE_TYPE_INTEGER;
+    switch (span_size) {
+        READ_BRANCH_1(8);
+        READ_BRANCH_1(16);
+        READ_BRANCH_1(32);
+        READ_BRANCH_1(64);
+    default:
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
+                       "size %"PRIi64" not supported by integer interpreter",
+                       span_size);
+        return -1;
+    }
+    return 0;
+}
+
+static int
+binary_integer_write_generic(
+    struct ast_node_hdl *rcall,
+    const expr_value_t *write_value,
+    char *data, size_t span_size,
+    int *param_is_specified, expr_value_t *param_value)
+{
+    // TODO
+    return -1;
+}
+
+static int
+binary_integer_rcall_build(struct ast_node_hdl *rcall,
+                           const struct ast_node_hdl *param_values,
+                           struct compile_ctx *ctx)
+{
+    assert(param_values[REF_SIGNED].ndat->u.rexpr.value_type
+           == EXPR_VALUE_TYPE_BOOLEAN);
+    assert(param_values[REF_ENDIAN].ndat->u.rexpr.value_type
+           == EXPR_VALUE_TYPE_STRING ||
+           param_values[REF_ENDIAN].ndat->u.rexpr.value_type
+           == EXPR_VALUE_TYPE_UNSET);
+
+    rcall->ndat->u.rexpr_interpreter.read_func =
+        binary_integer_read_generic;
+    rcall->ndat->u.rexpr_interpreter.write_func =
+        binary_integer_write_generic;
+    return 0;
+}
+
+#endif // optimized code
 
 void
 interpreter_declare_binary_integer(void)

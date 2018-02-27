@@ -116,11 +116,9 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
                 check_tracker_item(tk, expect_box);
             }
             if (BITPUNCH_OK != expect_box->read_item_ret) {
-                enum expr_value_type dummy_type;
-                union expr_value dummy_value;
+                expr_value_t dummy_value;
 
-                bt_ret = tracker_read_item_value(tk, &dummy_type,
-                                                 &dummy_value, NULL);
+                bt_ret = tracker_read_item_value(tk, &dummy_value, NULL);
                 ck_assert_int_eq(bt_ret, expect_box->read_item_ret);
             }
             if (ast_node_is_container(tk->dpath->item)
@@ -138,7 +136,7 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
 
                     bt_ret = tracker_goto_first_item(tk, NULL);
                 }
-            } else {
+            } else if (BITPUNCH_OK == bt_ret) {
                 bt_ret = tracker_goto_next_item(tk, NULL);
             }
         } else {
@@ -205,7 +203,7 @@ check_tracker_browse_sub_trackers_recur(struct tracker *tk,
             check_tracker_item(tk, expect_box);
         }
         if (BITPUNCH_OK != expect_box->read_item_ret) {
-            bt_ret = tracker_read_item_value(tk, NULL, NULL, NULL);
+            bt_ret = tracker_read_item_value(tk, NULL, NULL);
             ck_assert_int_eq(bt_ret, expect_box->read_item_ret);
         } else if (ast_node_is_container(tk->dpath->item)
                    && AST_NODE_TYPE_BYTE_ARRAY != tk->dpath->item->ndat->type) {
@@ -345,8 +343,7 @@ check_tracker_item(struct tracker *tk,
                    const struct test_tracker_expect_box *expect_box)
 {
     bitpunch_status_t bt_ret;
-    enum expr_value_type type;
-    union expr_value value;
+    expr_value_t value;
     int iret;
     char dpath_expr[256];
     int64_t item_offset;
@@ -357,33 +354,33 @@ check_tracker_item(struct tracker *tk,
         printf("=== Before read ===\n");
         dbg_tracker_dump("", tk);
     }
-    bt_ret = tracker_get_item_key(tk, &type, &value, NULL);
+    bt_ret = tracker_get_item_key(tk, &value, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-    ck_assert_int_eq(type, expect_box->key_type);
-    check_expr_value_match(type, &value, &expect_box->key);
-    expr_value_destroy(type, value);
+    ck_assert_int_eq(value.type, expect_box->key_type);
+    check_expr_value_match(&value, &expect_box->key);
+    expr_value_destroy(value);
 
-    bt_ret = tracker_read_item_value(tk, &type, &value, NULL);
+    bt_ret = tracker_read_item_value(tk, &value, NULL);
     if (check_verbose) {
         printf("=== After read ===\n");
         dbg_tracker_dump("", tk);
     }
+    ck_assert_int_eq(bt_ret, expect_box->read_item_ret);
     if (BITPUNCH_OK != expect_box->read_item_ret) {
-        ck_assert_int_eq(bt_ret, expect_box->read_item_ret);
         return ;
     }
     if (EXPR_VALUE_TYPE_UNSET != expect_box->value_type) {
-        ck_assert_int_eq(type, expect_box->value_type);
-        check_expr_value_match(type, &value, &expect_box->value);
+        ck_assert_int_eq(value.type, expect_box->value_type);
+        check_expr_value_match(&value, &expect_box->value);
     }
-    expr_value_destroy(type, value);
+    expr_value_destroy(value);
     iret = tracker_get_abs_dpath(tk, dpath_expr, sizeof (dpath_expr));
     ck_assert_int_gt(iret, 0);
     ck_assert_int_eq(iret, strlen(expect_box->path));
     ck_assert_str_eq(dpath_expr, expect_box->path);
-    ck_assert_int_eq(tk->item_offset, expect_box->offset);
     bt_ret = tracker_get_item_location(tk, &item_offset, &item_size, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+    ck_assert_int_eq(item_offset, expect_box->offset);
     ck_assert_int_eq(item_size, expect_box->size);
     if (NULL != tk->item_box) {
         ck_assert_int_ne(-1, tk->item_box->end_offset_used);
@@ -393,11 +390,10 @@ check_tracker_item(struct tracker *tk,
 }
 
 void
-check_expr_value_match(enum expr_value_type type,
-                       const union expr_value *value1,
-                       const union expr_value *value2)
+check_expr_value_match(const expr_value_t *value1,
+                       const expr_value_t *value2)
 {
-    switch (type) {
+    switch (value1->type) {
     case EXPR_VALUE_TYPE_INTEGER:
         ck_assert_int_eq(value1->integer, value2->integer);
         break ;

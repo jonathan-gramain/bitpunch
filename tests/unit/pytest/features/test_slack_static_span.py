@@ -71,7 +71,7 @@ data_static_span_and_slack_sized = """
 """
 
 
-spec_static_minspan = """
+spec_static_minspan_conditional = """
 
 let u8 = byte: integer { signed: false; };
 
@@ -90,7 +90,7 @@ let VarBlock = struct {
 
 """
 
-data_static_minspan = """
+data_static_minspan_conditional = """
 04 00 00 00 00 ff ff ff ff ff
 06 01 01 01 01 01 01 ff ff ff
 09 02 02 02 02 02 02 02 02 02
@@ -270,8 +270,8 @@ let VarBlock = struct {
         'lengths': [5, 7, 4, 1],
         'data_lengths': [4, 6, 3, 0]
     }, {
-        'spec': spec_static_minspan,
-        'data': data_static_minspan,
+        'spec': spec_static_minspan_conditional,
+        'data': data_static_minspan_conditional,
         'control_size': 1,
         'lengths': [4, 6, 9, 12]
     }, {
@@ -305,12 +305,12 @@ let VarBlock = struct {
         'control_size': 1,
         'lengths': [2, 4, 6, 0]
     }])
-def params_simple(request):
+def params_slack_span_simple(request):
     return conftest.make_testcase(request.param)
 
 
-def test_slack_span_simple(params_simple):
-    params = params_simple
+def test_slack_span_simple(params_slack_span_simple):
+    params = params_slack_span_simple
     dtree, lengths, control_size = (params['dtree'], params['lengths'],
                                     params['control_size'])
     if 'data_lengths' in params:

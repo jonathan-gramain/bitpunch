@@ -40,10 +40,11 @@
 #include "core/interpreter.h"
 
 static int
-varint_get_size(int64_t *span_sizep,
+varint_get_size(struct ast_node_hdl *rcall,
+                int64_t *span_sizep,
                 int64_t *used_sizep,
                 const char *data, int64_t max_span_size,
-                const struct ast_node_hdl *param_values)
+                int *param_is_specified, expr_value_t *param_value)
 {
     size_t bytepos;
 
@@ -60,9 +61,10 @@ varint_get_size(int64_t *span_sizep,
 }
 
 static int
-varint_read(union expr_value *read_value,
+varint_read(struct ast_node_hdl *rcall,
+            expr_value_t *read_value,
             const char *data, size_t span_size,
-            const struct ast_node_hdl *param_values)
+            int *param_is_specified, expr_value_t *param_value)
 {
     // FIXME optimize
     const unsigned char *udata = (const unsigned char *)data;
@@ -88,14 +90,16 @@ varint_read(union expr_value *read_value,
     // zigzag encoding
     //value = (rawvalue & 1) ? -((rawvalue + 1) / 2) : (rawvalue / 2);
     value = rawvalue;
+    read_value->type = EXPR_VALUE_TYPE_INTEGER;
     read_value->integer = value;
     return 0;
 }
 
 static int
-varint_write(const union expr_value *write_value,
+varint_write(struct ast_node_hdl *rcall,
+             const expr_value_t *write_value,
              char *data, size_t span_size,
-             const struct ast_node_hdl *param_values)
+             int *param_is_specified, expr_value_t *param_value)
 {
     return -1;
 }
@@ -103,10 +107,10 @@ varint_write(const union expr_value *write_value,
 
 static int
 varint_rcall_build(struct ast_node_hdl *rcall,
-                   const struct ast_node_hdl *data_source,
                    const struct ast_node_hdl *param_values,
                    struct compile_ctx *ctx)
 {
+#if 0
     assert(NULL != data_source);
 
     if (AST_NODE_TYPE_BYTE != data_source->ndat->type &&
@@ -116,6 +120,7 @@ varint_rcall_build(struct ast_node_hdl *rcall,
             "varint interpreter expects a byte array");
         return -1;
     }
+#endif
     rcall->ndat->u.rexpr_interpreter.get_size_func = varint_get_size;
     rcall->ndat->u.rexpr_interpreter.read_func = varint_read;
     rcall->ndat->u.rexpr_interpreter.write_func = varint_write;

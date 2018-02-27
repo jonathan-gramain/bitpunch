@@ -34,7 +34,8 @@ let Entry = struct {
     entry_size:     u16;
     entry_type:     byte[4]: string { boundary: ' '; };
 
-    let ?data = bytes(file)[entry_location .. entry_location + entry_size];
+    let ?data = bytes(file)[entry_location ..
+                            entry_location + entry_size];
     if (entry_type == 'file') {
         let ?file = ?data: File;
         let ?props = ?file;
@@ -163,8 +164,8 @@ def test_pseudo_fs(params_pseudo_fs):
     assert len(catalog) == 7
 
     assert catalog[0]['?dir'].get_location() == (0x04, 0x0A)
-    assert catalog[1].eval_expr('?dir.dirname') == 'directory2'
-    assert catalog[1].eval_expr('?props.dirname') == 'directory2'
+    assert str(catalog[1].eval_expr('?dir.dirname')) == 'directory2'
+    assert str(catalog[1].eval_expr('?props.dirname')) == 'directory2'
 
     assert catalog[2]['?file'].get_location() == (0x18, 0x09)
     assert catalog[2]['?props'].get_location() == (0x18, 0x09)
@@ -192,12 +193,11 @@ def test_pseudo_fs(params_pseudo_fs):
     assert model.make_python_object(
         catalog[6]['?file']['?filedata']) == '55555555555555'
 
-
-    assert catalog[2]['?file']['?dir'].dirname == 'directory1'
-    assert catalog[3]['?file']['?dir'].dirname == 'directory1'
-    assert catalog[4]['?file']['?dir'].dirname == 'directory1'
-    assert catalog[5]['?file']['?dir'].dirname == 'directory2'
-    assert catalog[6]['?file']['?dir'].dirname == 'directory2'
+    assert str(catalog[2]['?file']['?dir'].dirname) == 'directory1'
+    assert str(catalog[3]['?file']['?dir'].dirname) == 'directory1'
+    assert str(catalog[4]['?file']['?dir'].dirname) == 'directory1'
+    assert str(catalog[5]['?file']['?dir'].dirname) == 'directory2'
+    assert str(catalog[6]['?file']['?dir'].dirname) == 'directory2'
 
     assert catalog.get_size() == 56
     assert catalog[3].get_size() == 8

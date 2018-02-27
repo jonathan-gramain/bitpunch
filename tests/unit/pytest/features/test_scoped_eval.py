@@ -73,3 +73,15 @@ def test_scoped_eval(params_scoped_eval):
     assert memoryview(prop.eval_expr('name')) == 'ijkl'
     prop_values = prop.eval_expr('(name: AsArray).values')
     assert model.make_python_object(prop_values) == int_values
+
+    # check that 'tracker=True' is honored
+    prop_first_value = prop.eval_expr('(name: AsArray).values[0]')
+    # a value is returned by default for integers, cannot use
+    # memoryview() on it
+    with pytest.raises(TypeError):
+        memoryview(prop_first_value)
+    # 'tracker=True' forces to return a tracker object for items,
+    # which implements buffer interface
+    prop_first_value_tracker = prop.eval_expr('(name: AsArray).values[0]',
+                                              tracker=True)
+    memoryview(prop_first_value_tracker)

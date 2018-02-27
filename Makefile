@@ -60,6 +60,11 @@ check: $(CHECK_BITPUNCH)
 pythonlib:
 	python ./setup.py build
 
+dot: deps.svg
+
+deps.svg: deps.dot
+	dot -Tsvg deps.dot > deps.svg
+
 # needed to expand $(dir ...) to pre-create directories
 .SECONDEXPANSION:
 

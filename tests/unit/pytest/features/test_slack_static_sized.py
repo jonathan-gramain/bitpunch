@@ -89,11 +89,12 @@ data_static_sized_2 = """
         'block_counts': [1, 0, 0, 2]
     },
     ])
-def params(request):
+def params_slack_static_sized(request):
     return conftest.make_testcase(request.param)
 
 
-def test_slack_static_sized(params):
+def test_slack_static_sized(params_slack_static_sized):
+    params = params_slack_static_sized
     dtree, block_counts = params['dtree'], params['block_counts']
 
     cur_location = 0

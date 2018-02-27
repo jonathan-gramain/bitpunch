@@ -50,13 +50,44 @@ struct index_cache_mark_offset {
 };
 
 enum box_offset_type {
-    BOX_START_OFFSET_USED = (1<<0),
-    BOX_END_OFFSET_HARD_MIN = (1<<1),
-    BOX_END_OFFSET_MIN_SPAN = (1<<2),
-    BOX_END_OFFSET_USED = (1<<3),
-    BOX_END_OFFSET_MAX_SPAN = (1<<4),
-    BOX_END_OFFSET_SLACK = (1<<5),
-    BOX_END_OFFSET_PARENT = (1<<6),
+    BOX_START_OFFSET_HARD_MIN = (1<<0),
+    BOX_START_OFFSET_MIN_SPAN = (1<<1),
+    BOX_START_OFFSET_USED     = (1<<2),
+    BOX_START_OFFSET_MAX_SPAN = (1<<3),
+    BOX_START_OFFSET_SLACK    = (1<<4),
+    BOX_START_OFFSET_PARENT   = (1<<5),
+    BOX_START_OFFSETS         = (BOX_START_OFFSET_HARD_MIN |
+                                 BOX_START_OFFSET_MIN_SPAN |
+                                 BOX_START_OFFSET_USED |
+                                 BOX_START_OFFSET_MAX_SPAN |
+                                 BOX_START_OFFSET_SLACK |
+                                 BOX_START_OFFSET_PARENT),
+
+    BOX_END_OFFSET_HARD_MIN   = (1<<6),
+    BOX_END_OFFSET_MIN_SPAN   = (1<<7),
+    BOX_END_OFFSET_USED       = (1<<8),
+    BOX_END_OFFSET_MAX_SPAN   = (1<<9),
+    BOX_END_OFFSET_SLACK      = (1<<10),
+    BOX_END_OFFSET_PARENT     = (1<<11),
+    BOX_END_OFFSETS           = (BOX_END_OFFSET_HARD_MIN |
+                                 BOX_END_OFFSET_MIN_SPAN |
+                                 BOX_END_OFFSET_USED |
+                                 BOX_END_OFFSET_MAX_SPAN |
+                                 BOX_END_OFFSET_SLACK |
+                                 BOX_END_OFFSET_PARENT),
+
+    BOX_SIZE_HARD_MIN         = (BOX_START_OFFSET_HARD_MIN |
+                                 BOX_END_OFFSET_HARD_MIN),
+    BOX_SIZE_MIN_SPAN         = (BOX_START_OFFSET_MIN_SPAN |
+                                 BOX_END_OFFSET_MIN_SPAN),
+    BOX_SIZE_USED             = (BOX_START_OFFSET_USED |
+                                 BOX_END_OFFSET_USED),
+    BOX_SIZE_MAX_SPAN         = (BOX_START_OFFSET_MAX_SPAN |
+                                 BOX_END_OFFSET_MAX_SPAN),
+    BOX_SIZE_SLACK            = (BOX_START_OFFSET_SLACK |
+                                 BOX_END_OFFSET_SLACK),
+    BOX_SIZE_PARENT           = (BOX_START_OFFSET_PARENT |
+                                 BOX_END_OFFSET_PARENT),
 };
 
 TAILQ_HEAD(box_tailq, box);
@@ -67,8 +98,17 @@ struct box {
     struct dpath_node dpath;
     const struct bitpunch_binary_file_hdl *file_hdl;
 
-    int64_t start_offset_used; /**< absolute start offset of box in file
-                                * data */
+    int64_t start_offset_parent; /**< inherited parent's max offset */
+
+    int64_t start_offset_slack; /**< limit of space that box may use
+                                 * from its parent */
+
+    int64_t start_offset_max_span; /**< defined span size available to box */
+
+    int64_t start_offset_used;  /**< start offset actually used by box */
+
+    int64_t start_offset_min_span; /**< minimum start offset spanned
+                                    * by box' children */
 
     int64_t end_offset_parent; /**< inherited parent's max offset */
 
@@ -92,7 +132,7 @@ struct box {
         COMPUTING_SPAN_SIZE        = (1u<<0),
         COMPUTING_MAX_SLACK_OFFSET = (1u<<1),
         BOX_CACHED                 = (1u<<2),
-        BOX_REVERSED               = (1u<<3),
+        BOX_RALIGN                 = (1u<<3),
         BOX_FILTER                 = (1u<<4),
         BOX_DATA_FILTER            = (1u<<5),
         BOX_FILTER_APPLIED         = (1u<<6),
@@ -292,7 +332,7 @@ box_get_n_items(struct box *box, int64_t *n_itemsp,
                 struct tracker_error **errp);
 bitpunch_status_t
 box_read_value(struct box *box,
-               enum expr_value_type *typep, union expr_value *valuep,
+               expr_value_t *valuep,
                struct tracker_error **errp);
 static inline int64_t
 box_get_start_offset(struct box *box) { return box->start_offset_used; }
@@ -334,15 +374,15 @@ tracker_goto_named_item(struct tracker *tk, const char *name,
                         struct tracker_error **errp);
 bitpunch_status_t
 tracker_goto_first_item_with_key(struct tracker *tk,
-                                 union expr_value item_key,
+                                 expr_value_t item_key,
                                  struct tracker_error **errp);
 bitpunch_status_t
 tracker_goto_next_item_with_key(struct tracker *tk,
-                                union expr_value item_key,
+                                expr_value_t item_key,
                                 struct tracker_error **errp);
 bitpunch_status_t
 tracker_goto_nth_item_with_key(struct tracker *tk,
-                               union expr_value item_key,
+                               expr_value_t item_key,
                                int nth_twin,
                                struct tracker_error **errp);
 bitpunch_status_t
@@ -382,14 +422,12 @@ tracker_get_item_size(struct tracker *tk, int64_t *item_sizep,
 
 bitpunch_status_t
 tracker_get_item_key(struct tracker *tk,
-                     enum expr_value_type *key_typep,
-                     union expr_value *keyp,
+                     expr_value_t *keyp,
                      struct tracker_error **errp);
 
 bitpunch_status_t
 tracker_get_item_key_multi(struct tracker *tk,
-                           enum expr_value_type *key_typep,
-                           union expr_value *keyp,
+                           expr_value_t *keyp,
                            int *nth_twinp,
                            struct tracker_error **errp);
 
@@ -407,8 +445,7 @@ tracker_read_item_raw(struct tracker *tk,
 
 bitpunch_status_t
 tracker_read_item_value(struct tracker *tk,
-                        enum expr_value_type *typep,
-                        union expr_value *valuep,
+                        expr_value_t *valuep,
                         struct tracker_error **errp);
 
 /* generic statement API */
@@ -491,22 +528,18 @@ box_iter_named_exprs(struct box *box);
 bitpunch_status_t
 box_evaluate_attribute_value(struct box *box,
                              const char *attr_name,
-                             enum expr_value_type *value_typep,
-                             union expr_value *eval_valuep,
+                             expr_value_t *eval_valuep,
                              struct tracker_error **errp);
 bitpunch_status_t
 box_evaluate_attribute_dpath(struct box *box,
                              const char *attr_name,
-                             enum expr_dpath_type *dpath_typep,
-                             union expr_dpath *eval_dpathp,
+                             expr_dpath_t *eval_dpathp,
                              struct tracker_error **errp);
 bitpunch_status_t
 box_evaluate_attribute(struct box *box,
                        const char *attr_name,
-                       enum expr_value_type *value_typep,
-                       union expr_value *eval_valuep,
-                       enum expr_dpath_type *dpath_typep,
-                       union expr_dpath *eval_dpathp,
+                       expr_value_t *eval_valuep,
+                       expr_dpath_t *eval_dpathp,
                        struct tracker_error **errp);
 bitpunch_status_t
 box_iter_named_exprs_next(struct box *box, tnamed_expr_iterator *it,
@@ -563,10 +596,10 @@ tracker_error_add_node_context(const struct ast_node_hdl *node,
                                const char *context_fmt, ...)
     __attribute__((format(printf, 3, 4), unused));
 
-
-/* internal use for other modules */
-
 int
-browse_setup_backends(struct ast_node_hdl *node);
+browse_setup_global_backends(void);
+int
+browse_setup_backends_dpath(struct dpath_node *dpath);
+
 
 #endif /*__BROWSE_H__*/

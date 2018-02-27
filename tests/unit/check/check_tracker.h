@@ -40,9 +40,9 @@ struct test_tracker_expect_box {
     int64_t offset;
     int64_t size;
     enum expr_value_type key_type;
-    union expr_value key;
+    expr_value_t key;
     enum expr_value_type value_type;
-    union expr_value value;
+    expr_value_t value;
     int64_t n_items;
     bitpunch_status_t read_item_ret;
 };
@@ -76,8 +76,7 @@ check_tracker_item(struct tracker *tk,
                    const struct test_tracker_expect_box *expect_box);
 
 void
-check_expr_value_match(enum expr_value_type type,
-                       const union expr_value *value1,
-                       const union expr_value *value2);
+check_expr_value_match(const expr_value_t *value1,
+                       const expr_value_t *value2);
 
 #endif /*__CHECK_TRACKER_H__*/

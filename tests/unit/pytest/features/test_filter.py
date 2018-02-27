@@ -167,12 +167,12 @@ data_file_simple_filter_as_type_base64 = """
         'data': data_file_simple_filter_as_type_base64,
         'stored_content_length': 24,
     }])
-def params_filter(request):
+def params_filter_1(request):
     return conftest.make_testcase(request.param)
 
 
-def test_filter(params_filter):
-    params = params_filter
+def test_filter_1(params_filter_1):
+    params = params_filter_1
     dtree, stored_content_length = (params['dtree'],
                                     params['stored_content_length'])
 
@@ -231,7 +231,10 @@ spec_file_simple_filter_line_separated_base64_2 = """
 
 let u32 = byte[4]: integer { signed: false; endian: 'little'; };
 
-let Base64Block = byte[]: string { boundary: '\\n'; }: base64: struct {
+let Base64Block = byte[]
+  : string { boundary: '\\n'; }
+  : base64
+  : struct {
     n: u32;
     : byte[n]: AsContents;
 };
@@ -295,7 +298,6 @@ def test_filter_2(params_filter_2):
     dtree = params['dtree']
 
     assert dtree.blocks[1].get_offset() == 0
-    #assert dtree.eval_expr('^blocks[1]').get_offset() == 29
     assert dtree.blocks[1].get_size() == 22
     assert dtree.blocks[1].n == 18
     assert str(dtree.blocks[1].data) == 'more contents data'
@@ -309,18 +311,28 @@ def test_filter_2(params_filter_2):
         'n': 23,
         'data': 'even more contents data'
     }
-    #assert model.make_python_object(dtree.eval_expr('^blocks[2]')) == \
-    #    '\x17\x00\x00\x00even more contents data'
-    #assert model.make_python_object(dtree.eval_expr('^(^blocks)[2]')) == \
-    #    '\x17\x00\x00\x00even more contents data'
-    #assert model.make_python_object(dtree.eval_expr('^^blocks[2]')) == \
-    #    'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh'
-    #assert model.make_python_object(dtree.eval_expr('^^blocks[1..][1]')) == \
-    #    'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh'
-    #assert model.make_python_object(dtree.eval_expr('^^^blocks[2]')) == \
-    #'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh\n'
-    #assert model.make_python_object(dtree.eval_expr('^^^^blocks[2]')) == \
-    #    'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh\n'
+    # up one ancestor, base64 filter still applies to the child buffer
+    assert dtree.eval_expr('^blocks[1]').get_offset() == 0
+    assert dtree.eval_expr('^blocks[1]').get_size() == 22
+    # up two ancestors, back to the raw base64 string from main buffer
+    assert dtree.eval_expr('^^blocks[1]').get_offset() == 29
+    assert dtree.eval_expr('^^blocks[1]').get_size() == 32
+    # up three ancestors, back to the raw bytes block containing the
+    # base64 contents ending with newline
+    assert dtree.eval_expr('^^^blocks[1]').get_offset() == 29
+    assert dtree.eval_expr('^^^blocks[1]').get_size() == 33
+    assert model.make_python_object(dtree.eval_expr('^blocks[2]')) == \
+       '\x17\x00\x00\x00even more contents data'
+    assert model.make_python_object(dtree.eval_expr('^(^blocks)[2]')) == \
+       '\x17\x00\x00\x00even more contents data'
+    assert model.make_python_object(dtree.eval_expr('^^blocks[2]')) == \
+       'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh'
+    assert model.make_python_object(dtree.eval_expr('^^blocks[1..][1]')) == \
+       'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh'
+    assert model.make_python_object(dtree.eval_expr('^^^blocks[2]')) == \
+    'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh\n'
+    assert model.make_python_object(dtree.eval_expr('^^^^blocks[2]')) == \
+       'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh\n'
 
 
 spec_file_filter_in_field_expression = """
@@ -372,12 +384,12 @@ def test_filter_3(params_filter_3):
     assert dtree.a_as_int == 1
     assert dtree.b_as_int == 2
     assert dtree['?nb_as_struct'].value == 1
-    #with pytest.raises(AttributeError):
-    #    dtree.eval_expr('^?nb_as_struct').value
+    with pytest.raises(AttributeError):
+        dtree.eval_expr('^?nb_as_struct').value
     assert dtree.eval_expr('a_as_int') == 1
-    #assert model.make_python_object(dtree.eval_expr('^a_as_int')) == '\x01'
-    #with pytest.raises(AttributeError):
-    #    dtree.eval_expr('^?a_as_struct').value
+    assert model.make_python_object(dtree.eval_expr('^a_as_int')) == '\x01'
+    with pytest.raises(AttributeError):
+        dtree.eval_expr('^?a_as_struct').value
 
 
 spec_file_filter_invalid_no_data_source_1 = """
@@ -416,7 +428,7 @@ let B64Message = Base64Line: struct {
 };
 
 file {
-    hdr:      byte[]: B64Header;
+    hdr:      B64Header;
     messages: B64Message[hdr.?nb_messages];
     garbage:  byte[];
 
@@ -429,7 +441,7 @@ data_file_filter_encoded_integer_field = """
 "AAAAAw==\n"     # nb_messages=3
 "aGVsbG8=\n"     # hello
 "YmVhdXRpZnVs\n" # beautiful
-"d29ybGQ=\n"     " world
+"d29ybGQ=\n"     # world
 "some random garbage that should not be read\n"
 """
 
@@ -465,7 +477,7 @@ file {
 }
 
 let DecodedFile = struct {
-    hdr:      byte[]: B64Header;
+    hdr:      B64Header;
     messages: B64Message[hdr.?nb_messages];
     garbage:  byte[];
 };
@@ -515,7 +527,7 @@ let Message = struct {
 };
 
 file {
-    hdr:      byte[]: B64Header;
+    hdr:      B64Header;
     messages: Message[hdr.?nb_messages];
     garbage:  byte[];
 
@@ -545,8 +557,7 @@ data_file_filter_base64_selector = """
     }, {
         'spec': spec_file_filter_base64_selector,
         'data': data_file_filter_base64_selector,
-    }
-])
+    }])
 def params_filter_messages(request):
     return conftest.make_testcase(request.param)
 
@@ -563,11 +574,11 @@ def test_filter_messages(params_filter_messages):
     assert str(dtree.messages[1].data) == 'beautiful'
     assert len(dtree.messages[2].data) == 5
     assert str(dtree.messages[2].data) == 'world'
-    assert dtree.eval_expr('messages[2].?data') == 'world'
+    assert str(dtree.eval_expr('messages[2].?data')) == 'world'
     assert model.make_python_object(
         dtree.eval_expr('messages[2].?data_as_split_strings')) == {
             'first_two': 'wo', 'remain': 'rld' };
-    assert dtree['?first_message_data_3_chars'] == 'hel'
+    assert str(dtree['?first_message_data_3_chars']) == 'hel'
     with pytest.raises(IndexError):
         print str(dtree.messages[3].data)
 
@@ -627,10 +638,10 @@ def test_ancestor_operator__as_type(params_ancestor_operator__as_type):
     params = params_ancestor_operator__as_type
     dtree = params['dtree']
 
-    #assert model.make_python_object(dtree.eval_expr('^contents')) == \
-    #    '\x10\x00\x00\x00as contents data'
-    #assert model.make_python_object(dtree.eval_expr('^^contents')) == \
-    #    '\x10\x00\x00\x00as contents data'
+    assert model.make_python_object(dtree.eval_expr('^contents')) == \
+        '\x10\x00\x00\x00as contents data'
+    assert model.make_python_object(dtree.eval_expr('^^contents')) == \
+        '\x10\x00\x00\x00as contents data'
 
 
 @pytest.fixture(
@@ -647,14 +658,14 @@ def test_ancestor_operator__as_type_twice(params_ancestor_operator__as_type_twic
     params = params_ancestor_operator__as_type_twice
     dtree = params['dtree']
 
-    #assert model.make_python_object(dtree.eval_expr('^contents')) == {
-    #    'n': 16,
-    #    'dummy': 'as contents data'
-    #}
-    #assert model.make_python_object(dtree.eval_expr('^^contents')) == \
-    #    '\x10\x00\x00\x00as contents data'
-    #assert model.make_python_object(dtree.eval_expr('^^^contents')) == \
-    #    '\x10\x00\x00\x00as contents data'
+    assert model.make_python_object(dtree.eval_expr('^contents')) == {
+        'n': 16,
+        'dummy': 'as contents data'
+    }
+    assert model.make_python_object(dtree.eval_expr('^^contents')) == \
+        '\x10\x00\x00\x00as contents data'
+    assert model.make_python_object(dtree.eval_expr('^^^contents')) == \
+        '\x10\x00\x00\x00as contents data'
 
 @pytest.fixture(
     scope='module',
@@ -670,11 +681,11 @@ def test_ancestor_operator__as_type_anon_hop(params_ancestor_operator__as_type_a
     params = params_ancestor_operator__as_type_anon_hop
     dtree = params['dtree']
 
-    #assert model.make_python_object(dtree.eval_expr('^contents')) == \
-    #    '\x10\x00\x00\x00as contents data'
+    assert model.make_python_object(dtree.eval_expr('^contents')) == \
+        '\x10\x00\x00\x00as contents data'
 
-    #assert model.make_python_object(dtree.eval_expr('^^contents')) == \
-    #    '\x10\x00\x00\x00as contents data'
+    assert model.make_python_object(dtree.eval_expr('^^contents')) == \
+        '\x10\x00\x00\x00as contents data'
 
 
 
@@ -717,7 +728,6 @@ def test_ancestor_of_u8(params_ancestor_of_u8):
 
 spec_file_non_slack_array_filtered = """
 
-let u32 = byte[4]: integer { signed: false; };
 let NullTermFixedString = byte[8]: string { boundary: '\\0'; };
 
 file {
@@ -744,12 +754,200 @@ def test_non_slack_array_filtered(params_non_slack_array_filtered):
     params = params_non_slack_array_filtered
     dtree = params['dtree']
 
-    assert dtree.contents == 'hello'
-    assert dtree.contents[1:] == 'ello'
+    assert str(dtree) == 'hello\0\0\0'
+    assert str(dtree.contents) == 'hello'
+    assert str(dtree.contents[1:]) == 'ello'
     assert model.make_python_object(
         dtree.eval_expr('contents')) == 'hello'
     assert model.make_python_object(
         dtree.eval_expr('contents[1..]')) == 'ello'
-    # FIXME when len != span_size, len should be 5
     assert dtree.eval_expr('len(contents)') == 5
+    assert len(dtree.eval_expr('contents')) == 5
+    assert dtree.eval_expr('len(^contents)') == 8
+    assert len(dtree.eval_expr('^contents')) == 8
     assert dtree.eval_expr('len(contents[1..])') == 4
+    assert len(dtree.eval_expr('contents[1..]')) == 4
+    assert dtree.eval_expr('sizeof(contents)') == 8
+    assert dtree.eval_expr('sizeof(^contents)') == 8
+    assert dtree.eval_expr('sizeof((^contents)[1..])') == 7
+
+
+
+spec_file_nested_filter_defining_size = """
+
+let Base64 = base64 {};
+let Base64LS = string { boundary: '\\n'; }: Base64;
+let Base64Line = byte[]: Base64LS;
+
+let Item = Base64Line: string { boundary: ' '; };
+
+file {
+    contents: Item[];
+}
+
+"""
+
+data_file_nested_filter_defining_size = """
+"aG9wIFhYWFhY\n"
+"eW9sbyBYWFhYWFhYWFhY\n"
+"enVsdSBYWFg="
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_nested_filter_defining_size,
+        'data': data_file_nested_filter_defining_size,
+    }])
+def params_nested_filter_defining_size(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_nested_filter_defining_size(params_nested_filter_defining_size):
+    params = params_nested_filter_defining_size
+    dtree = params['dtree']
+
+    assert model.make_python_object(dtree.contents) == \
+        ['hop', 'yolo', 'zulu']
+
+
+
+spec_file_dynamic_filter_param_integer = """
+
+let u8 = byte: integer { signed: false; };
+
+file {
+    little_endian: u8;
+    if (little_endian == 1) {
+        let ?endian = 'little';
+    } else if (little_endian == 0) {
+        let ?endian = 'big';
+    }
+
+    let Integer = integer { endian: ?endian; signed: false; };
+    let u16 = byte[2]: Integer;
+
+    values: u16[5];
+}
+
+"""
+
+data_file_dynamic_filter_param_integer_1 = """
+# little endian
+00
+# values
+00 01 00 02 00 03 00 04 00 05
+"""
+
+data_file_dynamic_filter_param_integer_2 = """
+# big endian
+01
+# values
+01 00 02 00 03 00 04 00 05 00
+"""
+
+data_file_dynamic_filter_param_integer_error_1 = """
+# unknown endian
+02
+# values
+01 00 02 00 03 00 04 00 05 00
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_dynamic_filter_param_integer,
+        'data': data_file_dynamic_filter_param_integer_1,
+        'error': False,
+    }, {
+        'spec': spec_file_dynamic_filter_param_integer,
+        'data': data_file_dynamic_filter_param_integer_2,
+        'error': False,
+    }, {
+        'spec': spec_file_dynamic_filter_param_integer,
+        'data': data_file_dynamic_filter_param_integer_error_1,
+        'error': True,
+    }])
+def params_dynamic_filter_param_integer(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_dynamic_filter_param_integer(params_dynamic_filter_param_integer):
+    params = params_dynamic_filter_param_integer
+    dtree, error = params['dtree'], params['error']
+
+    if error:
+        with pytest.raises(ValueError):
+            dtree.values[0]
+    else:
+        assert model.make_python_object(dtree.values) == [1, 2, 3, 4, 5]
+
+
+spec_file_dynamic_filter_param_string = """
+
+let u8 = byte: integer { signed: false; };
+
+file {
+    let BoundedString = byte[]: string { boundary: boundary; };
+
+    boundary_size: u8;
+    boundary: byte[boundary_size]: string;
+
+    values: BoundedString[];
+}
+
+"""
+
+data_file_dynamic_filter_param_string_1 = """
+# delimiter size
+01
+# delimiter
+00
+# values
+"uno" 00
+"dos" 00
+"tres" 00
+"cuatro" 00
+"cinco" 00
+"""
+
+data_file_dynamic_filter_param_string_2 = """
+# delimiter size
+02
+# delimiter
+"  "
+# values
+"uno  dos  tres  cuatro  cinco"
+"""
+
+data_file_dynamic_filter_param_string_3 = """
+# delimiter size
+09
+# delimiter
+"--delim--"
+# values
+"uno--delim--dos--delim--tres--delim--cuatro--delim--cinco--delim--"
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_dynamic_filter_param_string,
+        'data': data_file_dynamic_filter_param_string_1,
+    }, {
+        'spec': spec_file_dynamic_filter_param_string,
+        'data': data_file_dynamic_filter_param_string_2,
+    }, {
+        'spec': spec_file_dynamic_filter_param_string,
+        'data': data_file_dynamic_filter_param_string_3,
+    }])
+def params_dynamic_filter_param_string(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_dynamic_filter_param_string(params_dynamic_filter_param_string):
+    params = params_dynamic_filter_param_string
+    dtree = params['dtree']
+
+    assert model.make_python_object(dtree.values) == \
+        ['uno', 'dos', 'tres', 'cuatro', 'cinco']

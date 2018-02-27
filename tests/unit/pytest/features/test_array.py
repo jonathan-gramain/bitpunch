@@ -229,10 +229,9 @@ def test_array_keyed_items(params_array_keyed_items):
     dtree = params['dtree']
     assert len(dtree.integers) == 3
     assert dtree.integers['charlie'].value == 3
-    assert dtree.eval_expr('integers["charlie"].value') == 3
     assert dtree.integers['alpha'].value == 1
-    assert dtree.integers['charlie'].value == 3
     assert dtree.integers['bravo'].value == 2
+    assert dtree.eval_expr('integers["charlie"].value') == 3
 
     assert ([str(key) for key in dtree.integers.iter_keys()]
             == ['alpha', 'bravo', 'charlie'])

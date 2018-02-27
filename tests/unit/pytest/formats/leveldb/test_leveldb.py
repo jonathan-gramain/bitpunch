@@ -22,31 +22,34 @@ import conftest
 @pytest.fixture
 def spec_log():
     fmt = """
-let u8 = byte: integer { signed: false; };
-let u16 = byte[2]: integer { signed: false; endian: 'little'; };
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+    let FixInt = integer { signed: false; endian: 'little'; };
 
-file {
-    head_blocks: LogBlock[];
-    tail_block:  LogTailBlock;
-}
+    let FixInt8 =  byte:    FixInt;
+    let FixInt16 = byte[2]: FixInt;
+    let FixInt32 = byte[4]: FixInt;
 
-let LogBlock = struct {
-    records:     Record[];
-    trailer:     byte[];
-    span 32768;
-};
+    file {
+        head_blocks: LogBlock[];
+        tail_block: LogTailBlock;
+    }
 
-let LogTailBlock = struct {
-    records:     Record[];
-};
+    let LogBlock = struct {
+           records: Record[];
+           trailer: byte[];
+           span 32768;
+    };
 
-let Record = struct {
-    checksum:    u32;
-    length:      u16;
-    rtype:       u8;
-    data:        byte[length]: string;
-};
+    let LogTailBlock = struct {
+           records: Record[];
+    };
+
+    let Record = struct {
+           checksum: FixInt32;
+           length:   FixInt16;
+           rtype:    FixInt8;
+           data:     byte[length]: string;
+           minspan 7;
+    };
 """
 
     return model.FormatSpec(fmt)
@@ -171,56 +174,109 @@ def test_leveldb_log_multiblock(spec_log, data_log_multiblock):
 
 
 #
-# SST index block
+# LDB test (SST structures)
 #
 
 @pytest.fixture
-def spec_sst_index():
+def spec_ldb():
     return """
-    let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+    let FixInt   = integer { signed: false; endian: 'little'; };
+    let FixInt8  = byte: FixInt;
+    let FixInt32 = byte[4]: FixInt;
+    let VarInt   = byte[]: varint;
 
-    let VarInt = byte[]: varint {};
+    let CompressedDataBlock = byte[]: snappy: DataBlock;
 
-    let BlockHandle = struct {
-        offset:              VarInt;
-        size:                VarInt;
+    let DataBlock = struct {
+        entries:     KeyValue[];
+        restarts:    FixInt32[nb_restarts];
+        nb_restarts: FixInt32;
     };
 
-    let IndexEntry = struct {
+    let KeyValue = struct {
         key_shared_size:     VarInt;
         key_non_shared_size: VarInt;
         value_size:          VarInt;
         key_non_shared:      byte[key_non_shared_size];
         value:               byte[value_size];
+    };
 
-        let ?data_block = value: BlockHandle;
+    let BlockTrailer = struct {
+        blocktype: FixInt8;
+        crc:       FixInt32;
+    };
+
+    let FileBlock = struct {
+        if (trailer.blocktype == 0) { // uncompressed
+            :    DataBlock;
+        }
+        if (trailer.blocktype == 1) {
+            :    CompressedDataBlock;
+        }
+        trailer: BlockTrailer;
+    };
+
+    let BlockHandle = struct {
+        offset: VarInt;
+        size:   VarInt;
+
+        let ?stored_block =
+            file.payload[offset .. offset + size + sizeof(BlockTrailer)]
+                : FileBlock;
+    };
+
+    let Footer = struct {
+        metaindex_handle: BlockHandle;
+        index_handle:     BlockHandle;
+        :                 byte[];
+        magic:            byte[8];
+        span 48;
     };
 
     file {
-        entries:     IndexEntry[];
-        restarts:    u32[nb_restarts];
-        nb_restarts: u32;
+        payload: byte[];
+        footer:  Footer;
+
+        let ?index =     footer.index_handle;
+        let ?metaindex = footer.metaindex_handle;
     }
     """
 
 @pytest.fixture
-def data_sst_index_block_1():
+def data_ldb():
     return {
-        'data': conftest.load_test_dat(__file__, 'sst_index_block_1.dat'),
+        'data': conftest.load_test_dat(__file__, 'test1.ldb'),
         'nb_entries': 237
     }
 
 
-def test_sst_index_block(spec_sst_index,
-                         data_sst_index_block_1):
-    data, nb_entries = (data_sst_index_block_1['data'],
-                        data_sst_index_block_1['nb_entries'])
-    dtree = model.DataTree(data, spec_sst_index)
-    assert len(dtree.entries) == nb_entries
+def test_ldb(spec_ldb, data_ldb):
+    data, nb_entries = (data_ldb['data'],
+                        data_ldb['nb_entries'])
+    dtree = model.DataTree(data, spec_ldb)
+    index = dtree.eval_expr('?index')
+    assert index.offset == 265031
+    assert index.size == 5676
+    index_block = index['?stored_block']
+    # 5 more bytes than the stored size because block size includes
+    # the trailer
+    assert index_block.get_location() == (265031, 5681)
+    assert len(index_block.entries) == nb_entries
     last_index = None
-    for i, entry in enumerate(dtree.entries):
+    for i, entry in enumerate(index_block.entries):
         last_index = i
-        model.make_python_object(entry)
     assert last_index == nb_entries - 1
-    assert len(dtree.restarts) == dtree.nb_restarts
-    assert dtree.restarts.get_size() == dtree.nb_restarts * 4
+    assert len(index_block.restarts) == index_block.nb_restarts
+    assert index_block.restarts.get_size() == index_block.nb_restarts * 4
+
+    # get a child block now
+    child_handle = index_block.eval_expr('entries[42].value: BlockHandle')
+    assert child_handle.offset == 33953
+    assert child_handle.size == 821
+    child_block = child_handle['?stored_block']
+    assert child_block.get_location() == (33953, 826)
+    assert child_block.trailer.blocktype == 1 # compressed
+    assert len(child_block.entries) == 9
+    assert len(child_block.entries[4].value) == 479
+    # location is relative to the uncompressed block
+    assert child_block.entries[4].value.get_location() == (1990, 479)

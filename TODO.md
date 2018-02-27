@@ -81,11 +81,6 @@ A goal is to have bindings well integrated with the language features,
 not just mappings to the C API function calls (so it's more work, but
 it's worth it!).
 
-### Better semantic checking
-
-Especially detect circular dependencies in schema files that would
-lead to error during browse (typically stack overflow).
-
 ### Full check
 
 CLI command + API call to do a complete sanity check of a file (can be
@@ -181,17 +176,6 @@ This is NOT an organized or prioritized list.
     errors occur, e.g. with tracker_error_add_xxx_context() (show
     expressions from source schema etc.)
 
-- filters (merge with interpreters?) based on custom implementation
-  that creates a new byte buffer from a source byte buffer.
-
-  - As a first iteration, support python language to transform a blob
-    of data into another form (like interpreters do), and implement
-    snappy as an example for leveldb.
-
-  - The destination buffer is encapsulated in a box and can be tracked
-    in turn (and destroyed when the box gets destroyed, or cached when
-    the box is cached)
-
 - implement reverse lookup of a dpath (or a list of dpaths) from an
   address (or an address range)
 
@@ -217,9 +201,6 @@ This is NOT an organized or prioritized list.
   referring to the same slack container), and to be able to do more
   sanity checks on boundaries, or to inform about unused space.
 
-- add error detection at parse time on circular dependencies to avoid
-  infinite loops at runtime
-
 - add support for bit fields
 
 - CLI
@@ -244,25 +225,17 @@ This is NOT an organized or prioritized list.
   (implementation will be naturally efficient by the dispatch of
   conditions per block statement)
 
-- conditional types (e.g. if little/big endian is decided from the
-  value of a field)
-
 - param to choose how sign is encoded in integers (2's complement /
   sign bit)
 
 - filter for PCAP files
 
-- allow duplicate names in fields (useful for e.g. if/else)
-
-  - the first field fulfilling a condition is taken, following ones
-    are ignored
-
 - box_get_n_items__slice_generic() can be inefficient (and catch
   further errors in the array too early) by doing a browse of all
   items in the array in case the array is slack
 
- - if the array is slack, browsing the slice only should be good
-   (to know for sure the number of valid items)
+  - if the array is slack, browsing the slice only should be good
+    (to know for sure the number of valid items)
 
 - in py.test test files: parse a syntax for data blob description so
   that actual byte offsets can be registered and tested thereafter
@@ -274,8 +247,6 @@ This is NOT an organized or prioritized list.
 - interpreter callbacks should be able to return tracker errors by
   themselves
 
-BUG: rework filter operator '*' to make it work again
-
 BUG: interpreters declared after 'key' statement are not initialized
 correctly (b_filter is empty)
 
@@ -284,3 +255,13 @@ correctly (b_filter is empty)
   support for globals)
 
 - insert type ITEM_ARRAY to distinguish with BYTE_ARRAY after compilation
+
+- rework handling of field alignment
+
+  - detect size dependencies between packed fields to know their
+    alignment compatibility
+
+  - compile-time errors when alignment is incorrect (unsatisfiable
+    size dependencies)
+
+  - use of proper alignment at runtime when conditionals change alignment

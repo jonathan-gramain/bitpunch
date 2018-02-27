@@ -46,7 +46,7 @@ def test_tinydb(spec, data_ok1):
 
     assert len(dom['values']) == 3
     values = dom['values']
-    assert values[1].key_value == 'size'
+    assert str(values[1].key_value) == 'size'
     with pytest.raises(IndexError):
         a = values[3].key_value
         with pytest.raises(TypeError):
@@ -55,7 +55,7 @@ def test_tinydb(spec, data_ok1):
     expected_keys = ['color', 'size', 'description']
     niter = 0
     for item, expected_key in zip(values, expected_keys):
-        assert item.key_value == expected_key
+        assert str(item.key_value) == expected_key
         niter += 1
     assert niter == 3
 
@@ -76,12 +76,13 @@ def test_tinydb(spec, data_ok1):
             #    item.iter_items())) == expected_first_item_items
             first_item = False
 
-    description = [item for item in values if item.key_value == 'description'][0]
+    description = [item for item in values
+                   if str(item.key_value) == 'description'][0]
 
     item = values[1]
     assert 'key_value' in item
-    assert item.key_value == 'size'
-    assert item['key_value'] == 'size'
+    assert str(item.key_value) == 'size'
+    assert str(item['key_value']) == 'size'
     assert model.make_python_object(item.value) == 'two feet'
     assert model.make_python_object(item['value']) == 'two feet'
 

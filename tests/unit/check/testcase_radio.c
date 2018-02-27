@@ -145,8 +145,7 @@ static void testcase_radio_teardown(void)
 }
 
 static void check_codename_value(struct radio_source_info *info,
-                                 enum expr_value_type type,
-                                 union expr_value value,
+                                 expr_value_t value,
                                  int code_idx)
 {
     const char *codename;
@@ -155,7 +154,7 @@ static void check_codename_value(struct radio_source_info *info,
     codename = radio_codenames[code_idx];
     expect_size = strlen(codename);
 
-    ck_assert_int_eq(type, EXPR_VALUE_TYPE_STRING);
+    ck_assert_int_eq(value.type, EXPR_VALUE_TYPE_STRING);
     ck_assert_int_eq(value.string.len, expect_size);
     ck_assert(0 == memcmp(value.string.str,
                           codename, value.string.len));
@@ -166,38 +165,29 @@ static void check_codename_item(struct radio_source_info *info,
                                 int code_idx)
 {
     bitpunch_status_t bt_ret;
-    struct box *parent_box;
     int64_t code_offset;
     int64_t expect_offset;
-    enum expr_value_type type;
-    union expr_value value;
+    expr_value_t value;
 
     expect_offset = info->codename_offset[code_idx];
 
     if (NULL != tk->dpath) {
-        bt_ret = tracker_read_item_value(tk, &type, &value, NULL);
+        bt_ret = tracker_read_item_value(tk, &value, NULL);
     } else {
-        bt_ret = box_read_value(tk->box, &type, &value, NULL);
+        bt_ret = box_read_value(tk->box, &value, NULL);
     }
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     if (NULL != tk->dpath) {
         bt_ret = tracker_get_item_offset(tk, &code_offset, NULL);
         ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     } else {
-        if (NULL != tk->box->parent_box) {
-            parent_box = tk->box->parent_box;
-        } else {
-            assert(NULL != tk->box->unfiltered_box);
-            parent_box = tk->box->unfiltered_box;
-            assert(0 == tk->box->start_offset_used);
-        }
         assert(NULL != tk->box->dpath.item);
-        code_offset = parent_box->start_offset_used;
+        code_offset = tk->box->start_offset_used;
     }
     ck_assert_int_eq(code_offset, expect_offset);
 
-    check_codename_value(info, type, value, code_idx);
-    expr_value_destroy(type, value);
+    check_codename_value(info, value, code_idx);
+    expr_value_destroy(value);
 }
 
 static void check_codename_entry(struct radio_source_info *info,
@@ -208,8 +198,7 @@ static void check_codename_entry(struct radio_source_info *info,
     int64_t expect_size;
     struct tracker *tk2;
     bitpunch_status_t bt_ret;
-    enum expr_value_type type;
-    union expr_value value;
+    expr_value_t value;
 
     codename = radio_codenames[code_idx];
     expect_size = strlen(codename);
@@ -219,22 +208,22 @@ static void check_codename_entry(struct radio_source_info *info,
     bt_ret = tracker_enter_item(tk2, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = box_evaluate_attribute_value(tk2->box, "codename",
-                                          &type, &value, NULL);
+                                          &value, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-    check_codename_value(info, type, value, code_idx);
-    expr_value_destroy(type, value);
+    check_codename_value(info, value, code_idx);
+    expr_value_destroy(value);
     if (!info->codename_is_named_expr) {
         bt_ret = tracker_goto_named_item(tk2, "codename", NULL);
         ck_assert_int_eq(bt_ret, BITPUNCH_OK);
         check_codename_item(info, tk2, code_idx);
     }
-    bt_ret = tracker_get_item_key(tk, &type, &value, NULL);
+    bt_ret = tracker_get_item_key(tk, &value, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-    ck_assert_int_eq(type, EXPR_VALUE_TYPE_STRING);
+    ck_assert_int_eq(value.type, EXPR_VALUE_TYPE_STRING);
     ck_assert_int_eq(value.string.len, expect_size);
     ck_assert(0 == memcmp(value.string.str,
                           codename, value.string.len));
-    expr_value_destroy(type, value);
+    expr_value_destroy(value);
     tracker_delete(tk2);
 }
 
@@ -310,7 +299,7 @@ void testcase_radio_launch_test_index(struct radio_source_info *info)
     bitpunch_status_t bt_ret;
     int c;
     int code_idx;
-    union expr_value item_key;
+    expr_value_t item_key;
 
     tk = track_file(info->bp, info->bin, NULL);
     ck_assert(NULL != tk);

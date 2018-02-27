@@ -34,7 +34,7 @@
 
 struct tracker;
 struct box;
-union expr_value;
+typedef struct expr_value expr_value_t;
 
 enum container_type {
     CONTAINER_TYPE_BLOCK = 1,
@@ -50,6 +50,8 @@ struct track_path {
     } type;
     enum track_path_flags {
         TRACK_PATH_IS_ANCESTOR = (1u<<0),
+        TRACK_PATH_HEADER      = (1u<<1),
+        TRACK_PATH_TRAILER     = (1u<<2),
     } flags;
     union {
         struct {
@@ -68,40 +70,6 @@ struct track_path {
 static const struct track_path TRACK_PATH_NONE = {
     .type = TRACK_PATH_NOTYPE
 };
-
-static inline struct track_path
-track_path_from_block_field(const struct field *field)
-{
-    struct track_path ret;
-
-    memset(&ret, 0, sizeof (ret));
-    ret.type = TRACK_PATH_BLOCK;
-    ret.u.block.field = field;
-    return ret;
-}
-
-static inline struct track_path
-track_path_from_array_index(int64_t index)
-{
-    struct track_path ret;
-
-    memset(&ret, 0, sizeof (ret));
-    ret.type = TRACK_PATH_ARRAY;
-    ret.u.array.index = index;
-    return ret;
-}
-
-static inline struct track_path
-track_path_from_array_slice(int64_t index_start, int64_t index_end)
-{
-    struct track_path ret;
-
-    memset(&ret, 0, sizeof (ret));
-    ret.type = TRACK_PATH_ARRAY_SLICE;
-    ret.u.array.index = index_start;
-    ret.u.array_slice.index_end = index_end;
-    return ret;
-}
 
 static inline int
 track_path_eq(struct track_path p1, struct track_path p2)
@@ -124,26 +92,18 @@ track_path_eq(struct track_path p1, struct track_path p2)
     }
 }
 
-struct source_box_stack_item {
-    SLIST_ENTRY(source_box_stack_item) stack;
-    struct box *source_box;
-};
-
 struct browse_state {
     struct tracker_error_slist *expected_errors;
     struct tracker_error *last_error;
-    SLIST_HEAD(source_box_stack,
-               source_box_stack_item) source_box_stack;
 };
 
 
 struct filter_backend {
-    bitpunch_status_t (*read_value)(const struct ast_node_hdl *item_filter,
+    bitpunch_status_t (*read_value)(struct ast_node_hdl *item_filter,
                                     struct box *scope,
                                     int64_t item_offset,
                                     int64_t item_size,
-                                    enum expr_value_type *typep,
-                                    union expr_value *valuep,
+                                    expr_value_t *valuep,
                                     struct browse_state *bst);
 };
 
@@ -160,14 +120,14 @@ struct box_backend {
     bitpunch_status_t (*compute_min_span_size)(struct box *box,
                                               struct browse_state *bst);
     bitpunch_status_t (*get_max_slack_offset)(struct box *box,
-                                             int64_t *max_slack_offsetp,
-                                             struct browse_state *bst);
+                                              int get_left_offset,
+                                              int64_t *max_slack_offsetp,
+                                              struct browse_state *bst);
 };
 
 struct tracker_backend {
     bitpunch_status_t (*get_item_key)(struct tracker *tk,
-                                     enum expr_value_type *key_typep,
-                                     union expr_value *keyp,
+                                     expr_value_t *keyp,
                                      int *nth_twinp,
                                      struct browse_state *bst);
     bitpunch_status_t (*compute_item_size)(struct tracker *tk,
@@ -184,14 +144,14 @@ struct tracker_backend {
                                         const char *name,
                                         struct browse_state *bst);
     bitpunch_status_t (*goto_next_key_match)(struct tracker *tk,
-                                            union expr_value index,
+                                            expr_value_t index,
                                             struct track_path search_boundary,
                                             struct browse_state *bst);
     bitpunch_status_t (*goto_next_item_with_key)(struct tracker *tk,
-                                                union expr_value item_key,
+                                                expr_value_t item_key,
                                                 struct browse_state *bst);
     bitpunch_status_t (*goto_nth_item_with_key)(struct tracker *tk,
-                                               union expr_value item_key,
+                                               expr_value_t item_key,
                                                int nth_twin,
                                                struct browse_state *bst);
 };

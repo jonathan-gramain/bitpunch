@@ -126,10 +126,6 @@ def test_varint_pools(params_varint_pools):
 
 
 spec_varint_in_blocks = """
-let u8 = byte: integer { signed: false; };
-let u16 = byte[2]: integer { signed: false; endian: 'little'; };
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
-
 let VarInt = byte[]: varint;
 
 file {

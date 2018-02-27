@@ -79,6 +79,7 @@ void *malloc_safe(size_t size);
 void *realloc_safe(void *pt, size_t new_size);
 #define malloc0_safe(size) memset(malloc_safe(size), 0, (size))
 #define new_safe(type) ((type *) malloc0_safe(sizeof (type)))
+#define new_n_safe(type, n) ((type *) malloc0_safe(sizeof (type) * (n)))
 #define dup_safe(pt) ((typeof (pt)) memcpy(malloc_safe(sizeof (*(pt))), (pt), sizeof (*(pt))))
 char *strdup_safe(const char *s);
 // offsetof() may not be available on all platforms or in GDB debug

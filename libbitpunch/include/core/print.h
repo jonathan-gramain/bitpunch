@@ -43,7 +43,7 @@ print_expr_string(const struct expr_value_string *string, FILE *stream);
 int
 print_expr_bytes(const struct expr_value_bytes *bytes, FILE *stream);
 int
-print_expr_value(enum expr_value_type type, union expr_value value,
+print_expr_value(enum expr_value_type type, expr_value_t value,
                  FILE *stream);
 int
 print_bytes(const char *bytes, int64_t length, FILE *stream,

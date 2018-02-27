@@ -62,7 +62,6 @@ enum resolve_identifiers_tag {
 enum compile_tag {
     COMPILE_TAG_NODE_TYPE = (1u<<0),
     COMPILE_TAG_NODE_SPAN_SIZE = (1u<<1),
-    COMPILE_TAG_NODE_FLAGS = (1u<<2),
 };
 
 struct compile_ctx {
@@ -72,7 +71,6 @@ struct compile_ctx {
     dep_resolver_tagset_t current_tags;
     const char *current_node_family;
     FILE *deps_dot;
-    struct ast_node_hdl *ast_root;
 };
 
 int
@@ -103,13 +101,15 @@ dpath_node_reset(struct dpath_node *dpath);
 int
 ast_node_is_rexpr(const struct ast_node_hdl *node);
 int
-ast_node_is_rexpr_to_item(const struct ast_node_hdl *node);
+ast_node_is_rexpr_dpath(const struct ast_node_hdl *node);
 struct ast_node_hdl *
 ast_node_get_target_item(struct ast_node_hdl *node);
 struct ast_node_hdl *
 ast_node_get_target_type(struct ast_node_hdl *node);
 struct ast_node_hdl *
 ast_node_get_target_filter(struct ast_node_hdl *node);
+struct ast_node_hdl *
+ast_node_get_filter_end_target(struct ast_node_hdl *node);
 struct ast_node_hdl *
 ast_node_get_named_expr_target(struct ast_node_hdl *node);
 int
@@ -128,8 +128,10 @@ int
 ast_node_is_type(const struct ast_node_hdl *node);
 int
 ast_node_is_filter(const struct ast_node_hdl *node);
-const struct ast_node_hdl *
-ast_node_get_as_type(const struct ast_node_hdl *node);
+struct ast_node_hdl *
+ast_node_filter_get_last_in_chain(struct ast_node_hdl *filter);
+struct ast_node_hdl *
+ast_node_get_as_type(struct ast_node_hdl *node);
 int64_t
 ast_node_get_min_span_size(const struct ast_node_hdl *node);
 int
@@ -140,10 +142,10 @@ struct ast_node_hdl *
 ast_node_get_key_expr(const struct ast_node_hdl *node);
 enum expr_value_type
 ast_node_get_key_type(const struct ast_node_hdl *node);
-const struct ast_node_hdl *
+struct ast_node_hdl *
 dpath_node_get_as_type(const struct dpath_node *dpath);
-const struct ast_node_hdl *
-dpath_node_get_value_node(const struct dpath_node *dpath);
+struct ast_node_hdl *
+dpath_node_get_target_filter(const struct dpath_node *dpath);
 void
 dump_ast_location(struct ast_node_hdl *node);
 void

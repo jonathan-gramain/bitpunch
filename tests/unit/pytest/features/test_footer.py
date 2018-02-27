@@ -5,7 +5,7 @@ import pytest
 from bitpunch import model
 import conftest
 
-spec_file_footer_static_sized = """
+spec_file_footer_static_sized_byte_array = """
 
 file {
     contents: byte[];
@@ -14,11 +14,38 @@ file {
 
 """
 
+spec_file_footer_static_sized_struct = """
+
+let Footer = struct {
+    data1: byte[4];
+    data2: byte[2];
+};
+
+file {
+    contents: byte[];
+    footer: Footer;
+}
+
+"""
+
+spec_file_footer_static_sized_span = """
+
+let Footer = struct {
+    data: byte[];
+    span 6;
+};
+
+file {
+    contents: byte[];
+    footer: Footer;
+}
+
+"""
+
 data_file_footer_static_sized = """
 "some random data"
 "footer"
 """
-
 
 spec_file_footer_dynamic_sized_len_at_start = """
 
@@ -61,7 +88,13 @@ data_file_footer_dynamic_sized_len_in_footer = """
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_file_footer_static_sized,
+        'spec': spec_file_footer_static_sized_byte_array,
+        'data': data_file_footer_static_sized,
+    }, {
+        'spec': spec_file_footer_static_sized_struct,
+        'data': data_file_footer_static_sized,
+    }, {
+        'spec': spec_file_footer_static_sized_span,
         'data': data_file_footer_static_sized,
     }, {
         'spec': spec_file_footer_dynamic_sized_len_at_start,
@@ -70,21 +103,21 @@ data_file_footer_dynamic_sized_len_in_footer = """
         'spec': spec_file_footer_dynamic_sized_len_in_footer,
         'data': data_file_footer_dynamic_sized_len_in_footer,
     }])
-def params_footer(request):
+def params_footer_simple(request):
     return conftest.make_testcase(request.param)
 
 
-def test_footer(params_footer):
-    params = params_footer
+def test_footer_simple(params_footer_simple):
+    params = params_footer_simple
     dtree = params['dtree']
-    assert len(dtree.footer) == 6
+    assert dtree.eval_expr('sizeof(footer)') == 6
 
     assert memoryview(dtree.footer) == 'footer'
     assert memoryview(dtree.contents) == 'some random data'
 
 
 
-spec_file_footer_dynamic_sized_complex_footer = """
+spec_file_footer_dynamic_sized_complex_footer_dynamic_span = """
 
 let u8 = byte: integer { signed: false; };
 let u16 = byte[2]: integer { signed: false; endian: 'big'; };
@@ -95,6 +128,53 @@ let Footer = struct {
     footer_size: u16;
     footer_hdr_size: u8;
     span footer_size;
+};
+
+let Contents = struct {
+    contents: byte[];
+    footer: Footer;
+};
+
+file {
+    root: Contents;
+}
+
+"""
+
+spec_file_footer_dynamic_sized_complex_footer_static_span = """
+
+let u8 = byte: integer { signed: false; };
+let u16 = byte[2]: integer { signed: false; endian: 'big'; };
+
+let Footer = struct {
+    hdr: byte[footer_hdr_size];
+    footer_contents: byte[];
+    footer_size: u16;
+    footer_hdr_size: u8;
+    span 14;
+};
+
+let Contents = struct {
+    contents: byte[];
+    footer: Footer;
+};
+
+file {
+    root: Contents;
+}
+
+"""
+
+spec_file_footer_dynamic_sized_complex_footer_packed = """
+
+let u8 = byte: integer { signed: false; };
+let u16 = byte[2]: integer { signed: false; endian: 'big'; };
+
+let Footer = struct {
+    hdr: byte[footer_hdr_size];
+    footer_contents: byte[6];
+    footer_size: u16;
+    footer_hdr_size: u8;
 };
 
 let Contents = struct {
@@ -119,7 +199,13 @@ data_file_footer_dynamic_sized_complex_footer = """
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_file_footer_dynamic_sized_complex_footer,
+        'spec': spec_file_footer_dynamic_sized_complex_footer_dynamic_span,
+        'data': data_file_footer_dynamic_sized_complex_footer,
+    }, {
+        'spec': spec_file_footer_dynamic_sized_complex_footer_static_span,
+        'data': data_file_footer_dynamic_sized_complex_footer,
+    }, {
+        'spec': spec_file_footer_dynamic_sized_complex_footer_packed,
         'data': data_file_footer_dynamic_sized_complex_footer,
     }])
 def params_footer_complex(request):
@@ -133,66 +219,8 @@ def test_footer_complex(params_footer_complex):
 
     assert dtree.root.footer.get_size() == dtree.root.footer.footer_size
     assert dtree.root.footer.footer_contents.get_size() == 6
+    assert memoryview(dtree.root.footer.hdr) == 'fthdr'
     assert memoryview(dtree.root.footer.footer_contents) == 'footer'
     assert memoryview(dtree.root.contents) == 'some random data'
 
     assert dtree.root.get_size() == 30
-
-
-
-spec_file_footer_with_implicit_padding = """
-
-let u8 = byte: integer { signed: false; };
-let u16 = byte[2]: integer { signed: false; endian: 'big'; };
-let u32 = byte[4]: integer { signed: false; endian: 'big'; };
-
-let Footer = struct {
-    hdr: byte[footer_hdr_size];
-    footer_contents: byte[];
-    footer_size: u16;
-    footer_hdr_size: u8;
-    span footer_size;
-};
-
-let Item = struct {
-    values: u32[3];
-};
-
-let Contents = struct {
-    items: Item[];
-    footer: Footer;
-};
-
-file {
-    root: Contents;
-}
-
-"""
-
-data_file_footer_with_implicit_padding = """
-00 00 00 01 00 00 00 02 00 00 00 03 # root.items[0].values
-"padding"
-"fthdr"
-"footer"
-00 0e
-05
-"""
-
-@pytest.fixture(
-    scope='module',
-    params=[{
-        'spec': spec_file_footer_with_implicit_padding,
-        'data': data_file_footer_with_implicit_padding,
-    }])
-def params_footer_with_implicit_padding(request):
-    return conftest.make_testcase(request.param)
-
-
-def test_footer_with_implicit_padding(params_footer_with_implicit_padding):
-    params = params_footer_with_implicit_padding
-    dtree = params['dtree']
-    assert dtree.root.footer.get_size() == 14
-
-    assert dtree.root.footer.get_size() == dtree.root.footer.footer_size
-    assert dtree.root['items'].get_size() == 12
-    assert dtree.root.get_size() == 33

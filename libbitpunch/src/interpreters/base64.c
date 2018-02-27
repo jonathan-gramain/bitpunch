@@ -73,7 +73,6 @@ base64_decode(const char *encoded, size_t encoded_size,
     in = (const unsigned char *)encoded;
     out = (unsigned char *)decoded;
     if ((encoded_size % 4) != 0) {
-        // TODO log: invalid input
         return -1;
     }
     if (0 == encoded_size) {
@@ -90,7 +89,6 @@ base64_decode(const char *encoded, size_t encoded_size,
          * those bits shall be 0 if and only if all input chars are
          * valid base64 chars. */
         if ((decoded_quad & 0xff000000u) != 0) {
-            // TODO log: invalid input
             return -1;
         }
         *out++ = ((decoded_quad >> 16) & 0xff);
@@ -108,20 +106,19 @@ base64_decode(const char *encoded, size_t encoded_size,
             *out++ = decoded_quad & 0xff;
         }
     } else if (in[1] != '=') {
-        // invalid input
         return -1;
     }
     if ((decoded_quad & 0xff000000u) != 0) {
-        // TODO log: invalid input
         return -1;
     }
     return (char *)out - decoded;
 }
 
 static int
-base64_read(union expr_value *read_value,
+base64_read(struct ast_node_hdl *rcall,
+            expr_value_t *read_value,
             const char *data, size_t span_size,
-            const struct ast_node_hdl *param_values)
+            int *param_is_specified, expr_value_t *param_value)
 {
     size_t decoded_max_length;
     int64_t decoded_length;
@@ -129,23 +126,32 @@ base64_read(union expr_value *read_value,
 
     decoded_max_length = (span_size + 3) & ~0x3;
     if (decoded_max_length > DECODED_BUFFER_MAX_SIZE) {
-        //TODO log
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR,
+                       NULL != rcall ? &rcall->loc : NULL,
+                       "base64 decode buffer too large (%zu bytes, max %d)",
+                       decoded_max_length, DECODED_BUFFER_MAX_SIZE);
         return -1;
     }
     decoded = malloc_safe(decoded_max_length);
     decoded_length = base64_decode(data, span_size, decoded);
     if (-1 == decoded_length) {
+        // TODO add precision regarding the error
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR,
+                       NULL != rcall ? &rcall->loc : NULL,
+                       "invalid base64 input");
         return -1;
     }
+    read_value->type = EXPR_VALUE_TYPE_BYTES;
     read_value->bytes.buf = decoded;
     read_value->bytes.len = decoded_length;
     return 0;
 }
 
 static int
-base64_write(const union expr_value *write_value,
+base64_write(struct ast_node_hdl *rcall,
+             const expr_value_t *write_value,
              char *data, size_t span_size,
-             const struct ast_node_hdl *param_values)
+             int *param_is_specified, expr_value_t *param_value)
 {
     return -1;
 }
@@ -153,7 +159,6 @@ base64_write(const union expr_value *write_value,
 
 static int
 base64_rcall_build(struct ast_node_hdl *rcall,
-                   const struct ast_node_hdl *data_source,
                    const struct ast_node_hdl *param_values,
                    struct compile_ctx *ctx)
 {
@@ -217,16 +222,16 @@ START_TEST(test_base64)
         { 8, "\0\012\023\034\045\056\067\077", -1, NULL },
     };
     int i;
-    union expr_value decoded;
+    expr_value_t decoded;
     const struct testcase *tcase;
     int ret;
 
     for (i = 0; i < N_ELEM(testcases); ++i)
         {
             tcase = &testcases[i];
-            ret = base64_read(&decoded,
+            ret = base64_read(NULL, &decoded,
                               tcase->encoded, tcase->encoded_length,
-                              NULL);
+                              NULL, NULL);
             if (tcase->decoded_length != -1) {
                 ck_assert(ret != -1);
                 ck_assert(decoded.bytes.len == tcase->decoded_length);

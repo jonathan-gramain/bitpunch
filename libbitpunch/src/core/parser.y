@@ -74,15 +74,6 @@
         }                                                       \
     } while (0)
 
-#define AST_NODE_BYTE &shared_ast_node_byte
-#define AST_NODE_ARRAY_SLICE &shared_ast_node_array_slice
-#define AST_NODE_BYTE_SLICE &shared_ast_node_byte_slice
-#define AST_NODE_AS_BYTES &shared_ast_node_as_bytes
-#define AST_NODE_DATA_FILTER &shared_ast_node_data_filter
-#define DPATH_NODE_RAW_BYTE &shared_dpath_node_raw_byte
-#define DPATH_NODE_ARRAY_SLICE &shared_dpath_node_array_slice
-#define DPATH_NODE_BYTE_SLICE &shared_dpath_node_byte_slice
-#define DPATH_NODE_AS_BYTES &shared_dpath_node_as_bytes
 
 #include "utils/queue.h"
 
@@ -128,23 +119,26 @@
     };
 
     typedef int (*interpreter_read_func_t)(
-        union expr_value *read_value,
+        struct ast_node_hdl *rcall,
+        expr_value_t *read_value,
         const char *data, size_t used_size,
-        const struct ast_node_hdl *param_values);
+        int *param_is_specified, expr_value_t *param_value);
 
     typedef int (*interpreter_write_func_t)(
-        const union expr_value *write_value,
+        struct ast_node_hdl *rcall,
+        const expr_value_t *write_value,
         char *data, size_t used_size,
-        const struct ast_node_hdl *param_values);
+        int *param_is_specified, expr_value_t *param_value);
 
     typedef int (*interpreter_get_size_func_t)(
+        struct ast_node_hdl *rcall,
         int64_t *span_sizep,
         int64_t *used_sizep,
         const char *data, int64_t max_span_size,
-        const struct ast_node_hdl *param_values);
+        int *param_is_specified, expr_value_t *param_value);
 
-    typedef union expr_value
-        (*expr_evalop_fn_t)(union expr_value operands[]);
+    typedef expr_value_t
+        (*expr_evalop_fn_t)(expr_value_t operands[]);
 
     struct expr_evaluator {
         enum expr_value_type res_type;
@@ -156,24 +150,15 @@
                               enum expr_value_type opd_types[]);
 
     extern const int SPAN_SIZE_UNDEF;
-    extern struct ast_node_hdl shared_ast_node_byte;
-    extern struct ast_node_hdl shared_ast_node_array_slice;
-    extern struct ast_node_hdl shared_ast_node_byte_slice;
-    extern struct ast_node_hdl shared_ast_node_as_bytes;
-    extern struct ast_node_hdl shared_ast_node_data_filter;
-    extern struct dpath_node shared_dpath_node_raw_byte;
-    extern struct dpath_node shared_dpath_node_array_slice;
-    extern struct dpath_node shared_dpath_node_byte_slice;
-    extern struct dpath_node shared_dpath_node_as_bytes;
 
     enum ast_node_flag {
         ASTFLAG_IS_SPAN_EXPR                = (1<<0),
         ASTFLAG_IS_KEY_EXPR                 = (1<<1),
         ASTFLAG_IS_MATCH_EXPR               = (1<<2),
         ASTFLAG_IS_ROOT_BLOCK               = (1<<6),
-        ASTFLAG_REVERSE_COND                = (1<<7),
-        ASTFLAG_CONTAINS_LAST_STMT          = (1<<8),
-        ASTFLAG_HAS_FOOTER                  = (1<<10),
+        ASTFLAG_IS_REXPR_DPATH              = (1<<7),
+        ASTFLAG_REVERSE_COND                = (1<<8),
+        ASTFLAG_CONTAINS_LAST_STMT          = (1<<9),
         ASTFLAG_DUMPING                     = (1<<11),
         ASTFLAG_RESOLVE_IDENTIFIERS_IN_PROGRESS   = (1<<14),
         ASTFLAG_RESOLVE_IDENTIFIERS_COMPLETED     = (1<<15),
@@ -183,8 +168,8 @@
         ASTFLAG_RESOLVE_SPAN_SIZE_REQUESTED = (1<<19),
         ASTFLAG_RESOLVE_SPAN_SIZE_IN_PROGRESS = (1<<20),
         ASTFLAG_RESOLVE_SPAN_SIZE_COMPLETED = (1<<21),
-        ASTFLAG_SETUP_TRACK_BACKENDS_IN_PROGRESS = (1<<22),
-        ASTFLAG_SETUP_TRACK_BACKENDS_COMPLETED   = (1<<23),
+        ASTFLAG_BROWSE_SETUP_BACKENDS_IN_PROGRESS = (1<<22),
+        ASTFLAG_BROWSE_SETUP_BACKENDS_COMPLETED   = (1<<23),
     };
 
     enum ast_node_data_flag {
@@ -192,11 +177,23 @@
         ASTFLAG_DATA_TEMPLATE               = (1<<0),
     };
 
+    struct rexpr {
+        enum expr_value_type value_type;
+    };
+
+    struct rexpr_dpath {
+        struct rexpr rexpr; /* inherits */
+        struct filter_backend b_filter;
+    };
+
     enum item_flag {
-        ITEMFLAG_IS_SPAN_SIZE_DYNAMIC       = (1<<0),
-        ITEMFLAG_IS_USED_SIZE_DYNAMIC       = (1<<1),
-        ITEMFLAG_NEED_SLACK                 = (1<<2),
-        ITEMFLAG_HAS_UNDETERMINED_SIZE      = (1<<3),
+        ITEMFLAG_IS_SPAN_SIZE_DYNAMIC        = (1<<0),
+        ITEMFLAG_IS_USED_SIZE_DYNAMIC        = (1<<1),
+        ITEMFLAG_USES_SLACK                  = (1<<2),
+        ITEMFLAG_SPREADS_SLACK               = (1<<3),
+        ITEMFLAG_CONDITIONALLY_SPREADS_SLACK = (1<<4),
+        ITEMFLAG_FILLS_SLACK                 = (1<<5),
+        ITEMFLAG_CONDITIONALLY_FILLS_SLACK   = (1<<6),
     };
 
     struct item_node {
@@ -210,7 +207,8 @@
         } u;
         struct ast_node_hdl *item;
         struct ast_node_hdl *filter;
-        struct ast_node_hdl *filter_defining_size;
+        struct ast_node_hdl *filter_defining_span_size;
+        struct ast_node_hdl *filter_defining_used_size;
         struct dep_resolver_node dr_node;
     };
 
@@ -291,8 +289,8 @@
             AST_NODE_TYPE_REXPR_OP_SIZEOF,
             AST_NODE_TYPE_REXPR_OP_ADDROF,
             AST_NODE_TYPE_REXPR_OP_ANCESTOR,
+            AST_NODE_TYPE_REXPR_FILTER,
             AST_NODE_TYPE_REXPR_INTERPRETER,
-            AST_NODE_TYPE_REXPR_AS_TYPE,
             AST_NODE_TYPE_REXPR_ITEM,
             AST_NODE_TYPE_REXPR_OP_MEMBER,
             AST_NODE_TYPE_REXPR_FIELD,
@@ -374,20 +372,10 @@
             struct file_attr {
                 struct ast_node_hdl *attr_name;
             } file_attr;
-            struct rexpr {
-                enum expr_value_type value_type;
-                enum expr_dpath_type dpath_type;
-                /** expression item type, or NULL if not applicable */
-                struct ast_node_hdl *target_item;
-            } rexpr; /* base, not instanciable */
-            struct rexpr_filter {
-                struct rexpr rexpr; /* inherits */
-                struct filter_backend b_filter;
-                struct ast_node_hdl *target;
-                struct dpath_node filter_dpath;
-            } rexpr_filter; /* base, not instanciable */
+            struct rexpr rexpr; /* base, not instanciable */
+            struct rexpr_dpath rexpr_dpath; /* base, not instanciable */
             struct rexpr_interpreter {
-                struct rexpr_filter rexpr_filter; /* inherits */
+                struct rexpr_dpath rexpr_dpath; /* inherits */
                 const struct interpreter *interpreter;
                 interpreter_read_func_t read_func;
                 interpreter_write_func_t write_func;
@@ -396,16 +384,24 @@
                  * it will be interpreted */
                 /* struct ast_node_hdl params[]; */
             } rexpr_interpreter;
-            struct rexpr_as_type {
-                struct rexpr_filter rexpr_filter; /* inherits */
-            } rexpr_as_type;
+            struct rexpr_filter {
+                struct rexpr_dpath rexpr_dpath; /* inherits */
+                struct ast_node_hdl *filter_expr;
+                struct ast_node_hdl *target;
+            } rexpr_filter;
             struct rexpr_item {
-                struct rexpr rexpr; /* inherits */
+                struct rexpr_dpath rexpr_dpath; /* inherits */
                 struct ast_node_hdl *item_type;
             } rexpr_item;
+            struct rexpr_file {
+                struct rexpr_item rexpr_item; /* inherits */
+            } rexpr_file;
+            struct rexpr_self {
+                struct rexpr_item rexpr_item; /* inherits */
+            } rexpr_self;
             struct rexpr_native {
                 struct rexpr rexpr; /* inherits */
-                union expr_value value;
+                expr_value_t value;
             } rexpr_native;
             struct rexpr_member_common {
                 struct rexpr rexpr; /* inherits */
@@ -421,7 +417,6 @@
                 /* inherits */
                 struct rexpr_member_common rexpr_member_common;
                 const struct named_expr *named_expr;
-                struct ast_node_hdl *filter_target;
             } rexpr_named_expr;
             struct rexpr_builtin {
                 struct rexpr rexpr; /* inherits */
@@ -452,12 +447,6 @@
                 int n_func_params;
                 struct statement_list *func_params;
             } rexpr_op_fcall;
-            struct rexpr_file {
-                struct rexpr rexpr; /* inherits */
-            } rexpr_file;
-            struct rexpr_self {
-                struct rexpr rexpr; /* inherits */
-            } rexpr_self;
         } u;
     };
 
@@ -482,8 +471,9 @@
     };
 
     enum field_flag {
-        FIELD_FLAG_SLACK_TRAILER = (1<<0),
-        FIELD_FLAG_HIDDEN        = (1<<1),
+        FIELD_FLAG_HIDDEN        = (1<<0),
+        FIELD_FLAG_HEADER        = (1<<1),
+        FIELD_FLAG_TRAILER       = (1<<2),
     };
 
     struct match {
@@ -525,7 +515,7 @@
                                         struct statement_list *params,
                                         int n_params,
                                         struct box *scope,
-                                        union expr_value *eval_valuep,
+                                        expr_value_t *eval_valuep,
                                         struct browse_state *bst);
 
     typedef bitpunch_status_t
@@ -533,14 +523,13 @@
                                         struct statement_list *params,
                                         int n_params,
                                         struct box *scope,
-                                        union expr_dpath *eval_dpathp,
+                                        expr_dpath_t *eval_dpathp,
                                         struct browse_state *bst);
 
     struct expr_builtin_fn {
         const char *builtin_name;
         enum expr_value_type res_value_type;
         expr_eval_value_builtin_fn_t eval_value_fn;
-        enum expr_dpath_type res_dpath_type;
         expr_eval_dpath_builtin_fn_t eval_dpath_fn;
         enum ast_node_type member_of;
         int min_n_params;
@@ -571,6 +560,7 @@
         __attribute__((format(printf,3,4)));
     const char *ast_node_type_str(enum ast_node_type type);
     const char *block_type_str(enum block_type type);
+    struct ast_node_hdl *ast_node_hdl_new(void);
 }
 
 %define parse.error verbose
@@ -586,58 +576,15 @@
 
 %code {
     const int SPAN_SIZE_UNDEF = (int64_t)-1;
-    struct ast_node_data shared_ast_node_data_byte = {
-        .type = AST_NODE_TYPE_BYTE,
-        .u = {
-            .item = {
-                .min_span_size = 1,
-            }
-        }
-    };
-    struct ast_node_hdl shared_ast_node_byte = {
-        .ndat = &shared_ast_node_data_byte,
-    };
 
-    struct ast_node_data shared_ast_node_data_array_slice = {
-        .type = AST_NODE_TYPE_ARRAY_SLICE,
-    };
-    struct ast_node_hdl shared_ast_node_array_slice = {
-        .ndat = &shared_ast_node_data_array_slice,
-    };
+    struct ast_node_hdl *
+    ast_node_hdl_new(void) {
+        struct ast_node_hdl *nhdl;
 
-    struct ast_node_data shared_ast_node_data_byte_slice = {
-        .type = AST_NODE_TYPE_BYTE_SLICE,
-    };
-    struct ast_node_hdl shared_ast_node_byte_slice = {
-        .ndat = &shared_ast_node_data_byte_slice,
-    };
-
-    struct ast_node_data shared_ast_node_data_as_bytes = {
-        .type = AST_NODE_TYPE_AS_BYTES,
-    };
-    struct ast_node_hdl shared_ast_node_as_bytes = {
-        .ndat = &shared_ast_node_data_as_bytes,
-    };
-    struct ast_node_data shared_ast_node_data_data_filter = {
-        .type = AST_NODE_TYPE_DATA_FILTER,
-    };
-    struct ast_node_hdl shared_ast_node_data_filter = {
-        .ndat = &shared_ast_node_data_data_filter,
-    };
-
-    struct dpath_node shared_dpath_node_raw_byte = {
-        .u = { .item = { .min_span_size = 1 } },
-        .item = &shared_ast_node_byte,
-    };
-    struct dpath_node shared_dpath_node_array_slice = {
-        .item = &shared_ast_node_array_slice,
-    };
-    struct dpath_node shared_dpath_node_byte_slice = {
-        .item = &shared_ast_node_byte_slice,
-    };
-    struct dpath_node shared_dpath_node_as_bytes = {
-        .item = &shared_ast_node_as_bytes,
-    };
+        nhdl = new_safe(struct ast_node_hdl);
+        dep_resolver_node_init(&nhdl->dr_node);
+        return nhdl;
+    }
 
     static struct ast_node_hdl *
     ast_node_hdl_create(enum ast_node_type type,
@@ -645,13 +592,37 @@
     {
         struct ast_node_hdl *nhdl;
 
-        nhdl = new_safe(struct ast_node_hdl);
+        nhdl = ast_node_hdl_new();
         if (NULL != loc) {
             nhdl->loc = *loc;
         }
         nhdl->ndat = new_safe(struct ast_node_data);
         nhdl->ndat->type = type;
         return nhdl;
+    }
+
+    static struct ast_node_data *
+    ast_node_data_new_rexpr_item_root(struct ast_node_hdl *root)
+    {
+        struct ast_node_data *ndat;
+
+        ndat = new_safe(struct ast_node_data);
+        ndat->type = AST_NODE_TYPE_REXPR_ITEM;
+        ndat->u.rexpr.value_type = EXPR_VALUE_TYPE_BYTES;
+        ndat->u.rexpr_item.item_type = root;
+        return ndat;
+    }
+
+    struct ast_node_hdl *
+    ast_node_new_rexpr_item_root(struct ast_node_hdl *root)
+    {
+        struct ast_node_hdl *node;
+
+        node = ast_node_hdl_new();
+        node->loc = root->loc;
+        node->ndat = ast_node_data_new_rexpr_item_root(root);
+        node->flags |= ASTFLAG_IS_REXPR_DPATH;
+        return node;
     }
 
     static struct ast_node_hdl *
@@ -1082,6 +1053,7 @@ file_block: KW_FILE '{' block_stmt_list '}' {
         item->u.block_def.block_stmt_list = $block_stmt_list;
         item->u.item.min_span_size = SPAN_SIZE_UNDEF;
         $$.root->item->flags = ASTFLAG_IS_ROOT_BLOCK;
+        $$.root->filter = ast_node_new_rexpr_item_root($$.root->item);
     }
 
 block_def:
@@ -1441,8 +1413,8 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_REXPR_OP_MOD: return "operator 'modulo'";
     case AST_NODE_TYPE_OP_SET_FILTER: return "operator 'set filter'";
     case AST_NODE_TYPE_REXPR_INTERPRETER: return "interpreter";
-    case AST_NODE_TYPE_REXPR_AS_TYPE: return "as type";
     case AST_NODE_TYPE_REXPR_ITEM: return "item";
+    case AST_NODE_TYPE_REXPR_FILTER: return "filter";
     case AST_NODE_TYPE_OP_UPLUS:
     case AST_NODE_TYPE_REXPR_OP_UPLUS: return "unary 'plus'";
     case AST_NODE_TYPE_OP_UMINUS:

@@ -432,16 +432,14 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
                    struct bitpunch_binary_file_hdl *binary_file,
                    const char *expr,
                    struct box *scope,
-                   enum expr_value_type *expr_value_typep,
-                   union expr_value *expr_valuep,
-                   enum expr_dpath_type *expr_dpath_typep,
-                   union expr_dpath *expr_dpathp,
+                   expr_value_t *expr_valuep,
+                   expr_dpath_t *expr_dpathp,
                    struct tracker_error **errp)
 {
     struct ast_node_hdl *expr_node = NULL;
     struct parser_ctx *parser_ctx = NULL;
-    union expr_value expr_value;
-    union expr_dpath expr_dpath;
+    expr_value_t expr_value = { .type = EXPR_VALUE_TYPE_UNSET };
+    expr_dpath_t expr_dpath = { .type = EXPR_DPATH_TYPE_NONE };
     bitpunch_status_t bt_ret;
     int compute_dpath;
     int compute_value;
@@ -469,22 +467,20 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
     assert(ast_node_is_rexpr(expr_node));
     compute_dpath =
         (NULL != expr_dpathp
-         && EXPR_DPATH_TYPE_NONE != expr_node->ndat->u.rexpr.dpath_type);
+         && 0 != (expr_node->flags & ASTFLAG_IS_REXPR_DPATH));
     compute_value =
         (NULL != expr_valuep
          && EXPR_VALUE_TYPE_UNSET != expr_node->ndat->u.rexpr.value_type);
 
     if (compute_dpath) {
-        bt_ret = expr_evaluate_dpath(expr_node, scope,
-                                     &expr_dpath, errp);
+        bt_ret = expr_evaluate_dpath(expr_node, scope, &expr_dpath, errp);
         if (BITPUNCH_OK != bt_ret) {
             goto err;
         }
     }
     if (compute_value) {
         if (compute_dpath) {
-            bt_ret = expr_read_dpath_value(expr_node, expr_dpath,
-                                           &expr_value, errp);
+            bt_ret = dpath_read_value(expr_dpath, &expr_value, errp);
         } else {
             bt_ret = expr_evaluate_value(expr_node, scope,
                                          &expr_value, errp);
@@ -494,14 +490,8 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
         }
     }
     box_delete(scope);
-    if (NULL != expr_value_typep) {
-        *expr_value_typep = expr_node->ndat->u.rexpr.value_type;
-    }
     if (NULL != expr_valuep) {
         *expr_valuep = expr_value;
-    }
-    if (NULL != expr_dpath_typep) {
-        *expr_dpath_typep = expr_node->ndat->u.rexpr.dpath_type;
     }
     if (NULL != expr_dpathp) {
         *expr_dpathp = expr_dpath;

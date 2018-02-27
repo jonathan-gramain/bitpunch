@@ -34,32 +34,45 @@
 
 #include "core/expr.h"
 
+extern expr_dpath_t shared_expr_dpath_none;
+
+#define EXPR_DPATH_NONE shared_expr_dpath_none
+
+struct dpath_transform {
+    expr_dpath_t dpath;
+    int dpath_is_data_source;
+};
+
 bitpunch_status_t
 expr_evaluate_value_internal(struct ast_node_hdl *expr, struct box *scope,
-                             union expr_value *eval_valuep,
+                             expr_value_t *eval_valuep,
                              struct browse_state *bst);
 bitpunch_status_t
 expr_evaluate_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
-                             union expr_dpath *eval_dpathp,
+                             expr_dpath_t *eval_dpathp,
                              struct browse_state *bst);
 bitpunch_status_t
-expr_read_dpath_value_internal(struct ast_node_hdl *expr,
-                               union expr_dpath dpath,
-                               union expr_value *expr_valuep,
-                               struct browse_state *bst);
+expr_transform_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
+                              struct dpath_transform *transformp,
+                              struct browse_state *bst);
 bitpunch_status_t
-named_expr_evaluate_dpath_internal(
-    const struct named_expr *named_expr, struct box *scope,
-    enum expr_dpath_type *dpath_typep,
-    union expr_dpath *eval_dpathp,
-    struct browse_state *bst);
+dpath_read_value_internal(expr_dpath_t dpath,
+                          expr_value_t *expr_valuep,
+                          struct browse_state *bst);
+enum filter_kind {
+    FILTER_KIND_ITEM,
+    FILTER_KIND_INTERPRETER,
+    FILTER_KIND_DEFINING_SPAN_SIZE,
+    FILTER_KIND_DEFINING_USED_SIZE,
+    FILTER_KIND_ANCESTOR,
+};
+
 bitpunch_status_t
-named_expr_evaluate_value_internal(
-    const struct named_expr *named_expr,
-    struct box *scope,
-    enum expr_value_type *value_typep,
-    union expr_value *eval_valuep,
-    struct browse_state *bst);
+expr_evaluate_filter_type_internal(struct ast_node_hdl *filter,
+                                   struct box *scope,
+                                   enum filter_kind kind,
+                                   struct ast_node_hdl **filter_typep,
+                                   struct browse_state *bst);
 bitpunch_status_t
 evaluate_conditional_internal(struct ast_node_hdl *cond, struct box *scope,
                               int *evalp, struct browse_state *bst);

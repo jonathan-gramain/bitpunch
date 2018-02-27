@@ -63,14 +63,14 @@ struct interpreter_param_def {
 };
 
 typedef int
-(*interpreter_rcall_build_func_t)(struct ast_node_hdl *rcall,
-                                  const struct ast_node_hdl *data_source,
-                                  const struct ast_node_hdl *param_values,
-                                  struct compile_ctx *ctx);
+(*interpreter_rcall_build_func_t)(
+    struct ast_node_hdl *rcall,
+    const struct ast_node_hdl *param_values,
+    struct compile_ctx *ctx);
 
 struct interpreter {
     const char *name;
-    enum expr_value_type semantic_type;
+    enum expr_value_type value_type;
     interpreter_rcall_build_func_t rcall_build_func;
     int n_params;
     int max_param_ref;
@@ -79,7 +79,7 @@ struct interpreter {
 
 int
 interpreter_declare(const char *name,
-                    enum expr_value_type semantic_type,
+                    enum expr_value_type value_type,
                     interpreter_rcall_build_func_t rcall_build_func,
                     int n_params,
                     ... /* params: (name, ref_idx, type, flags) tuples */);
@@ -94,8 +94,6 @@ int
 interpreter_rcall_build(struct ast_node_hdl *node,
                         const struct interpreter *interpreter,
                         struct statement_list *param_list);
-struct ast_node_data *
-interpreter_rcall_instanciate(struct ast_node_hdl *rcall);
 
 static inline struct ast_node_hdl *
 interpreter_rcall_get_params(const struct ast_node_hdl *rcall) {
@@ -103,11 +101,23 @@ interpreter_rcall_get_params(const struct ast_node_hdl *rcall) {
 }
 
 bitpunch_status_t
-interpreter_rcall_read_value(const struct ast_node_hdl *interpreter,
+interpreter_rcall_evaluate_params(struct ast_node_hdl *expr,
+                                  struct box *scope,
+                                  int **param_is_specifiedp,
+                                  expr_value_t **param_valuep,
+                                  struct browse_state *bst);
+
+void
+interpreter_rcall_destroy_param_values(struct ast_node_hdl *expr,
+                                       int *param_is_specified,
+                                       expr_value_t *param_value);
+
+bitpunch_status_t
+interpreter_rcall_read_value(struct ast_node_hdl *interpreter,
+                             struct box *scope,
                              const char *item_data,
                              int64_t item_size,
-                             enum expr_value_type *typep,
-                             union expr_value *valuep,
+                             expr_value_t *valuep,
                              struct browse_state *bst);
 
 /* following declarations match definitions in interpreter_*.c
