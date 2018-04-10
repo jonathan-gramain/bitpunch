@@ -65,6 +65,7 @@ struct dep_resolver {
     TAILQ_HEAD(task_list, dep_resolver_node_entry) tasks;
     SLIST_HEAD(dep_list, dep_resolver_node_entry) dep_chain;
     dep_resolver_func_t resolve_f;
+    dep_resolver_free_arg_t free_arg_f;
     enum dep_resolver_flag flags;
     struct dep_resolver_node_entry *error_entry;
 };
@@ -100,7 +101,8 @@ get_unresolved(struct dep_resolver_node *node, dep_resolver_tagset_t tags)
 }
 
 struct dep_resolver *
-dep_resolver_create(dep_resolver_func_t resolve_f)
+dep_resolver_create(dep_resolver_func_t resolve_f,
+                    dep_resolver_free_arg_t free_arg_f)
 {
     struct dep_resolver *dr;
 
@@ -108,6 +110,7 @@ dep_resolver_create(dep_resolver_func_t resolve_f)
     TAILQ_INIT(&dr->tasks);
     SLIST_INIT(&dr->dep_chain);
     dr->resolve_f = resolve_f;
+    dr->free_arg_f = free_arg_f;
     return dr;
 }
 
@@ -209,6 +212,9 @@ dep_resolver_resolve(struct dep_resolver *dr)
             }
         }
         TAILQ_REMOVE(&dr->tasks, entry, tasks);
+        if (NULL != dr->free_arg_f) {
+            dr->free_arg_f(dr, entry->arg);
+        }
         free(entry);
     }
     return DEP_RESOLVER_OK;
@@ -276,7 +282,7 @@ dump_tags(dep_resolver_tagset_t tags)
 static void
 dep_resolver_dump_node(struct dep_resolver_node *node)
 {
-    printf("%p processing_tags=", node);
+    printf("node %p processing_tags=", node);
     dump_tags(node->processing_tags);
     printf(" resolved_tags=");
     dump_tags(node->resolved_tags);
@@ -288,7 +294,7 @@ dep_resolver_dump_entry(struct dep_resolver_node_entry *entry)
 {
     printf("requested_tags=");
     dump_tags(entry->tags);
-    printf("\n    node: ");
+    printf("\n    arg=%p node: ", entry->arg);
     dep_resolver_dump_node(entry->node);
 }
 
@@ -411,7 +417,7 @@ START_TEST(test_dep_resolver_no_cycle)
     root = &nodes[0];
 
     init_nodes_array(nodes, N_ELEM(nodes));
-    dr = dep_resolver_create(test_resolve);
+    dr = dep_resolver_create(test_resolve, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<0, 0u, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<1, 0u, NULL);
     ret = dep_resolver_resolve(dr);
@@ -421,7 +427,7 @@ START_TEST(test_dep_resolver_no_cycle)
     dep_resolver_destroy(dr);
 
     init_nodes_array(nodes, N_ELEM(nodes));
-    dr = dep_resolver_create(test_resolve);
+    dr = dep_resolver_create(test_resolve, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<0, 0u, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<1, NULL);
     ret = dep_resolver_resolve(dr);
@@ -431,7 +437,7 @@ START_TEST(test_dep_resolver_no_cycle)
     dep_resolver_destroy(dr);
 
     init_nodes_array(nodes, N_ELEM(nodes));
-    dr = dep_resolver_create(test_resolve);
+    dr = dep_resolver_create(test_resolve, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<0, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<1, 0u, NULL);
     ret = dep_resolver_resolve(dr);
@@ -441,7 +447,7 @@ START_TEST(test_dep_resolver_no_cycle)
     dep_resolver_destroy(dr);
 
     init_nodes_array(nodes, N_ELEM(nodes));
-    dr = dep_resolver_create(test_resolve);
+    dr = dep_resolver_create(test_resolve, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<0, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<1, NULL);
     ret = dep_resolver_resolve(dr);
@@ -492,7 +498,7 @@ START_TEST(test_dep_resolver_cycle)
     root = &nodes[0];
 
     init_nodes_array(nodes, N_ELEM(nodes));
-    dr = dep_resolver_create(test_resolve);
+    dr = dep_resolver_create(test_resolve, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<0, 0u, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<1, 0u, NULL);
     ret = dep_resolver_resolve(dr);
@@ -501,7 +507,7 @@ START_TEST(test_dep_resolver_cycle)
     dep_resolver_destroy(dr);
 
     init_nodes_array(nodes, N_ELEM(nodes));
-    dr = dep_resolver_create(test_resolve);
+    dr = dep_resolver_create(test_resolve, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<0, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<1, 0u, NULL);
     ret = dep_resolver_resolve(dr);
@@ -509,7 +515,7 @@ START_TEST(test_dep_resolver_cycle)
     dep_resolver_destroy(dr);
 
     init_nodes_array(nodes, N_ELEM(nodes));
-    dr = dep_resolver_create(test_resolve);
+    dr = dep_resolver_create(test_resolve, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<0, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<1, 0u, NULL);
     ret = dep_resolver_resolve(dr);
@@ -517,7 +523,7 @@ START_TEST(test_dep_resolver_cycle)
     dep_resolver_destroy(dr);
 
     init_nodes_array(nodes, N_ELEM(nodes));
-    dr = dep_resolver_create(test_resolve);
+    dr = dep_resolver_create(test_resolve, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<0, NULL);
     dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<1, NULL);
     ret = dep_resolver_resolve(dr);

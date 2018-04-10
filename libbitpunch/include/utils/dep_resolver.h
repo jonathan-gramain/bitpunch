@@ -73,6 +73,9 @@ typedef dep_resolver_tagset_t
                        struct dep_resolver_node *node,
                        dep_resolver_tagset_t tags,
                        void *arg);
+typedef void
+(*dep_resolver_free_arg_t)(struct dep_resolver *dr,
+                           void *arg);
 
 struct dep_resolver_node_entry {
     TAILQ_ENTRY(dep_resolver_node_entry) tasks;
@@ -83,7 +86,8 @@ struct dep_resolver_node_entry {
 };
 
 struct dep_resolver *
-dep_resolver_create(dep_resolver_func_t resolve_f);
+dep_resolver_create(dep_resolver_func_t resolve_f,
+                    dep_resolver_free_arg_t free_arg_f);
 
 void
 dep_resolver_destroy(struct dep_resolver *dr);

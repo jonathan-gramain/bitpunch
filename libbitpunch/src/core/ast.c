@@ -79,6 +79,9 @@ dep_resolver_cb(struct dep_resolver *dr,
                 struct dep_resolver_node *_node,
                 dep_resolver_tagset_t tags,
                 void *arg);
+static void
+dep_resolver_free_arg(struct dep_resolver *dr,
+                      void *arg);
 static dep_resolver_tagset_t
 compile_node_cb(struct compile_ctx *ctx,
                 enum resolve_expect_mask expect_mask,
@@ -160,7 +163,8 @@ compile_ctx_init(struct compile_ctx *ctx,
                  struct ast_node_hdl *ast_root)
 {
     memset(ctx, 0, sizeof (*ctx));
-    ctx->dep_resolver = dep_resolver_create(dep_resolver_cb);
+    ctx->dep_resolver = dep_resolver_create(dep_resolver_cb,
+                                            dep_resolver_free_arg);
     ctx->ast_root = ast_root;
 }
 
@@ -1266,18 +1270,25 @@ static struct parser_location *
 dep_resolver_node_get_location(struct dep_resolver_node *node,
                                struct compile_req *req)
 {
-    struct dpath_node *dpath;
     struct subscript_index *subscript;
 
     if (req->compile_cb == compile_node_cb) {
-        return &container_of(node, struct ast_node_hdl, dr_node)->loc;
+        struct ast_node_hdl *_node;
+
+        _node = container_of(node, struct ast_node_hdl, dr_node);
+        return &_node->loc;
     }
     if (req->compile_cb == compile_dpath_cb) {
+        struct dpath_node *dpath;
+
         dpath = container_of(node, struct dpath_node, dr_node);
         return &(NULL != dpath->filter ? dpath->filter : dpath->item)->loc;
     }
     if (req->compile_cb == compile_field_cb) {
-        return &container_of(node, struct field, dr_node)->nstmt.stmt.loc;
+        struct field *field;
+
+        field = container_of(node, struct field, dr_node);
+        return &field->nstmt.stmt.loc;
     }
     assert(req->compile_cb == compile_subscript_index_cb);
     subscript = container_of(node, struct subscript_index, dr_node);
@@ -1453,9 +1464,6 @@ compile_all(struct ast_node_hdl *ast_root,
                        "circular dependency across the following nodes:");
         for (i = 0; NULL != (entry = circ_entries[i]); ++i) {
             req = (struct compile_req *)entry->arg;
-            if (req->compile_cb == compile_dpath_cb) {
-                continue ;
-            }
             loc = dep_resolver_node_get_location(entry->node, req);
             semantic_error(SEMANTIC_LOGLEVEL_INFO, loc, NULL);
         }
@@ -3342,13 +3350,17 @@ dep_resolver_cb(struct dep_resolver *dr,
     ctx->current_tags = tags;
     ctx->current_node_family = compile_func_to_node_family(compile_cb);
     resolved_tags = compile_cb(ctx, expect_mask, _node, tags, req_arg);
-    if (resolved_tags == tags) {
-        compile_req_destroy(req);
-    }
     ctx->current_req = NULL;
     ctx->current_node = NULL;
     ctx->current_tags = 0u;
     return resolved_tags;
+}
+
+static void
+dep_resolver_free_arg(struct dep_resolver *dr,
+                      void *arg)
+{
+    compile_req_destroy((struct compile_req *)arg);
 }
 
 static dep_resolver_tagset_t
