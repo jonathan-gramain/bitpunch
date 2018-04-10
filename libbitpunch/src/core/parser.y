@@ -1105,7 +1105,7 @@ if_block:
         struct ast_node_hdl *cond;
         struct statement *stmt;
 
-        cond = ast_node_hdl_create(AST_NODE_TYPE_CONDITIONAL, &@$);
+        cond = ast_node_hdl_create(AST_NODE_TYPE_CONDITIONAL, &@expr);
         cond->ndat->u.conditional.cond_expr = $expr;
 
         TAILQ_FOREACH(stmt, $block_stmt_list.field_list, list) {
@@ -1125,7 +1125,7 @@ if_block:
         }
         $$ = $block_stmt_list;
 
-        cond = ast_node_hdl_create(AST_NODE_TYPE_CONDITIONAL, &@$);
+        cond = ast_node_hdl_create(AST_NODE_TYPE_CONDITIONAL, &@expr);
         cond->ndat->u.conditional.cond_expr = $expr;
         cond->flags |= ASTFLAG_REVERSE_COND;
 
