@@ -219,6 +219,8 @@ let Base64Block = byte[]: string { boundary: '\\n'; }: base64: RawBlock;
 
 let AsContents = struct {
     data: byte[];
+
+    let ?data_preview = data[..10];
 };
 
 file {
@@ -241,6 +243,8 @@ let Base64Block = byte[]
 
 let AsContents = struct {
     data: byte[];
+
+    let ?data_preview = data[..10];
 };
 
 file {
@@ -263,6 +267,8 @@ let Base64Block = byte[]
 
 let AsContents = struct {
     data: byte[];
+
+    let ?data_preview = data[..10];
 };
 
 file {
@@ -301,6 +307,7 @@ def test_filter_2(params_filter_2):
     assert dtree.blocks[1].get_size() == 22
     assert dtree.blocks[1].n == 18
     assert str(dtree.blocks[1].data) == 'more contents data'
+    assert str(dtree.blocks[1]['?data_preview']) == 'more conte'
     assert dtree.blocks[0].n == 16
     assert str(dtree.blocks[0].data) == 'as contents data'
     assert model.make_python_object(dtree.blocks[2]) == {

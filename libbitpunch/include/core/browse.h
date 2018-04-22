@@ -501,6 +501,7 @@ box_lookup_statement(struct box *box,
                      enum statement_type stmt_type,
                      const char *stmt_name,
                      const struct named_statement **stmtp,
+                     struct box **scopep,
                      struct tracker_error **errp);
 
 bitpunch_status_t

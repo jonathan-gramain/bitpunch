@@ -236,6 +236,7 @@ box_lookup_statement_internal(struct box *box,
                               enum statement_type stmt_type,
                               const char *stmt_name,
                               const struct named_statement **stmtp,
+                              struct box **scopep,
                               struct browse_state *bst);
 
 static bitpunch_status_t
@@ -4466,9 +4467,69 @@ box_lookup_statement_recur(struct box *box,
                            enum statement_type stmt_type,
                            const char *stmt_name,
                            const struct named_statement **stmtp,
+                           struct box **scopep,
+                           struct browse_state *bst);
+
+static bitpunch_status_t
+box_lookup_statement_in_anonymous_field_recur(
+    struct box *box,
+    enum statement_type stmt_type,
+    const char *stmt_name,
+    const struct named_statement *stmt,
+    const struct named_statement **stmtp,
+    struct box **scopep,
+    struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    int cond_eval;
+    const struct field *field;
+    const struct ast_node_hdl *as_type;
+    struct box *scope;
+    struct tracker *tk;
+
+    bt_ret = evaluate_conditional_internal(stmt->stmt.cond, box,
+                                           &cond_eval, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        tracker_error_add_box_context(box, bst,
+                                      "when evaluating condition");
+        return bt_ret;
+    }
+    if (!cond_eval) {
+        return BITPUNCH_NO_ITEM;
+    }
+    field = (const struct field *)stmt;
+    as_type = dpath_node_get_as_type(&field->dpath);
+    assert(AST_NODE_TYPE_BLOCK_DEF == as_type->ndat->type);
+    tk = track_box_contents_internal(box, bst);
+    bt_ret = tracker_goto_field_internal(
+        tk, field, TRUE, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    bt_ret = tracker_get_filtered_item_box_internal(tk, &scope, bst);
+    tracker_delete(tk);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    bt_ret = box_lookup_statement_recur(
+        scope, &as_type->ndat->u.block_def.block_stmt_list,
+        stmt_type, stmt_name, stmtp, scopep, bst);
+    box_delete(scope);
+    return bt_ret;
+}
+
+static bitpunch_status_t
+box_lookup_statement_recur(struct box *box,
+                           const struct block_stmt_list *stmt_lists,
+                           enum statement_type stmt_type,
+                           const char *stmt_name,
+                           const struct named_statement **stmtp,
+                           struct box **scopep,
                            struct browse_state *bst)
 {
     const struct named_statement *stmt;
+    int cond_eval;
+    bitpunch_status_t bt_ret;
 
     switch (stmt_type) {
     case STATEMENT_TYPE_FIELD:
@@ -4485,9 +4546,6 @@ box_lookup_statement_recur(struct box *box,
                          statement_type_str(stmt_type));
     }
     while (NULL != stmt) {
-        int cond_eval;
-        bitpunch_status_t bt_ret;
-
         if (NULL != stmt->name) {
             if (0 == strcmp(stmt_name, stmt->name)) {
                 bt_ret = evaluate_conditional_internal(stmt->stmt.cond, box,
@@ -4501,24 +4559,40 @@ box_lookup_statement_recur(struct box *box,
                     if (NULL != stmtp) {
                         *stmtp = stmt;
                     }
+                    if (NULL != scopep) {
+                        *scopep = box;
+                        box_acquire(box);
+                    }
                     return BITPUNCH_OK;
                 }
             }
         } else {
             assert(STATEMENT_TYPE_FIELD == stmt_type);
             if (!(stmt->stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
-                const struct field *field;
-                const struct ast_node_hdl *as_type;
-
-                field = (const struct field *)stmt;
-                as_type = dpath_node_get_as_type(&field->dpath);
-                assert(AST_NODE_TYPE_BLOCK_DEF == as_type->ndat->type);
-                bt_ret = box_lookup_statement_recur(
-                    box, &as_type->ndat->u.block_def.block_stmt_list,
-                    stmt_type, stmt_name, stmtp, bst);
+                bt_ret = box_lookup_statement_in_anonymous_field_recur(
+                    box, stmt_type, stmt_name, stmt, stmtp, scopep, bst);
                 if (BITPUNCH_NO_ITEM != bt_ret) {
                     return bt_ret;
                 }
+            }
+        }
+        stmt = (const struct named_statement *)
+            TAILQ_NEXT(&stmt->stmt, list);
+    }
+    if (STATEMENT_TYPE_NAMED_EXPR != stmt_type) {
+        return BITPUNCH_NO_ITEM;
+    }
+    // there might be named exprs in anonymous fields, so recurse in
+    // anonymous fields to find them
+    stmt = (const struct named_statement *)
+        TAILQ_FIRST(stmt_lists->field_list);
+    while (NULL != stmt) {
+        if (NULL == stmt->name
+            && !(stmt->stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
+            bt_ret = box_lookup_statement_in_anonymous_field_recur(
+                box, stmt_type, stmt_name, stmt, stmtp, scopep, bst);
+            if (BITPUNCH_NO_ITEM != bt_ret) {
+                return bt_ret;
             }
         }
         stmt = (const struct named_statement *)
@@ -4532,12 +4606,13 @@ box_lookup_statement_internal(struct box *box,
                               enum statement_type stmt_type,
                               const char *stmt_name,
                               const struct named_statement **stmtp,
+                              struct box **scopep,
                               struct browse_state *bst)
 {
     assert(AST_NODE_TYPE_BLOCK_DEF == box->dpath.item->ndat->type);
     return box_lookup_statement_recur(
-        box, &box->dpath.item->ndat->u.block_def.block_stmt_list, stmt_type, stmt_name,
-        stmtp, bst);
+        box, &box->dpath.item->ndat->u.block_def.block_stmt_list,
+        stmt_type, stmt_name, stmtp, scopep, bst);
 }
 
 static bitpunch_status_t
@@ -4600,19 +4675,10 @@ box_iter_named_exprs_next_internal(struct box *box,
 }
 
 bitpunch_status_t
-box_lookup_named_expr_internal(struct box *box, const char *named_expr_name,
-                               const struct named_expr **named_exprp,
-                               struct browse_state *bst)
-{
-    return box_lookup_statement_internal(
-        box, STATEMENT_TYPE_NAMED_EXPR, named_expr_name,
-        (const struct named_statement **)named_exprp, bst);
-}
-
-bitpunch_status_t
 box_lookup_attribute_internal(struct box *box, const char *name,
                               enum statement_type *stmt_typep,
                               const struct named_statement **named_stmt,
+                              struct box **scopep,
                               struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
@@ -4621,7 +4687,7 @@ box_lookup_attribute_internal(struct box *box, const char *name,
         return BITPUNCH_NO_ITEM;
     }
     bt_ret = box_lookup_statement_internal(
-        box, STATEMENT_TYPE_NAMED_EXPR, name, named_stmt, bst);
+        box, STATEMENT_TYPE_NAMED_EXPR, name, named_stmt, scopep, bst);
     if (BITPUNCH_OK == bt_ret) {
         *stmt_typep = STATEMENT_TYPE_NAMED_EXPR;
         return BITPUNCH_OK;
@@ -4630,7 +4696,7 @@ box_lookup_attribute_internal(struct box *box, const char *name,
         return bt_ret;
     }
     bt_ret = box_lookup_statement_internal(
-        box, STATEMENT_TYPE_FIELD, name, named_stmt, bst);
+        box, STATEMENT_TYPE_FIELD, name, named_stmt, scopep, bst);
     if (BITPUNCH_OK == bt_ret) {
         *stmt_typep = STATEMENT_TYPE_FIELD;
         return BITPUNCH_OK;
@@ -4668,13 +4734,15 @@ box_evaluate_attribute_internal(struct box *box,
     bitpunch_status_t bt_ret;
     enum statement_type stmt_type;
     const struct named_statement *named_stmt;
+    struct box *scope;
 
     bt_ret = box_apply_filter_internal(box, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
     bt_ret = box_lookup_attribute_internal(box, attr_name,
-                                           &stmt_type, &named_stmt, bst);
+                                           &stmt_type, &named_stmt, &scope,
+                                           bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -4693,7 +4761,7 @@ box_evaluate_attribute_internal(struct box *box,
         if (NULL != eval_dpathp
             && 0 != (expr->flags & ASTFLAG_IS_REXPR_DPATH)) {
             bt_ret = expr_evaluate_dpath_internal(
-                expr, box, &eval_dpath, bst);
+                expr, scope, &eval_dpath, bst);
             if (BITPUNCH_OK == bt_ret) {
                 eval_dpath_computed = TRUE;
             }
@@ -4703,7 +4771,7 @@ box_evaluate_attribute_internal(struct box *box,
                 bt_ret = dpath_read_value_internal(eval_dpath,
                                                    &eval_value, bst);
             } else {
-                bt_ret = expr_evaluate_value_internal(expr, box,
+                bt_ret = expr_evaluate_value_internal(expr, scope,
                                                       &eval_value, bst);
             }
         }
@@ -4719,16 +4787,18 @@ box_evaluate_attribute_internal(struct box *box,
                 expr_dpath_destroy(eval_dpath);
             }
         }
+        box_delete(scope);
         return bt_ret;
     }
     case STATEMENT_TYPE_FIELD: {
         struct tracker *tk;
 
-        tk = tracker_new(box);
+        tk = tracker_new(scope);
         bt_ret = tracker_goto_field_internal(
-            tk, (const struct field *)named_stmt, FALSE, bst);
+            tk, (const struct field *)named_stmt, TRUE, bst);
         if (BITPUNCH_OK != bt_ret) {
             tracker_delete(tk);
+            box_delete(scope);
             return bt_ret;
         }
         if (NULL != eval_valuep) {
@@ -4740,6 +4810,7 @@ box_evaluate_attribute_internal(struct box *box,
         } else {
             tracker_delete(tk);
         }
+        box_delete(scope);
         return bt_ret;
     }
     default:
@@ -8802,6 +8873,7 @@ box_lookup_statement(struct box *box,
                      enum statement_type stmt_type,
                      const char *stmt_name,
                      const struct named_statement **stmtp,
+                     struct box **scopep,
                      struct tracker_error **errp)
 {
     struct browse_state bst;
@@ -8809,7 +8881,7 @@ box_lookup_statement(struct box *box,
     browse_state_init(&bst);
     return transmit_error(
         box_lookup_statement_internal(box, stmt_type, stmt_name, stmtp,
-                                      &bst),
+                                      scopep, &bst),
         &bst, errp);
 }
 
