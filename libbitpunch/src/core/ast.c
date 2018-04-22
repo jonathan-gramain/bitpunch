@@ -1003,7 +1003,6 @@ resolve_identifiers_rexpr_interpreter(
     int p_idx;
     struct ast_node_hdl *param_node;
 
-    assert(0 != (resolve_tags & RESOLVE_EXPRESSION_IDENTIFIERS));
     interpreter = node->ndat->u.rexpr_interpreter.interpreter;
     for (p_idx = 0; p_idx < interpreter->n_params; ++p_idx) {
         param_node = INTERPRETER_RCALL_PARAM(node, p_idx);
