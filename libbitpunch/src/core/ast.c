@@ -210,200 +210,244 @@ reverse_lookup_typename(const struct ast_node_hdl *node,
     return NULL;
 }
 
-
-static struct named_statement *
-find_statement_by_name(enum statement_type stmt_type,
-                       const char *identifier,
-                       const struct block_stmt_list *stmt_lists)
+static const struct statement_list *
+block_stmt_lists_get_list(enum statement_type stmt_type,
+                          const struct block_stmt_list *stmt_lists)
 {
-    const struct statement_list *stmt_list;
-    struct statement *stmt;
-    struct named_statement *nstmt;
-
     switch (stmt_type) {
     case STATEMENT_TYPE_FIELD:
-        stmt_list = stmt_lists->field_list;
-        break ;
+        return stmt_lists->field_list;
     case STATEMENT_TYPE_NAMED_EXPR:
-        stmt_list = stmt_lists->named_expr_list;
-        break ;
+        return stmt_lists->named_expr_list;
+    case STATEMENT_TYPE_SPAN:
+        return stmt_lists->span_list;
+    case STATEMENT_TYPE_KEY:
+        return stmt_lists->key_list;
+    case STATEMENT_TYPE_LAST:
+        return stmt_lists->last_stmt_list;
+    case STATEMENT_TYPE_MATCH:
+        return stmt_lists->match_list;
     default:
         assert(0);
     }
-    // explicit field names have priority
-    TAILQ_FOREACH(stmt, stmt_list, list) {
-        nstmt = (struct named_statement *)stmt;
-        if (NULL != nstmt->name
-            && 0 == strcmp(identifier, nstmt->name)) {
-            return nstmt;
-        }
-    }
-    // recurse in anonymous struct/union fields
-    TAILQ_FOREACH(stmt, stmt_list, list) {
-        nstmt = (struct named_statement *)stmt;
-        if (NULL == nstmt->name) {
-            struct field *field;
-            const struct ast_node_hdl *field_type;
+}
 
-            assert(STATEMENT_TYPE_FIELD == stmt_type);
-            field = (struct field *)nstmt;
-            field_type = dpath_node_get_as_type(&field->dpath);
-            if (NULL != field_type
-                && AST_NODE_TYPE_BLOCK_DEF == field_type->ndat->type) {
-                nstmt = find_statement_by_name(
-                    STATEMENT_TYPE_FIELD, identifier,
-                    &field_type->ndat->u.block_def.block_stmt_list);
-                if (NULL != nstmt) {
-                    return nstmt;
-                }
-            }
-        }
+#define MAX_N_VISIBLE_STATEMENTS 1000
+#define LOOKUP_END -2
+
+static int
+append_named_statement_spec(
+    enum statement_type stmt_type,
+    struct named_statement *nstmt,
+    struct ast_node_hdl *anchor_block,
+    int anonymous_member,
+    struct named_statement_spec **visible_statementsp,
+    int *visible_statements_indexp)
+{
+    struct named_statement_spec *statement_spec;
+
+    if (NULL == visible_statementsp) {
+        // condition used to know about item visibility (boolean)
+        return -1;
     }
-    return NULL;
+    if (*visible_statements_indexp == MAX_N_VISIBLE_STATEMENTS) {
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &nstmt->stmt.loc,
+                       "too many polymorphic statements in scope (max %d)",
+                       MAX_N_VISIBLE_STATEMENTS);
+        return -1;
+    }
+    *visible_statementsp = realloc_safe(
+        *visible_statementsp,
+        (*visible_statements_indexp + 1) * sizeof (**visible_statementsp));
+    statement_spec = &(*visible_statementsp)[*visible_statements_indexp];
+    statement_spec->stmt_type = stmt_type;
+    statement_spec->nstmt = nstmt;
+    statement_spec->anchor_block = anchor_block;
+    statement_spec->anonymous_member = anonymous_member;
+    ++(*visible_statements_indexp);
+    return 0;
 }
 
 static int
-lookup_statement(enum statement_type stmt_type,
-                 const char *identifier,
-                 const struct list_of_visible_refs *visible_refs,
-                 const struct ast_node_hdl **blockp,
-                 const struct named_statement **stmtp)
-{
-    const struct list_of_visible_refs *refs_level;
-    struct named_statement *stmt;
+lookup_visible_statements_in_lists_internal(
+    enum statement_type stmt_mask,
+    const char *identifier,
+    const struct block_stmt_list *stmt_lists,
+    int anonymous_member,
+    struct named_statement_spec **visible_statementsp,
+    int *visible_statements_indexp);
 
-    /* try to find a matching statement name in current scope: browse
-     * lists of block statements of requested type in upward direction
-     * until a match is found */
-    for (refs_level = visible_refs; NULL != refs_level;
-         refs_level = refs_level->outer_refs) {
-        stmt = find_statement_by_name(stmt_type, identifier,
-                                      refs_level->cur_lists);
-        if (NULL != stmt) {
-            *blockp = refs_level->cur_block;
-            *stmtp = stmt;
-            return 0;
+static int
+lookup_visible_statements_in_anonymous_field(
+    enum statement_type stmt_mask,
+    const char *identifier,
+    struct field *field,
+    struct named_statement_spec **visible_statementsp,
+    int *visible_statements_indexp)
+{
+    const struct ast_node_hdl *field_type;
+    int ret;
+
+    field_type = dpath_node_get_as_type__pre_compile_stage(&field->dpath);
+    if (NULL != field_type
+        && AST_NODE_TYPE_BLOCK_DEF == field_type->ndat->type) {
+        ret = lookup_visible_statements_in_lists_internal(
+            stmt_mask, identifier,
+            &field_type->ndat->u.block_def.block_stmt_list, TRUE,
+            visible_statementsp, visible_statements_indexp);
+        if (0 != ret) {
+            return ret;
         }
     }
-    return -1;
+    return 0;
 }
 
 static int
-lookup_field(const char *identifier,
-             const struct list_of_visible_refs *visible_refs,
-             const struct ast_node_hdl **blockp,
-             const struct field **fieldp)
+lookup_visible_statements_in_lists_internal(
+    enum statement_type stmt_mask,
+    const char *identifier,
+    const struct block_stmt_list *stmt_lists,
+    int anonymous_member,
+    struct named_statement_spec **visible_statementsp,
+    int *visible_statements_indexp)
 {
-    return lookup_statement(STATEMENT_TYPE_FIELD, identifier, visible_refs,
-                            blockp,
-                            (const struct named_statement **)fieldp);
-}
-
-static int
-lookup_named_expr(const char *identifier,
-                  const struct list_of_visible_refs *visible_refs,
-                  const struct ast_node_hdl **blockp,
-                  const struct named_expr **named_exprp)
-{
-    return lookup_statement(STATEMENT_TYPE_NAMED_EXPR,
-                            identifier, visible_refs, blockp,
-                            (const struct named_statement **)named_exprp);
-}
-
-static struct named_statement *
-find_unchained_statement_by_name(const struct statement_list *in_list,
-                                 const char *identifier)
-{
+    enum statement_type stmt_type;
+    const struct statement_list *stmt_list;
     struct statement *stmt;
     struct named_statement *nstmt;
+    enum statement_type stmt_types_by_prio[] = {
+        STATEMENT_TYPE_NAMED_EXPR,
+        STATEMENT_TYPE_FIELD,
+    };
+    int i;
+    int ret;
 
-    // explicit statement names have priority
-    TAILQ_FOREACH(stmt, in_list, list) {
-        nstmt = (struct named_statement *)stmt;
-        if (NULL != nstmt->name
-            && 0 == strcmp(identifier, nstmt->name)
-            && NULL == nstmt->next_sibling) {
-            return nstmt;
+    for (i = 0; i < N_ELEM(stmt_types_by_prio); ++i) {
+        stmt_type = stmt_types_by_prio[i];
+        if (0 == (stmt_mask & stmt_type)) {
+            continue ;
+        }
+        stmt_list = block_stmt_lists_get_list(stmt_type, stmt_lists);
+        // local fields with no anonymous component have priority
+        TAILQ_FOREACH(stmt, stmt_list, list) {
+            nstmt = (struct named_statement *)stmt;
+            if (NULL != nstmt->name
+                && 0 == strcmp(identifier, nstmt->name)) {
+                if (-1 == append_named_statement_spec(
+                        stmt_type, nstmt, NULL, anonymous_member,
+                        visible_statementsp, visible_statements_indexp)) {
+                    return -1;
+                }
+                if (NULL == nstmt->stmt.cond) {
+                    // current scoped expression is unconditional, no
+                    // need to go any further by decreasing visibility
+                    // order
+                    return LOOKUP_END;
+                }
+            }
         }
     }
     // recurse in anonymous struct/union fields
-    TAILQ_FOREACH(stmt, in_list, list) {
+    TAILQ_FOREACH(stmt, stmt_lists->field_list, list) {
         nstmt = (struct named_statement *)stmt;
         if (NULL == nstmt->name) {
-            struct field *field;
-
-            field = (struct field *)nstmt;
-            if (AST_NODE_TYPE_BLOCK_DEF == field->dpath.item->ndat->type) {
-                nstmt = find_unchained_statement_by_name(
-                    field->dpath.item->ndat->u.block_def.block_stmt_list.field_list,
-                    identifier);
-                if (NULL != nstmt) {
-                    return nstmt;
-                }
-            }
-        }
-    }
-    return NULL;
-}
-
-static int
-chain_duplicate_statements_in(const struct statement_list *in_list,
-                              const struct statement_list *toplevel_list)
-{
-    struct statement *stmt;
-    struct named_statement *iter;
-    struct named_statement *unchained;
-
-    TAILQ_FOREACH(stmt, in_list, list) {
-        iter = (struct named_statement *)stmt;
-        if (NULL == iter->name) {
-            const struct field *field;
-
-            // recurse in anonymous struct/union
-            field = (const struct field *)stmt;
-            if (AST_NODE_TYPE_BLOCK_DEF == field->dpath.item->ndat->type) {
-                if (-1 == chain_duplicate_statements_in(
-                        field->dpath.item->ndat->u.block_def.block_stmt_list.field_list,
-                        toplevel_list)) {
-                    return -1;
-                }
-            }
-        } else if (NULL == iter->next_sibling) {
-            unchained = find_unchained_statement_by_name(toplevel_list,
-                                                         iter->name);
-            assert(NULL != unchained);
-            if (unchained != iter) {
-                if (NULL == unchained->stmt.cond) {
-                    semantic_error(
-                        SEMANTIC_LOGLEVEL_WARNING,
-                        &unchained->stmt.loc,
-                        "duplicate unconditional statement");
-                }
-                if (NULL == iter->stmt.cond) {
-                    semantic_error(
-                        SEMANTIC_LOGLEVEL_WARNING,
-                        &iter->stmt.loc,
-                        "duplicate unconditional statement");
-                }
-                unchained->next_sibling = iter;
+            ret = lookup_visible_statements_in_anonymous_field(
+                stmt_mask, identifier, (struct field *)nstmt,
+                visible_statementsp, visible_statements_indexp);
+            if (0 != ret) {
+                return ret;
             }
         }
     }
     return 0;
 }
 
+/**
+ * @brief gather statements of selected types with matching names in
+ * current scope
+ *
+ * The visibility order is, by decreasing weight in priority:
+ *
+ * - from inner to outer block scope
+ *
+ * - in a given block, first explicit statements, then statements
+ *   found in anonymous fields
+ *
+ * - finally, in the same block and explicit/anonymous context, named
+ *   expressions prime over field names
+ */
 static int
-chain_duplicate_statements(const struct block_stmt_list *stmt_lists)
+lookup_all_visible_statements(
+    enum statement_type stmt_mask,
+    const char *identifier,
+    const struct list_of_visible_refs *visible_refs,
+    struct named_statement_spec **visible_statementsp)
 {
-    if (-1 == chain_duplicate_statements_in(stmt_lists->field_list,
-                                            stmt_lists->field_list)) {
+    struct named_statement_spec *visible_statements;
+    int visible_statements_index;
+    int last_visible_statements_index;
+    const struct list_of_visible_refs *refs_level;
+    int ret;
+
+    visible_statements = NULL;
+    visible_statements_index = 0;
+    ret = 0;
+    for (refs_level = visible_refs;
+         NULL != refs_level && LOOKUP_END != ret;
+         refs_level = refs_level->outer_refs) {
+        last_visible_statements_index = visible_statements_index;
+        ret = lookup_visible_statements_in_lists_internal(
+            stmt_mask, identifier, refs_level->cur_lists, FALSE,
+            &visible_statements, &visible_statements_index);
+        if (-1 == ret) {
+            free(visible_statements);
+            return -1;
+        }
+        while (last_visible_statements_index < visible_statements_index) {
+            visible_statements[last_visible_statements_index].anchor_block =
+                refs_level->cur_block;
+            ++last_visible_statements_index;
+        }
+    }
+    *visible_statementsp = visible_statements;
+    return visible_statements_index;
+}
+
+static int
+lookup_visible_statements_in_lists(
+    enum statement_type stmt_mask,
+    const char *identifier,
+    const struct block_stmt_list *stmt_lists,
+    struct named_statement_spec **visible_statementsp)
+{
+    struct named_statement_spec *visible_statements;
+    int visible_statements_index;
+    int ret;
+    
+    visible_statements = NULL;
+    visible_statements_index = 0;
+    ret = lookup_visible_statements_in_lists_internal(
+        stmt_mask, identifier, stmt_lists, FALSE,
+        &visible_statements, &visible_statements_index);
+    if (-1 == ret) {
+        free(visible_statements);
         return -1;
     }
-    if (-1 == chain_duplicate_statements_in(stmt_lists->named_expr_list,
-                                            stmt_lists->named_expr_list)) {
-        return -1;
-    }
-    return 0;
+    *visible_statementsp = visible_statements;
+    return visible_statements_index;
+}
+
+int
+identifier_is_visible_in_block_stmt_lists(
+    enum statement_type stmt_mask,
+    const char *identifier,
+    const struct block_stmt_list *stmt_lists)
+{
+    // -1 means that there was more names to lookup than the maximum
+    // -requested (0), so at least one.
+    return -1 == lookup_visible_statements_in_lists_internal(
+        stmt_mask, identifier, stmt_lists, FALSE,
+        NULL, NULL);
 }
 
 static int
@@ -441,9 +485,10 @@ resolve_identifiers_identifier_as_type(
     struct ast_node_hdl *node,
     const struct list_of_visible_refs *visible_refs)
 {
+    struct named_statement_spec *visible_statements;
+    int n_visible_statements;
+    struct named_statement_spec *stmt_spec;
     struct ast_node_data *resolved_type;
-    const struct ast_node_hdl *resolved_block;
-    const struct named_expr *resolved_named_expr;
     
     if (0 == strcmp(node->ndat->u.identifier, "byte")) {
         /* native 'byte' type */
@@ -453,17 +498,37 @@ resolve_identifiers_identifier_as_type(
         node->ndat = resolved_type;
         return 0;
     }
-    if (-1 != lookup_named_expr(node->ndat->u.identifier, visible_refs,
-                                &resolved_block,
-                                &resolved_named_expr)) {
+    n_visible_statements = lookup_all_visible_statements(
+        STATEMENT_TYPE_NAMED_EXPR,
+        node->ndat->u.identifier, visible_refs,
+        &visible_statements);
+    if (-1 == n_visible_statements) {
+        return -1;
+    }
+    if (n_visible_statements > 0) {
         resolved_type = new_safe(struct ast_node_data);
-        resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
         resolved_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
-        assert(NULL != resolved_block);
-        resolved_type->u.rexpr_member_common.anchor_block =
-            (struct ast_node_hdl *)resolved_block;
-        resolved_type->u.rexpr_named_expr.named_expr =
-            resolved_named_expr;
+        if (1 == n_visible_statements) {
+            stmt_spec = &visible_statements[0];
+            assert(STATEMENT_TYPE_NAMED_EXPR == stmt_spec->stmt_type);
+            resolved_type->u.rexpr_member_common.anchor_block =
+                (struct ast_node_hdl *)stmt_spec->anchor_block;
+            if (stmt_spec->anonymous_member) {
+                resolved_type->flags |= ASTFLAG_DATA_ANONYMOUS_MEMBER;
+            }
+            resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
+            resolved_type->u.rexpr_named_expr.named_expr =
+                (struct named_expr *)stmt_spec->nstmt;
+            free(visible_statements);
+        } else {
+            resolved_type->type = AST_NODE_TYPE_REXPR_POLYMORPHIC;
+            resolved_type->u.rexpr_polymorphic.identifier =
+                node->ndat->u.identifier;
+            resolved_type->u.rexpr_polymorphic.visible_statements =
+                visible_statements;
+            resolved_type->u.rexpr_polymorphic.n_visible_statements =
+                n_visible_statements;
+        }
         node->ndat = resolved_type;
         return 0;
     }
@@ -496,35 +561,53 @@ resolve_identifiers_identifier_as_expression(
     struct ast_node_hdl *node,
     const struct list_of_visible_refs *visible_refs)
 {
-    struct ast_node_data  *resolved_type;
-    const struct ast_node_hdl *resolved_block;
-    const struct named_expr *resolved_named_expr;
-    const struct field *resolved_field;
+    struct named_statement_spec *visible_statements;
+    int n_visible_statements;
+    struct named_statement_spec *stmt_spec;
+    struct ast_node_data *resolved_type;
     const struct expr_builtin_fn *builtin;
 
-    if (-1 != lookup_named_expr(node->ndat->u.identifier, visible_refs,
-                                &resolved_block,
-                                &resolved_named_expr)) {
-        resolved_type = new_safe(struct ast_node_data);
-        resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
-        resolved_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
-        assert(NULL != resolved_block);
-        resolved_type->u.rexpr_member_common.anchor_block =
-            (struct ast_node_hdl *)resolved_block;
-        resolved_type->u.rexpr_named_expr.named_expr =
-            resolved_named_expr;
-        node->ndat = resolved_type;
-        return 0;
+    n_visible_statements = lookup_all_visible_statements(
+        STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD,
+        node->ndat->u.identifier, visible_refs,
+        &visible_statements);
+    if (-1 == n_visible_statements) {
+        return -1;
     }
-    if (-1 != lookup_field(node->ndat->u.identifier, visible_refs,
-                           &resolved_block, &resolved_field)) {
+    if (n_visible_statements > 0) {
         resolved_type = new_safe(struct ast_node_data);
-        resolved_type->type = AST_NODE_TYPE_REXPR_FIELD;
         resolved_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
-        assert(NULL != resolved_block);
-        resolved_type->u.rexpr_member_common.anchor_block =
-            (struct ast_node_hdl *)resolved_block;
-        resolved_type->u.rexpr_field.field = resolved_field;
+        if (1 == n_visible_statements) {
+            stmt_spec = &visible_statements[0]; 
+            resolved_type->u.rexpr_member_common.anchor_block =
+                (struct ast_node_hdl *)stmt_spec->anchor_block;
+            if (stmt_spec->anonymous_member) {
+                resolved_type->flags |= ASTFLAG_DATA_ANONYMOUS_MEMBER;
+            }
+            switch (stmt_spec->stmt_type) {
+            case STATEMENT_TYPE_NAMED_EXPR:
+                resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
+                resolved_type->u.rexpr_named_expr.named_expr =
+                    (struct named_expr *)stmt_spec->nstmt;
+                break ;
+            case STATEMENT_TYPE_FIELD:
+                resolved_type->type = AST_NODE_TYPE_REXPR_FIELD;
+                resolved_type->u.rexpr_field.field =
+                    (struct field *)stmt_spec->nstmt;
+                break ;
+            default:
+                assert(0);
+            }
+            free(visible_statements);
+        } else {
+            resolved_type->type = AST_NODE_TYPE_REXPR_POLYMORPHIC;
+            resolved_type->u.rexpr_polymorphic.identifier =
+                node->ndat->u.identifier;
+            resolved_type->u.rexpr_polymorphic.visible_statements =
+                visible_statements;
+            resolved_type->u.rexpr_polymorphic.n_visible_statements =
+                n_visible_statements;
+        }
         node->ndat = resolved_type;
         return 0;
     }
@@ -666,9 +749,6 @@ resolve_identifiers_in_block_body(
                 resolve_tags)) {
             return -1;
         }
-    }
-    if (-1 == chain_duplicate_statements(stmt_lists)) {
-        return -1;
     }
     TAILQ_FOREACH(stmt, stmt_lists->span_list, list) {
         span_stmt = (struct span_stmt *)stmt;
@@ -1645,6 +1725,7 @@ compile_field_cb(struct compile_ctx *ctx,
     if (-1 == compile_dpath(&field->dpath, ctx, tags, 0u)) {
         return 0u;
     }
+    // XXX support named expr polymorphism
     target_item = ast_node_get_target_item(dpath->item);
     if (NULL == target_item) {
         assert(NULL != dpath->filter);
@@ -1661,8 +1742,12 @@ compile_field_cb(struct compile_ctx *ctx,
         // field access without using the dot operator (like
         // inheritance). For non-block types it becomes a hidden
         // field (takes up space but not exposed to API).
+
+        // XXX only set flag if all polymorphic named expr targets are
+        // hidden fields
         as_type = ast_node_get_named_expr_target(
-            (struct ast_node_hdl *)dpath_node_get_as_type(dpath));
+            (struct ast_node_hdl *)
+            dpath_node_get_as_type__pre_compile_stage(dpath));
         if (AST_NODE_TYPE_BLOCK_DEF != as_type->ndat->type) {
             field->nstmt.stmt.stmt_flags |= FIELD_FLAG_HIDDEN;
         }
@@ -1877,6 +1962,8 @@ compile_rexpr_operator(
 
     only_native_operands = TRUE;
     for (opd_i = 0; opd_i < n_operands; ++opd_i) {
+        // XXX check that value_type is consistent across polymorphic
+        // named expr targets
         operand = ast_node_get_named_expr_target(
             expr->ndat->u.rexpr_op.op.operands[opd_i]);
         opd_types[opd_i] = operand->ndat->u.rexpr.value_type;
@@ -1885,6 +1972,7 @@ compile_rexpr_operator(
                            "operand has no value type");
             return -1;
         }
+        // XXX only optimize if target is unique (i.e. non polymorphic)
         if (AST_NODE_TYPE_REXPR_NATIVE != operand->ndat->type) {
             only_native_operands = FALSE;
         }
@@ -2123,6 +2211,7 @@ compile_expr_operator_subscript(struct ast_node_hdl *node,
         return -1;
     }
     if (0 != (expect_mask & RESOLVE_EXPECT_TYPE)) {
+        // XXX check that all polymorphic targets are types
         anchor_target = ast_node_get_target_type(anchor_expr);
         if (NULL != anchor_target) {
             assert(ast_node_is_item(anchor_target));
@@ -2355,6 +2444,7 @@ compile_expr_operator_sizeof(struct ast_node_hdl *expr,
 
     target = ast_node_get_named_expr_target(operand);
     if (AST_NODE_TYPE_REXPR_ITEM == target->ndat->type) {
+        // XXX support named expr polymorphism
         target_item = ast_node_get_target_item(target);
         if (0 != (target_item->ndat->u.item.flags
                   & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
@@ -2444,11 +2534,17 @@ compile_expr_operator_ancestor(struct ast_node_hdl *expr,
     }
     assert(ast_node_is_rexpr(operand));
     target_filter = ast_node_get_target_filter(operand);
-    if (AST_NODE_TYPE_REXPR_FILTER == target_filter->ndat->type) {
-        target = target_filter->ndat->u.rexpr_filter.target;
+    if (NULL != target_filter) {
+        if (AST_NODE_TYPE_REXPR_FILTER == target_filter->ndat->type) {
+            target = target_filter->ndat->u.rexpr_filter.target;
+        } else {
+            target = target_filter;
+        }
     } else {
-        target = target_filter;
+        target = operand;
     }
+    // XXX make sure value_type is consistent across polymorphic named
+    // exprs
     value_type = target->ndat->u.rexpr.value_type;
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_OP_ANCESTOR;
@@ -2547,8 +2643,7 @@ compile_rexpr_interpreter(struct ast_node_hdl *expr,
 
 static int
 compile_rexpr_named_expr(struct ast_node_hdl *expr,
-                         struct compile_ctx *ctx,
-                         enum resolve_expect_mask expect_mask)
+                         struct compile_ctx *ctx)
 {
     struct named_expr *named_expr;
     struct ast_node_hdl *target;
@@ -2565,6 +2660,109 @@ compile_rexpr_named_expr(struct ast_node_hdl *expr,
     }
     expr->ndat->u.rexpr.value_type = expr_value_type_from_node(target);
     expr->flags |= (target->flags & ASTFLAG_IS_REXPR_DPATH);
+    return 0;
+}
+
+static int
+compile_rexpr_polymorphic(struct ast_node_hdl *expr,
+                          struct compile_ctx *ctx)
+{
+    int i;
+    struct named_statement_spec *stmt_spec;
+    struct field *field;
+    struct named_expr *named_expr;
+    struct ast_node_hdl *target_expr;
+    struct ast_node_hdl *first_target_expr;
+    enum expr_value_type value_type;
+    int is_dpath;
+    
+    // FIXME some circular dependency errors could be legit, rework this
+    for (i = 0; i < expr->ndat->u.rexpr_polymorphic.n_visible_statements;
+         ++i) {
+        stmt_spec = &expr->ndat->u.rexpr_polymorphic.visible_statements[i];
+        switch (stmt_spec->stmt_type) {
+        case STATEMENT_TYPE_FIELD:
+            field = (struct field *)stmt_spec->nstmt;
+            compile_field(field, ctx, COMPILE_TAG_NODE_TYPE, 0u);
+            break ;
+        case STATEMENT_TYPE_NAMED_EXPR:
+            named_expr = (struct named_expr *)stmt_spec->nstmt;
+            compile_node(named_expr->expr, ctx, COMPILE_TAG_NODE_TYPE, 0u,
+                         RESOLVE_EXPECT_TYPE |
+                         RESOLVE_EXPECT_EXPRESSION |
+                         RESOLVE_EXPECT_INTERPRETER);
+            break ;
+        default:
+            assert(0);
+        }
+    }
+    if (!compile_continue(ctx)) {
+        return -1;
+    }
+    value_type = EXPR_VALUE_TYPE_UNSET;
+    is_dpath = -1;
+    first_target_expr = NULL;
+    for (i = 0; i < expr->ndat->u.rexpr_polymorphic.n_visible_statements;
+         ++i) {
+        stmt_spec = &expr->ndat->u.rexpr_polymorphic.visible_statements[i];
+        switch (stmt_spec->stmt_type) {
+        case STATEMENT_TYPE_FIELD:
+            field = (struct field *)stmt_spec->nstmt;
+            target_expr = field->dpath.filter;
+            assert(ast_node_is_rexpr(expr));
+            break ;
+        case STATEMENT_TYPE_NAMED_EXPR:
+            named_expr = (struct named_expr *)stmt_spec->nstmt;
+            target_expr = named_expr->expr;
+            break ;
+        default:
+            assert(0);
+        }
+        assert(ast_node_is_rexpr(target_expr));
+        if (i == 0) {
+            value_type = target_expr->ndat->u.rexpr.value_type;
+            is_dpath = (0 != (target_expr->flags & ASTFLAG_IS_REXPR_DPATH));
+            first_target_expr = target_expr;
+        } else {
+            assert(NULL != first_target_expr);
+            if (value_type != target_expr->ndat->u.rexpr.value_type) {
+                semantic_error(
+                    SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
+                    "multiple value types for expressions referred "
+                    "from the same polymorphic identifier");
+                semantic_error(
+                    SEMANTIC_LOGLEVEL_INFO, &first_target_expr->loc,
+                    "first target expression has value type '%s'",
+                    expr_value_type_str(
+                        first_target_expr->ndat->u.rexpr.value_type));
+                semantic_error(
+                    SEMANTIC_LOGLEVEL_INFO, &target_expr->loc,
+                    "this target expression has value type '%s'",
+                    expr_value_type_str(
+                        target_expr->ndat->u.rexpr.value_type));
+                return -1;
+            }
+            if (is_dpath
+                != (0 != (target_expr->flags & ASTFLAG_IS_REXPR_DPATH))) {
+                semantic_error(
+                    SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
+                    "mixed dpath-type and value-type expressions "
+                    "referred from the same polymorphic identifier");
+                semantic_error(
+                    SEMANTIC_LOGLEVEL_INFO, &first_target_expr->loc,
+                    "first target expression is a %s",
+                    is_dpath ? "dpath-type" : "value-type");
+                semantic_error(
+                    SEMANTIC_LOGLEVEL_INFO, &target_expr->loc,
+                    "this target expression is a %s",
+                    0 != (target_expr->flags & ASTFLAG_IS_REXPR_DPATH) ?
+                    "dpath-type" : "value-type");
+                return -1;
+            }
+        }
+    }
+    expr->ndat->u.rexpr.value_type = value_type;
+    expr->flags |= is_dpath ? ASTFLAG_IS_REXPR_DPATH : 0u;
     return 0;
 }
 
@@ -2588,14 +2786,13 @@ static int
 compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
 {
     struct op *op;
-    const struct named_expr *named_expr;
+    struct named_statement_spec *visible_statements;
+    int n_visible_statements;
     struct ast_node_hdl *anchor_expr;
     struct ast_node_hdl *anchor_target;
     const struct ast_node_hdl *anchor_block, *member;
-    struct named_statement *resolved_member;
-    struct ast_node_data *expr_ndat;
-    enum resolve_expect_mask member_expect_mask;
-    struct field *field;
+    struct named_statement_spec *stmt_spec;
+    struct ast_node_data *resolved_type;
 
     op = &expr->ndat->u.rexpr_op.op;
     member = op->operands[1];
@@ -2609,88 +2806,90 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
         return -1;
     }
     anchor_expr = op->operands[0];
-    if (AST_NODE_TYPE_REXPR_NAMED_EXPR == op->operands[0]->ndat->type) {
-        named_expr = op->operands[0]->ndat->u.rexpr_named_expr.named_expr;
-        anchor_target = named_expr->expr;
-    } else {
-        anchor_target = op->operands[0];
-        named_expr = NULL;
-    }
-    while (NULL != anchor_target) {
-        if (ast_node_is_rexpr(anchor_target)) {
-            anchor_block = ast_node_get_as_type(anchor_target);
-            if (NULL == anchor_block) {
-                semantic_error(
-                    SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                    "member operator with computed dpath not supported");
-                return -1;
-            }
-        } else {
-            anchor_block = anchor_target;
-        }
-        assert(ast_node_is_item(anchor_block));
+    anchor_block = ast_node_get_as_type(anchor_expr);
+    anchor_target = ast_node_get_named_expr_target(anchor_expr);
+    if (NULL != anchor_block) {
         if (anchor_block->ndat->type != AST_NODE_TYPE_BLOCK_DEF) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
                 "invalid use of member operator on non-block dpath");
             return -1;
         }
-        resolved_member = find_statement_by_name(
-            STATEMENT_TYPE_NAMED_EXPR, member->ndat->u.identifier,
-            &anchor_block->ndat->u.block_def.block_stmt_list);
-        if (NULL != resolved_member) {
-            expr_ndat = new_safe(struct ast_node_data);
-            expr_ndat->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
-            assert(NULL != anchor_expr);
-            expr_ndat->u.rexpr_member_common.anchor_block =
+        n_visible_statements = lookup_visible_statements_in_lists(
+            STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD,
+            member->ndat->u.identifier,
+            &anchor_block->ndat->u.block_def.block_stmt_list,
+            &visible_statements);
+        if (-1 == n_visible_statements) {
+            return -1;
+        }
+        if (0 == n_visible_statements) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &member->loc,
+                "no named expression or field named '%s' exists in block",
+                member->ndat->u.identifier);
+            semantic_error(SEMANTIC_LOGLEVEL_INFO, &anchor_block->loc,
+                           "declared here");
+            return -1;
+        }
+        if (n_visible_statements == 1) {
+            stmt_spec = &visible_statements[0];
+            resolved_type = new_safe(struct ast_node_data);
+            resolved_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
+            resolved_type->u.rexpr_member_common.anchor_expr = anchor_expr;
+            resolved_type->u.rexpr_member_common.anchor_block =
                 (struct ast_node_hdl *)anchor_block;
-            expr_ndat->u.rexpr_member_common.anchor_expr = anchor_expr;
-            expr_ndat->u.rexpr_named_expr.named_expr =
-                (struct named_expr *)resolved_member;
-            expr->ndat = expr_ndat;
-            if (AST_NODE_TYPE_REXPR_ITEM == anchor_target->ndat->type) {
-                member_expect_mask = RESOLVE_EXPECT_TYPE;
-            } else {
-                member_expect_mask = RESOLVE_EXPECT_EXPRESSION;
+            if (stmt_spec->anonymous_member) {
+                resolved_type->flags |= ASTFLAG_DATA_ANONYMOUS_MEMBER;
             }
-            return compile_rexpr_named_expr(expr, ctx, member_expect_mask);
-        }
-        resolved_member = find_statement_by_name(
-            STATEMENT_TYPE_FIELD, member->ndat->u.identifier,
-            &anchor_block->ndat->u.block_def.block_stmt_list);
-        if (NULL != resolved_member) {
-            field = (struct field *)resolved_member;
-            if (AST_NODE_TYPE_REXPR_ITEM == anchor_target->ndat->type) {
-                expr->ndat = ast_node_data_new_rexpr_item(field->dpath.item);
-                return 0;
+            expr->ndat = resolved_type;
+            switch (stmt_spec->stmt_type) {
+            case STATEMENT_TYPE_NAMED_EXPR:
+                resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
+                resolved_type->u.rexpr_named_expr.named_expr =
+                    (struct named_expr *)stmt_spec->nstmt;
+                free(visible_statements);
+                return compile_rexpr_named_expr(expr, ctx);
+            case STATEMENT_TYPE_FIELD:
+                // this is for supporting type-as-expression
+                // e.g. sizeof(Type.field)
+                //
+                // there is probably a cleaner way to support
+                // type-as-expressions for future work
+                if (AST_NODE_TYPE_REXPR_ITEM == anchor_target->ndat->type) {
+                    expr->ndat = ast_node_data_new_rexpr_item(
+                        ((struct field *)stmt_spec->nstmt)->dpath.item);
+                    return 0;
+                }
+                resolved_type->type = AST_NODE_TYPE_REXPR_FIELD;
+                resolved_type->u.rexpr_field.field =
+                    (struct field *)stmt_spec->nstmt;
+                free(visible_statements);
+                return compile_rexpr_field(expr, ctx);
+            default:
+                assert(0);
             }
-            expr_ndat = new_safe(struct ast_node_data);
-            expr_ndat->type = AST_NODE_TYPE_REXPR_FIELD;
-            assert(NULL != anchor_expr);
-            expr_ndat->u.rexpr_member_common.anchor_block =
-                (struct ast_node_hdl *)anchor_block;
-            expr_ndat->u.rexpr_member_common.anchor_expr = anchor_expr;
-            expr_ndat->u.rexpr_field.field = field;
-            expr->ndat = expr_ndat;
-            return compile_rexpr_field(expr, ctx);
         }
-
-        if (NULL != named_expr) {
-            named_expr = (struct named_expr *)named_expr->nstmt.next_sibling;
-        }
-        if (NULL != named_expr) {
-            anchor_target = named_expr->expr;
-        } else {
-            anchor_target = NULL;
-        }
+        // n_visible_statements > 1 => polymorphic member
+    } else {
+        // dynamic anchor => polymorphic member
+        visible_statements = NULL;
+        n_visible_statements = 0;
     }
-    semantic_error(
-        SEMANTIC_LOGLEVEL_ERROR, &member->loc,
-        "no named expression or field named '%s' exists in block",
-        member->ndat->u.identifier);
-    semantic_error(SEMANTIC_LOGLEVEL_INFO, &anchor_block->loc,
-                   "declared here");
-    return -1;
+    resolved_type = new_safe(struct ast_node_data);
+    resolved_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
+    resolved_type->u.rexpr_member_common.anchor_expr = anchor_expr;
+    resolved_type->u.rexpr_member_common.anchor_block =
+        (struct ast_node_hdl *)anchor_block;
+    resolved_type->type = AST_NODE_TYPE_REXPR_POLYMORPHIC;
+    resolved_type->u.rexpr_polymorphic.identifier =
+        member->ndat->u.identifier;
+    resolved_type->u.rexpr_polymorphic.visible_statements =
+        visible_statements;
+    resolved_type->u.rexpr_polymorphic.n_visible_statements =
+        n_visible_statements;
+    expr->ndat = resolved_type;
+    return compile_rexpr_polymorphic(expr, ctx);
 }
 
 static int
@@ -2781,7 +2980,9 @@ compile_node_type_int(struct ast_node_hdl *node,
     case AST_NODE_TYPE_REXPR_FIELD:
         return compile_rexpr_field(node, ctx);
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
-        return compile_rexpr_named_expr(node, ctx, expect_mask);
+        return compile_rexpr_named_expr(node, ctx);
+    case AST_NODE_TYPE_REXPR_POLYMORPHIC:
+        return compile_rexpr_polymorphic(node, ctx);
     case AST_NODE_TYPE_REXPR_INTERPRETER:
         return compile_rexpr_interpreter(node, ctx);
     default:
@@ -3046,6 +3247,7 @@ compile_span_size_array(struct ast_node_hdl *array, struct compile_ctx *ctx)
         if (-1 == compile_expr(item_count_expr, ctx, TRUE)) {
             return -1;
         }
+        // XXX check all polymorphic named expr targets
         if (EXPR_VALUE_TYPE_INTEGER !=
             item_count_expr->ndat->u.rexpr.value_type) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR, &item_count_expr->loc,
@@ -3056,6 +3258,8 @@ compile_span_size_array(struct ast_node_hdl *array, struct compile_ctx *ctx)
             return -1;
         }
     }
+    // XXX allow for getting all potential item types from named expr
+    // polymorphism
     item_dpath = &array->ndat->u.array.item_type;
     item_type = ast_node_get_target_item(item_dpath->item);
     assert(ast_node_is_item(item_type));
@@ -3192,27 +3396,26 @@ static enum filter_defining_size_status
 get_filter_defining_size_status_named_expr(struct ast_node_hdl *filter)
 {
     const struct named_expr *named_expr;
-    enum filter_defining_size_status sibling_status;
+    enum filter_defining_size_status target_status;
 
-    for (named_expr = filter->ndat->u.rexpr_named_expr.named_expr;
-         NULL != named_expr;
-         named_expr = (const struct named_expr *)
-             named_expr->nstmt.next_sibling) {
-        sibling_status = get_filter_defining_size_status(named_expr->expr);
-        if (NULL == named_expr->nstmt.stmt.cond) {
-            return sibling_status;
-        }
-        switch (sibling_status) {
-        case FILTER_ALWAYS_DEFINES_SIZE:
-        case FILTER_CONDITIONALLY_DEFINES_SIZE:
-            return FILTER_CONDITIONALLY_DEFINES_SIZE;
-        case FILTER_NEVER_DEFINES_SIZE:
-            break ;
-        default:
-            assert(0);
-        }
+    named_expr = filter->ndat->u.rexpr_named_expr.named_expr;
+    target_status = get_filter_defining_size_status(named_expr->expr);
+    switch (target_status) {
+    case FILTER_ALWAYS_DEFINES_SIZE:
+        return NULL != named_expr->nstmt.stmt.cond ?
+            FILTER_CONDITIONALLY_DEFINES_SIZE : FILTER_ALWAYS_DEFINES_SIZE;
+    case FILTER_CONDITIONALLY_DEFINES_SIZE:
+    case FILTER_NEVER_DEFINES_SIZE:
+        return target_status;
+    default:
+        assert(0);
     }
-    return FILTER_NEVER_DEFINES_SIZE;
+}
+
+static enum filter_defining_size_status
+get_filter_defining_size_status_polymorphic(struct ast_node_hdl *filter)
+{
+    return FILTER_CONDITIONALLY_DEFINES_SIZE;
 }
 
 static enum filter_defining_size_status
@@ -3223,6 +3426,8 @@ get_filter_defining_size_status(struct ast_node_hdl *filter)
         return get_filter_defining_size_status_interpreter(filter);
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
         return get_filter_defining_size_status_named_expr(filter);
+    case AST_NODE_TYPE_REXPR_POLYMORPHIC:
+        return get_filter_defining_size_status_polymorphic(filter);
     default:
         return FILTER_NEVER_DEFINES_SIZE;
     }
@@ -3304,18 +3509,13 @@ compile_span_size_rexpr_named_expr(struct ast_node_hdl *filter,
 {
     const struct named_expr *named_expr;
 
-    for (named_expr = filter->ndat->u.rexpr_named_expr.named_expr;
-         NULL != named_expr;
-         named_expr = (const struct named_expr *)
-             named_expr->nstmt.next_sibling) {
-        compile_node(named_expr->expr, ctx,
-                     COMPILE_TAG_NODE_TYPE |
-                     COMPILE_TAG_NODE_SPAN_SIZE, 0u,
-                     RESOLVE_EXPECT_TYPE |
-                     RESOLVE_EXPECT_INTERPRETER |
-                     RESOLVE_EXPECT_DPATH_EXPRESSION);
-    }
-    return compile_continue(ctx) ? 0 : -1;
+    named_expr = filter->ndat->u.rexpr_named_expr.named_expr;
+    return compile_node(named_expr->expr, ctx,
+                        COMPILE_TAG_NODE_TYPE |
+                        COMPILE_TAG_NODE_SPAN_SIZE, 0u,
+                        RESOLVE_EXPECT_TYPE |
+                        RESOLVE_EXPECT_INTERPRETER |
+                        RESOLVE_EXPECT_DPATH_EXPRESSION);
 }
 
 static int
@@ -3596,6 +3796,7 @@ ast_node_is_rexpr(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_REXPR_FIELD:
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
+    case AST_NODE_TYPE_REXPR_POLYMORPHIC:
     case AST_NODE_TYPE_REXPR_BUILTIN:
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT:
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE:
@@ -3606,30 +3807,6 @@ ast_node_is_rexpr(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_STAR_WILDCARD:
     case AST_NODE_TYPE_REXPR_INTERPRETER:
     case AST_NODE_TYPE_REXPR_ITEM:
-        return TRUE;
-    default:
-        return FALSE;
-    }
-}
-
-int
-ast_node_is_rexpr_dpath(const struct ast_node_hdl *node)
-{
-    if (AST_NODE_TYPE_REXPR_NAMED_EXPR == node->ndat->type) {
-        const struct ast_node_hdl *target;
-
-        target = node->ndat->u.rexpr_named_expr.named_expr->expr;
-        if (ast_node_is_item(target)) {
-            return TRUE;
-        }
-        return ast_node_is_rexpr_dpath(target);
-    }
-    switch (node->ndat->type) {
-    case AST_NODE_TYPE_REXPR_INTERPRETER:
-    case AST_NODE_TYPE_REXPR_ITEM:
-    case AST_NODE_TYPE_REXPR_FIELD:
-    case AST_NODE_TYPE_REXPR_FILE:
-    case AST_NODE_TYPE_REXPR_SELF:
         return TRUE;
     default:
         return FALSE;
@@ -3759,29 +3936,10 @@ ast_node_get_target_filter(struct ast_node_hdl *node)
 }
 
 struct ast_node_hdl *
-ast_node_get_filter_end_target(struct ast_node_hdl *node)
-{
-    if (NULL == node) {
-        return NULL;
-    }
-    switch (node->ndat->type) {
-    case AST_NODE_TYPE_REXPR_NAMED_EXPR:
-        return ast_node_get_filter_end_target(
-            node->ndat->u.rexpr_named_expr.named_expr->expr);
-    case AST_NODE_TYPE_REXPR_FILTER:
-        return ast_node_get_filter_end_target(
-            node->ndat->u.rexpr_filter.target);
-    default:
-        return node;
-    }
-}
-
-struct ast_node_hdl *
 ast_node_get_named_expr_target(struct ast_node_hdl *node)
 {
     if (NULL == node
-        || AST_NODE_TYPE_REXPR_NAMED_EXPR != node->ndat->type
-        || NULL != node->ndat->u.rexpr_named_expr.named_expr->nstmt.next_sibling) {
+        || AST_NODE_TYPE_REXPR_NAMED_EXPR != node->ndat->type) {
         return node;
     }
     return ast_node_get_named_expr_target(
@@ -3919,7 +4077,7 @@ ast_node_get_as_type__rexpr(const struct ast_node_hdl *expr)
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
         as_type = ast_node_get_as_type(
             expr->ndat->u.rexpr_named_expr.named_expr->expr);
-        if (NULL != as_type && ast_node_is_item(as_type)) {
+        if (NULL != as_type) {
             return as_type;
         }
         return NULL;
@@ -3941,7 +4099,8 @@ ast_node_get_as_type__rexpr(const struct ast_node_hdl *expr)
         if (NULL == expr->ndat->u.rexpr_field.field->dpath.filter) {
             return expr->ndat->u.rexpr_field.field->dpath.item;
         }
-        return ast_node_get_as_type(expr->ndat->u.rexpr_field.field->dpath.filter);
+        return ast_node_get_as_type(
+            expr->ndat->u.rexpr_field.field->dpath.filter);
 
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT: {
         struct ast_node_hdl *anchor_target;
@@ -3968,6 +4127,10 @@ ast_node_get_as_type__rexpr(const struct ast_node_hdl *expr)
         return ast_node_get_as_type(
             expr->ndat->u.rexpr_op_subscript_common.anchor_expr);
 
+    case AST_NODE_TYPE_OP_SET_FILTER:
+        // used during identifier resolution to explore anonymous
+        // struct/unions
+        return ast_node_get_as_type(expr->ndat->u.op.operands[1]);
     default:
         return NULL;
     }
@@ -4080,12 +4243,19 @@ dpath_node_get_as_type(const struct dpath_node *dpath)
     if (NULL != as_type) {
         return as_type;
     }
-    if (AST_NODE_TYPE_OP_SET_FILTER == dpath->item->ndat->type) {
-        // used during identifier resolution to explore anonymous
-        // struct/unions
-        return ast_node_get_as_type(dpath->item->ndat->u.op.operands[1]);
-    }
     return dpath->item;
+}
+
+struct ast_node_hdl *
+dpath_node_get_as_type__pre_compile_stage(const struct dpath_node *dpath)
+{
+    struct ast_node_hdl *as_type;
+
+    as_type = ast_node_get_as_type(dpath->filter);
+    if (NULL != as_type) {
+        return as_type;
+    }
+    return ast_node_get_as_type(dpath->item);
 }
 
 struct ast_node_hdl *
@@ -4554,6 +4724,13 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
                       visible_refs, out);
         fprintf(out, "\n");
         break ;
+    case AST_NODE_TYPE_REXPR_POLYMORPHIC:
+        dump_ast_rexpr_member(node, depth, visible_refs, out);
+        fprintf(out, "%*s\\_ polymorphic: %s\n",
+                (depth + 1) * INDENT_N_SPACES, "",
+                node->ndat->u.rexpr_polymorphic.identifier);
+        fprintf(out, "\n");
+        break ;
     case AST_NODE_TYPE_REXPR_BUILTIN:
         dump_ast_rexpr(node, out);
         fprintf(out, "\n");
@@ -4710,6 +4887,7 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_REXPR_OP_MEMBER:
     case AST_NODE_TYPE_REXPR_FIELD:
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
+    case AST_NODE_TYPE_REXPR_POLYMORPHIC:
     case AST_NODE_TYPE_REXPR_BUILTIN:
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT:
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE:

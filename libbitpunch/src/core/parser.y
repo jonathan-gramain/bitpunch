@@ -175,6 +175,7 @@
     enum ast_node_data_flag {
         /** template interpreter */
         ASTFLAG_DATA_TEMPLATE               = (1<<0),
+        ASTFLAG_DATA_ANONYMOUS_MEMBER       = (1<<1),
     };
 
     struct rexpr {
@@ -295,6 +296,7 @@
             AST_NODE_TYPE_REXPR_OP_MEMBER,
             AST_NODE_TYPE_REXPR_FIELD,
             AST_NODE_TYPE_REXPR_NAMED_EXPR,
+            AST_NODE_TYPE_REXPR_POLYMORPHIC,
             AST_NODE_TYPE_REXPR_BUILTIN,
             AST_NODE_TYPE_REXPR_OP_SUBSCRIPT,
             AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE,
@@ -418,6 +420,13 @@
                 struct rexpr_member_common rexpr_member_common;
                 const struct named_expr *named_expr;
             } rexpr_named_expr;
+            struct rexpr_polymorphic {
+                /* inherits */
+                struct rexpr_member_common rexpr_member_common;
+                const char *identifier;
+                struct named_statement_spec *visible_statements;
+                int n_visible_statements;
+            } rexpr_polymorphic;
             struct rexpr_builtin {
                 struct rexpr rexpr; /* inherits */
                 //struct ast_node_hdl *anchor_expr;
@@ -464,16 +473,17 @@
         struct ast_node_hdl *cond;
     };
 
+    enum statement_flag {
+        STATEMENT_FLAGS_END = (1<<0),
+    };
+
     struct named_statement {
         struct statement stmt; // inherits
-        struct named_statement *next_sibling;
         char *name;
     };
 
-    enum field_flag {
-        FIELD_FLAG_HIDDEN        = (1<<0),
-        FIELD_FLAG_HEADER        = (1<<1),
-        FIELD_FLAG_TRAILER       = (1<<2),
+    enum named_statement_flag {
+        NAMED_STATEMENT_FLAGS_END          = (STATEMENT_FLAGS_END<<0),
     };
 
     struct match {
@@ -492,13 +502,20 @@
         struct dep_resolver_node dr_node;
     };
 
-    enum span_stmt_flag {
-        SPAN_FLAG_MIN = (1<<0),
-        SPAN_FLAG_MAX = (1<<1),
+    enum field_flag {
+        FIELD_FLAG_HIDDEN        = (NAMED_STATEMENT_FLAGS_END<<0),
+        FIELD_FLAG_HEADER        = (NAMED_STATEMENT_FLAGS_END<<1),
+        FIELD_FLAG_TRAILER       = (NAMED_STATEMENT_FLAGS_END<<2),
     };
+
     struct span_stmt {
         struct statement stmt; // inherits
         struct ast_node_hdl *span_expr;
+    };
+
+    enum span_stmt_flag {
+        SPAN_FLAG_MIN = (STATEMENT_FLAGS_END<<0),
+        SPAN_FLAG_MAX = (STATEMENT_FLAGS_END<<1),
     };
 
     struct key_stmt {
@@ -1438,6 +1455,7 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_REXPR_OP_MEMBER: return "operator 'member of'";
     case AST_NODE_TYPE_REXPR_FIELD: return "field expression";
     case AST_NODE_TYPE_REXPR_NAMED_EXPR: return "named expression";
+    case AST_NODE_TYPE_REXPR_POLYMORPHIC: return "polymorphic";
     case AST_NODE_TYPE_REXPR_BUILTIN: return "builtin expression";
     }
     return "!!bad value type!!";

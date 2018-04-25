@@ -308,6 +308,7 @@ def test_filter_2(params_filter_2):
     assert dtree.blocks[1].n == 18
     assert str(dtree.blocks[1].data) == 'more contents data'
     assert str(dtree.blocks[1]['?data_preview']) == 'more conte'
+    assert str(dtree.eval_expr('blocks[1].?data_preview')) == 'more conte'
     assert dtree.blocks[0].n == 16
     assert str(dtree.blocks[0].data) == 'as contents data'
     assert model.make_python_object(dtree.blocks[2]) == {
@@ -321,6 +322,7 @@ def test_filter_2(params_filter_2):
     # up one ancestor, base64 filter still applies to the child buffer
     assert dtree.eval_expr('^blocks[1]').get_offset() == 0
     assert dtree.eval_expr('^blocks[1]').get_size() == 22
+    assert dtree.eval_expr('blocks[1].?data_preview').get_size() == 10
     # up two ancestors, back to the raw base64 string from main buffer
     assert dtree.eval_expr('^^blocks[1]').get_offset() == 29
     assert dtree.eval_expr('^^blocks[1]').get_size() == 32
@@ -522,7 +524,7 @@ let Message = struct {
     is_base64: byte: Int;
     raw_data: PlainLine;
     if (is_base64 == 1) {
-        let data = raw_data: base64;
+        let data = raw_data: base64: string;
     } else {
         let data = raw_data;
     }
@@ -884,7 +886,7 @@ def test_dynamic_filter_param_integer(params_dynamic_filter_param_integer):
     dtree, error = params['dtree'], params['error']
 
     if error:
-        with pytest.raises(ValueError):
+        with pytest.raises(model.DataError):
             dtree.values[0]
     else:
         assert model.make_python_object(dtree.values) == [1, 2, 3, 4, 5]

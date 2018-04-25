@@ -451,12 +451,12 @@ tracker_read_item_value(struct tracker *tk,
 /* generic statement API */
 
 enum statement_type {
-    STATEMENT_TYPE_FIELD,
-    STATEMENT_TYPE_NAMED_EXPR,
-    STATEMENT_TYPE_SPAN,
-    STATEMENT_TYPE_KEY,
-    STATEMENT_TYPE_LAST,
-    STATEMENT_TYPE_MATCH,
+    STATEMENT_TYPE_FIELD = (1<<0),
+    STATEMENT_TYPE_NAMED_EXPR = (1<<1),
+    STATEMENT_TYPE_SPAN = (1<<2),
+    STATEMENT_TYPE_KEY = (1<<3),
+    STATEMENT_TYPE_LAST = (1<<4),
+    STATEMENT_TYPE_MATCH = (1<<5),
 };
 
 enum statement_iterator_flag {
@@ -466,6 +466,13 @@ struct statement_iterator {
     int stmt_flags;
     enum statement_iterator_flag it_flags;
     const struct statement *next_stmt;
+};
+
+struct named_statement_spec {
+    enum statement_type stmt_type;
+    struct named_statement *nstmt;
+    const struct ast_node_hdl *anchor_block;
+    int anonymous_member;
 };
 
 const char *
@@ -499,7 +506,8 @@ box_iter_statements_next(struct box *box, struct statement_iterator *it,
 bitpunch_status_t
 box_lookup_statement(struct box *box,
                      enum statement_type stmt_type,
-                     const char *stmt_name,
+                     const char *identifier,
+                     enum statement_type *stmt_typep,
                      const struct named_statement **stmtp,
                      struct box **scopep,
                      struct tracker_error **errp);

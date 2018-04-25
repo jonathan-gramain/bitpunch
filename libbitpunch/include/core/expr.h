@@ -49,10 +49,14 @@ struct named_expr;
 
 enum expr_value_type {
     EXPR_VALUE_TYPE_UNSET = 0,
-    EXPR_VALUE_TYPE_INTEGER,
-    EXPR_VALUE_TYPE_BOOLEAN,
-    EXPR_VALUE_TYPE_STRING,
-    EXPR_VALUE_TYPE_BYTES,
+    EXPR_VALUE_TYPE_INTEGER = (1<<0),
+    EXPR_VALUE_TYPE_BOOLEAN = (1<<1),
+    EXPR_VALUE_TYPE_STRING = (1<<2),
+    EXPR_VALUE_TYPE_BYTES = (1<<3),
+    EXPR_VALUE_TYPE_ANY = (EXPR_VALUE_TYPE_INTEGER |
+                           EXPR_VALUE_TYPE_BOOLEAN |
+                           EXPR_VALUE_TYPE_STRING |
+                           EXPR_VALUE_TYPE_BYTES),
 };
 
 struct expr_value_from_box {
@@ -86,9 +90,9 @@ typedef struct expr_value expr_value_t;
 
 enum expr_dpath_type {
     EXPR_DPATH_TYPE_UNSET = 0,
-    EXPR_DPATH_TYPE_NONE,
-    EXPR_DPATH_TYPE_ITEM,
-    EXPR_DPATH_TYPE_CONTAINER,
+    EXPR_DPATH_TYPE_NONE = (1<<0),
+    EXPR_DPATH_TYPE_ITEM = (1<<1),
+    EXPR_DPATH_TYPE_CONTAINER = (1<<2),
 };
 
 struct expr_dpath {

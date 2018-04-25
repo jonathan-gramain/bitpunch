@@ -83,6 +83,10 @@ static bitpunch_status_t
 expr_evaluate_value_named_expr(struct ast_node_hdl *expr, struct box *scope,
                                expr_value_t *eval_valuep,
                                struct browse_state *bst);
+static bitpunch_status_t
+expr_evaluate_value_polymorphic(struct ast_node_hdl *expr, struct box *scope,
+                                expr_value_t *eval_valuep,
+                                struct browse_state *bst);
 
 // dpath evaluation
 static bitpunch_status_t
@@ -125,6 +129,10 @@ expr_evaluate_dpath_named_expr(struct ast_node_hdl *expr, struct box *scope,
                                expr_dpath_t *eval_dpathp,
                                struct browse_state *bst);
 static bitpunch_status_t
+expr_evaluate_dpath_polymorphic(struct ast_node_hdl *expr, struct box *scope,
+                                expr_dpath_t *eval_dpathp,
+                                struct browse_state *bst);
+static bitpunch_status_t
 expr_transform_dpath_generic_internal(struct ast_node_hdl *expr,
                                       struct box *scope,
                                       struct dpath_transform *transformp,
@@ -133,6 +141,11 @@ static bitpunch_status_t
 expr_transform_dpath_named_expr(struct ast_node_hdl *expr, struct box *scope,
                                 struct dpath_transform *transformp,
                                 struct browse_state *bst);
+static bitpunch_status_t
+expr_transform_dpath_polymorphic(
+    struct ast_node_hdl *expr, struct box *scope,
+    struct dpath_transform *transformp,
+    struct browse_state *bst);
 static bitpunch_status_t
 expr_transform_dpath_item(struct ast_node_hdl *expr, struct box *scope,
                           struct dpath_transform *transformp,
@@ -1623,22 +1636,24 @@ expr_value_cmp(expr_value_t value1, expr_value_t value2)
 }
 
 static bitpunch_status_t
-expr_evaluate_named_expr_internal(struct ast_node_hdl *expr, struct box *scope,
-                                  const struct named_expr **named_exprp,
-                                  struct box **member_scopep,
-                                  struct browse_state *bst)
+expr_evaluate_named_expr_internal(
+    struct ast_node_hdl *expr,
+    struct box *scope,
+    const struct named_expr **named_exprp,
+    struct box **member_scopep,
+    struct browse_state *bst)
 {
     struct ast_node_hdl *anchor_expr;
     struct ast_node_hdl *anchor_block;
+    const struct named_expr *named_expr;
     bitpunch_status_t bt_ret;
-    bitpunch_status_t bt_ret_1st_failure;
     expr_dpath_t anchor_dpath;
     int cond_eval;
     struct box *member_scope;
-    const struct named_expr *named_expr;
 
     anchor_expr = expr->ndat->u.rexpr_member_common.anchor_expr;
     anchor_block = expr->ndat->u.rexpr_member_common.anchor_block;
+    named_expr = expr->ndat->u.rexpr_named_expr.named_expr;
     bt_ret = expr_evaluate_dpath_anchor_common(anchor_expr, anchor_block,
                                                scope, &anchor_dpath, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -1654,41 +1669,112 @@ expr_evaluate_named_expr_internal(struct ast_node_hdl *expr, struct box *scope,
         member_scope = scope;
         box_acquire(member_scope);
     }
-    bt_ret_1st_failure = BITPUNCH_OK;
-    for (named_expr = expr->ndat->u.rexpr_named_expr.named_expr;
-         NULL != named_expr;
-         named_expr =
-             (const struct named_expr *)named_expr->nstmt.next_sibling) {
-        bt_ret = evaluate_conditional_internal(named_expr->nstmt.stmt.cond,
-                                               member_scope, &cond_eval,
-                                               bst);
-        if (BITPUNCH_OK == bt_ret) {
-            if (cond_eval) {
-                break ;
-            }
-        } else {
-            if (BITPUNCH_OK == bt_ret_1st_failure) {
-                bt_ret_1st_failure = bt_ret;
-            }
-        }
-    }
-    if (NULL == named_expr) {
+    if (0 != (expr->ndat->flags & ASTFLAG_DATA_ANONYMOUS_MEMBER)) {
+        struct box *direct_scope;
+
+        bt_ret = box_lookup_named_expr_internal(
+            member_scope, named_expr->nstmt.name, NULL, &direct_scope, bst);
         box_delete(member_scope);
-        if (BITPUNCH_OK == bt_ret_1st_failure) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                           "no member named '%s' is associated to block in "
-                           "current evaluation context",
-                           expr->ndat->u.rexpr_named_expr.named_expr->nstmt.name);
-            return BITPUNCH_INVALID_PARAM;
-        } else {
+        if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
+        member_scope = direct_scope;
+    }
+    bt_ret = evaluate_conditional_internal(named_expr->nstmt.stmt.cond,
+                                           member_scope, &cond_eval,
+                                           bst);
+    if (BITPUNCH_OK != bt_ret) {
+        box_delete(member_scope);
+        return bt_ret;
+    }
+    if (!cond_eval) {
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
+                       "no member named '%s' is associated to block in "
+                       "current evaluation context",
+                       named_expr->nstmt.name);
+        box_delete(member_scope);
+        return BITPUNCH_DATA_ERROR;
     }
     *named_exprp = named_expr;
     *member_scopep = member_scope;
     return BITPUNCH_OK;
 }
 
+static bitpunch_status_t
+expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
+                                   struct box *scope,
+                                   enum statement_type *stmt_typep,
+                                   const struct named_statement **nstmtp,
+                                   struct box **member_scopep,
+                                   struct browse_state *bst)
+{
+    struct ast_node_hdl *anchor_expr;
+    expr_dpath_t anchor_dpath;
+    bitpunch_status_t bt_ret;
+    struct box *anchor_box;
+
+    anchor_expr = expr->ndat->u.rexpr_member_common.anchor_expr;
+    if (NULL != anchor_expr) {
+        bt_ret = expr_evaluate_dpath_internal(anchor_expr, scope,
+                                              &anchor_dpath, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
+        if (AST_NODE_TYPE_BLOCK_DEF != expr_dpath_get_as_type(
+                anchor_dpath)->ndat->type) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &anchor_expr->loc,
+                "left-side of member operator does not evaluate to a "
+                "block type");
+            expr_dpath_destroy(anchor_dpath);
+            return BITPUNCH_DATA_ERROR;
+        }
+        bt_ret = expr_dpath_to_box(anchor_dpath, &anchor_box, bst);
+        expr_dpath_destroy(anchor_dpath);
+        if (BITPUNCH_OK != bt_ret) {
+            goto error;
+        }
+        bt_ret = box_lookup_statement_internal(
+            anchor_box,
+            STATEMENT_TYPE_FIELD | STATEMENT_TYPE_NAMED_EXPR,
+            expr->ndat->u.rexpr_polymorphic.identifier,
+            stmt_typep, nstmtp, member_scopep, bst);
+        box_delete(anchor_box);
+        if (BITPUNCH_OK != bt_ret) {
+            if (BITPUNCH_NO_ITEM == bt_ret) {
+                bt_ret = BITPUNCH_DATA_ERROR;
+            }
+            goto error;
+        }
+        return BITPUNCH_OK;
+    }
+    /* look for attribute in turn from inner to outer scope */
+    anchor_box = scope;
+    while (TRUE) {
+        bt_ret = box_lookup_statement_internal(
+            anchor_box,
+            STATEMENT_TYPE_FIELD | STATEMENT_TYPE_NAMED_EXPR,
+            expr->ndat->u.rexpr_polymorphic.identifier,
+            stmt_typep, nstmtp, member_scopep, bst);
+        if (BITPUNCH_OK == bt_ret) {
+            return BITPUNCH_OK;
+        }
+        if (BITPUNCH_NO_ITEM != bt_ret) {
+            goto error;
+        }
+        anchor_box = (NULL != anchor_box->unfiltered_box ?
+                      anchor_box->unfiltered_box :
+                      anchor_box->parent_box);
+        if (NULL == anchor_box) {
+            bt_ret = BITPUNCH_DATA_ERROR;
+            goto error;
+        }
+    }
+  error:
+    tracker_error_add_node_context(
+        expr, bst, "while evaluating polymorphic expression");
+    return bt_ret;
+}
 
 bitpunch_status_t
 expr_evaluate_value_internal(struct ast_node_hdl *expr, struct box *scope,
@@ -1737,6 +1823,9 @@ expr_evaluate_value_internal(struct ast_node_hdl *expr, struct box *scope,
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
         return expr_evaluate_value_named_expr(expr, scope,
                                               eval_valuep, bst);
+    case AST_NODE_TYPE_REXPR_POLYMORPHIC:
+        return expr_evaluate_value_polymorphic(expr, scope,
+                                               eval_valuep, bst);
     default:
         if (0 != (expr->flags & ASTFLAG_IS_REXPR_DPATH)) {
             return expr_evaluate_value_from_dpath(expr, scope, eval_valuep,
@@ -1942,6 +2031,55 @@ expr_evaluate_value_named_expr(struct ast_node_hdl *expr, struct box *scope,
     return bt_ret;
 }
 
+static bitpunch_status_t
+expr_evaluate_value_polymorphic(struct ast_node_hdl *expr, struct box *scope,
+                                expr_value_t *eval_valuep,
+                                struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    enum statement_type stmt_type;
+    const struct named_statement *nstmt;
+    struct box *member_scope;
+    struct ast_node_hdl *target_expr;
+    expr_value_t eval_value;
+
+    bt_ret = expr_evaluate_polymorphic_internal(
+        expr, scope, &stmt_type, &nstmt, &member_scope, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    switch (stmt_type) {
+    case STATEMENT_TYPE_FIELD: {
+        const struct field *field;
+
+        field = (struct field *)nstmt;
+        target_expr = field->dpath.filter;
+        break ;
+    }
+    case STATEMENT_TYPE_NAMED_EXPR: {
+        const struct named_expr *named_expr;
+
+        named_expr = (struct named_expr *)nstmt;
+        target_expr = named_expr->expr;
+        break ;
+    }
+    default:
+        assert(0);
+    }
+    bt_ret = expr_evaluate_value_internal(target_expr, member_scope,
+                                          &eval_value, bst);
+    box_delete(member_scope);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    if (NULL != eval_valuep) {
+        *eval_valuep = eval_value;
+    } else {
+        expr_value_destroy(eval_value);
+    }
+    return bt_ret;
+}
+
 bitpunch_status_t
 expr_evaluate_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
                              expr_dpath_t *eval_dpathp,
@@ -1972,6 +2110,9 @@ expr_evaluate_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
         return expr_evaluate_dpath_named_expr(expr, scope,
                                               eval_dpathp, bst);
+    case AST_NODE_TYPE_REXPR_POLYMORPHIC:
+        return expr_evaluate_dpath_polymorphic(expr, scope,
+                                               eval_dpathp, bst);
     default: {
         struct dpath_transform transform;
         bitpunch_status_t bt_ret;
@@ -1996,6 +2137,7 @@ expr_evaluate_dpath_anchor_common(struct ast_node_hdl *anchor_expr,
 {
     expr_dpath_t anchor_dpath;
     bitpunch_status_t bt_ret;
+    struct box *anchor_box;
 
     if (NULL != anchor_expr) {
         bt_ret = expr_evaluate_dpath_internal(anchor_expr, scope,
@@ -2010,31 +2152,29 @@ expr_evaluate_dpath_anchor_common(struct ast_node_hdl *anchor_expr,
                 "left-side of member operator does not evaluate to a "
                 "block type");
             expr_dpath_destroy(anchor_dpath);
-            return BITPUNCH_INVALID_PARAM;
+            return BITPUNCH_DATA_ERROR;
         }
         *dpathp = anchor_dpath;
-    } else {
-        struct box *anchor_box;
-
-        /* find the closest dpath's field in the scope, browsing boxes
-         * upwards */
-        anchor_box = scope;
-        while (dpath_node_get_as_type(&anchor_box->dpath)->ndat
-               != anchor_block->ndat) {
-            anchor_box = (NULL != anchor_box->unfiltered_box ?
-                          anchor_box->unfiltered_box :
-                          anchor_box->parent_box);
-            if (NULL == anchor_box) {
-                // no dpath associated to anchor (i.e. anchor is a
-                // data type) -> to be double-checked
-                dpathp->type = EXPR_DPATH_TYPE_NONE;
-                return BITPUNCH_OK;
-            }
-        }
-        dpathp->type = EXPR_DPATH_TYPE_CONTAINER;
-        dpathp->container.box = anchor_box;
-        box_acquire(anchor_box);
+        return BITPUNCH_OK;
     }
+    /* find the closest dpath's field in the scope, browsing boxes
+     * from inner to outer scope */
+    anchor_box = scope;
+    while (dpath_node_get_as_type(&anchor_box->dpath)->ndat
+           != anchor_block->ndat) {
+        anchor_box = (NULL != anchor_box->unfiltered_box ?
+                      anchor_box->unfiltered_box :
+                      anchor_box->parent_box);
+        if (NULL == anchor_box) {
+            // no dpath associated to anchor (i.e. anchor is a
+            // data type) -> to be double-checked
+            dpathp->type = EXPR_DPATH_TYPE_NONE;
+            return BITPUNCH_OK;
+        }
+    }
+    dpathp->type = EXPR_DPATH_TYPE_CONTAINER;
+    dpathp->container.box = anchor_box;
+    box_acquire(anchor_box);
     return BITPUNCH_OK;
 }
 
@@ -2329,6 +2469,52 @@ expr_evaluate_dpath_named_expr(struct ast_node_hdl *expr, struct box *scope,
     return bt_ret;
 }
 
+static bitpunch_status_t
+expr_evaluate_dpath_polymorphic(struct ast_node_hdl *expr, struct box *scope,
+                                expr_dpath_t *eval_dpathp,
+                                struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    enum statement_type stmt_type;
+    const struct named_statement *nstmt;
+    struct box *member_scope;
+
+    bt_ret = expr_evaluate_polymorphic_internal(
+        expr, scope, &stmt_type, &nstmt, &member_scope, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    switch (stmt_type) {
+    case STATEMENT_TYPE_FIELD: {
+        const struct field *field;
+        struct tracker *tk;
+
+        field = (struct field *)nstmt;
+        tk = track_box_contents_internal(member_scope, bst);
+        box_delete(member_scope);
+        bt_ret = tracker_goto_field_internal(tk, field, FALSE, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            tracker_delete(tk);
+            return bt_ret;
+        }
+        eval_dpathp->type = EXPR_DPATH_TYPE_ITEM;
+        eval_dpathp->item.tk = tk;
+        return BITPUNCH_OK;
+    }
+    case STATEMENT_TYPE_NAMED_EXPR: {
+        const struct named_expr *named_expr;
+
+        named_expr = (struct named_expr *)nstmt;
+        bt_ret = expr_evaluate_dpath_internal(
+            named_expr->expr, member_scope, eval_dpathp, bst);
+        box_delete(member_scope);
+        return bt_ret;
+    }
+    default:
+        assert(0);
+    }
+}
+
 bitpunch_status_t
 expr_transform_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
                               struct dpath_transform *transformp,
@@ -2337,6 +2523,8 @@ expr_transform_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
     switch (expr->ndat->type) {
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
         return expr_transform_dpath_named_expr(expr, scope, transformp, bst);
+    case AST_NODE_TYPE_REXPR_POLYMORPHIC:
+        return expr_transform_dpath_polymorphic(expr, scope, transformp, bst);
     case AST_NODE_TYPE_REXPR_ITEM:
         return expr_transform_dpath_item(expr, scope, transformp, bst);
     case AST_NODE_TYPE_REXPR_FILTER:
@@ -2407,6 +2595,60 @@ expr_transform_dpath_named_expr(struct ast_node_hdl *expr, struct box *scope,
         named_expr->expr, member_scope, transformp, bst);
     box_delete(member_scope);
     return bt_ret;
+}
+
+static bitpunch_status_t
+expr_transform_dpath_polymorphic(
+    struct ast_node_hdl *expr, struct box *scope,
+    struct dpath_transform *transformp,
+    struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    enum statement_type stmt_type;
+    const struct named_statement *nstmt;
+    struct box *member_scope;
+
+    bt_ret = expr_evaluate_polymorphic_internal(
+        expr, scope, &stmt_type, &nstmt, &member_scope, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    switch (stmt_type) {
+    case STATEMENT_TYPE_FIELD: {
+        const struct field *field;
+        struct tracker *tk;
+
+        if (EXPR_DPATH_TYPE_NONE != transformp->dpath.type) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
+                "cannot evaluate filtered dpath: multiple sources");
+            box_delete(member_scope);
+            return BITPUNCH_INVALID_PARAM;
+        }
+        field = (struct field *)nstmt;
+        tk = track_box_contents_internal(member_scope, bst);
+        box_delete(member_scope);
+        bt_ret = tracker_goto_field_internal(tk, field, FALSE, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            tracker_delete(tk);
+            return bt_ret;
+        }
+        transformp->dpath.type = EXPR_DPATH_TYPE_ITEM;
+        transformp->dpath.item.tk = tk;
+        return BITPUNCH_OK;
+    }
+    case STATEMENT_TYPE_NAMED_EXPR: {
+        const struct named_expr *named_expr;
+
+        named_expr = (struct named_expr *)nstmt;
+        bt_ret = expr_transform_dpath_internal(
+            named_expr->expr, member_scope, transformp, bst);
+        box_delete(member_scope);
+        return bt_ret;
+    }
+    default:
+        assert(0);
+    }
 }
 
 static bitpunch_status_t
@@ -2727,6 +2969,7 @@ expr_value_type_str(enum expr_value_type type)
     case EXPR_VALUE_TYPE_BOOLEAN: return "boolean";
     case EXPR_VALUE_TYPE_STRING: return "string";
     case EXPR_VALUE_TYPE_BYTES: return "bytes";
+    case EXPR_VALUE_TYPE_ANY: return "any";
     }
     return "!!bad expression value type!!";
 }

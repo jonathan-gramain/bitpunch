@@ -109,11 +109,29 @@ box_read_value_internal(struct box *box,
                         struct browse_state *bst);
 
 bitpunch_status_t
-box_lookup_attribute_internal(struct box *box, const char *name,
+box_lookup_statement_internal(struct box *box,
+                              enum statement_type stmt_mask,
+                              const char *identifier,
                               enum statement_type *stmt_typep,
-                              const struct named_statement **named_stmt,
+                              const struct named_statement **stmtp,
                               struct box **scopep,
                               struct browse_state *bst);
+bitpunch_status_t
+box_lookup_named_expr_internal(struct box *box, const char *named_expr_name,
+                               const struct named_expr **named_exprp,
+                               struct box **scopep,
+                               struct browse_state *bst);
+bitpunch_status_t
+box_lookup_attribute_internal(struct box *box, const char *name,
+                              enum statement_type *stmt_typep,
+                              const struct named_statement **named_stmtp,
+                              struct box **scopep,
+                              struct browse_state *bst);
+bitpunch_status_t
+box_evaluate_attribute_dpath_internal(struct box *box,
+                                      const char *attr_name,
+                                      expr_dpath_t *eval_dpathp,
+                                      struct browse_state *bst);
 bitpunch_status_t
 box_evaluate_attribute_value_internal(struct box *box, const char *name,
                                       expr_value_t *eval_valuep,

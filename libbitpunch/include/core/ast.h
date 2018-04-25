@@ -38,11 +38,13 @@
 
 struct ast_node_data;
 struct ast_node_hdl;
+struct block_stmt_list;
 struct dpath_node;
 struct bitpunch_schema_hdl;
 struct box;
 struct field;
 struct parser_location;
+enum statement_type;
 
 enum resolve_expect_mask {
     RESOLVE_EXPECT_TYPE             = (1u<<0),
@@ -77,6 +79,12 @@ int
 bitpunch_compile_schema(struct bitpunch_schema_hdl *schema);
 
 int
+identifier_is_visible_in_block_stmt_lists(
+    enum statement_type stmt_mask,
+    const char *identifier,
+    const struct block_stmt_list *stmt_lists);
+
+int
 compile_node(struct ast_node_hdl *node,
              struct compile_ctx *ctx,
              dep_resolver_tagset_t tags_pre,
@@ -100,16 +108,12 @@ void
 dpath_node_reset(struct dpath_node *dpath);
 int
 ast_node_is_rexpr(const struct ast_node_hdl *node);
-int
-ast_node_is_rexpr_dpath(const struct ast_node_hdl *node);
 struct ast_node_hdl *
 ast_node_get_target_item(struct ast_node_hdl *node);
 struct ast_node_hdl *
 ast_node_get_target_type(struct ast_node_hdl *node);
 struct ast_node_hdl *
 ast_node_get_target_filter(struct ast_node_hdl *node);
-struct ast_node_hdl *
-ast_node_get_filter_end_target(struct ast_node_hdl *node);
 struct ast_node_hdl *
 ast_node_get_named_expr_target(struct ast_node_hdl *node);
 int
@@ -144,6 +148,8 @@ enum expr_value_type
 ast_node_get_key_type(const struct ast_node_hdl *node);
 struct ast_node_hdl *
 dpath_node_get_as_type(const struct dpath_node *dpath);
+struct ast_node_hdl *
+dpath_node_get_as_type__pre_compile_stage(const struct dpath_node *dpath);
 struct ast_node_hdl *
 dpath_node_get_target_filter(const struct dpath_node *dpath);
 void

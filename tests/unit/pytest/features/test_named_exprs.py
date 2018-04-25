@@ -343,6 +343,46 @@ file {
 
 """
 
+spec_file_named_exprs_polymorphic_in_anonymous_1 = """
+
+let Selector = byte: integer { signed: false; };
+let Count = byte[2]: integer { signed: false; endian: 'big'; };
+let Value = Selector;
+
+
+let IntArray = struct {
+    count: Count;
+    values: Value[count];
+};
+
+let Message = struct {
+    value: byte[]: string { boundary: '\\n'; };
+};
+
+let T = struct {
+    : SubT;
+};
+
+let SubT = struct {
+    type: Selector;
+    if (type == 1) {
+        array: IntArray;
+        let ?item = array;
+        let ?type = 'array';
+    }
+    if (type == 2) {
+        message: Message;
+        let ?item = message;
+        let ?type = 'message';
+    }
+};
+
+file {
+    items: T[];
+}
+
+"""
+
 data_file_named_exprs_polymorphic = """
 02 // Message
     "hello\n"
@@ -359,6 +399,9 @@ data_file_named_exprs_polymorphic = """
     scope='module',
     params=[{
         'spec': spec_file_named_exprs_polymorphic,
+        'data': data_file_named_exprs_polymorphic,
+    }, {
+        'spec': spec_file_named_exprs_polymorphic_in_anonymous_1,
         'data': data_file_named_exprs_polymorphic,
     }])
 def params_named_exprs_polymorphic(request):
@@ -385,6 +428,95 @@ def test_named_exprs_polymorphic(params_named_exprs_polymorphic):
     assert dtree.items[2]['?type'] == 'array'
     assert dtree.eval_expr('items[2].?type') == 'array'
     assert dtree.eval_expr('items[2].?type == "array"') == True
+
+
+spec_file_named_exprs_polymorphic_hydra = """
+
+let Selector = byte: integer { signed: false; };
+
+let T = struct {
+    : SubT;
+    if (type == 8) {
+        let ?item = 8;
+    }
+};
+
+let SubT = struct {
+    type: Selector;
+    if (type != 8) {
+        if (type == 1) {
+            : Sub2T;
+        } 
+        if (type == 7) {
+            let ?item = 7;
+        }
+        if (type == 2 || type == 5 || type == 6) {
+            : Sub3T;
+        }
+        if (type == 3) {
+            let ?item = type;
+        }
+        if (type == 4) {
+            : struct {
+                : struct {
+                    let ?item = 2 + 2;
+                    let ?item = 10;
+                };
+            };
+        }
+        let Sub2T = struct {
+            let ?item = type;
+        };
+
+        let Sub3T = struct {
+            if (type == 2) {
+                : Sub4T;
+            } else if (type == 5) {
+                : Sub5T;
+            } else {
+                let ?item = 6;
+            }
+        };
+
+        let Sub4T = struct {
+            let ?item = 2;
+        };
+
+        let Sub5T = struct {
+            let ?item = 5;
+        };
+    }
+};
+
+file {
+    items: T[];
+}
+
+"""
+
+data_file_named_exprs_polymorphic_hydra = """
+01 02 03 04 05 06 07 08
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_named_exprs_polymorphic_hydra,
+        'data': data_file_named_exprs_polymorphic_hydra,
+    }])
+def params_named_exprs_polymorphic_hydra(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_named_exprs_polymorphic_hydra(params_named_exprs_polymorphic_hydra):
+    params = params_named_exprs_polymorphic_hydra
+    dtree = params['dtree']
+
+    i = 1
+    assert len(dtree.items) == 8
+    for item in dtree.items:
+        assert item['?item'] == i
+        i += 1
 
 
 spec_file_named_exprs_invalid_1 = """

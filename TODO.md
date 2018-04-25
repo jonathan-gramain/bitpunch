@@ -265,3 +265,8 @@ correctly (b_filter is empty)
     size dependencies)
 
   - use of proper alignment at runtime when conditionals change alignment
+
+- add properties to arrays, or even arbitrary types:
+
+  - e.g. myfield: byte[size] { minspan 30; };
+         myfield: MyStruct { maxspan: 60; };
