@@ -1059,7 +1059,7 @@ static const struct expr_builtin_fn const
 expr_builtin_fns[] = {
     {
         .builtin_name = "bytes",
-        .res_value_type = EXPR_VALUE_TYPE_UNSET,
+        .res_value_type = EXPR_VALUE_TYPE_BYTES,
         .eval_dpath_fn = expr_eval_builtin_bytes,
         .min_n_params = 1,
         .max_n_params = 1,

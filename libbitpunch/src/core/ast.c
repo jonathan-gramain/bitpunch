@@ -2328,6 +2328,7 @@ compile_expr_operator_subscript_slice(struct ast_node_hdl *node,
                 ast_node_type_str(anchor_item->ndat->type));
             return -1;
         }
+        value_type = expr_value_type_from_node(anchor_item);
     } else {
         if (0 == (anchor_expr->flags & ASTFLAG_IS_REXPR_DPATH)) {
             semantic_error(
@@ -2335,9 +2336,7 @@ compile_expr_operator_subscript_slice(struct ast_node_hdl *node,
                 "invalid use of subscript operator on non-dpath expression");
             return -1;
         }
-    }
-    if (NULL != anchor_item) {
-        value_type = expr_value_type_from_node(anchor_item);
+        value_type = anchor_expr->ndat->u.rexpr.value_type;
     }
     if (-1 == compile_subscript_index(node, slice_start, ctx) ||
         -1 == compile_subscript_index(node, slice_end, ctx)) {
