@@ -9,5 +9,5 @@ let Word = struct {
 };
 
 file {
-     Word[] words;
+     words: Word[];
 }
