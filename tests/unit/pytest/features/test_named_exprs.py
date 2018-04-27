@@ -418,6 +418,9 @@ def test_named_exprs_polymorphic(params_named_exprs_polymorphic):
     assert len(dtree.items) == 4
     assert str(dtree.items[1].message.value) == 'bonjour'
     assert str(dtree.items[1]['?item'].value) == 'bonjour'
+    assert str(dtree.eval_expr('items[1].message.value')) == 'bonjour'
+    assert isinstance(dtree.eval_expr('items[1].?item.value'),
+                      model.DataArray)
     assert str(dtree.eval_expr('items[1].?item.value')) == 'bonjour'
     assert dtree.items[1]['?type'] == 'message'
     assert dtree.eval_expr('items[1].?type') == 'message'
@@ -430,6 +433,10 @@ def test_named_exprs_polymorphic(params_named_exprs_polymorphic):
         dtree.items[2]['?item'].values) == [1, 2, 3, 4, 5]
     assert model.make_python_object(
         dtree.eval_expr('items[2].array.values')) == [1, 2, 3, 4, 5]
+    assert model.make_python_object(
+        dtree.eval_expr('items[2].array.values[1]')) == 2
+    assert model.make_python_object(
+        dtree.eval_expr('items[2].?item.values[1]')) == 2
     assert dtree.items[2]['?type'] == 'array'
     assert dtree.eval_expr('items[2].?type') == 'array'
     assert dtree.eval_expr('items[2].?type == "array"') == True

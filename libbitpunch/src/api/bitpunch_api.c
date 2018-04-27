@@ -480,7 +480,7 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
         }
     }
     if (compute_value) {
-        if (compute_dpath) {
+        if (compute_dpath && EXPR_DPATH_TYPE_NONE != expr_dpath.type) {
             bt_ret = dpath_read_value(expr_dpath, &expr_value, errp);
         } else {
             bt_ret = expr_evaluate_value(expr_node, scope,

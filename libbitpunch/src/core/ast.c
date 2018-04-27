@@ -2732,6 +2732,7 @@ compile_rexpr_polymorphic(struct ast_node_hdl *expr,
         }
     }
     if (0 != (expr->flags & ASTFLAG_HAS_POLYMORPHIC_ANCHOR)) {
+        expr->flags |= ASTFLAG_IS_REXPR_DPATH;
         expr->ndat->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_ANY;
     } else {
         expr->flags |= is_dpath ? ASTFLAG_IS_REXPR_DPATH : 0u;

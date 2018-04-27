@@ -2541,10 +2541,7 @@ expr_transform_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
         return expr_transform_dpath_generic_internal(expr, scope,
                                                      transformp, bst);
     default:
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                       "cannot evaluate dpath on expression of type '%s'",
-                       ast_node_type_str(expr->ndat->type));
-        return BITPUNCH_INVALID_PARAM;
+        return BITPUNCH_OK;
     }
 }
 
