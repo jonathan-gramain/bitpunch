@@ -3082,10 +3082,18 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
             child_uses_slack = TRUE;
         }
         if (0 != (field_type->u.item.flags & ITEMFLAG_SPREADS_SLACK)) {
-            child_spreads_slack = TRUE;
+            if (NULL != field->nstmt.stmt.cond) {
+                child_conditionally_spreads_slack = TRUE;
+            } else {
+                child_spreads_slack = TRUE;
+            }
         }
         if (0 != (field_type->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
-            child_fills_slack = TRUE;
+            if (NULL != field->nstmt.stmt.cond) {
+                child_conditionally_fills_slack = TRUE;
+            } else {
+                child_fills_slack = TRUE;
+            }
         }
         if (0 != (field_type->u.item.flags
                   & ITEMFLAG_CONDITIONALLY_SPREADS_SLACK)) {
@@ -3097,7 +3105,8 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
         }
         if (0 != (field_type->u.item.flags
                   & (ITEMFLAG_SPREADS_SLACK |
-                     ITEMFLAG_CONDITIONALLY_SPREADS_SLACK))) {
+                     ITEMFLAG_CONDITIONALLY_SPREADS_SLACK))
+            || NULL != field->nstmt.stmt.cond) {
             first_trailer_field = NULL;
         } else if (BLOCK_TYPE_STRUCT == item->ndat->u.block_def.type
                    && (child_spreads_slack ||
