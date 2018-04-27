@@ -499,14 +499,11 @@ resolve_identifier_as_scoped_statement(
     }
     if (n_visible_statements > 0) {
         resolved_type = new_safe(struct ast_node_data);
-        resolved_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
+        resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
         if (1 == n_visible_statements) {
             stmt_spec = &visible_statements[0];
             resolved_type->u.rexpr_member_common.anchor_block =
                 (struct ast_node_hdl *)stmt_spec->anchor_block;
-            if (stmt_spec->anonymous_member) {
-                resolved_type->flags |= ASTFLAG_DATA_ANONYMOUS_MEMBER;
-            }
             switch (stmt_spec->stmt_type) {
             case STATEMENT_TYPE_NAMED_EXPR:
                 resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
@@ -522,6 +519,9 @@ resolve_identifier_as_scoped_statement(
                 assert(0);
             }
             free(visible_statements);
+            if (stmt_spec->anonymous_member) {
+                node->flags |= ASTFLAG_IS_ANONYMOUS_MEMBER;
+            }
         } else {
             resolved_type->type = AST_NODE_TYPE_REXPR_POLYMORPHIC;
             resolved_type->u.rexpr_polymorphic.identifier =
@@ -574,7 +574,7 @@ resolve_identifiers_identifier_as_expression(
 
         resolved_type = new_safe(struct ast_node_data);
         resolved_type->type = AST_NODE_TYPE_REXPR_BUILTIN;
-        resolved_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
+        resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
         resolved_type->u.rexpr_builtin.builtin = builtin;
         node->ndat = resolved_type;
         return 0;
@@ -1017,7 +1017,7 @@ resolve_identifiers_expr_file(
     }
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_FILE;
-    compiled_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
+    compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
     // const-cast
     compiled_type->u.rexpr_item.item_type =
         (struct ast_node_hdl *)toplevel_refs->cur_block;
@@ -1043,7 +1043,7 @@ resolve_identifiers_expr_self(
     }
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_SELF;
-    compiled_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
+    compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
     // const-cast
     compiled_type->u.rexpr_item.item_type =
         (struct ast_node_hdl *)visible_refs->cur_block;
@@ -1077,19 +1077,19 @@ resolve_identifiers_rexpr_interpreter(
 
 
 static enum expr_value_type
-expr_value_type_from_node(const struct ast_node_hdl *node)
+expr_value_type_mask_from_node(const struct ast_node_hdl *node)
 {
     if (ast_node_is_rexpr(node)) {
-        return node->ndat->u.rexpr.value_type;
+        return node->ndat->u.rexpr.value_type_mask;
     }
     return EXPR_VALUE_TYPE_UNSET;
 }
 
 static enum expr_value_type
-expr_value_type_from_dpath_node(const struct dpath_node *dpath)
+expr_value_type_mask_from_dpath_node(const struct dpath_node *dpath)
 {
     if (NULL != dpath->filter) {
-        return expr_value_type_from_node(dpath->filter);
+        return expr_value_type_mask_from_node(dpath->filter);
     }
     return EXPR_VALUE_TYPE_UNSET;
 }
@@ -1487,7 +1487,7 @@ ast_node_data_new_rexpr_item(struct ast_node_hdl *item)
 
     ndat = new_safe(struct ast_node_data);
     ndat->type = AST_NODE_TYPE_REXPR_ITEM;
-    ndat->u.rexpr.value_type = EXPR_VALUE_TYPE_BYTES;
+    ndat->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_BYTES;
     ndat->u.rexpr_item.item_type = item;
     return ndat;
 }
@@ -1850,7 +1850,7 @@ compile_expr_integer(struct ast_node_hdl *node,
     integer = node->ndat->u.integer;
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_NATIVE;
-    compiled_type->u.rexpr.value_type = EXPR_VALUE_TYPE_INTEGER;
+    compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_INTEGER;
     compiled_type->u.rexpr_native.value = expr_value_as_integer(integer);
     node->ndat = compiled_type;
     return 0;
@@ -1867,7 +1867,7 @@ compile_expr_boolean(struct ast_node_hdl *node,
     boolean = node->ndat->u.boolean;
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_NATIVE;
-    compiled_type->u.rexpr.value_type = EXPR_VALUE_TYPE_BOOLEAN;
+    compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_BOOLEAN;
     compiled_type->u.rexpr_native.value = expr_value_as_boolean(boolean);
     node->ndat = compiled_type;
     return 0;
@@ -1884,7 +1884,7 @@ compile_expr_string_literal(struct ast_node_hdl *node,
     string = node->ndat->u.string;
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_NATIVE;
-    compiled_type->u.rexpr.value_type = EXPR_VALUE_TYPE_STRING;
+    compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_STRING;
     compiled_type->u.rexpr_native.value =
         expr_value_as_string(string.str, string.len, NULL);
     node->ndat = compiled_type;
@@ -1922,7 +1922,7 @@ compile_expr_operator(
     }
     resolved_type = new_safe(struct ast_node_data);
     resolved_type->type = op_type_ast2rexpr(expr->ndat->type);
-    resolved_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
+    resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
     resolved_type->u.rexpr_op.op = expr->ndat->u.op;
     expr->ndat = resolved_type;
     return 0;
@@ -1942,17 +1942,14 @@ compile_rexpr_operator(
 
     only_native_operands = TRUE;
     for (opd_i = 0; opd_i < n_operands; ++opd_i) {
-        // XXX check that value_type is consistent across polymorphic
-        // named expr targets
         operand = ast_node_get_named_expr_target(
             expr->ndat->u.rexpr_op.op.operands[opd_i]);
-        opd_types[opd_i] = operand->ndat->u.rexpr.value_type;
+        opd_types[opd_i] = operand->ndat->u.rexpr.value_type_mask;
         if (EXPR_VALUE_TYPE_UNSET == opd_types[opd_i]) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR, &operand->loc,
                            "operand has no value type");
             return -1;
         }
-        // XXX only optimize if target is unique (i.e. non polymorphic)
         if (AST_NODE_TYPE_REXPR_NATIVE != operand->ndat->type) {
             only_native_operands = FALSE;
         }
@@ -1981,7 +1978,7 @@ compile_rexpr_operator(
         return -1;
     }
     expr->ndat->u.rexpr_op.evaluator = evaluator;
-    expr->ndat->u.rexpr.value_type = evaluator->res_type;
+    expr->ndat->u.rexpr.value_type_mask = evaluator->res_type_mask;
 
     if (only_native_operands) {
         struct ast_node_hdl *operand;
@@ -2034,7 +2031,8 @@ compile_expr_operator_set_filter(
     }
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_FILTER;
-    compiled_type->u.rexpr.value_type = filter->ndat->u.rexpr.value_type;
+    compiled_type->u.rexpr.value_type_mask =
+        filter->ndat->u.rexpr.value_type_mask;
     if (ast_node_is_item(target)) {
         target = ast_node_new_rexpr_item(target, ctx);
     }
@@ -2079,29 +2077,30 @@ compile_subscript_index_cb(struct compile_ctx *ctx,
     }
     key = subscript->key;
     assert(ast_node_is_rexpr(key));
-    if (EXPR_VALUE_TYPE_INTEGER != key->ndat->u.rexpr.value_type &&
-        EXPR_VALUE_TYPE_STRING != key->ndat->u.rexpr.value_type) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &key->loc,
-            "invalid expression type in array subscript: "
-            "expect 'integer' or 'string', not '%s'",
-            expr_value_type_str(key->ndat->u.rexpr.value_type));
+    if (0 != (key->ndat->u.rexpr.value_type_mask
+              & ~(EXPR_VALUE_TYPE_INTEGER | EXPR_VALUE_TYPE_STRING))) {
+        // TODO log incompatible value types
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &key->loc,
+                       "invalid expression type in array subscript: "
+                       "expect 'integer' or 'string'");
         return 0u;
     }
     if (NULL != subscript->twin) {
         twin_idx = subscript->twin;
         assert(ast_node_is_rexpr(twin_idx));
-        if (EXPR_VALUE_TYPE_INTEGER != twin_idx->ndat->u.rexpr.value_type
+        if (0 == (twin_idx->ndat->u.rexpr.value_type_mask
+                  & EXPR_VALUE_TYPE_INTEGER)
             && AST_NODE_TYPE_REXPR_STAR_WILDCARD != twin_idx->ndat->type) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &twin_idx->loc,
                 "invalid expression type in array subscript: "
                 "twin index must be of type 'integer', not '%s'",
-                expr_value_type_str(twin_idx->ndat->u.rexpr.value_type));
+                expr_value_type_str(twin_idx->ndat->u.rexpr.value_type_mask));
             return 0u;
         }
         if (AST_NODE_TYPE_REXPR_NATIVE == twin_idx->ndat->type
-            && EXPR_VALUE_TYPE_INTEGER == twin_idx->ndat->u.rexpr.value_type
+            && EXPR_VALUE_TYPE_INTEGER
+            == twin_idx->ndat->u.rexpr.value_type_mask
             && twin_idx->ndat->u.rexpr_native.value.integer < 0) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &twin_idx->loc,
@@ -2118,31 +2117,37 @@ compile_subscript_index_cb(struct compile_ctx *ctx,
             return 0u;
         }
         if (ast_node_is_indexed(anchor_item)) {
-            /* integer subscript accesses items by raw index */
-            if (EXPR_VALUE_TYPE_INTEGER != key->ndat->u.rexpr.value_type) {
+            /* integer subscript accesses items by raw index; check
+             * that other potential value types are compatible with
+             * the index type */
+            if (0 == (EXPR_VALUE_TYPE_INTEGER
+                      & key->ndat->u.rexpr.value_type_mask)) {
                 key_expr = ast_node_get_key_expr(anchor_item);
                 if (-1 == compile_expr(key_expr, ctx, TRUE)) {
                     return 0u;
                 }
                 assert(ast_node_is_rexpr(key));
                 assert(ast_node_is_rexpr(key_expr));
-                if (key->ndat->u.rexpr.value_type
-                    != key_expr->ndat->u.rexpr.value_type) {
+                if (0 == (key->ndat->u.rexpr.value_type_mask
+                          & key_expr->ndat->u.rexpr.value_type_mask)) {
                     semantic_error(
                         SEMANTIC_LOGLEVEL_ERROR, &key->loc,
                         "invalid expression type in array subscript: "
                         "type mismatch between subscript type '%s' and "
                         "index type '%s'",
-                        ast_node_type_str(key->ndat->u.rexpr.value_type),
-                        ast_node_type_str(key_expr->ndat->u.rexpr.value_type));
+                        expr_value_type_str(
+                            key->ndat->u.rexpr.value_type_mask),
+                        expr_value_type_str(
+                            key_expr->ndat->u.rexpr.value_type_mask));
                     return 0u;
                 }
             }
-        } else if (EXPR_VALUE_TYPE_STRING == key->ndat->u.rexpr.value_type) {
+        } else if (0 == (EXPR_VALUE_TYPE_INTEGER
+                         & key->ndat->u.rexpr.value_type_mask)) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &key->loc,
-                "invalid expression type in array subscript: "
-                "'string' type requires array element type to be indexed");
+                "invalid expression type in array subscript: non-integer "
+                "type requires array element type to be indexed");
             return -1;
         }
     }
@@ -2224,7 +2229,7 @@ compile_expr_operator_subscript(struct ast_node_hdl *node,
     if (0 != (expect_mask & RESOLVE_EXPECT_EXPRESSION)) {
         struct subscript_index *index;
         const struct ast_node_hdl *anchor_item;
-        enum expr_value_type value_type = EXPR_VALUE_TYPE_UNSET;
+        enum expr_value_type value_type_mask = EXPR_VALUE_TYPE_UNSET;
 
         index = &node->ndat->u.op_subscript.index;
         if (NULL == index->key) {
@@ -2245,12 +2250,12 @@ compile_expr_operator_subscript(struct ast_node_hdl *node,
                                         ctx, COMPILE_TAG_NODE_TYPE, 0u)) {
                     return -1;
                 }
-                value_type = expr_value_type_from_dpath_node(
+                value_type_mask = expr_value_type_mask_from_dpath_node(
                     &anchor_item->ndat->u.array.item_type);
                 break ;
             case AST_NODE_TYPE_BYTE_ARRAY:
             case AST_NODE_TYPE_BYTE_SLICE:
-                value_type = EXPR_VALUE_TYPE_BYTES;
+                value_type_mask = EXPR_VALUE_TYPE_BYTES;
                 break ;
             default:
                 semantic_error(
@@ -2266,7 +2271,7 @@ compile_expr_operator_subscript(struct ast_node_hdl *node,
         }
         compiled_type = new_safe(struct ast_node_data);
         compiled_type->type = AST_NODE_TYPE_REXPR_OP_SUBSCRIPT;
-        compiled_type->u.rexpr.value_type = value_type;
+        compiled_type->u.rexpr.value_type_mask = value_type_mask;
         assert(ast_node_is_rexpr(anchor_expr));
         compiled_type->u.rexpr_op_subscript_common.anchor_expr = anchor_expr;
         compiled_type->u.rexpr_op_subscript.index = *index;
@@ -2287,7 +2292,7 @@ compile_expr_operator_subscript_slice(struct ast_node_hdl *node,
     struct ast_node_data *compiled_type;
     struct subscript_index *slice_start;
     struct subscript_index *slice_end;
-    enum expr_value_type value_type = EXPR_VALUE_TYPE_UNSET;
+    enum expr_value_type value_type_mask = EXPR_VALUE_TYPE_UNSET;
 
     anchor_expr = node->ndat->u.op_subscript_common.anchor_expr;
     slice_start = &node->ndat->u.op_subscript_slice.start;
@@ -2308,7 +2313,7 @@ compile_expr_operator_subscript_slice(struct ast_node_hdl *node,
                 ast_node_type_str(anchor_item->ndat->type));
             return -1;
         }
-        value_type = expr_value_type_from_node(anchor_item);
+        value_type_mask = expr_value_type_mask_from_node(anchor_item);
     } else {
         if (0 == (anchor_expr->flags & ASTFLAG_IS_REXPR_DPATH)) {
             semantic_error(
@@ -2316,7 +2321,7 @@ compile_expr_operator_subscript_slice(struct ast_node_hdl *node,
                 "invalid use of subscript operator on non-dpath expression");
             return -1;
         }
-        value_type = anchor_expr->ndat->u.rexpr.value_type;
+        value_type_mask = anchor_expr->ndat->u.rexpr.value_type_mask;
     }
     if (-1 == compile_subscript_index(node, slice_start, ctx) ||
         -1 == compile_subscript_index(node, slice_end, ctx)) {
@@ -2324,7 +2329,7 @@ compile_expr_operator_subscript_slice(struct ast_node_hdl *node,
     }
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE;
-    compiled_type->u.rexpr.value_type = value_type;
+    compiled_type->u.rexpr.value_type_mask = value_type_mask;
     assert(ast_node_is_rexpr(anchor_expr));
     compiled_type->u.rexpr_op_subscript_common.anchor_expr = anchor_expr;
     compiled_type->u.rexpr_op_subscript_slice.start = *slice_start;
@@ -2384,7 +2389,7 @@ compile_expr_operator_fcall(struct ast_node_hdl *expr,
     }
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_OP_FCALL;
-    compiled_type->u.rexpr.value_type = builtin->res_value_type;
+    compiled_type->u.rexpr.value_type_mask = builtin->res_value_type_mask;
     compiled_type->u.rexpr_op_fcall.builtin = builtin;
     compiled_type->u.rexpr_op_fcall.func_params = func_params;
     compiled_type->u.rexpr_op_fcall.n_func_params = n_params;
@@ -2417,7 +2422,7 @@ compile_expr_operator_sizeof(struct ast_node_hdl *expr,
     }
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_OP_SIZEOF;
-    compiled_type->u.rexpr.value_type = EXPR_VALUE_TYPE_INTEGER;
+    compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_INTEGER;
     compiled_type->u.rexpr_op.op = expr->ndat->u.op;
     expr->ndat = compiled_type;
 
@@ -2470,7 +2475,7 @@ compile_expr_operator_addrof(struct ast_node_hdl *expr,
     }
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_OP_ADDROF;
-    compiled_type->u.rexpr.value_type = EXPR_VALUE_TYPE_INTEGER;
+    compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_INTEGER;
     compiled_type->u.rexpr_op.op = expr->ndat->u.op;
     expr->ndat = compiled_type;
 
@@ -2502,7 +2507,7 @@ compile_expr_operator_ancestor(struct ast_node_hdl *expr,
     struct ast_node_hdl *operand;
     struct ast_node_hdl *target;
     struct ast_node_hdl *target_filter;
-    enum expr_value_type value_type;
+    enum expr_value_type value_type_mask;
     struct ast_node_data *compiled_type;
 
     operand = expr->ndat->u.op.operands[0];
@@ -2522,12 +2527,10 @@ compile_expr_operator_ancestor(struct ast_node_hdl *expr,
     } else {
         target = operand;
     }
-    // XXX make sure value_type is consistent across polymorphic named
-    // exprs
-    value_type = target->ndat->u.rexpr.value_type;
+    value_type_mask = target->ndat->u.rexpr.value_type_mask;
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_OP_ANCESTOR;
-    compiled_type->u.rexpr.value_type = value_type;
+    compiled_type->u.rexpr.value_type_mask = value_type_mask;
     compiled_type->u.rexpr_op.op = expr->ndat->u.op;
     expr->ndat = compiled_type;
     expr->flags |= ASTFLAG_IS_REXPR_DPATH;
@@ -2544,7 +2547,7 @@ compile_expr_star_wildcard(
 
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_STAR_WILDCARD;
-    compiled_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
+    compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
     expr->ndat = compiled_type;
     return 0;
 }
@@ -2559,11 +2562,12 @@ compile_conditional(struct ast_node_hdl *cond, struct compile_ctx *ctx)
     }
     cond_expr = cond->ndat->u.conditional.cond_expr;
     assert(ast_node_is_rexpr(cond_expr));
-    if (EXPR_VALUE_TYPE_BOOLEAN != cond_expr->ndat->u.rexpr.value_type) {
+    if (EXPR_VALUE_TYPE_BOOLEAN
+        != cond_expr->ndat->u.rexpr.value_type_mask) {
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &cond->loc,
             "expect a boolean expression in condition, not '%s'",
-            expr_value_type_str(cond_expr->ndat->u.rexpr.value_type));
+            expr_value_type_str(cond_expr->ndat->u.rexpr.value_type_mask));
         return -1;
     }
     if (NULL != cond->ndat->u.conditional.outer_cond
@@ -2595,14 +2599,17 @@ compile_rexpr_interpreter(struct ast_node_hdl *expr,
         param_valuep = INTERPRETER_RCALL_PARAM(expr, param_def->ref_idx);
         if (AST_NODE_TYPE_NONE != param_valuep->ndat->type) {
             assert(ast_node_is_rexpr(param_valuep));
-            if (param_valuep->ndat->u.rexpr.value_type != EXPR_VALUE_TYPE_UNSET
-                && param_valuep->ndat->u.rexpr.value_type != param_def->type) {
-                semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                               "wrong data type for parameter \"%s\": expected \"%s\", not \"%s\"",
-                               param_def->name,
-                               expr_value_type_str(param_def->type),
-                               expr_value_type_str(
-                                   param_valuep->ndat->u.rexpr.value_type));
+            if (0 == (param_def->value_type_mask
+                      & param_valuep->ndat->u.rexpr.value_type_mask)) {
+                semantic_error(
+                    SEMANTIC_LOGLEVEL_ERROR, &param_valuep->loc,
+                    "parameter \"%s\" passed to interpreter \"%s\" has "
+                    "an incompatible value-type '%s', acceptable "
+                    "value-types are '%s'",
+                    param_def->name, interpreter->name,
+                    expr_value_type_str(
+                        param_valuep->ndat->u.rexpr.value_type_mask),
+                    expr_value_type_str(param_def->value_type_mask));
                 sem_error = TRUE;
                 continue ;
             }
@@ -2637,7 +2644,8 @@ compile_rexpr_named_expr(struct ast_node_hdl *expr,
         named_expr->expr = ast_node_new_rexpr_item(target, ctx);
         target = named_expr->expr;
     }
-    expr->ndat->u.rexpr.value_type = expr_value_type_from_node(target);
+    expr->ndat->u.rexpr.value_type_mask =
+        expr_value_type_mask_from_node(target);
     expr->flags |= (target->flags & ASTFLAG_IS_REXPR_DPATH);
     return 0;
 }
@@ -2652,7 +2660,7 @@ compile_rexpr_polymorphic(struct ast_node_hdl *expr,
     struct named_expr *named_expr;
     struct ast_node_hdl *target_expr;
     struct ast_node_hdl *first_target_expr;
-    enum expr_value_type value_type;
+    enum expr_value_type value_type_mask;
     int is_dpath;
     
     // FIXME some circular dependency errors could be legit, rework this
@@ -2678,7 +2686,7 @@ compile_rexpr_polymorphic(struct ast_node_hdl *expr,
     if (!compile_continue(ctx)) {
         return -1;
     }
-    value_type = EXPR_VALUE_TYPE_UNSET;
+    value_type_mask = EXPR_VALUE_TYPE_UNSET;
     is_dpath = -1;
     first_target_expr = NULL;
     for (i = 0; i < expr->ndat->u.rexpr_polymorphic.n_visible_statements;
@@ -2698,29 +2706,12 @@ compile_rexpr_polymorphic(struct ast_node_hdl *expr,
             assert(0);
         }
         assert(ast_node_is_rexpr(target_expr));
+        // possible value types add up for each polymorphic target
+        value_type_mask |= target_expr->ndat->u.rexpr.value_type_mask;
         if (i == 0) {
-            value_type = target_expr->ndat->u.rexpr.value_type;
             is_dpath = (0 != (target_expr->flags & ASTFLAG_IS_REXPR_DPATH));
             first_target_expr = target_expr;
         } else {
-            assert(NULL != first_target_expr);
-            if (value_type != target_expr->ndat->u.rexpr.value_type) {
-                semantic_error(
-                    SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                    "multiple value types for expressions referred "
-                    "from the same polymorphic identifier");
-                semantic_error(
-                    SEMANTIC_LOGLEVEL_INFO, &first_target_expr->loc,
-                    "first target expression has value type '%s'",
-                    expr_value_type_str(
-                        first_target_expr->ndat->u.rexpr.value_type));
-                semantic_error(
-                    SEMANTIC_LOGLEVEL_INFO, &target_expr->loc,
-                    "this target expression has value type '%s'",
-                    expr_value_type_str(
-                        target_expr->ndat->u.rexpr.value_type));
-                return -1;
-            }
             if (is_dpath
                 != (0 != (target_expr->flags & ASTFLAG_IS_REXPR_DPATH))) {
                 semantic_error(
@@ -2740,8 +2731,12 @@ compile_rexpr_polymorphic(struct ast_node_hdl *expr,
             }
         }
     }
-    expr->ndat->u.rexpr.value_type = value_type;
-    expr->flags |= is_dpath ? ASTFLAG_IS_REXPR_DPATH : 0u;
+    if (0 != (expr->flags & ASTFLAG_HAS_POLYMORPHIC_ANCHOR)) {
+        expr->ndat->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_ANY;
+    } else {
+        expr->flags |= is_dpath ? ASTFLAG_IS_REXPR_DPATH : 0u;
+        expr->ndat->u.rexpr.value_type_mask = value_type_mask;
+    }
     return 0;
 }
 
@@ -2755,8 +2750,8 @@ compile_rexpr_field(struct ast_node_hdl *expr, struct compile_ctx *ctx)
     if (-1 == compile_dpath(&field->dpath, ctx, COMPILE_TAG_NODE_TYPE, 0u)) {
         return -1;
     }
-    expr->ndat->u.rexpr.value_type =
-        expr_value_type_from_dpath_node(&field->dpath);
+    expr->ndat->u.rexpr.value_type_mask =
+        expr_value_type_mask_from_dpath_node(&field->dpath);
     expr->flags |= ASTFLAG_IS_REXPR_DPATH;
     return 0;
 }
@@ -2814,14 +2809,14 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
         if (n_visible_statements == 1) {
             stmt_spec = &visible_statements[0];
             resolved_type = new_safe(struct ast_node_data);
-            resolved_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
+            resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
             resolved_type->u.rexpr_member_common.anchor_expr = anchor_expr;
             resolved_type->u.rexpr_member_common.anchor_block =
                 (struct ast_node_hdl *)anchor_block;
-            if (stmt_spec->anonymous_member) {
-                resolved_type->flags |= ASTFLAG_DATA_ANONYMOUS_MEMBER;
-            }
             expr->ndat = resolved_type;
+            if (stmt_spec->anonymous_member) {
+                expr->flags |= ASTFLAG_IS_ANONYMOUS_MEMBER;
+            }
             switch (stmt_spec->stmt_type) {
             case STATEMENT_TYPE_NAMED_EXPR:
                 resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
@@ -2856,17 +2851,21 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
         n_visible_statements = 0;
     }
     resolved_type = new_safe(struct ast_node_data);
-    resolved_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
+    resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
     resolved_type->u.rexpr_member_common.anchor_expr = anchor_expr;
     resolved_type->u.rexpr_member_common.anchor_block =
         (struct ast_node_hdl *)anchor_block;
     resolved_type->type = AST_NODE_TYPE_REXPR_POLYMORPHIC;
     resolved_type->u.rexpr_polymorphic.identifier =
         member->ndat->u.identifier;
-    resolved_type->u.rexpr_polymorphic.visible_statements =
-        visible_statements;
-    resolved_type->u.rexpr_polymorphic.n_visible_statements =
-        n_visible_statements;
+    if (NULL != anchor_block) {
+        resolved_type->u.rexpr_polymorphic.visible_statements =
+            visible_statements;
+        resolved_type->u.rexpr_polymorphic.n_visible_statements =
+            n_visible_statements;
+    } else {
+        expr->flags |= ASTFLAG_HAS_POLYMORPHIC_ANCHOR;
+    }
     expr->ndat = resolved_type;
     return compile_rexpr_polymorphic(expr, ctx);
 }
@@ -3129,7 +3128,8 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
         field->nstmt.stmt.stmt_flags |= FIELD_FLAG_TRAILER;
     }
     if (NULL != min_span_expr) {
-        assert(EXPR_VALUE_TYPE_INTEGER == min_span_expr->ndat->u.rexpr.value_type);
+        assert(EXPR_VALUE_TYPE_INTEGER
+               == min_span_expr->ndat->u.rexpr.value_type_mask);
         if (AST_NODE_TYPE_REXPR_NATIVE == min_span_expr->ndat->type) {
             int64_t user_min_span_size;
 
@@ -3149,7 +3149,8 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
         }
     }
     if (NULL != max_span_expr) {
-        assert(EXPR_VALUE_TYPE_INTEGER == max_span_expr->ndat->u.rexpr.value_type);
+        assert(EXPR_VALUE_TYPE_INTEGER
+               == max_span_expr->ndat->u.rexpr.value_type_mask);
         if (AST_NODE_TYPE_REXPR_NATIVE == max_span_expr->ndat->type) {
             int64_t user_max_span_size;
 
@@ -3227,18 +3228,16 @@ compile_span_size_array(struct ast_node_hdl *array, struct compile_ctx *ctx)
             return -1;
         }
         // XXX check all polymorphic named expr targets
-        if (EXPR_VALUE_TYPE_INTEGER !=
-            item_count_expr->ndat->u.rexpr.value_type) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &item_count_expr->loc,
-                           "invalid array size type: expect '%s', got '%s'",
-                           expr_value_type_str(EXPR_VALUE_TYPE_INTEGER),
-                           expr_value_type_str(
-                               item_count_expr->ndat->u.rexpr.value_type));
+        if (0 == (EXPR_VALUE_TYPE_INTEGER
+                  & item_count_expr->ndat->u.rexpr.value_type_mask)) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &item_count_expr->loc,
+                "invalid array size type: expect an integer, got '%s'",
+                expr_value_type_str(
+                    item_count_expr->ndat->u.rexpr.value_type_mask));
             return -1;
         }
     }
-    // XXX allow for getting all potential item types from named expr
-    // polymorphism
     item_dpath = &array->ndat->u.array.item_type;
     item_type = ast_node_get_target_item(item_dpath->item);
     assert(ast_node_is_item(item_type));
@@ -3254,7 +3253,7 @@ compile_span_size_array(struct ast_node_hdl *array, struct compile_ctx *ctx)
         }
         assert(SPAN_SIZE_UNDEF != item_type->ndat->u.item.min_span_size);
         assert(EXPR_VALUE_TYPE_INTEGER
-               == item_count_expr->ndat->u.rexpr.value_type);
+               == item_count_expr->ndat->u.rexpr.value_type_mask);
         assert(SPAN_SIZE_UNDEF != item_type->ndat->u.item.min_span_size);
         item_count = item_count_expr->ndat->u.rexpr_native.value.integer;
         min_span_size = item_count * item_type->ndat->u.item.min_span_size;
@@ -3314,12 +3313,13 @@ compile_span_size_byte_array(struct ast_node_hdl *byte_array,
             return -1;
         }
         assert(ast_node_is_rexpr(size_expr));
-        if (EXPR_VALUE_TYPE_INTEGER != size_expr->ndat->u.rexpr.value_type) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &size_expr->loc,
-                           "invalid byte array size type: expect '%s', "
-                           "got '%s'",
-                           expr_value_type_str(EXPR_VALUE_TYPE_INTEGER),
-                           expr_value_type_str(size_expr->ndat->u.rexpr.value_type));
+        if (0 == (EXPR_VALUE_TYPE_INTEGER
+                  & size_expr->ndat->u.rexpr.value_type_mask)) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &size_expr->loc,
+                "invalid byte array size type: expect an integer, "
+                "got '%s'",
+                expr_value_type_str(size_expr->ndat->u.rexpr.value_type_mask));
             return -1;
         }
     }
@@ -3661,11 +3661,11 @@ compile_node_post_check_span_expr(struct ast_node_hdl *span_expr,
                                   struct compile_ctx *ctx)
 {
     assert(ast_node_is_rexpr(span_expr));
-    if (span_expr->ndat->u.rexpr.value_type != EXPR_VALUE_TYPE_INTEGER) {
+    if (span_expr->ndat->u.rexpr.value_type_mask != EXPR_VALUE_TYPE_INTEGER) {
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &span_expr->loc,
             "span expression must be of integer type, not '%s'",
-            expr_value_type_str(span_expr->ndat->u.rexpr.value_type));
+            expr_value_type_str(span_expr->ndat->u.rexpr.value_type_mask));
         return -1;
     }
     return 0;
@@ -3676,12 +3676,12 @@ compile_node_post_check_key_expr(struct ast_node_hdl *key_expr,
                                  struct compile_ctx *ctx)
 {
     assert(ast_node_is_rexpr(key_expr));
-    if (key_expr->ndat->u.rexpr.value_type != EXPR_VALUE_TYPE_INTEGER &&
-        key_expr->ndat->u.rexpr.value_type != EXPR_VALUE_TYPE_STRING) {
+    if (0 != (key_expr->ndat->u.rexpr.value_type_mask
+              & ~(EXPR_VALUE_TYPE_INTEGER | EXPR_VALUE_TYPE_STRING))) {
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &key_expr->loc,
             "index expression must be of integer or string type, not '%s'",
-            expr_value_type_str(key_expr->ndat->u.rexpr.value_type));
+            expr_value_type_str(key_expr->ndat->u.rexpr.value_type_mask));
         return -1;
     }
     return 0;
@@ -3692,11 +3692,12 @@ compile_node_post_check_match_expr(struct ast_node_hdl *match_expr,
                                    struct compile_ctx *ctx)
 {
     assert(ast_node_is_rexpr(match_expr));
-    if (match_expr->ndat->u.rexpr.value_type != EXPR_VALUE_TYPE_BOOLEAN) {
+    if (match_expr->ndat->u.rexpr.value_type_mask
+        != EXPR_VALUE_TYPE_BOOLEAN) {
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &match_expr->loc,
             "match expression must be of boolean type, not '%s'",
-            expr_value_type_str(match_expr->ndat->u.rexpr.value_type));
+            expr_value_type_str(match_expr->ndat->u.rexpr.value_type_mask));
         return -1;
     }
     if (match_expr->ndat->type == AST_NODE_TYPE_REXPR_NATIVE) {
@@ -4210,7 +4211,7 @@ ast_node_get_key_type(const struct ast_node_hdl *node)
 
     key_expr = ast_node_get_key_expr(node);
     assert(NULL != key_expr);
-    return key_expr->ndat->u.rexpr.value_type;
+    return key_expr->ndat->u.rexpr.value_type_mask;
 }
 
 struct ast_node_hdl *
@@ -4322,8 +4323,9 @@ dump_block(const struct ast_node_hdl *block, FILE *out)
 
 static void
 dump_ast_rexpr(const struct ast_node_hdl *node, FILE *out) {
-    fprintf(out, "value_type: %s",
-            expr_value_type_str(node->ndat->u.rexpr.value_type));
+    fprintf(out, "value_type: %s (%d)",
+            expr_value_type_str(node->ndat->u.rexpr.value_type_mask),
+            node->ndat->u.rexpr.value_type_mask);
 }
 
 static void
@@ -4581,7 +4583,7 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         break ;
     }
     case AST_NODE_TYPE_REXPR_NATIVE:
-        switch (node->ndat->u.rexpr_native.rexpr.value_type) {
+        switch (node->ndat->u.rexpr_native.rexpr.value_type_mask) {
         case EXPR_VALUE_TYPE_INTEGER:
             fprintf(out, "%"PRIi64"\n", node->ndat->u.rexpr_native.value.integer);
             break ;
@@ -4705,9 +4707,10 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         break ;
     case AST_NODE_TYPE_REXPR_POLYMORPHIC:
         dump_ast_rexpr_member(node, depth, visible_refs, out);
-        fprintf(out, "%*s\\_ polymorphic: %s\n",
+        fprintf(out, "%*s\\_ polymorphic: %s [%d refs]\n",
                 (depth + 1) * INDENT_N_SPACES, "",
-                node->ndat->u.rexpr_polymorphic.identifier);
+                node->ndat->u.rexpr_polymorphic.identifier,
+                node->ndat->u.rexpr_polymorphic.n_visible_statements);
         fprintf(out, "\n");
         break ;
     case AST_NODE_TYPE_REXPR_BUILTIN:

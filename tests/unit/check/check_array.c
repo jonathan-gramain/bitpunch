@@ -306,13 +306,14 @@ START_TEST(sarray_ast)
     int_size = item_type->item->ndat->u.byte_array.size;
     ck_assert_ptr_ne(int_size, NULL);
     ck_assert_int_eq(int_size->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
-    ck_assert_int_eq(int_size->ndat->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
+    ck_assert_int_eq(int_size->ndat->u.rexpr.value_type_mask,
+                     EXPR_VALUE_TYPE_INTEGER);
     ck_assert_int_eq(int_size->ndat->u.rexpr_native.value.integer, 4);
 
     item_count = field->dpath.item->ndat->u.array.item_count;
     ck_assert_ptr_ne(item_count, NULL);
     ck_assert_int_eq(item_count->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
-    ck_assert_int_eq(item_count->ndat->u.rexpr.value_type,
+    ck_assert_int_eq(item_count->ndat->u.rexpr.value_type_mask,
                      EXPR_VALUE_TYPE_INTEGER);
     ck_assert_int_eq(item_count->ndat->u.rexpr_native.value.integer, 5);
 
@@ -366,7 +367,7 @@ START_TEST(varray_ast)
     int_array_size = field->dpath.item->ndat->u.byte_array.size;
     ck_assert_ptr_ne(int_array_size, NULL);
     ck_assert_int_eq(int_array_size->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
-    ck_assert_int_eq(int_array_size->ndat->u.rexpr.value_type,
+    ck_assert_int_eq(int_array_size->ndat->u.rexpr.value_type_mask,
                      EXPR_VALUE_TYPE_INTEGER);
     ck_assert_int_eq(int_array_size->ndat->u.rexpr_native.value.integer, 4);
 
@@ -382,23 +383,26 @@ START_TEST(varray_ast)
     int_size = item_type->item->ndat->u.byte_array.size;
     ck_assert_ptr_ne(int_size, NULL);
     ck_assert_int_eq(int_size->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
-    ck_assert_int_eq(int_size->ndat->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
+    ck_assert_int_eq(int_size->ndat->u.rexpr.value_type_mask,
+                     EXPR_VALUE_TYPE_INTEGER);
     ck_assert_int_eq(int_size->ndat->u.rexpr_native.value.integer, 4);
 
     item_count = field_type->ndat->u.array.item_count;
     ck_assert_ptr_ne(item_count, NULL);
     ck_assert_int_eq(item_count->ndat->type, AST_NODE_TYPE_REXPR_OP_ADD);
-    ck_assert_int_eq(item_count->ndat->u.rexpr.value_type,
+    ck_assert_int_eq(item_count->ndat->u.rexpr.value_type_mask,
                      EXPR_VALUE_TYPE_INTEGER);
     op1 = item_count->ndat->u.rexpr_op.op.operands[0];
     op2 = item_count->ndat->u.rexpr_op.op.operands[1];
     ck_assert_ptr_ne(op1, NULL);
     ck_assert_ptr_ne(op2, NULL);
     ck_assert_int_eq(op1->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
-    ck_assert_int_eq(op1->ndat->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
+    ck_assert_int_eq(op1->ndat->u.rexpr.value_type_mask,
+                     EXPR_VALUE_TYPE_INTEGER);
     ck_assert_int_eq(op1->ndat->u.rexpr_native.value.integer, 2);
     ck_assert_int_eq(op2->ndat->type, AST_NODE_TYPE_REXPR_FIELD);
-    ck_assert_int_eq(op2->ndat->u.rexpr.value_type, EXPR_VALUE_TYPE_INTEGER);
+    ck_assert_int_eq(op2->ndat->u.rexpr.value_type_mask,
+                     EXPR_VALUE_TYPE_INTEGER);
     field_type = op2->ndat->u.rexpr_field.field->dpath.item;
     ck_assert_ptr_eq(field_type, int_array_size_item);
 

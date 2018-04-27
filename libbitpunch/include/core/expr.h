@@ -214,8 +214,7 @@ const char *
 expr_dpath_type_str(enum expr_dpath_type type);
 
 void
-expr_value_to_hashable(enum expr_value_type type,
-                       expr_value_t value,
+expr_value_to_hashable(expr_value_t value,
                        const char **bufp, int64_t *lenp);
 
 static inline expr_value_t

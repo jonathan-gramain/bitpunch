@@ -188,7 +188,7 @@ static struct expr_evalop_match_item match_eq_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_BOOLEAN,
+        .res_type_mask = EXPR_VALUE_TYPE_BOOLEAN,
         .eval_fn = expr_evalop_eq_integer_integer,
     },
 };
@@ -211,7 +211,7 @@ static struct expr_evalop_match_item match_eq_boolean_boolean = {
         EXPR_VALUE_TYPE_BOOLEAN
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_BOOLEAN,
+        .res_type_mask = EXPR_VALUE_TYPE_BOOLEAN,
         .eval_fn = expr_evalop_eq_boolean_boolean,
     },
 };
@@ -237,7 +237,7 @@ static struct expr_evalop_match_item match_eq_string_string = {
         EXPR_VALUE_TYPE_STRING
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_BOOLEAN,
+        .res_type_mask = EXPR_VALUE_TYPE_BOOLEAN,
         .eval_fn = expr_evalop_eq_string_string,
     },
 };
@@ -263,7 +263,7 @@ static struct expr_evalop_match_item match_ne_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_BOOLEAN,
+        .res_type_mask = EXPR_VALUE_TYPE_BOOLEAN,
         .eval_fn = expr_evalop_ne_integer_integer,
     },
 };
@@ -286,7 +286,7 @@ static struct expr_evalop_match_item match_ne_boolean_boolean = {
         EXPR_VALUE_TYPE_BOOLEAN
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_BOOLEAN,
+        .res_type_mask = EXPR_VALUE_TYPE_BOOLEAN,
         .eval_fn = expr_evalop_ne_boolean_boolean,
     },
 };
@@ -312,7 +312,7 @@ static struct expr_evalop_match_item match_ne_string_string = {
         EXPR_VALUE_TYPE_STRING
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_BOOLEAN,
+        .res_type_mask = EXPR_VALUE_TYPE_BOOLEAN,
         .eval_fn = expr_evalop_ne_string_string,
     },
 };
@@ -338,7 +338,7 @@ static struct expr_evalop_match_item match_lt_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_BOOLEAN,
+        .res_type_mask = EXPR_VALUE_TYPE_BOOLEAN,
         .eval_fn = expr_evalop_lt_integer_integer,
     },
 };
@@ -363,7 +363,7 @@ static struct expr_evalop_match_item match_le_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_BOOLEAN,
+        .res_type_mask = EXPR_VALUE_TYPE_BOOLEAN,
         .eval_fn = expr_evalop_le_integer_integer,
     },
 };
@@ -388,7 +388,7 @@ static struct expr_evalop_match_item match_gt_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_BOOLEAN,
+        .res_type_mask = EXPR_VALUE_TYPE_BOOLEAN,
         .eval_fn = expr_evalop_gt_integer_integer,
     },
 };
@@ -413,7 +413,7 @@ static struct expr_evalop_match_item match_ge_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_BOOLEAN,
+        .res_type_mask = EXPR_VALUE_TYPE_BOOLEAN,
         .eval_fn = expr_evalop_ge_integer_integer,
     },
 };
@@ -439,7 +439,7 @@ static struct expr_evalop_match_item match_lor_boolean_boolean = {
         EXPR_VALUE_TYPE_BOOLEAN
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_BOOLEAN,
+        .res_type_mask = EXPR_VALUE_TYPE_BOOLEAN,
         .eval_fn = expr_evalop_lor_boolean_boolean,
     },
 };
@@ -464,7 +464,7 @@ static struct expr_evalop_match_item match_land_boolean_boolean = {
         EXPR_VALUE_TYPE_BOOLEAN
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_BOOLEAN,
+        .res_type_mask = EXPR_VALUE_TYPE_BOOLEAN,
         .eval_fn = expr_evalop_land_boolean_boolean,
     },
 };
@@ -489,7 +489,7 @@ static struct expr_evalop_match_item match_lnot_boolean = {
         EXPR_VALUE_TYPE_BOOLEAN
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_BOOLEAN,
+        .res_type_mask = EXPR_VALUE_TYPE_BOOLEAN,
         .eval_fn = expr_evalop_lnot_boolean,
     },
 };
@@ -515,7 +515,7 @@ static struct expr_evalop_match_item match_bwor_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_INTEGER,
+        .res_type_mask = EXPR_VALUE_TYPE_INTEGER,
         .eval_fn = expr_evalop_bwor_integer_integer,
     },
 };
@@ -540,7 +540,7 @@ static struct expr_evalop_match_item match_bwand_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_INTEGER,
+        .res_type_mask = EXPR_VALUE_TYPE_INTEGER,
         .eval_fn = expr_evalop_bwand_integer_integer,
     },
 };
@@ -565,7 +565,7 @@ static struct expr_evalop_match_item match_bwxor_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_INTEGER,
+        .res_type_mask = EXPR_VALUE_TYPE_INTEGER,
         .eval_fn = expr_evalop_bwxor_integer_integer,
     },
 };
@@ -589,7 +589,7 @@ static struct expr_evalop_match_item match_bwnot_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_INTEGER,
+        .res_type_mask = EXPR_VALUE_TYPE_INTEGER,
         .eval_fn = expr_evalop_bwnot_integer,
     },
 };
@@ -615,7 +615,7 @@ static struct expr_evalop_match_item match_lshift_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_INTEGER,
+        .res_type_mask = EXPR_VALUE_TYPE_INTEGER,
         .eval_fn = expr_evalop_lshift_integer_integer,
     },
 };
@@ -640,7 +640,7 @@ static struct expr_evalop_match_item match_rshift_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_INTEGER,
+        .res_type_mask = EXPR_VALUE_TYPE_INTEGER,
         .eval_fn = expr_evalop_rshift_integer_integer,
     },
 };
@@ -666,7 +666,7 @@ static struct expr_evalop_match_item match_add_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_INTEGER,
+        .res_type_mask = EXPR_VALUE_TYPE_INTEGER,
         .eval_fn = expr_evalop_add_integer_integer,
     },
 };
@@ -691,7 +691,7 @@ static struct expr_evalop_match_item match_sub_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_INTEGER,
+        .res_type_mask = EXPR_VALUE_TYPE_INTEGER,
         .eval_fn = expr_evalop_sub_integer_integer,
     },
 };
@@ -716,7 +716,7 @@ static struct expr_evalop_match_item match_mul_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_INTEGER,
+        .res_type_mask = EXPR_VALUE_TYPE_INTEGER,
         .eval_fn = expr_evalop_mul_integer_integer,
     },
 };
@@ -741,7 +741,7 @@ static struct expr_evalop_match_item match_div_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_INTEGER,
+        .res_type_mask = EXPR_VALUE_TYPE_INTEGER,
         .eval_fn = expr_evalop_div_integer_integer,
     },
 };
@@ -766,7 +766,7 @@ static struct expr_evalop_match_item match_mod_integer_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_INTEGER,
+        .res_type_mask = EXPR_VALUE_TYPE_INTEGER,
         .eval_fn = expr_evalop_mod_integer_integer,
     },
 };
@@ -790,7 +790,7 @@ static struct expr_evalop_match_item match_uplus_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_INTEGER,
+        .res_type_mask = EXPR_VALUE_TYPE_INTEGER,
         .eval_fn = expr_evalop_uplus_integer,
     },
 };
@@ -812,7 +812,7 @@ static struct expr_evalop_match_item match_uminus_integer = {
         EXPR_VALUE_TYPE_INTEGER
     },
     .evaluator = {
-        .res_type = EXPR_VALUE_TYPE_INTEGER,
+        .res_type_mask = EXPR_VALUE_TYPE_INTEGER,
         .eval_fn = expr_evalop_uminus_integer,
     },
 };
@@ -862,7 +862,10 @@ expr_lookup_evaluator(enum ast_node_type op_type,
         match = expr_evalop_match_items[match_i];
         if (match->op_type == op_type) {
             for (opd_i = 0; opd_i < match->n_opd; ++opd_i) {
-                if (opd_types[opd_i] != match->opd_types[opd_i]) {
+                // there's a match if all possible operand types are
+                // supported by the evaluator
+                if ((opd_types[opd_i] & match->opd_types[opd_i])
+                    != opd_types[opd_i]) {
                     break ;
                 }
             }
@@ -1059,21 +1062,21 @@ static const struct expr_builtin_fn const
 expr_builtin_fns[] = {
     {
         .builtin_name = "bytes",
-        .res_value_type = EXPR_VALUE_TYPE_BYTES,
+        .res_value_type_mask = EXPR_VALUE_TYPE_BYTES,
         .eval_dpath_fn = expr_eval_builtin_bytes,
         .min_n_params = 1,
         .max_n_params = 1,
     },
     {
         .builtin_name = "index",
-        .res_value_type = EXPR_VALUE_TYPE_INTEGER,
+        .res_value_type_mask = EXPR_VALUE_TYPE_INTEGER,
         .eval_value_fn = expr_eval_builtin_index,
         .min_n_params = 2,
         .max_n_params = 2,
     },
     {
         .builtin_name = "len",
-        .res_value_type = EXPR_VALUE_TYPE_INTEGER,
+        .res_value_type_mask = EXPR_VALUE_TYPE_INTEGER,
         .eval_value_fn = expr_eval_builtin_len,
         .min_n_params = 1,
         .max_n_params = 1,
@@ -1669,7 +1672,7 @@ expr_evaluate_named_expr_internal(
         member_scope = scope;
         box_acquire(member_scope);
     }
-    if (0 != (expr->ndat->flags & ASTFLAG_DATA_ANONYMOUS_MEMBER)) {
+    if (0 != (expr->flags & ASTFLAG_IS_ANONYMOUS_MEMBER)) {
         struct box *direct_scope;
 
         bt_ret = box_lookup_named_expr_internal(
@@ -2040,8 +2043,6 @@ expr_evaluate_value_polymorphic(struct ast_node_hdl *expr, struct box *scope,
     enum statement_type stmt_type;
     const struct named_statement *nstmt;
     struct box *member_scope;
-    struct ast_node_hdl *target_expr;
-    expr_value_t eval_value;
 
     bt_ret = expr_evaluate_polymorphic_internal(
         expr, scope, &stmt_type, &nstmt, &member_scope, bst);
@@ -2051,33 +2052,32 @@ expr_evaluate_value_polymorphic(struct ast_node_hdl *expr, struct box *scope,
     switch (stmt_type) {
     case STATEMENT_TYPE_FIELD: {
         const struct field *field;
+        struct tracker *tk;
 
         field = (struct field *)nstmt;
-        target_expr = field->dpath.filter;
-        break ;
+        tk = track_box_contents_internal(member_scope, bst);
+        box_delete(member_scope);
+        bt_ret = tracker_goto_field_internal(tk, field, FALSE, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            tracker_delete(tk);
+            return bt_ret;
+        }
+        bt_ret = tracker_read_item_value_internal(tk, eval_valuep, bst);
+        tracker_delete(tk);
+        return bt_ret;
     }
     case STATEMENT_TYPE_NAMED_EXPR: {
         const struct named_expr *named_expr;
 
         named_expr = (struct named_expr *)nstmt;
-        target_expr = named_expr->expr;
-        break ;
+        bt_ret = expr_evaluate_value_internal(
+            named_expr->expr, member_scope, eval_valuep, bst);
+        box_delete(member_scope);
+        return bt_ret;
     }
     default:
         assert(0);
     }
-    bt_ret = expr_evaluate_value_internal(target_expr, member_scope,
-                                          &eval_value, bst);
-    box_delete(member_scope);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    if (NULL != eval_valuep) {
-        *eval_valuep = eval_value;
-    } else {
-        expr_value_destroy(eval_value);
-    }
-    return bt_ret;
 }
 
 bitpunch_status_t
@@ -2732,7 +2732,7 @@ expr_transform_dpath_interpreter(struct ast_node_hdl *expr,
     }
     // TODO rework this: interpreters should be explicit whether
     // they create a new buffer or inlay an existing one
-    switch (interpreter->value_type) {
+    switch (interpreter->value_type_mask) {
     case EXPR_VALUE_TYPE_BYTES:
         filtered_box = box_new_filter_box_plain(target_box, expr, bst);
         box_delete(target_box);
@@ -2964,34 +2964,44 @@ const char *
 expr_value_type_str(enum expr_value_type type)
 {
     switch (type) {
-    case EXPR_VALUE_TYPE_UNSET: return "unset";
-    case EXPR_VALUE_TYPE_INTEGER: return "integer";
-    case EXPR_VALUE_TYPE_BOOLEAN: return "boolean";
-    case EXPR_VALUE_TYPE_STRING: return "string";
-    case EXPR_VALUE_TYPE_BYTES: return "bytes";
-    case EXPR_VALUE_TYPE_ANY: return "any";
+    case EXPR_VALUE_TYPE_UNSET:
+        return "unset";
+    case EXPR_VALUE_TYPE_INTEGER:
+        return "integer";
+    case EXPR_VALUE_TYPE_BOOLEAN:
+        return "boolean";
+    case EXPR_VALUE_TYPE_STRING:
+        return "string";
+    case EXPR_VALUE_TYPE_BYTES:
+        return "bytes";
+    case EXPR_VALUE_TYPE_ANY:
+        return "any";
+    default:
+        return "multiple";
     }
-    return "!!bad expression value type!!";
 }
 
 const char *
 expr_dpath_type_str(enum expr_dpath_type type)
 {
     switch (type) {
-    case EXPR_DPATH_TYPE_UNSET: return "unset";
-    case EXPR_DPATH_TYPE_NONE: return "none";
-    case EXPR_DPATH_TYPE_ITEM: return "item";
-    case EXPR_DPATH_TYPE_CONTAINER: return "container";
+    case EXPR_DPATH_TYPE_UNSET:
+        return "unset";
+    case EXPR_DPATH_TYPE_NONE:
+        return "none";
+    case EXPR_DPATH_TYPE_ITEM:
+        return "item";
+    case EXPR_DPATH_TYPE_CONTAINER:
+        return "container";
     }
     return "!!bad expression dpath type!!";
 }
 
 void
-expr_value_to_hashable(enum expr_value_type type,
-                       expr_value_t value,
+expr_value_to_hashable(expr_value_t value,
                        const char **bufp, int64_t *lenp)
 {
-    switch (type) {
+    switch (value.type) {
     case EXPR_VALUE_TYPE_INTEGER:
         *bufp = (char *)&value.integer;
         *lenp = sizeof (value.integer);

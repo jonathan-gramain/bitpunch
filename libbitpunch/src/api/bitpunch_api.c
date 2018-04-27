@@ -470,7 +470,8 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
          && 0 != (expr_node->flags & ASTFLAG_IS_REXPR_DPATH));
     compute_value =
         (NULL != expr_valuep
-         && EXPR_VALUE_TYPE_UNSET != expr_node->ndat->u.rexpr.value_type);
+         && EXPR_VALUE_TYPE_UNSET
+         != expr_node->ndat->u.rexpr.value_type_mask);
 
     if (compute_dpath) {
         bt_ret = expr_evaluate_dpath(expr_node, scope, &expr_dpath, errp);

@@ -314,16 +314,18 @@ let Count = byte[2]: integer { signed: false; endian: 'big'; };
 let Value = Selector;
 
 
-let IntArray = struct {
-    count: Count;
-    values: Value[count];
-};
-
-let Message = struct {
-    value: byte[]: string { boundary: '\\n'; };
-};
-
 let T = struct {
+    let IntArray = struct {
+        count: Count;
+        values: Value[count];
+        let ?my_type = ?type;
+    };
+
+    let Message = struct {
+        value: byte[]: string { boundary: '\\n'; };
+        let ?my_type = ?type;
+    };
+
     type: Selector;
     if (type == 1) {
         array: IntArray;
@@ -350,20 +352,22 @@ let Count = byte[2]: integer { signed: false; endian: 'big'; };
 let Value = Selector;
 
 
-let IntArray = struct {
-    count: Count;
-    values: Value[count];
-};
-
-let Message = struct {
-    value: byte[]: string { boundary: '\\n'; };
-};
-
 let T = struct {
     : SubT;
 };
 
 let SubT = struct {
+    let IntArray = struct {
+        count: Count;
+        values: Value[count];
+        let ?my_type = ?type;
+    };
+
+    let Message = struct {
+        value: byte[]: string { boundary: '\\n'; };
+        let ?my_type = ?type;
+    };
+
     type: Selector;
     if (type == 1) {
         array: IntArray;
@@ -418,6 +422,7 @@ def test_named_exprs_polymorphic(params_named_exprs_polymorphic):
     assert dtree.items[1]['?type'] == 'message'
     assert dtree.eval_expr('items[1].?type') == 'message'
     assert dtree.eval_expr('items[1].?type == "message"') == True
+    assert dtree.eval_expr('items[1].?item.?my_type') == 'message'
 
     assert model.make_python_object(
         dtree.items[2].array.values) == [1, 2, 3, 4, 5]
@@ -428,6 +433,7 @@ def test_named_exprs_polymorphic(params_named_exprs_polymorphic):
     assert dtree.items[2]['?type'] == 'array'
     assert dtree.eval_expr('items[2].?type') == 'array'
     assert dtree.eval_expr('items[2].?type == "array"') == True
+    assert dtree.eval_expr('items[2].?item.?my_type') == 'array'
 
 
 spec_file_named_exprs_polymorphic_hydra = """

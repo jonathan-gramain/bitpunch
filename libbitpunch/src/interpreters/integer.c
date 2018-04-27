@@ -320,13 +320,6 @@ binary_integer_rcall_build(struct ast_node_hdl *rcall,
                            const struct ast_node_hdl *param_values,
                            struct compile_ctx *ctx)
 {
-    assert(param_values[REF_SIGNED].ndat->u.rexpr.value_type
-           == EXPR_VALUE_TYPE_BOOLEAN);
-    assert(param_values[REF_ENDIAN].ndat->u.rexpr.value_type
-           == EXPR_VALUE_TYPE_STRING ||
-           param_values[REF_ENDIAN].ndat->u.rexpr.value_type
-           == EXPR_VALUE_TYPE_UNSET);
-
     rcall->ndat->u.rexpr_interpreter.read_func =
         binary_integer_read_generic;
     rcall->ndat->u.rexpr_interpreter.write_func =

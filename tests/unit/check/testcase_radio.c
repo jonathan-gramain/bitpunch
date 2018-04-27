@@ -312,6 +312,7 @@ void testcase_radio_launch_test_index(struct radio_source_info *info)
     for (c = 0; c < N_ELEM(radio_codenames); ++c) {
         code_idx = c;
         memset(&item_key, 0, sizeof(item_key));
+        item_key.type = EXPR_VALUE_TYPE_STRING;
         item_key.string.str = radio_codenames[code_idx];
         item_key.string.len = strlen(radio_codenames[code_idx]);
         bt_ret = tracker_goto_first_item_with_key(tk, item_key, NULL);
@@ -329,6 +330,7 @@ void testcase_radio_launch_test_index(struct radio_source_info *info)
         code_idx = c;
 
         memset(&item_key, 0, sizeof(item_key));
+        item_key.type = EXPR_VALUE_TYPE_STRING;
         item_key.string.str = radio_codenames[code_idx];
         item_key.string.len = strlen(radio_codenames[code_idx]);
         bt_ret = tracker_goto_first_item_with_key(tk, item_key, NULL);
@@ -346,6 +348,7 @@ void testcase_radio_launch_test_index(struct radio_source_info *info)
         code_idx = (c * 7) % 26;
 
         memset(&item_key, 0, sizeof(item_key));
+        item_key.type = EXPR_VALUE_TYPE_STRING;
         item_key.string.str = radio_codenames[code_idx];
         item_key.string.len = strlen(radio_codenames[code_idx]);
         bt_ret = tracker_goto_first_item_with_key(tk, item_key, NULL);

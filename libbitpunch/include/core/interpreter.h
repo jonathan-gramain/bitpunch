@@ -58,7 +58,7 @@ struct interpreter_param_def {
     STAILQ_ENTRY(interpreter_param_def) list;
     const char *name;
     int ref_idx;
-    enum expr_value_type type;
+    enum expr_value_type value_type_mask;
     enum interpreter_param_flags flags;
 };
 
@@ -70,7 +70,7 @@ typedef int
 
 struct interpreter {
     const char *name;
-    enum expr_value_type value_type;
+    enum expr_value_type value_type_mask;
     interpreter_rcall_build_func_t rcall_build_func;
     int n_params;
     int max_param_ref;
@@ -79,7 +79,7 @@ struct interpreter {
 
 int
 interpreter_declare(const char *name,
-                    enum expr_value_type value_type,
+                    enum expr_value_type value_type_mask,
                     interpreter_rcall_build_func_t rcall_build_func,
                     int n_params,
                     ... /* params: (name, ref_idx, type, flags) tuples */);

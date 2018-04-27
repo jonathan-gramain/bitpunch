@@ -124,7 +124,7 @@ struct ast_node_data shared_ast_node_data_as_bytes_filter = {
         .rexpr_item = {
             .rexpr_dpath = {
                 .rexpr = {
-                    .value_type = EXPR_VALUE_TYPE_BYTES,
+                    .value_type_mask = EXPR_VALUE_TYPE_BYTES,
                 },
             },
             .item_type = &shared_ast_node_byte_slice,
@@ -147,7 +147,7 @@ struct ast_node_data shared_ast_node_data_raw_byte_filter = {
         .rexpr_item = {
             .rexpr_dpath = {
                 .rexpr = {
-                    .value_type = EXPR_VALUE_TYPE_BYTES,
+                    .value_type_mask = EXPR_VALUE_TYPE_BYTES,
                 },
             },
             .item_type = &shared_ast_node_byte,
@@ -1576,7 +1576,9 @@ box_apply_filter_interpreter(struct box *box,
 
     assert(NULL == box->file_hdl);
     interpreter = box->dpath.filter->ndat->u.rexpr_interpreter.interpreter;
-    switch (interpreter->value_type) {
+    // FIXME this should be reworked to take into account multiple
+    // value types in mask
+    switch (interpreter->value_type_mask) {
     case EXPR_VALUE_TYPE_STRING:
         assert(NULL != box->parent_box);
         bt_ret = box_get_used_size(box, &unfiltered_size, bst);
@@ -1899,8 +1901,7 @@ tracker_index_cache_add_item(struct tracker *tk, expr_value_t item_key)
                 box_array_add_mark_offset(tk->box, mark, tk->item_offset);
             }
         }
-        expr_value_to_hashable(ast_node_get_key_type(tk->box->dpath.item),
-                               item_key, &key_buf, &key_len);
+        expr_value_to_hashable(item_key, &key_buf, &key_len);
         bloom_book_insert_word(tk->box->u.array.cache_by_key,
                                key_buf, key_len);
     } else {
@@ -1945,7 +1946,6 @@ box_index_cache_lookup_key_twins(struct box *box,
                                  struct browse_state *bst)
 {
     struct dpath_node *item_dpath;
-    enum expr_value_type key_type;
     const char *key_buf;
     int64_t key_len;
     bloom_book_mark_t from_mark;
@@ -1954,8 +1954,7 @@ box_index_cache_lookup_key_twins(struct box *box,
     assert(AST_NODE_TYPE_ARRAY == box->dpath.item->ndat->type);
     assert(box_index_cache_exists(box));
 
-    key_type = ast_node_get_key_type(box->dpath.item);
-    expr_value_to_hashable(key_type, item_key, &key_buf, &key_len);
+    expr_value_to_hashable(item_key, &key_buf, &key_len);
 
     if (! track_path_eq(in_slice_path, TRACK_PATH_NONE)) {
         assert(TRACK_PATH_ARRAY_SLICE == in_slice_path.type);
@@ -3580,7 +3579,10 @@ tracker_goto_index_internal(struct tracker *tk,
                 tk, bst, "when evaluating item index expression");
             return bt_ret;
         }
-        if (EXPR_VALUE_TYPE_INTEGER == index.key->ndat->u.rexpr.value_type) {
+        // FIXME this may need rework regarding multiple value-types
+        // in mask
+        if (EXPR_VALUE_TYPE_INTEGER
+            == index.key->ndat->u.rexpr.value_type_mask) {
             if (item_index.integer < 0) {
                 int64_t n_items;
 
@@ -3632,7 +3634,7 @@ tracker_goto_index_internal(struct tracker *tk,
                 tk, item_index, twin_index.integer, bst);
             if (BITPUNCH_NO_ITEM == bt_ret
                 && (EXPR_VALUE_TYPE_STRING
-                    == index.key->ndat->u.rexpr.value_type)) {
+                    == index.key->ndat->u.rexpr.value_type_mask)) {
                 semantic_error(
                     SEMANTIC_LOGLEVEL_ERROR, &index.key->loc,
                     "key '%.*s'{%"PRIi64"} does not exist",
@@ -6157,13 +6159,20 @@ box_get_n_items__array_non_slack(struct box *box, int64_t *item_countp,
         struct box *scope;
 
         array = &box->dpath.item->ndat->u.array;
-        assert(array->item_count->ndat->u.rexpr.value_type
-               == EXPR_VALUE_TYPE_INTEGER);
+        assert(0 != (array->item_count->ndat->u.rexpr.value_type_mask
+                     & EXPR_VALUE_TYPE_INTEGER));
         scope = box_get_scope_box(box->parent_box);
         bt_ret = expr_evaluate_value_internal(array->item_count, scope,
                                               &item_count, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
+        }
+        if (EXPR_VALUE_TYPE_INTEGER != item_count.type) {
+            return box_error(
+                BITPUNCH_DATA_ERROR, box, array->item_count, bst,
+                "evaluation of array items count returned a value-type "
+                "'%s', expect an integer",
+                expr_value_type_str(item_count.type));
         }
         if (item_count.integer < 0) {
             return box_error(
@@ -6349,6 +6358,13 @@ filter_read_value__interpreter(struct ast_node_hdl *item_filter,
     const char *item_data;
 
     item_data = scope->file_hdl->bf_data + item_offset;
+    // if box filter is a data filter, getting the value is simply
+    // returning the box data bytes as-is
+    if (0 != (scope->flags & BOX_DATA_FILTER)) {
+        return filter_read_value__bytes(item_filter, scope,
+                                        item_offset, item_size,
+                                        valuep, bst);
+    }
     return interpreter_rcall_read_value(item_filter, scope,
                                         item_data, item_size,
                                         valuep, bst);
@@ -6963,23 +6979,31 @@ tracker_compute_item_size__byte_array_dynamic_size(
     int64_t *item_sizep,
     struct browse_state *bst)
 {
+    struct ast_node_hdl *item;
     expr_value_t byte_count;
     bitpunch_status_t bt_ret;
 
-    assert(tk->dpath->item->ndat->u.byte_array.size->ndat->u.rexpr.value_type
-           == EXPR_VALUE_TYPE_INTEGER);
-    bt_ret = expr_evaluate_value_internal(tk->dpath->item->ndat->u.byte_array.size,
-                                          tk->box, &byte_count, bst);
+    item = tk->dpath->item;
+    assert(0 != (item->ndat->u.byte_array.size->ndat->u.rexpr.value_type_mask
+                 & EXPR_VALUE_TYPE_INTEGER));
+    bt_ret = expr_evaluate_value_internal(
+        item->ndat->u.byte_array.size, tk->box, &byte_count, bst);
     if (BITPUNCH_OK != bt_ret) {
         // FIXME more appropriate context
         tracker_error_add_box_context(
             tk->box, bst, "when evaluating byte array size expression");
         return bt_ret;
     }
+    if (EXPR_VALUE_TYPE_INTEGER != byte_count.type) {
+        return box_error(
+            BITPUNCH_DATA_ERROR, tk->box, item->ndat->u.byte_array.size, bst,
+            "evaluation of byte array size returned a value-type "
+            "'%s', expect an integer",
+            expr_value_type_str(byte_count.type));
+    }
     if (byte_count.integer < 0) {
         return box_error(
-            BITPUNCH_DATA_ERROR,
-            tk->box, tk->dpath->item->ndat->u.byte_array.size, bst,
+            BITPUNCH_DATA_ERROR, tk->box, item->ndat->u.byte_array.size, bst,
             "evaluation of byte array size gives negative value (%"PRIi64")",
             byte_count.integer);
     }
@@ -7069,14 +7093,21 @@ box_get_n_items__byte_array_non_slack(
         struct box *scope;
 
         byte_array = &box->dpath.item->ndat->u.byte_array;
-        assert(byte_array->size->ndat->u.rexpr.value_type
-               == EXPR_VALUE_TYPE_INTEGER);
+        assert(0 != (byte_array->size->ndat->u.rexpr.value_type_mask
+                     & EXPR_VALUE_TYPE_INTEGER));
         scope = box_get_scope_box(box->parent_box);
         assert(NULL != scope);
         bt_ret = expr_evaluate_value_internal(byte_array->size,
                                               scope, &size, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
+        }
+        if (EXPR_VALUE_TYPE_INTEGER != size.type) {
+            return box_error(
+                BITPUNCH_DATA_ERROR, box, byte_array->size, bst,
+                "evaluation of byte array size returned a value-type "
+                "'%s', expect an integer",
+                expr_value_type_str(size.type));
         }
         if (size.integer < 0) {
             return box_error(BITPUNCH_DATA_ERROR, box, byte_array->size, bst,
@@ -7683,19 +7714,11 @@ static void
 browse_setup_backends__filter__interpreter(struct ast_node_hdl *filter)
 {
     struct filter_backend *b_filter = NULL;
-    const struct interpreter *interpreter;
 
     b_filter = &filter->ndat->u.rexpr_dpath.b_filter;
     memset(b_filter, 0, sizeof (*b_filter));
 
-    interpreter = filter->ndat->u.rexpr_interpreter.interpreter;
-    if (interpreter->value_type == EXPR_VALUE_TYPE_BYTES) {
-        // for bytes -> bytes filters, the default read
-        // implementation does not use the filter.
-        b_filter->read_value = filter_read_value__bytes;
-    } else {
-        b_filter->read_value = filter_read_value__interpreter;
-    }
+    b_filter->read_value = filter_read_value__interpreter;
 }
 
 static void

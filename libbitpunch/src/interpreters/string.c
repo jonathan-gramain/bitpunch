@@ -160,26 +160,12 @@ string_rcall_build(struct ast_node_hdl *rcall,
 {
     struct expr_value_string boundary;
 
-    assert(param_values[REF_BOUNDARY].ndat->u.rexpr.value_type
-           == EXPR_VALUE_TYPE_STRING ||
-           param_values[REF_BOUNDARY].ndat->u.rexpr.value_type
-           == EXPR_VALUE_TYPE_UNSET);
-
     // default read function, may be overriden next
     rcall->ndat->u.rexpr_interpreter.read_func =
         string_read_byte_array_no_boundary;
 
-    if (param_values[REF_BOUNDARY].ndat->u.rexpr.value_type
+    if (param_values[REF_BOUNDARY].ndat->u.rexpr.value_type_mask
         != EXPR_VALUE_TYPE_UNSET) {
-        if (param_values[REF_BOUNDARY].ndat->u.rexpr.value_type
-            != EXPR_VALUE_TYPE_STRING) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
-                "string boundary must be a string, not \"%s\"",
-                expr_value_type_str(
-                    param_values[REF_BOUNDARY].ndat->u.rexpr.value_type));
-            return -1;
-        }
         if (AST_NODE_TYPE_REXPR_NATIVE
             == param_values[REF_BOUNDARY].ndat->type) {
             boundary = param_values[REF_BOUNDARY].ndat

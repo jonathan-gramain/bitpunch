@@ -1163,7 +1163,7 @@ DataContainer_eval_attr(DataContainerObject *self, const char *attr_str)
     }
     // FIXME rework choice between dpath or value type
     filter = expr_dpath_get_target_filter(dpath_eval);
-    if (EXPR_VALUE_TYPE_INTEGER != filter->ndat->u.rexpr.value_type) {
+    if (EXPR_VALUE_TYPE_INTEGER != filter->ndat->u.rexpr.value_type_mask) {
         return expr_dpath_to_PyObject(self->dtree, dpath_eval, FALSE);
     }
     bt_ret = dpath_read_value(dpath_eval, &value_eval, &tk_err);
@@ -3098,7 +3098,8 @@ expr_value_to_PyObject(DataTreeObject *dtree,
         goto end;
     default:
         PyErr_Format(PyExc_ValueError,
-                     "Unsupported expression type '%d'", (int)value_eval.type);
+                     "unsupported expression type '%d'",
+                     (int)value_eval.type);
         goto end;
     }
   end:

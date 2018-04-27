@@ -77,7 +77,7 @@ interpreter_param_def_new(void)
 
 int
 interpreter_declare(const char *name,
-                    enum expr_value_type value_type,
+                    enum expr_value_type value_type_mask,
                     interpreter_rcall_build_func_t rcall_build_func,
                     int n_params,
                     ... /* params: (name, type, flags) tuples */)
@@ -101,7 +101,7 @@ interpreter_declare(const char *name,
         return -1;
     }
     interpreter->name = name;
-    interpreter->value_type = value_type;
+    interpreter->value_type_mask = value_type_mask;
     interpreter->rcall_build_func = rcall_build_func;
     interpreter->n_params = n_params;
     max_param_ref = -1;
@@ -117,7 +117,7 @@ interpreter_declare(const char *name,
         param_def->ref_idx = va_arg(ap, int);
         assert(param_def->ref_idx >= 0 &&
                param_def->ref_idx <= INTERPRETER_MAX_PARAM_REF);
-        param_def->type = va_arg(ap, enum ast_node_type);
+        param_def->value_type_mask = va_arg(ap, enum ast_node_type);
         param_def->flags = va_arg(ap, enum interpreter_param_flags);
         STAILQ_INSERT_TAIL(&interpreter->param_list, param_def, list);
         max_param_ref = MAX(max_param_ref, param_def->ref_idx);
@@ -173,7 +173,7 @@ interpreter_rcall_build(struct ast_node_hdl *node,
                          + (interpreter->max_param_ref + 1)
                          * sizeof (struct ast_node_hdl));
     rcall->type = AST_NODE_TYPE_REXPR_INTERPRETER;
-    rcall->u.rexpr.value_type = interpreter->value_type;
+    rcall->u.rexpr.value_type_mask = interpreter->value_type_mask;
     rcall->u.rexpr_interpreter.interpreter = interpreter;
     rcall->u.rexpr_interpreter.get_size_func = NULL;
     node->ndat = rcall;
@@ -243,11 +243,10 @@ rcall_build_params(struct ast_node_hdl *node,
             param_valuep->ndat->type = AST_NODE_TYPE_NONE;
         }
     }
-    if (!sem_error) {
-        return 0;
-    } else {
+    if (sem_error) {
         return -1;
     }
+    return 0;
 }
 
 bitpunch_status_t

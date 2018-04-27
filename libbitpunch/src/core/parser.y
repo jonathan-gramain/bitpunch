@@ -141,7 +141,7 @@
         (*expr_evalop_fn_t)(expr_value_t operands[]);
 
     struct expr_evaluator {
-        enum expr_value_type res_type;
+        enum expr_value_type res_type_mask;
         expr_evalop_fn_t eval_fn;
     };
 
@@ -155,8 +155,10 @@
         ASTFLAG_IS_SPAN_EXPR                = (1<<0),
         ASTFLAG_IS_KEY_EXPR                 = (1<<1),
         ASTFLAG_IS_MATCH_EXPR               = (1<<2),
-        ASTFLAG_IS_ROOT_BLOCK               = (1<<6),
-        ASTFLAG_IS_REXPR_DPATH              = (1<<7),
+        ASTFLAG_IS_ROOT_BLOCK               = (1<<3),
+        ASTFLAG_IS_REXPR_DPATH              = (1<<4),
+        ASTFLAG_IS_ANONYMOUS_MEMBER         = (1<<5),
+        ASTFLAG_HAS_POLYMORPHIC_ANCHOR      = (1<<6),
         ASTFLAG_REVERSE_COND                = (1<<8),
         ASTFLAG_CONTAINS_LAST_STMT          = (1<<9),
         ASTFLAG_DUMPING                     = (1<<11),
@@ -175,11 +177,10 @@
     enum ast_node_data_flag {
         /** template interpreter */
         ASTFLAG_DATA_TEMPLATE               = (1<<0),
-        ASTFLAG_DATA_ANONYMOUS_MEMBER       = (1<<1),
     };
 
     struct rexpr {
-        enum expr_value_type value_type;
+        enum expr_value_type value_type_mask;
     };
 
     struct rexpr_dpath {
@@ -545,7 +546,7 @@
 
     struct expr_builtin_fn {
         const char *builtin_name;
-        enum expr_value_type res_value_type;
+        enum expr_value_type res_value_type_mask;
         expr_eval_value_builtin_fn_t eval_value_fn;
         expr_eval_dpath_builtin_fn_t eval_dpath_fn;
         enum ast_node_type member_of;
@@ -625,7 +626,7 @@
 
         ndat = new_safe(struct ast_node_data);
         ndat->type = AST_NODE_TYPE_REXPR_ITEM;
-        ndat->u.rexpr.value_type = EXPR_VALUE_TYPE_BYTES;
+        ndat->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_BYTES;
         ndat->u.rexpr_item.item_type = root;
         return ndat;
     }
