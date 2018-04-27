@@ -481,26 +481,18 @@ resolve_identifiers_dpath_node(
 }
 
 static int
-resolve_identifiers_identifier_as_type(
+resolve_identifier_as_scoped_statement(
     struct ast_node_hdl *node,
-    const struct list_of_visible_refs *visible_refs)
+    const struct list_of_visible_refs *visible_refs,
+    enum statement_type stmt_mask)
 {
     struct named_statement_spec *visible_statements;
     int n_visible_statements;
     struct named_statement_spec *stmt_spec;
     struct ast_node_data *resolved_type;
-    
-    if (0 == strcmp(node->ndat->u.identifier, "byte")) {
-        /* native 'byte' type */
-        resolved_type = new_safe(struct ast_node_data);
-        resolved_type->type = AST_NODE_TYPE_BYTE;
-        resolved_type->u.item.min_span_size = 1;
-        node->ndat = resolved_type;
-        return 0;
-    }
+
     n_visible_statements = lookup_all_visible_statements(
-        STATEMENT_TYPE_NAMED_EXPR,
-        node->ndat->u.identifier, visible_refs,
+        stmt_mask, node->ndat->u.identifier, visible_refs,
         &visible_statements);
     if (-1 == n_visible_statements) {
         return -1;
@@ -510,75 +502,6 @@ resolve_identifiers_identifier_as_type(
         resolved_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
         if (1 == n_visible_statements) {
             stmt_spec = &visible_statements[0];
-            assert(STATEMENT_TYPE_NAMED_EXPR == stmt_spec->stmt_type);
-            resolved_type->u.rexpr_member_common.anchor_block =
-                (struct ast_node_hdl *)stmt_spec->anchor_block;
-            if (stmt_spec->anonymous_member) {
-                resolved_type->flags |= ASTFLAG_DATA_ANONYMOUS_MEMBER;
-            }
-            resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
-            resolved_type->u.rexpr_named_expr.named_expr =
-                (struct named_expr *)stmt_spec->nstmt;
-            free(visible_statements);
-        } else {
-            resolved_type->type = AST_NODE_TYPE_REXPR_POLYMORPHIC;
-            resolved_type->u.rexpr_polymorphic.identifier =
-                node->ndat->u.identifier;
-            resolved_type->u.rexpr_polymorphic.visible_statements =
-                visible_statements;
-            resolved_type->u.rexpr_polymorphic.n_visible_statements =
-                n_visible_statements;
-        }
-        node->ndat = resolved_type;
-        return 0;
-    }
-    return -1;
-}
-
-static int
-resolve_identifiers_identifier_as_interpreter(
-    struct ast_node_hdl *node,
-    const struct list_of_visible_refs *visible_refs)
-{
-    const struct interpreter *interpreter;
-
-    interpreter = interpreter_lookup(node->ndat->u.identifier);
-    if (NULL != interpreter) {
-        struct statement_list empty_param_list;
-
-        TAILQ_INIT(&empty_param_list);
-        if (-1 == interpreter_rcall_build(node, interpreter,
-                                          &empty_param_list)) {
-            return -1;
-        }
-        return 0;
-    }
-    return -1;
-}
-
-static int
-resolve_identifiers_identifier_as_expression(
-    struct ast_node_hdl *node,
-    const struct list_of_visible_refs *visible_refs)
-{
-    struct named_statement_spec *visible_statements;
-    int n_visible_statements;
-    struct named_statement_spec *stmt_spec;
-    struct ast_node_data *resolved_type;
-    const struct expr_builtin_fn *builtin;
-
-    n_visible_statements = lookup_all_visible_statements(
-        STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD,
-        node->ndat->u.identifier, visible_refs,
-        &visible_statements);
-    if (-1 == n_visible_statements) {
-        return -1;
-    }
-    if (n_visible_statements > 0) {
-        resolved_type = new_safe(struct ast_node_data);
-        resolved_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
-        if (1 == n_visible_statements) {
-            stmt_spec = &visible_statements[0]; 
             resolved_type->u.rexpr_member_common.anchor_block =
                 (struct ast_node_hdl *)stmt_spec->anchor_block;
             if (stmt_spec->anonymous_member) {
@@ -611,13 +534,70 @@ resolve_identifiers_identifier_as_expression(
         node->ndat = resolved_type;
         return 0;
     }
+    return -1;
+}
+
+static int
+resolve_identifiers_identifier_as_type(
+    struct ast_node_hdl *node,
+    const struct list_of_visible_refs *visible_refs)
+{
+    if (0 == strcmp(node->ndat->u.identifier, "byte")) {
+        struct ast_node_data *resolved_type;
+
+        /* native 'byte' type */
+        resolved_type = new_safe(struct ast_node_data);
+        resolved_type->type = AST_NODE_TYPE_BYTE;
+        resolved_type->u.item.min_span_size = 1;
+        node->ndat = resolved_type;
+        return 0;
+    }
+    return resolve_identifier_as_scoped_statement(
+        node, visible_refs, STATEMENT_TYPE_NAMED_EXPR);
+}
+
+static int
+resolve_identifiers_identifier_as_expression(
+    struct ast_node_hdl *node,
+    const struct list_of_visible_refs *visible_refs)
+{
+    const struct expr_builtin_fn *builtin;
+
+    if (0 == resolve_identifier_as_scoped_statement(
+            node, visible_refs,
+            STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD)) {
+        return 0;
+    }
     builtin = expr_lookup_builtin_fn(node->ndat->u.identifier, NULL);
     if (NULL != builtin) {
+        struct ast_node_data *resolved_type;
+
         resolved_type = new_safe(struct ast_node_data);
         resolved_type->type = AST_NODE_TYPE_REXPR_BUILTIN;
         resolved_type->u.rexpr.value_type = EXPR_VALUE_TYPE_UNSET;
         resolved_type->u.rexpr_builtin.builtin = builtin;
         node->ndat = resolved_type;
+        return 0;
+    }
+    return -1;
+}
+
+static int
+resolve_identifiers_identifier_as_interpreter(
+    struct ast_node_hdl *node,
+    const struct list_of_visible_refs *visible_refs)
+{
+    const struct interpreter *interpreter;
+
+    interpreter = interpreter_lookup(node->ndat->u.identifier);
+    if (NULL != interpreter) {
+        struct statement_list empty_param_list;
+
+        TAILQ_INIT(&empty_param_list);
+        if (-1 == interpreter_rcall_build(node, interpreter,
+                                          &empty_param_list)) {
+            return -1;
+        }
         return 0;
     }
     return -1;
