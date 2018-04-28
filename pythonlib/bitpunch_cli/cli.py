@@ -117,11 +117,11 @@ class CLI(NestedCmd):
             return
         if self.format_spec is None:
             raise CommandError(cmdname,
-                               'Missing format specification file '
+                               'missing format specification file '
                                '(see "file" command)')
         if self.bin_file is None:
             raise CommandError(cmdname,
-                               'Missing binary data file '
+                               'missing binary data file '
                                '(see "file" command)')
         self.data_tree = model.DataTree(self.bin_file, self.format_spec)
 
@@ -489,7 +489,7 @@ class CLI(NestedCmd):
             self.columnize(keys)
         else:
             raise CommandError('keys',
-                               'Cannot list keys on object of type %s'
+                               'cannot list keys on object of type %s'
                                % type(obj))
 
     def complete_keys(self, text, begin, end):
@@ -504,7 +504,7 @@ class CLI(NestedCmd):
         expr = args
         if not expr:
             raise CommandError('print',
-                               "Missing expression argument to 'print'")
+                               "missing expression argument to 'print'")
         if self.format_spec and self.bin_file:
             self.open_data_tree('print')
         print repr(model.make_python_object(self.data_tree.eval_expr(expr)))
@@ -522,7 +522,7 @@ class CLI(NestedCmd):
         expr = args
         if not expr:
             raise CommandError('xdump',
-                               "Missing expression argument to 'xdump'")
+                               "missing expression argument to 'xdump'")
         self.open_data_tree('xdump')
         obj = self.data_tree.eval_expr(expr, tracker=True)
         try:
@@ -533,7 +533,7 @@ class CLI(NestedCmd):
                 print('%08X +%s' % (abs_offset, line))
                 abs_offset += 16
         except TypeError:
-            raise TypeError("Cannot hexdump expression: "
+            raise TypeError("cannot hexdump expression: "
                             "not a dpath expression")
 
     def complete_xdump(self, text, begin, end):
@@ -553,7 +553,7 @@ class CLI(NestedCmd):
     Usage: set loglevel (critical|error|warning|info|debug)
 """
         if not value:
-            raise CommandError('set loglevel', 'Missing argument')
+            raise CommandError('set loglevel', 'missing argument')
 
         logger = logging.getLogger()
         loglevel = value.lower()
@@ -561,8 +561,8 @@ class CLI(NestedCmd):
             logger.setLevel(CLI.LOGLEVELS[loglevel])
         else:
             raise CommandError('set loglevel',
-                               'Invalid log level "%s"' % loglevel)
-        self.stdout.write('Log level set to "%s"\n' % loglevel)
+                               'invalid log level "%s"' % loglevel)
+        self.stdout.write('log level set to "%s"\n' % loglevel)
 
     def complete_set_loglevel(self, text, *ignored):
         logging.debug('complete_set_loglevel text="%s"' % (text))

@@ -25,7 +25,7 @@ import logging
 import cmd
 import traceback
 
-from rl import completion, completer, print_exc
+from rl import completion, completer, print_exc, history
 from kmd.completions.filename import FilenameCompletion
 from kmd.completions.quoting import backslash_dequote
 
@@ -311,6 +311,32 @@ class NestedCmd(kmd.Kmd, object):
                 % (' '.join(seeklist),
                    ' '.join(['help'] + longest_path)))
 
+
+    def do_history(self, args):
+        """Show history of commands
+
+    usage: history [max_entries]
+
+    max_entries: max number of most recent entries to display (default 50)
+"""
+
+        args_array = args.split(None, 1)
+        if len(args_array) > 1:
+            raise CommandError('history', 'too many arguments')
+        total_entries = len(history)
+        try:
+            max_entries = int(args_array[0]) if args_array else 50
+        except ValueError:
+            raise CommandError('history', 'max_entries is not an integer')
+        n_to_skip = max(total_entries - max_entries, 0)
+        index_to_display = n_to_skip + 1
+        for history_item in history:
+            if n_to_skip > 0:
+                n_to_skip -= 1
+                continue
+            print('{i:5}  {item}'.format(i=index_to_display,
+                                         item=history_item))
+            index_to_display += 1
 
     def complete(self, text, state):
         """Return the next possible completion for 'text'.

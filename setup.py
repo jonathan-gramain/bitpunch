@@ -11,7 +11,7 @@ model = Extension('bitpunch.model.model_ext',
                   extra_compile_args=['-O0', '-g3'])
 
 setup (name = 'bitpunch',
-       version = '0.1',
+       version = '0.1.0',
        author = 'Jonathan Gramain',
        author_email = 'jonathan.gramain@gmail.com',
        classifiers = [
