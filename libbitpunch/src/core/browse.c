@@ -1504,7 +1504,7 @@ create_data_hdl_from_buffer(
 }
 
 struct box *
-box_new_filter_box_plain(struct box *unfiltered_box,
+box_new_filter_box_plain(struct box *parent_box,
                          struct ast_node_hdl *filter,
                          struct browse_state *bst)
 {
@@ -1516,14 +1516,12 @@ box_new_filter_box_plain(struct box *unfiltered_box,
     dpath.item = AST_NODE_DATA_FILTER;
     dpath.filter = filter;
     box = new_safe(struct box);
-    bt_ret = box_construct(box, NULL, &dpath, 0,
+    bt_ret = box_construct(box, parent_box, &dpath, 0,
                            BOX_FILTER | BOX_DATA_FILTER, bst);
     if (BITPUNCH_OK != bt_ret) {
         box_delete_non_null(box);
         return NULL;
     }
-    box->unfiltered_box = unfiltered_box;
-    box_acquire(unfiltered_box);
     box->file_hdl = NULL; // filter not applied yet
     return box;
 }
@@ -1602,15 +1600,15 @@ box_apply_filter_interpreter(struct box *box,
         bt_ret = BITPUNCH_OK;
         break ;
     case EXPR_VALUE_TYPE_BYTES:
-        assert(NULL != box->unfiltered_box);
-        bt_ret = box_get_used_size(box->unfiltered_box, &unfiltered_size,
+        assert(NULL != box->parent_box);
+        bt_ret = box_get_used_size(box->parent_box, &unfiltered_size,
                                    bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        parent_file_hdl = box->unfiltered_box->file_hdl;
+        parent_file_hdl = box->parent_box->file_hdl;
         unfiltered_data =
-            parent_file_hdl->bf_data + box->unfiltered_box->start_offset_used;
+            parent_file_hdl->bf_data + box->parent_box->start_offset_used;
         // FIXME check "box" is the right scope
         bt_ret = interpreter_rcall_read_value(box->dpath.filter,
                                               box,
@@ -1653,8 +1651,6 @@ box_apply_filter_internal(struct box *box,
     }
     if (NULL != box->parent_box) {
         bt_ret = box_apply_filter_internal(box->parent_box, bst);
-    } else if (NULL != box->unfiltered_box) {
-        bt_ret = box_apply_filter_internal(box->unfiltered_box, bst);
     } else {
         // root box
         bt_ret = BITPUNCH_OK;
@@ -1681,12 +1677,8 @@ static struct box *
 box_get_unfiltered_parent(struct box *box)
 {
     while (0 != (box->flags & BOX_FILTER)) {
-        if (NULL != box->parent_box) {
-            box = box->parent_box;
-        } else {
-            assert(NULL != box->unfiltered_box);
-            box = box->unfiltered_box;
-        }
+        assert(NULL != box->parent_box);
+        box = box->parent_box;
     }
     return box;
 }
@@ -1699,8 +1691,7 @@ box_get_scope_box(struct box *box)
     scope = box;
     while (NULL != scope
            && AST_NODE_TYPE_BLOCK_DEF != scope->dpath.item->ndat->type) {
-        scope = (NULL != scope->parent_box ?
-                 scope->parent_box : scope->unfiltered_box);
+        scope = scope->parent_box;
     }
     return scope;
 }
@@ -1742,9 +1733,6 @@ box_delete_non_null(struct box *box)
     --box->use_count;
     if (0 == box->use_count) {
         box_delete(box->parent_box);
-        if (NULL != box->unfiltered_box) {
-            box_delete(box->unfiltered_box);
-        }
         box_free(box);
     }
 }
@@ -3771,9 +3759,7 @@ tracker_return_internal(struct tracker *tk,
     orig_box = tk->box;
     tk->item_box = tk->box;
     while (0 != (tk->item_box->flags & BOX_FILTER)) {
-        tk->item_box = (NULL != tk->item_box->parent_box ?
-                        tk->item_box->parent_box :
-                        tk->item_box->unfiltered_box);
+        tk->item_box = tk->item_box->parent_box;
     }
     if (tk->item_box != orig_box) {
         box_acquire(tk->item_box);
@@ -3893,8 +3879,7 @@ box_get_abs_dpath(const struct box *box,
     n_out += track_path_elem_dump_to_buf(
         box->track_path,
         /* dump separator? */
-        NULL != box->parent_box->parent_box
-        || NULL != box->parent_box->unfiltered_box,
+        NULL != box->parent_box->parent_box,
         dpath_expr_buf, buf_size);
     return n_out;
 }
@@ -3959,8 +3944,7 @@ tracker_get_abs_dpath(const struct tracker *tk,
     }
     n_out += track_path_elem_dump_to_buf(tk->cur,
                                          /* dump separator? */
-                                         NULL != tk->box->parent_box
-                                         || NULL != tk->box->unfiltered_box,
+                                         NULL != tk->box->parent_box,
                                          dpath_expr_buf, buf_size);
     return n_out;
 }

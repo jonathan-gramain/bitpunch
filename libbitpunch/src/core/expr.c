@@ -1765,9 +1765,7 @@ expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
         if (BITPUNCH_NO_ITEM != bt_ret) {
             goto error;
         }
-        anchor_box = (NULL != anchor_box->unfiltered_box ?
-                      anchor_box->unfiltered_box :
-                      anchor_box->parent_box);
+        anchor_box = anchor_box->parent_box;
         if (NULL == anchor_box) {
             bt_ret = BITPUNCH_DATA_ERROR;
             goto error;
@@ -2162,9 +2160,7 @@ expr_evaluate_dpath_anchor_common(struct ast_node_hdl *anchor_expr,
     anchor_box = scope;
     while (dpath_node_get_as_type(&anchor_box->dpath)->ndat
            != anchor_block->ndat) {
-        anchor_box = (NULL != anchor_box->unfiltered_box ?
-                      anchor_box->unfiltered_box :
-                      anchor_box->parent_box);
+        anchor_box = anchor_box->parent_box;
         if (NULL == anchor_box) {
             // no dpath associated to anchor (i.e. anchor is a
             // data type) -> to be double-checked
@@ -2186,13 +2182,8 @@ expr_evaluate_dpath_file(struct ast_node_hdl *expr, struct box *scope,
     struct box *file_box;
 
     file_box = scope;
-    while (NULL != file_box->parent_box ||
-           NULL != file_box->unfiltered_box) {
-        if (NULL != file_box->parent_box) {
-            file_box = file_box->parent_box;
-        } else {
-            file_box = file_box->unfiltered_box;
-        }
+    while (NULL != file_box->parent_box) {
+        file_box = file_box->parent_box;
     }
     box_acquire(file_box);
     eval_dpathp->type = EXPR_DPATH_TYPE_CONTAINER;
@@ -2417,8 +2408,7 @@ expr_evaluate_dpath_ancestor(struct ast_node_hdl *expr, struct box *scope,
         box = dpath_eval.container.box;
     }
     if (0 != (box->flags & BOX_FILTER)) {
-        ancestor_box = (NULL != box->parent_box ?
-                        box->parent_box : box->unfiltered_box);
+        ancestor_box = box->parent_box;
         assert(NULL != ancestor_box);
         box_acquire(ancestor_box);
         box_delete(box);

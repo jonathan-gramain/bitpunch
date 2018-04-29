@@ -1308,9 +1308,7 @@ resolve_user_expr_scoped_recur(struct ast_node_hdl *expr,
 
     while (NULL != cur_scope
            && AST_NODE_TYPE_BLOCK_DEF != cur_scope->dpath.item->ndat->type) {
-        cur_scope = (NULL != cur_scope->parent_box ?
-                     cur_scope->parent_box :
-                     cur_scope->unfiltered_box);
+        cur_scope = cur_scope->parent_box;
     }
     if (NULL == cur_scope) {
         if (-1 == resolve_identifiers_in_expression(expr, inmost_refs,
