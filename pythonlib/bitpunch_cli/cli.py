@@ -524,7 +524,7 @@ class CLI(NestedCmd):
             raise CommandError('xdump',
                                "missing expression argument to 'xdump'")
         self.open_data_tree('xdump')
-        obj = self.data_tree.eval_expr(expr, tracker=True)
+        obj = self.data_tree.eval_expr(expr, require_dpath=True)
         try:
             memview = memoryview(obj)
             lines = hexdump.hexdump(memview, result='generator')
