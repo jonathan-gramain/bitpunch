@@ -518,10 +518,10 @@ resolve_identifier_as_scoped_statement(
             default:
                 assert(0);
             }
-            free(visible_statements);
             if (stmt_spec->anonymous_member) {
                 node->flags |= ASTFLAG_IS_ANONYMOUS_MEMBER;
             }
+            free(visible_statements);
         } else {
             resolved_type->type = AST_NODE_TYPE_REXPR_POLYMORPHIC;
             resolved_type->u.rexpr_polymorphic.identifier =
