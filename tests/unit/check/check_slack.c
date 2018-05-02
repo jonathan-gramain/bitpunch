@@ -236,7 +236,7 @@ static const char check_slack_byte_array_valid1_contents[] = {
     'b', 'y', 'e'
 };
 
-static const struct test_tracker_expect_box check_slack_byte_array_valid1_expect[] = {
+__attribute__((unused)) static const struct test_tracker_expect_box check_slack_byte_array_valid1_expect[] = {
     { "hdr", 0, 5,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "hdr", .len = 3 } },
@@ -268,7 +268,7 @@ static const struct test_tracker_expect_box check_slack_byte_array_valid1_expect
       .value = { .bytes = { .buf = "bye", .len = 3 } } },
 };
 
-static const struct test_tracker_spec check_slack_byte_array_valid1_spec = {
+__attribute__((unused)) static const struct test_tracker_spec check_slack_byte_array_valid1_spec = {
     .test_name = "slack_byte_array.valid1",
     .contents_def = &check_slack_byte_array_def_hdl,
     .contents = check_slack_byte_array_valid1_contents,

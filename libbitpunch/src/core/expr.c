@@ -1058,7 +1058,7 @@ expr_eval_builtin_len(struct ast_node_hdl *object,
 }
 
 /* this array must be alphabetically ordered by builtin name */
-static const struct expr_builtin_fn const
+static const struct expr_builtin_fn
 expr_builtin_fns[] = {
     {
         .builtin_name = "bytes",

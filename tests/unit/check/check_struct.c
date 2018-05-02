@@ -235,7 +235,7 @@ static const struct test_tracker_expect_box check_struct_invalid_truncated1_expe
       .read_item_ret = BITPUNCH_OUT_OF_BOUNDS_ERROR }
 };
 
-static const struct test_tracker_spec check_struct_invalid_truncated1_spec = {
+__attribute__((unused)) static const struct test_tracker_spec check_struct_invalid_truncated1_spec = {
     .test_name = "struct.invalid_truncated1",
     .contents_def = &check_struct_def_hdl,
     .contents = check_struct_invalid_truncated1_contents,
