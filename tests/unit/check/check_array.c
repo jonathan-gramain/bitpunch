@@ -134,20 +134,12 @@ static const char check_sarray_invalid_truncated2_contents[] = {
     0x0,0x0,0x0
 };
 
-static const struct test_tracker_expect_box
-check_sarray_invalid_truncated2_expect[] = {
-    /* error detected early because the array is of static size */
-};
-
-
 static const struct test_tracker_spec check_sarray_invalid_truncated2_spec = {
     .test_name = "sarray.invalid_truncated2",
     .contents_def = &check_sarray_def_hdl,
     .contents = check_sarray_invalid_truncated2_contents,
     .contents_size = sizeof (check_sarray_invalid_truncated2_contents),
-    .expect_boxes = check_sarray_invalid_truncated2_expect,
-    .n_expect_boxes = N_ELEM(check_sarray_invalid_truncated2_expect),
-    .tracker_error = BITPUNCH_OUT_OF_BOUNDS_ERROR,
+    .tracker_error = TRUE,
 };
 
 
@@ -258,7 +250,7 @@ static const struct test_tracker_spec check_varray_invalid_truncated1_spec = {
     .contents_size = sizeof (check_varray_invalid_truncated1_contents),
     .expect_boxes = check_varray_invalid_truncated1_expect,
     .n_expect_boxes = N_ELEM(check_varray_invalid_truncated1_expect),
-    .tracker_error = BITPUNCH_OUT_OF_BOUNDS_ERROR,
+    .truncated = TRUE,
 };
 
 

@@ -124,6 +124,70 @@ static const struct test_tracker_spec check_slack_valid1_spec = {
 };
 
 
+static const char *check_slack_byte_array_def =
+    "let u32 = byte[4]: integer { signed: false; endian: 'big'; };\n"
+    "let MyHdr = struct {\n"
+    "    magic: byte[5];\n"
+    "};\n"
+    "let MyFtr = struct {\n"
+    "    bye: byte[3];\n"
+    "};\n"
+    "file {\n"
+    "    hdr: MyHdr;\n"
+    "    padding: byte[];\n"
+    "    ftr: MyFtr;\n"
+    "}\n";
+
+static struct bitpunch_schema_hdl *check_slack_byte_array_def_hdl;
+
+
+static const char check_slack_byte_array_valid1_contents[] = {
+    'm', 'a', 'g', 'i', 'c',
+    'p', 'a', 'd', 'd', 'i', 'n', 'g',
+    'b', 'y', 'e'
+};
+
+static const struct test_tracker_expect_box check_slack_byte_array_valid1_expect[] = {
+    { "hdr", 0, 5,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "hdr", .len = 3 } },
+      .value_type = EXPR_VALUE_TYPE_UNSET,
+      .n_items = 1 },
+
+    { "hdr.magic", 0, 5,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "magic", .len = 5 } },
+      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value = { .bytes = { .buf = "magic", .len = 5 } } },
+
+    { "padding", 5, 7,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "padding", .len = 7 } },
+      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value = { .bytes = { .buf = "padding", .len = 7 } } },
+
+    { "ftr", 12, 3,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "ftr", .len = 3 } },
+      .value_type = EXPR_VALUE_TYPE_UNSET,
+      .n_items = 1 },
+
+    { "ftr.bye", 12, 3,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "bye", .len = 3 } },
+      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value = { .bytes = { .buf = "bye", .len = 3 } } },
+};
+
+static const struct test_tracker_spec check_slack_byte_array_valid1_spec = {
+    .test_name = "slack_byte_array.valid1",
+    .contents_def = &check_slack_byte_array_def_hdl,
+    .contents = check_slack_byte_array_valid1_contents,
+    .contents_size = sizeof (check_slack_byte_array_valid1_contents),
+    .expect_boxes = check_slack_byte_array_valid1_expect,
+    .n_expect_boxes = N_ELEM(check_slack_byte_array_valid1_expect),
+};
+
 
 static const char *check_slack_trailing_field_def =
     "let u32 = byte[4]: integer { signed: false; endian: 'big'; };\n"
@@ -211,72 +275,6 @@ static const struct test_tracker_spec check_slack_trailing_field_valid1_spec = {
     .expect_boxes = check_slack_trailing_field_valid1_expect,
     .n_expect_boxes = N_ELEM(check_slack_trailing_field_valid1_expect),
 };
-
-
-static const char *check_slack_byte_array_def =
-    "let u32 = byte[4]: integer { signed: false; endian: 'big'; };\n"
-    "let MyHdr = struct {\n"
-    "    magic: byte[5];\n"
-    "};\n"
-    "let MyFtr = struct {\n"
-    "    bye: byte[3];\n"
-    "};\n"
-    "file {\n"
-    "    hdr: MyHdr;\n"
-    "    padding: byte[];\n"
-    "    ftr: MyHdr;\n"
-    "}\n";
-
-static struct bitpunch_schema_hdl *check_slack_byte_array_def_hdl;
-
-
-static const char check_slack_byte_array_valid1_contents[] = {
-    'm', 'a', 'g', 'i', 'c',
-    'p', 'a', 'd', 'd', 'i', 'n', 'g',
-    'b', 'y', 'e'
-};
-
-__attribute__((unused)) static const struct test_tracker_expect_box check_slack_byte_array_valid1_expect[] = {
-    { "hdr", 0, 5,
-      .key_type = EXPR_VALUE_TYPE_STRING,
-      .key = { .string = { .str = "hdr", .len = 3 } },
-      .value_type = EXPR_VALUE_TYPE_UNSET,
-      .n_items = 1 },
-
-    { "hdr.magic", 0, 5,
-      .key_type = EXPR_VALUE_TYPE_STRING,
-      .key = { .string = { .str = "magic", .len = 5 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
-      .value = { .bytes = { .buf = "magic", .len = 5 } } },
-
-    { "padding", 5, 7,
-      .key_type = EXPR_VALUE_TYPE_STRING,
-      .key = { .string = { .str = "padding", .len = 7 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
-      .value = { .bytes = { .buf = "padding", .len = 7 } } },
-
-    { "ftr", 12, 3,
-      .key_type = EXPR_VALUE_TYPE_STRING,
-      .key = { .string = { .str = "ftr", .len = 3 } },
-      .value_type = EXPR_VALUE_TYPE_UNSET,
-      .n_items = 1 },
-
-    { "ftr.bye", 12, 3,
-      .key_type = EXPR_VALUE_TYPE_STRING,
-      .key = { .string = { .str = "bye", .len = 3 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
-      .value = { .bytes = { .buf = "bye", .len = 3 } } },
-};
-
-__attribute__((unused)) static const struct test_tracker_spec check_slack_byte_array_valid1_spec = {
-    .test_name = "slack_byte_array.valid1",
-    .contents_def = &check_slack_byte_array_def_hdl,
-    .contents = check_slack_byte_array_valid1_contents,
-    .contents_size = sizeof (check_slack_byte_array_valid1_contents),
-    .expect_boxes = check_slack_byte_array_valid1_expect,
-    .n_expect_boxes = N_ELEM(check_slack_byte_array_valid1_expect),
-};
-
 
 
 static const char *check_slack_trailing_field_recur_def =
@@ -567,6 +565,12 @@ START_TEST(slack_valid1)
 }
 END_TEST
 
+START_TEST(slack_byte_array_valid1)
+{
+    check_tracker_launch_test(&check_slack_byte_array_valid1_spec);
+}
+END_TEST
+
 START_TEST(slack_trailing_field_valid1)
 {
     check_tracker_launch_test(&check_slack_trailing_field_valid1_spec);
@@ -586,6 +590,11 @@ void check_slack_add_tcases(Suite *s)
     tc_slack = tcase_create("slack.valid1");
     tcase_add_unchecked_fixture(tc_slack, slack_setup, slack_teardown);
     tcase_add_test(tc_slack, slack_valid1);
+    suite_add_tcase(s, tc_slack);
+
+    tc_slack = tcase_create("slack.byte_array_valid1");
+    tcase_add_unchecked_fixture(tc_slack, slack_setup, slack_teardown);
+    tcase_add_test(tc_slack, slack_byte_array_valid1);
     suite_add_tcase(s, tc_slack);
 
     tc_slack = tcase_create("slack.trailing_field_valid1");

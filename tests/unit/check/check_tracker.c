@@ -99,6 +99,10 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
     ck_assert_int_eq(ret, 0);
 
     tk = track_file(*test_spec->contents_def, file_hdl, NULL);
+    if (test_spec->tracker_error) {
+        ck_assert_ptr_eq(tk, NULL);
+        return ;
+    }
     ck_assert_ptr_ne(tk, NULL);
 
     bt_ret = tracker_goto_first_item(tk, NULL);
@@ -149,17 +153,18 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
             bt_ret = tracker_goto_next_item(tk, NULL);
         }
     }
-    ck_assert(bt_ret == BITPUNCH_OK ||
-              bt_ret == BITPUNCH_NO_ITEM ||
-              bt_ret == test_spec->tracker_error);
-    if ((bt_ret == BITPUNCH_OK
-         || bt_ret == BITPUNCH_NO_ITEM)
-        && box_idx == test_spec->n_expect_boxes) {
-        /* we shall have reached the end */
-        bt_ret = tracker_goto_next_item(tk, NULL);
-        ck_assert_int_eq(bt_ret, BITPUNCH_NO_ITEM);
-        bt_ret = tracker_return(tk, NULL);
-        ck_assert_int_eq(bt_ret, BITPUNCH_NO_ITEM);
+    if (!test_spec->truncated) {
+        ck_assert(bt_ret == BITPUNCH_OK ||
+                  bt_ret == BITPUNCH_NO_ITEM);
+        if (box_idx == test_spec->n_expect_boxes) {
+            /* we shall have reached the end */
+            bt_ret = tracker_goto_next_item(tk, NULL);
+            ck_assert_int_eq(bt_ret, BITPUNCH_NO_ITEM);
+            bt_ret = tracker_return(tk, NULL);
+            ck_assert_int_eq(bt_ret, BITPUNCH_NO_ITEM);
+        }
+    } else {
+        ck_assert(bt_ret == BITPUNCH_OUT_OF_BOUNDS_ERROR);
     }
     tracker_delete(tk);
 
@@ -228,12 +233,9 @@ check_tracker_browse_sub_trackers_recur(struct tracker *tk,
         }
     }
     ck_assert(bt_ret == BITPUNCH_OK ||
-              bt_ret == BITPUNCH_NO_ITEM ||
-              bt_ret == test_spec->tracker_error);
-    if (BITPUNCH_OK == test_spec->tracker_error) {
-        bt_ret = tracker_goto_next_item(tk, NULL);
-        ck_assert_int_eq(bt_ret, BITPUNCH_NO_ITEM);
-    }
+              bt_ret == BITPUNCH_NO_ITEM);
+    bt_ret = tracker_goto_next_item(tk, NULL);
+    ck_assert_int_eq(bt_ret, BITPUNCH_NO_ITEM);
 }
 
 void
@@ -249,6 +251,10 @@ check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
     ck_assert_int_eq(ret, 0);
 
     tk = track_file(*test_spec->contents_def, file_hdl, NULL);
+    if (test_spec->tracker_error) {
+        ck_assert_ptr_eq(tk, NULL);
+        return ;
+    }
     ck_assert_ptr_ne(tk, NULL);
 
     check_tracker_browse_sub_trackers_recur(tk, test_spec, -1,
@@ -282,6 +288,10 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
     ck_assert_int_eq(ret, 0);
 
     tk = track_file(*test_spec->contents_def, file_hdl, NULL);
+    if (test_spec->tracker_error) {
+        ck_assert_ptr_eq(tk, NULL);
+        return ;
+    }
     ck_assert_ptr_ne(tk, NULL);
 
     random_box_indices = malloc_safe(test_spec->n_expect_boxes

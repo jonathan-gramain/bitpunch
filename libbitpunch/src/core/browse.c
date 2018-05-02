@@ -539,8 +539,7 @@ box_check_start_offset(struct box *box, int64_t start_offset,
     case BOX_START_OFFSET_HARD_MIN:
         if (box->start_offset_min_span >= 0) {
             if (start_offset < box->start_offset_min_span) {
-                return box_error_out_of_bounds(box, NULL,
-                                               BOX_START_OFFSET_HARD_MIN,
+                return box_error_out_of_bounds(box, NULL, type,
                                                start_offset,
                                                BOX_START_OFFSET_MIN_SPAN,
                                                bst);
@@ -551,8 +550,7 @@ box_check_start_offset(struct box *box, int64_t start_offset,
     case BOX_START_OFFSET_MIN_SPAN:
         if (box->start_offset_used >= 0) {
             if (start_offset < box->start_offset_used) {
-                return box_error_out_of_bounds(box, NULL,
-                                               BOX_START_OFFSET_MIN_SPAN,
+                return box_error_out_of_bounds(box, NULL, type,
                                                start_offset,
                                                BOX_START_OFFSET_USED, bst);
             }
@@ -562,8 +560,7 @@ box_check_start_offset(struct box *box, int64_t start_offset,
     case BOX_START_OFFSET_USED:
         if (box->start_offset_max_span >= 0) {
             if (start_offset < box->start_offset_max_span) {
-                return box_error_out_of_bounds(box, NULL,
-                                               BOX_START_OFFSET_USED,
+                return box_error_out_of_bounds(box, NULL, type,
                                                start_offset,
                                                BOX_START_OFFSET_MAX_SPAN,
                                                bst);
@@ -574,8 +571,7 @@ box_check_start_offset(struct box *box, int64_t start_offset,
     case BOX_START_OFFSET_SLACK:
         if (box->start_offset_parent >= 0) {
             if (start_offset < box->start_offset_parent) {
-                return box_error_out_of_bounds(box, NULL,
-                                               BOX_START_OFFSET_SLACK,
+                return box_error_out_of_bounds(box, NULL, type,
                                                start_offset,
                                                BOX_START_OFFSET_PARENT, bst);
             }
@@ -593,8 +589,7 @@ box_check_start_offset(struct box *box, int64_t start_offset,
     case BOX_START_OFFSET_PARENT:
         if (box->start_offset_slack >= 0) {
             if (start_offset > box->start_offset_slack) {
-                return box_error_out_of_bounds(box, NULL,
-                                               BOX_START_OFFSET_PARENT,
+                return box_error_out_of_bounds(box, NULL, type,
                                                start_offset,
                                                BOX_START_OFFSET_SLACK, bst);
             }
@@ -605,8 +600,7 @@ box_check_start_offset(struct box *box, int64_t start_offset,
     case BOX_START_OFFSET_MAX_SPAN:
         if (box->start_offset_used >= 0) {
             if (start_offset > box->start_offset_used) {
-                return box_error_out_of_bounds(box, NULL,
-                                               BOX_START_OFFSET_MAX_SPAN,
+                return box_error_out_of_bounds(box, NULL, type,
                                                start_offset,
                                                BOX_START_OFFSET_USED, bst);
             }
@@ -616,8 +610,7 @@ box_check_start_offset(struct box *box, int64_t start_offset,
     case BOX_START_OFFSET_USED:
         if (box->start_offset_min_span >= 0) {
             if (start_offset > box->start_offset_min_span) {
-                return box_error_out_of_bounds(box, NULL,
-                                               BOX_START_OFFSET_USED,
+                return box_error_out_of_bounds(box, NULL, type,
                                                start_offset,
                                                BOX_START_OFFSET_MIN_SPAN, bst);
             }
@@ -625,6 +618,12 @@ box_check_start_offset(struct box *box, int64_t start_offset,
         }
         /*FALLTHROUGH*/
     case BOX_START_OFFSET_MIN_SPAN:
+        if (start_offset > box_get_offset(box, BOX_START_OFFSET_HARD_MIN)) {
+            return box_error_out_of_bounds(box, NULL, type,
+                                           start_offset,
+                                           BOX_START_OFFSET_HARD_MIN, bst);
+        }
+        /*FALLTHROUGH*/
     case BOX_START_OFFSET_HARD_MIN:
         break ;
     default:
@@ -651,8 +650,7 @@ box_check_end_offset(struct box *box, int64_t end_offset,
     case BOX_END_OFFSET_HARD_MIN:
         if (box->end_offset_min_span >= 0) {
             if (end_offset > box->end_offset_min_span) {
-                return box_error_out_of_bounds(box, NULL,
-                                               BOX_END_OFFSET_HARD_MIN,
+                return box_error_out_of_bounds(box, NULL, type,
                                                end_offset,
                                                BOX_END_OFFSET_MIN_SPAN, bst);
             }
@@ -662,8 +660,7 @@ box_check_end_offset(struct box *box, int64_t end_offset,
     case BOX_END_OFFSET_MIN_SPAN:
         if (box->end_offset_used >= 0) {
             if (end_offset > box->end_offset_used) {
-                return box_error_out_of_bounds(box, NULL,
-                                               BOX_END_OFFSET_MIN_SPAN,
+                return box_error_out_of_bounds(box, NULL, type,
                                                end_offset,
                                                BOX_END_OFFSET_USED, bst);
             }
@@ -673,8 +670,7 @@ box_check_end_offset(struct box *box, int64_t end_offset,
     case BOX_END_OFFSET_USED:
         if (box->end_offset_max_span >= 0) {
             if (end_offset > box->end_offset_max_span) {
-                return box_error_out_of_bounds(box, NULL,
-                                               BOX_END_OFFSET_USED,
+                return box_error_out_of_bounds(box, NULL, type,
                                                end_offset,
                                                BOX_END_OFFSET_MAX_SPAN,
                                                bst);
@@ -685,8 +681,7 @@ box_check_end_offset(struct box *box, int64_t end_offset,
     case BOX_END_OFFSET_SLACK:
         if (box->end_offset_parent >= 0) {
             if (end_offset > box->end_offset_parent) {
-                return box_error_out_of_bounds(box, NULL,
-                                               BOX_END_OFFSET_SLACK,
+                return box_error_out_of_bounds(box, NULL, type,
                                                end_offset,
                                                BOX_END_OFFSET_PARENT, bst);
             }
@@ -704,8 +699,7 @@ box_check_end_offset(struct box *box, int64_t end_offset,
     case BOX_END_OFFSET_PARENT:
         if (box->end_offset_slack >= 0) {
             if (end_offset < box->end_offset_slack) {
-                return box_error_out_of_bounds(box, NULL,
-                                               BOX_END_OFFSET_PARENT,
+                return box_error_out_of_bounds(box, NULL, type,
                                                end_offset,
                                                BOX_END_OFFSET_SLACK, bst);
             }
@@ -716,8 +710,7 @@ box_check_end_offset(struct box *box, int64_t end_offset,
     case BOX_END_OFFSET_MAX_SPAN:
         if (box->end_offset_used >= 0) {
             if (end_offset < box->end_offset_used) {
-                return box_error_out_of_bounds(box, NULL,
-                                               BOX_END_OFFSET_MAX_SPAN,
+                return box_error_out_of_bounds(box, NULL, type,
                                                end_offset,
                                                BOX_END_OFFSET_USED, bst);
             }
@@ -727,8 +720,7 @@ box_check_end_offset(struct box *box, int64_t end_offset,
     case BOX_END_OFFSET_USED:
         if (box->end_offset_min_span >= 0) {
             if (end_offset < box->end_offset_min_span) {
-                return box_error_out_of_bounds(box, NULL,
-                                               BOX_END_OFFSET_USED,
+                return box_error_out_of_bounds(box, NULL, type,
                                                end_offset,
                                                BOX_END_OFFSET_MIN_SPAN, bst);
             }
@@ -736,6 +728,12 @@ box_check_end_offset(struct box *box, int64_t end_offset,
         }
         /*FALLTHROUGH*/
     case BOX_END_OFFSET_MIN_SPAN:
+        if (end_offset < box_get_offset(box, BOX_END_OFFSET_HARD_MIN)) {
+            return box_error_out_of_bounds(box, NULL, type,
+                                           end_offset,
+                                           BOX_END_OFFSET_HARD_MIN, bst);
+        }
+        /*FALLTHROUGH*/
     case BOX_END_OFFSET_HARD_MIN:
         break ;
     default:
@@ -4061,10 +4059,19 @@ tracker_get_item_size_internal(struct tracker *tk, int64_t *item_sizep,
         return BITPUNCH_NO_ITEM;
     }
     if (0 == (tk->dpath->u.item.flags & ITEMFLAG_IS_USED_SIZE_DYNAMIC)) {
-        if (NULL != item_sizep) {
-            *item_sizep = tk->dpath->u.item.min_span_size;
+        if (0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
+            bt_ret = tracker_set_item_size(
+                tk, tk->dpath->u.item.min_span_size, bst);
+            if (BITPUNCH_OK == bt_ret && NULL != item_sizep) {
+                *item_sizep = tk->item_size;
+            }
+            return bt_ret;
+        } else {
+            if (NULL != item_sizep) {
+                *item_sizep = tk->dpath->u.item.min_span_size;
+            }
+            return BITPUNCH_OK;
         }
-        return BITPUNCH_OK;
     }
     if (-1 == tk->item_size) {
         bt_ret = tracker_compute_item_location(tk, bst);
@@ -4964,6 +4971,7 @@ box_error_out_of_bounds(struct box *box,
     if (NULL != error_get_expected(BITPUNCH_OUT_OF_BOUNDS_ERROR, bst)) {
         return BITPUNCH_OUT_OF_BOUNDS_ERROR;
     }
+    // FIXME make this message correct for RALIGN boxes
     (void) box_error(BITPUNCH_OUT_OF_BOUNDS_ERROR, box, node, bst,
                      "request offset out of box bounds: "
                      "box %s space is [%"PRIi64"..%"PRIi64"[, "

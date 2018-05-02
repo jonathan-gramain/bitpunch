@@ -259,7 +259,7 @@ let Foo = struct {
 
 @pytest.mark.parametrize('spec', specs_resolve_types_and_expr)
 def test_resolve_types_and_expr(spec):
-    dtree = model.DataTree('', spec)
+    dtree = model.DataTree('          ', spec)
     assert dtree
 
 #
