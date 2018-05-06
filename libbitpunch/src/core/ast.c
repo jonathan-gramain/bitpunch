@@ -3944,7 +3944,6 @@ ast_node_is_container(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_DATA_FILTER:
         return TRUE;
     default:
         return FALSE;
@@ -3971,7 +3970,6 @@ ast_node_is_byte_container(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_DATA_FILTER:
         return TRUE;
     default:
         return FALSE;
@@ -3986,7 +3984,6 @@ ast_node_is_subscriptable_container(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
-    case AST_NODE_TYPE_DATA_FILTER:
         return TRUE;
     default:
         return FALSE;
@@ -4019,7 +4016,6 @@ ast_node_is_item(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_DATA_FILTER:
         return TRUE;
     default:
         return FALSE;
@@ -4452,7 +4448,6 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_DATA_FILTER:
         fprintf(out, "\n%*s\\_ static node (%s)\n",
                 (depth + 1) * INDENT_N_SPACES, "",
                 ast_node_type_str(node->ndat->type));
@@ -4807,7 +4802,6 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
     case AST_NODE_TYPE_REXPR_STAR_WILDCARD:
-    case AST_NODE_TYPE_DATA_FILTER:
         /* leaf */
         fprintf(out, "%*s|- (%s) ", depth * INDENT_N_SPACES, "",
                 ast_node_type_str(node->ndat->type));

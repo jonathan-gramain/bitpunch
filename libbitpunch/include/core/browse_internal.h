@@ -49,7 +49,6 @@ extern struct dpath_node shared_dpath_node_as_bytes;
 #define AST_NODE_ARRAY_SLICE &shared_ast_node_array_slice
 #define AST_NODE_BYTE_SLICE &shared_ast_node_byte_slice
 #define AST_NODE_AS_BYTES &shared_ast_node_as_bytes
-#define AST_NODE_DATA_FILTER &shared_ast_node_data_filter
 #define DPATH_NODE_RAW_BYTE &shared_dpath_node_raw_byte
 #define DPATH_NODE_ARRAY_SLICE &shared_dpath_node_array_slice
 #define DPATH_NODE_BYTE_SLICE &shared_dpath_node_byte_slice
@@ -79,14 +78,10 @@ box_new_as_box(struct box *parent_box,
                struct dpath_node *as_dpath,
                struct browse_state *bst);
 struct box *
-box_new_filter_box_plain(struct box *unfiltered_box,
-                         struct ast_node_hdl *filter,
-                         struct browse_state *bst);
-struct box *
-box_new_filter_box_inlay(struct box *parent_box,
-                         struct ast_node_hdl *filter,
-                         struct ast_node_hdl *filter_defining_used_size,
-                         struct browse_state *bst);
+box_new_filter_box(struct box *parent_box,
+                   struct ast_node_hdl *filter,
+                   struct ast_node_hdl *filter_defining_used_size,
+                   struct browse_state *bst);
 bitpunch_status_t
 box_apply_filter_internal(struct box *box,
                           struct browse_state *bst);

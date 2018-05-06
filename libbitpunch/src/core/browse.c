@@ -134,12 +134,6 @@ struct ast_node_data shared_ast_node_data_as_bytes_filter = {
 struct ast_node_hdl shared_ast_node_as_bytes_filter = {
     .ndat = &shared_ast_node_data_as_bytes_filter,
 };
-struct ast_node_data shared_ast_node_data_data_filter = {
-    .type = AST_NODE_TYPE_DATA_FILTER,
-};
-struct ast_node_hdl shared_ast_node_data_filter = {
-    .ndat = &shared_ast_node_data_data_filter,
-};
 
 struct ast_node_data shared_ast_node_data_raw_byte_filter = {
     .type = AST_NODE_TYPE_REXPR_ITEM,
@@ -902,6 +896,42 @@ box_set_max_span_size(struct box *box, int64_t max_span_size,
 }
 
 
+static void
+box_inherit_parent_offsets(struct box *box, struct box *parent_box)
+{
+    int box_is_right_aligned;
+
+    box->start_offset_parent = box_get_known_start_offset(parent_box);
+    box->end_offset_parent = box_get_known_end_offset(parent_box);
+
+    if (0 != (box->flags & BOX_RALIGN)) {
+        box_is_right_aligned =
+            0 == (box->track_path.flags & TRACK_PATH_HEADER);
+    } else {
+        box_is_right_aligned =
+            0 != (box->track_path.flags & TRACK_PATH_TRAILER);
+    }
+    if (box_is_right_aligned) {
+        box->flags |= BOX_RALIGN;
+    }
+}
+
+static void
+box_set_boundary_offset(struct box *box, int64_t boundary_offset)
+{
+    if (0 != (box->flags & BOX_RALIGN)) {
+        box->end_offset_slack = boundary_offset;
+        box->end_offset_max_span = boundary_offset;
+        box->end_offset_used = boundary_offset;
+        box->end_offset_min_span = boundary_offset;
+    } else {
+        box->start_offset_slack = boundary_offset;
+        box->start_offset_max_span = boundary_offset;
+        box->start_offset_used = boundary_offset;
+        box->start_offset_min_span = boundary_offset;
+    }
+}
+
 static bitpunch_status_t
 box_construct(struct box *o_box,
               struct box *parent_box,
@@ -926,43 +956,34 @@ box_construct(struct box *o_box,
         return BITPUNCH_DATA_ERROR;
     }
     o_box->dpath = *dpath;
+    o_box->flags = box_flags;
+    o_box->start_offset_parent = -1; /* unknown */
+    o_box->start_offset_slack = -1; /* unknown */
+    o_box->start_offset_max_span = -1; /* unknown */
+    o_box->start_offset_used = -1; /* unknown */
+    o_box->start_offset_min_span = -1; /* unknown */
+    o_box->end_offset_parent = -1; /* unknown */
+    o_box->end_offset_slack = -1; /* unknown */
+    o_box->end_offset_max_span = -1; /* unknown */
+    o_box->end_offset_used = -1; /* unknown */
+    o_box->end_offset_min_span = -1; /* unknown */
     if (NULL != parent_box) {
         assert(parent_box != o_box);
         o_box->parent_box = parent_box;
         o_box->file_hdl = NULL;
         o_box->depth_level = parent_box->depth_level + 1;
         box_acquire(parent_box);
-        o_box->start_offset_parent = box_get_known_start_offset(parent_box);
-        o_box->end_offset_parent = box_get_known_end_offset(parent_box);
-    } else {
-        o_box->start_offset_parent = -1; /* unknown */
-        o_box->end_offset_parent = -1; /* unknown */
     }
-    o_box->start_offset_slack = -1; /* unknown */
-    o_box->start_offset_max_span = -1; /* unknown */
-    o_box->start_offset_used = -1; /* unknown */
-    o_box->start_offset_min_span = -1; /* unknown */
-    o_box->end_offset_slack = -1; /* unknown */
-    o_box->end_offset_max_span = -1; /* unknown */
-    o_box->end_offset_used = -1; /* unknown */
-    o_box->end_offset_min_span = -1; /* unknown */
-    o_box->flags = box_flags;
-    if (0 != (box_flags & BOX_RALIGN)) {
-        o_box->flags |= BOX_RALIGN;
-        o_box->end_offset_slack = boundary_offset;
-        o_box->end_offset_max_span = boundary_offset;
-        o_box->end_offset_used = boundary_offset;
-        o_box->end_offset_min_span = boundary_offset;
-    } else {
-        o_box->start_offset_slack = boundary_offset;
-        o_box->start_offset_max_span = boundary_offset;
-        o_box->start_offset_used = boundary_offset;
-        o_box->start_offset_min_span = boundary_offset;
-    }
-    bt_ret = box_set_size(o_box, ast_node_get_min_span_size(dpath->item),
-                          BOX_SIZE_HARD_MIN, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
+    if (-1 != boundary_offset) {
+        if (NULL != parent_box) {
+            box_inherit_parent_offsets(o_box, parent_box);
+        }
+        box_set_boundary_offset(o_box, boundary_offset);
+        bt_ret = box_set_size(o_box, ast_node_get_min_span_size(dpath->item),
+                              BOX_SIZE_HARD_MIN, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
     }
     /* initialize internal state */
     switch (dpath->item->ndat->type) {
@@ -991,7 +1012,6 @@ box_construct(struct box *o_box,
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_DATA_FILTER:
         o_box->u.array_generic.n_items = -1;
         break ;
     default:
@@ -1286,7 +1306,6 @@ box_new_slice_box(struct tracker *slice_start,
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_DATA_FILTER:
         slice_node = *DPATH_NODE_BYTE_SLICE;
         break ;
     default:
@@ -1511,11 +1530,10 @@ box_new_filter_box_plain(struct box *parent_box,
     struct dpath_node dpath;
 
     dpath_node_reset(&dpath);
-    dpath.item = AST_NODE_DATA_FILTER;
+    dpath.item = AST_NODE_AS_BYTES;
     dpath.filter = filter;
     box = new_safe(struct box);
-    bt_ret = box_construct(box, parent_box, &dpath, 0,
-                           BOX_FILTER | BOX_DATA_FILTER, bst);
+    bt_ret = box_construct(box, parent_box, &dpath, -1, BOX_FILTER, bst);
     if (BITPUNCH_OK != bt_ret) {
         box_delete_non_null(box);
         return NULL;
@@ -1525,10 +1543,10 @@ box_new_filter_box_plain(struct box *parent_box,
 }
 
 struct box *
-box_new_filter_box_inlay(struct box *parent_box,
-                         struct ast_node_hdl *filter,
-                         struct ast_node_hdl *filter_defining_used_size,
-                         struct browse_state *bst)
+box_new_filter_box(struct box *parent_box,
+                   struct ast_node_hdl *filter,
+                   struct ast_node_hdl *filter_defining_used_size,
+                   struct browse_state *bst)
 {
     struct box *box;
     bitpunch_status_t bt_ret;
@@ -1538,16 +1556,9 @@ box_new_filter_box_inlay(struct box *parent_box,
     dpath_node_reset(&dpath);
     dpath.item = AST_NODE_AS_BYTES;
     dpath.filter = filter;
-    dpath.filter_defining_span_size =
-        parent_box->dpath.filter_defining_span_size;
     dpath.filter_defining_used_size = filter_defining_used_size;
     box = new_safe(struct box);
-    bt_ret = box_construct(box, parent_box, &dpath,
-                           0 != (parent_box->flags & BOX_RALIGN) ?
-                           parent_box->end_offset_used :
-                           parent_box->start_offset_used,
-                           BOX_FILTER | (parent_box->flags & BOX_RALIGN),
-                           bst);
+    bt_ret = box_construct(box, parent_box, &dpath, -1, BOX_FILTER, bst);
     if (BITPUNCH_OK != bt_ret) {
         box_delete_non_null(box);
         return NULL;
@@ -1563,77 +1574,83 @@ box_apply_filter_interpreter(struct box *box,
     const struct interpreter *interpreter;
     const struct bitpunch_binary_file_hdl *parent_file_hdl;
     struct bitpunch_binary_file_hdl *filtered_data_hdl;
-    bitpunch_status_t bt_ret;
+    const char *unfiltered_data;
     int64_t unfiltered_size;
     expr_value_t filtered_value;
     const char *filtered_data;
     int64_t filtered_size;
-    const char *unfiltered_data;
+    int64_t boundary_offset;
+    bitpunch_status_t bt_ret;
 
     assert(NULL == box->file_hdl);
+    assert(NULL != box->parent_box);
     interpreter = box->dpath.filter->ndat->u.rexpr_interpreter.interpreter;
-    // FIXME this should be reworked to take into account multiple
-    // value types in mask
-    switch (interpreter->value_type_mask) {
-    case EXPR_VALUE_TYPE_STRING:
-        assert(NULL != box->parent_box);
-        bt_ret = box_get_used_size(box, &unfiltered_size, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        parent_file_hdl = box->parent_box->file_hdl;
-        unfiltered_data = parent_file_hdl->bf_data + box->start_offset_used;
-        // FIXME check "box" is the right scope
-        bt_ret = interpreter_rcall_read_value(box->dpath.filter,
-                                              box,
-                                              unfiltered_data,
-                                              unfiltered_size,
-                                              &filtered_value, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return box_error(bt_ret, box, box->dpath.filter, bst,
-                             "error reading interpreted value");
-        }
-        filtered_size = filtered_value.string.len;
-        box->file_hdl = box->parent_box->file_hdl;
-        bt_ret = BITPUNCH_OK;
-        break ;
-    case EXPR_VALUE_TYPE_BYTES:
-        assert(NULL != box->parent_box);
-        bt_ret = box_get_used_size(box->parent_box, &unfiltered_size,
-                                   bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        parent_file_hdl = box->parent_box->file_hdl;
-        unfiltered_data =
-            parent_file_hdl->bf_data + box->parent_box->start_offset_used;
-        // FIXME check "box" is the right scope
-        bt_ret = interpreter_rcall_read_value(box->dpath.filter,
-                                              box,
-                                              unfiltered_data,
-                                              unfiltered_size,
-                                              &filtered_value, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return box_error(bt_ret, box, box->dpath.filter, bst,
-                             "error reading interpreted value");
-        }
-        filtered_data = filtered_value.bytes.buf;
-        filtered_size = filtered_value.bytes.len;
-        filtered_data_hdl = create_data_hdl_from_buffer(
-            filtered_data, filtered_size, TRUE, parent_file_hdl);
-        box->file_hdl = filtered_data_hdl;
-        bt_ret = box_set_start_offset(box, 0, BOX_START_OFFSET_USED, bst);
-        break ;
-    default:
-        box->file_hdl = box->parent_box->file_hdl;
-        assert(NULL != box->file_hdl);
-        box->flags |= BOX_FILTER_APPLIED;
+    parent_file_hdl = box->parent_box->file_hdl;
+    if (0 == (box->flags & BOX_FILTER)) {
+        box->file_hdl = parent_file_hdl;
+        box_inherit_parent_offsets(box, box->parent_box);
         return BITPUNCH_OK;
     }
-    expr_value_destroy(filtered_value);
+    if (!expr_value_type_mask_contains_dpath(
+            interpreter->value_type_mask)) {
+        box->file_hdl = parent_file_hdl;
+        box_inherit_parent_offsets(box, box->parent_box);
+        boundary_offset = 0 != (box->flags & BOX_RALIGN) ?
+            box_get_offset(box->parent_box, BOX_END_OFFSET_USED) :
+            box_get_offset(box->parent_box, BOX_START_OFFSET_USED);
+        box_set_boundary_offset(box, boundary_offset);
+        return BITPUNCH_OK;
+    }
+    bt_ret = box_get_used_size(box->parent_box, &unfiltered_size, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
+    unfiltered_data = parent_file_hdl->bf_data
+        + box->parent_box->start_offset_used;
+    // FIXME check "box" is the right scope
+    bt_ret = interpreter_rcall_read_value(
+        box->dpath.filter, box, unfiltered_data, unfiltered_size,
+        &filtered_value, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return box_error(bt_ret, box, box->dpath.filter, bst,
+                         "error reading interpreted value");
+    }
+    if (!expr_value_type_mask_contains_dpath(filtered_value.type)) {
+        // dynamic evaluation did not yield a dpath type
+        expr_value_destroy(filtered_value);
+        box->file_hdl = parent_file_hdl;
+        return BITPUNCH_OK;
+    }
+    switch (filtered_value.type) {
+    case EXPR_VALUE_TYPE_STRING:
+        filtered_data = filtered_value.string.str;
+        filtered_size = filtered_value.string.len;
+        break ;
+    case EXPR_VALUE_TYPE_BYTES:
+        filtered_data = filtered_value.bytes.buf;
+        filtered_size = filtered_value.bytes.len;
+        break ;
+    default:
+        assert(0);
+    }
+    if (0 == filtered_size
+        || (filtered_data >= parent_file_hdl->bf_data &&
+            filtered_data < parent_file_hdl->bf_data
+            + parent_file_hdl->bf_data_length)) {
+        box->file_hdl = parent_file_hdl;
+        box_inherit_parent_offsets(box, box->parent_box);
+        boundary_offset = 0 != (box->flags & BOX_RALIGN) ?
+            box_get_offset(box->parent_box, BOX_END_OFFSET_USED) :
+            box_get_offset(box->parent_box, BOX_START_OFFSET_USED);
+        box_set_boundary_offset(box, boundary_offset);
+    } else {
+        filtered_data_hdl = create_data_hdl_from_buffer(
+            filtered_data, filtered_size, TRUE, parent_file_hdl);
+        box->file_hdl = filtered_data_hdl;
+        box->flags |= BOX_DATA_FILTER;
+        box_set_boundary_offset(box, 0);
+    }
+    expr_value_destroy(filtered_value);
     return box_set_used_size(box, filtered_size, bst);
 }
 
@@ -1663,6 +1680,7 @@ box_apply_filter_internal(struct box *box,
     } else if (NULL == box->file_hdl) {
         assert(NULL != box->parent_box);
         box->file_hdl = box->parent_box->file_hdl;
+        box_inherit_parent_offsets(box, box->parent_box);
     }
     if (BITPUNCH_OK == bt_ret) {
         assert(NULL != box->file_hdl);
@@ -2314,7 +2332,6 @@ tracker_reset_track_path(struct tracker *tk)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_DATA_FILTER:
         tk->cur = track_path_from_array_index(-1);
         break ;
     default:
@@ -2728,7 +2745,10 @@ box_compute_used_size(struct box *box,
         /* nothing to do */
         return BITPUNCH_OK;
     }
-    bt_ret = box_compute_min_span_size(box, bst);
+    bt_ret = box_apply_filter_internal(box, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        bt_ret = box_compute_min_span_size(box, bst);
+    }
     if (BITPUNCH_OK == bt_ret
         && 0 == (box->flags & COMPUTING_SPAN_SIZE)) {
         bt_ret = box_compute_max_span_size(box, bst);
@@ -2825,6 +2845,12 @@ box_compute_slack_size(struct box *box,
     struct box *parent_box;
     bitpunch_status_t bt_ret;
 
+    if (0 != (box->flags & BOX_FILTER)) {
+        bt_ret = box_apply_filter_internal(box, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
+    }
     if (-1 != box->start_offset_slack && -1 != box->end_offset_slack) {
         /* nothing to do */
         return BITPUNCH_OK;
@@ -2993,7 +3019,6 @@ box_get_end_path(struct box *box, struct track_path *end_pathp,
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_DATA_FILTER:
         bt_ret = box_get_n_items_internal(box, &n_items, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
@@ -3095,7 +3120,6 @@ tracker_compute_item_offset(struct tracker *tk,
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_AS_BYTES:
-    case AST_NODE_TYPE_DATA_FILTER:
         return tracker_goto_nth_item_internal(tk, tk->cur.u.array.index,
                                               bst);
     case AST_NODE_TYPE_ARRAY_SLICE:
@@ -8108,27 +8132,6 @@ browse_setup_backends__tracker__as_bytes(struct ast_node_hdl *item)
         tracker_goto_nth_item_with_key__default;
 }
 
-static void
-browse_setup_backends__box__data_filter(struct ast_node_hdl *item)
-{
-    struct box_backend *b_box = NULL;
-
-    b_box = &item->ndat->u.container.b_box;
-    memset(b_box, 0, sizeof (*b_box));
-
-    b_box->compute_slack_size = box_compute_slack_size__block_file;
-    b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
-    b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
-    b_box->compute_used_size = box_compute_used_size__as_max_span;
-    b_box->get_n_items = box_get_n_items__as_bytes;
-}
-
-static void
-browse_setup_backends__tracker__data_filter(struct ast_node_hdl *item)
-{
-    browse_setup_backends__tracker__as_bytes(item);
-}
-
 static int
 browse_setup_backends_node(struct ast_node_hdl *node)
 {
@@ -8160,10 +8163,6 @@ browse_setup_backends_node(struct ast_node_hdl *node)
     case AST_NODE_TYPE_AS_BYTES:
         browse_setup_backends__box__as_bytes(node);
         browse_setup_backends__tracker__as_bytes(node);
-        break ;
-    case AST_NODE_TYPE_DATA_FILTER:
-        browse_setup_backends__box__data_filter(node);
-        browse_setup_backends__tracker__data_filter(node);
         break ;
     case AST_NODE_TYPE_REXPR_INTERPRETER:
         browse_setup_backends__filter__interpreter(node);
@@ -8471,9 +8470,6 @@ browse_setup_global_backends(void)
         return -1;
     }
     if (-1 == browse_setup_backends_dpath(DPATH_NODE_RAW_BYTE)) {
-        return -1;
-    }
-    if (-1 == browse_setup_backends_node(AST_NODE_DATA_FILTER)) {
         return -1;
     }
     return 0;

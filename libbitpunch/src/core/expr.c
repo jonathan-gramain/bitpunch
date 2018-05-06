@@ -1962,7 +1962,12 @@ expr_evaluate_value_addrof(struct ast_node_hdl *expr, struct box *scope,
         }
         break ;
     case EXPR_DPATH_TYPE_CONTAINER:
+        bt_ret = box_apply_filter_internal(dpath_eval.container.box, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
         item_offset = dpath_eval.container.box->start_offset_used;
+        assert(-1 != item_offset);
         expr_dpath_destroy_container(dpath_eval);
         break ;
     default:
@@ -2707,41 +2712,26 @@ expr_transform_dpath_interpreter(struct ast_node_hdl *expr,
                                  struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    const struct interpreter *interpreter;
     struct box *target_box;
-    struct box *filtered_box;
+    struct box *filtered_data_box;
     struct ast_node_hdl *filter_defining_used_size;
 
-    interpreter = expr->ndat->u.rexpr_interpreter.interpreter;
     bt_ret = expr_dpath_to_box_direct(transformp->dpath, &target_box, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    // TODO rework this: interpreters should be explicit whether
-    // they create a new buffer or inlay an existing one
-    switch (interpreter->value_type_mask) {
-    case EXPR_VALUE_TYPE_BYTES:
-        filtered_box = box_new_filter_box_plain(target_box, expr, bst);
-        box_delete(target_box);
-        expr_dpath_destroy(transformp->dpath);
-        transformp->dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        transformp->dpath.container.box = filtered_box;
-        break ;
-    default:
-        bt_ret = expr_evaluate_filter_type_internal(
-            expr, scope, FILTER_KIND_DEFINING_USED_SIZE,
-            &filter_defining_used_size, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        filtered_box = box_new_filter_box_inlay(
-            target_box, expr, filter_defining_used_size, bst);
-        box_delete(target_box);
-        expr_dpath_destroy(transformp->dpath);
-        transformp->dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        transformp->dpath.container.box = filtered_box;
-        break ;
+    bt_ret = expr_evaluate_filter_type_internal(
+        expr, scope, FILTER_KIND_DEFINING_USED_SIZE,
+        &filter_defining_used_size, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
     }
+    filtered_data_box = box_new_filter_box(
+        target_box, expr, filter_defining_used_size, bst);
+    box_delete(target_box);
+    expr_dpath_destroy(transformp->dpath);
+    transformp->dpath.type = EXPR_DPATH_TYPE_CONTAINER;
+    transformp->dpath.container.box = filtered_data_box;
     return BITPUNCH_OK;
 }
 
@@ -3010,7 +3000,12 @@ expr_value_to_hashable(expr_value_t value,
     }
 }
 
-
+int
+expr_value_type_mask_contains_dpath(enum expr_value_type value_type_mask)
+{
+    return (0 != (value_type_mask & (EXPR_VALUE_TYPE_STRING |
+                                     EXPR_VALUE_TYPE_BYTES)));
+}
 
 /*
  * external API wrappers

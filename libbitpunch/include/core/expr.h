@@ -216,6 +216,8 @@ expr_dpath_type_str(enum expr_dpath_type type);
 void
 expr_value_to_hashable(expr_value_t value,
                        const char **bufp, int64_t *lenp);
+int
+expr_value_type_mask_contains_dpath(enum expr_value_type value_type_mask);
 
 static inline expr_value_t
 expr_value_as_integer(int64_t value)

@@ -549,7 +549,7 @@ data_file_filter_base64_selector = """
 "AAAAAw==\n"     # nb_messages=3
 01 "aGVsbG8=\n"     # hello
 00 "beautiful\n"
-01 "d29ybGQ=\n"     " world
+01 "d29ybGQ=\n"     # world
 "some random garbage that should not be read\n"
 """
 
