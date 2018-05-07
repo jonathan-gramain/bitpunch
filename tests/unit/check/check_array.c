@@ -49,9 +49,9 @@
 /* static array */
 
 static const char *check_sarray_contents_def =
-    "let u32 = byte[4]: integer { signed: false; endian: 'big'; };\n"
+    "let u32 = [4] byte: integer { signed: false; endian: 'big'; };\n"
     "file {\n"
-    "    int_array: u32[5];"
+    "    int_array: [5] u32;"
     "}\n";
 
 static struct bitpunch_schema_hdl *check_sarray_def_hdl;
@@ -147,10 +147,10 @@ static const struct test_tracker_spec check_sarray_invalid_truncated2_spec = {
 
 
 static const char *check_varray_contents_def =
-    "let u32 = byte[4]: integer { signed: false; endian: 'big'; };\n"
+    "let u32 = [4] byte: integer { signed: false; endian: 'big'; };\n"
     "file {\n"
     "    int_array_size: u32;\n"
-    "    int_array: u32[(2 + int_array_size)];\n"
+    "    int_array: [(2 + int_array_size)] u32;\n"
     "}\n";
 
 static struct bitpunch_schema_hdl *check_varray_def_hdl;

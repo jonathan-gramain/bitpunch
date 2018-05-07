@@ -7,14 +7,14 @@ import conftest
 
 spec_file_bp_1 = """
 
-let u8 = byte[4]: integer { signed: false; };
+let u8 = [4] byte: integer { signed: false; };
 
 let Foobar = struct {
-    value: byte[6]: string;
+    value: [6] byte: string;
 };
 
 file {
-    foobars: Foobar[5];
+    foobars: [5] Foobar;
 
     let ?foobar_slice = foobars[2..];
     let ?last_foobar = ?foobar_slice[-1];

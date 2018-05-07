@@ -46,10 +46,10 @@
 #include "check_tracker.h"
 
 static const char *check_cond_def =
-    "let u8 = byte[1]: integer { signed: false; };\n"
-    "let u16_le = byte[2]: integer { signed: false; endian: 'little'; };\n"
-    "let u32 = byte[4]: integer { signed: false; endian: 'big'; };\n"
-    "let u32_le = byte[4]: integer { signed: false; endian: 'little'; };\n"
+    "let u8 = [1] byte: integer { signed: false; };\n"
+    "let u16_le = [2] byte: integer { signed: false; endian: 'little'; };\n"
+    "let u32 = [4] byte: integer { signed: false; endian: 'big'; };\n"
+    "let u32_le = [4] byte: integer { signed: false; endian: 'little'; };\n"
     "let IfStruct = struct {\n"
     "    hdr: struct {\n"
     "        magic: u32;\n"
@@ -57,14 +57,14 @@ static const char *check_cond_def =
     "    };\n"
     "    if (hdr.magic == 0) {\n"
     "        version: u32;\n"
-    "        values: u32[];\n"
+    "        values: [] u32;\n"
     "    } else {\n"
-    "        contents: byte[];\n"
+    "        contents: [] byte;\n"
     "    }\n"
     "    span sizeof (hdr) + hdr.size;\n"
     "};\n"
     "file {\n"
-    "    ifs: IfStruct[2];\n"
+    "    ifs: [2] IfStruct;\n"
     "}\n";
 
 static struct bitpunch_schema_hdl *check_cond_def_hdl;

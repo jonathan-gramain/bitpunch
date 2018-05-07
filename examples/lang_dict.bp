@@ -4,10 +4,10 @@
  */
 
 let Word = struct {
-    word: byte[]: string { boundary: '\n'; };
+    word: [] byte: string { boundary: '\n'; };
     key word;
 };
 
 file {
-     words: Word[];
+     words: [] Word;
 }

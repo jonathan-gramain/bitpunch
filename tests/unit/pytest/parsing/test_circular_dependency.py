@@ -39,7 +39,7 @@ file {
 
 spec_file_circular_dependency_3 = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
 let OuterStruct = struct {
     middle: MiddleStruct;
@@ -66,7 +66,7 @@ let OkStruct2 = struct {
 
 let OkUnion1 = union {
     a: u32;
-    b: byte[5];
+    b: [5] byte;
 };
 
 file {
@@ -76,7 +76,7 @@ file {
 
 spec_file_circular_dependency_3 = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
 let OuterStruct = struct {
     middle: MiddleStruct;
@@ -104,7 +104,7 @@ let OkStruct2 = struct {
 let CircularUnion1 = union {
     a: u32;
     b: CircularStruct1;
-    c: byte[5];
+    c: [5] byte;
 };
 
 file {
@@ -118,7 +118,7 @@ file {
 }
 
 let OuterStruct = struct {
-    circular: Item[42];
+    circular: [42] Item;
 };
 
 let Item = struct {
@@ -129,7 +129,7 @@ let Item = struct {
 
 spec_file_no_circular_dependency_1 = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
 let OuterStruct = struct {
     middle: MiddleStruct;
@@ -156,7 +156,7 @@ let OkStruct2 = struct {
 
 let OkUnion1 = union {
     a: u32;
-    b: byte[5];
+    b: [5] byte;
 };
 
 file {
@@ -166,7 +166,7 @@ file {
 
 spec_file_no_circular_dependency_2 = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
 file {
     a: OuterStruct;
@@ -174,7 +174,7 @@ file {
 
 let OuterStruct = struct {
     nb: u32;
-    circular: Item[nb];
+    circular: [nb] Item;
 };
 
 let Item = struct {

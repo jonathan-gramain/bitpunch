@@ -11,20 +11,20 @@ let u8 = byte: integer { signed: false; };
 
 let Thing = struct {
     nb_props: u8;
-    props:    ThingProp[nb_props];
+    props:    [nb_props] ThingProp;
 };
 
 let ThingProp = struct {
-    name: byte[4]: string;
+    name: [4] byte: string;
 };
 
 let AsArray = struct {
-    values: u8[4];
+    values: [4] u8;
 };
 
 file {
     nb_things: u8;
-    things:    Thing[nb_things];
+    things:    [nb_things] Thing;
 }
 
 """

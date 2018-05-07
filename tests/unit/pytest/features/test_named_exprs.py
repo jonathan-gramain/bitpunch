@@ -7,16 +7,16 @@ import conftest
 
 spec_file_named_exprs_1_1 = """
 
-let u16 = byte[2]: integer { signed: false; endian: 'little'; };
+let u16 = [2] byte: integer { signed: false; endian: 'little'; };
 
 let Number = struct {
-    raw: byte[2];
+    raw: [2] byte;
     let ?value = raw: integer { signed: false; endian: 'little'; };
 };
 
 file {
-    typed:   u16[3];
-    untyped: Number[3];
+    typed:   [3] u16;
+    untyped: [3] Number;
 }
 
 """
@@ -29,18 +29,18 @@ data_file_named_exprs_1_1 = """
 
 spec_file_named_exprs_1_2 = """
 
-let u16 = byte[2]: integer { signed: false; endian: 'little'; };
+let u16 = [2] byte: integer { signed: false; endian: 'little'; };
 
 let Number = struct {
-    raw: byte[?byte_count];
+    raw: [?byte_count] byte;
 
     let ?byte_count = 2;
     let ?value = raw: integer { signed: false; endian: 'little'; };
 };
 
 file {
-    typed:   u16[3];
-    untyped: Number[3];
+    typed:   [3] u16;
+    untyped: [3] Number;
 }
 
 """
@@ -55,11 +55,11 @@ spec_file_named_exprs_1_3 = """
 
 let ?global_byte_count = 2;
 
-let u16 = byte[?global_byte_count]: integer { signed: false;
+let u16 = [?global_byte_count] byte: integer { signed: false;
                                               endian: 'little'; };
 
 let Number = struct {
-    raw: byte[?byte_count];
+    raw: [?byte_count] byte;
 
     let ?byte_count = ?global_byte_count;
     let ?value = raw: integer { signed: false; endian: 'little'; };
@@ -68,8 +68,8 @@ let Number = struct {
 };
 
 file {
-    typed:   u16[3];
-    untyped: Number[3];
+    typed:   [3] u16;
+    untyped: [3] Number;
 }
 
 """
@@ -108,30 +108,30 @@ def test_named_exprs_1(params_named_exprs_1):
 
 spec_file_named_exprs_2_1 = """
 
-let u16 = byte[2]: integer { signed: false; endian: 'little'; };
+let u16 = [2] byte: integer { signed: false; endian: 'little'; };
 
 file {
-    typed:   u16[3];
-    untyped: byte[6];
+    typed:   [3] u16;
+    untyped: [6] byte;
 
-    let ?untyped_as_typed = untyped: u16[];
+    let ?untyped_as_typed = untyped: [] u16;
 }
 
 """
 
 spec_file_named_exprs_2_2 = """
 
-let u16 = byte[2]: integer { signed: false; endian: 'little'; };
+let u16 = [2] byte: integer { signed: false; endian: 'little'; };
 
 let Foo = struct {
-    bar: byte[];
+    bar: [] byte;
 };
 
 file {
-    typed:   u16[3];
-    untyped: byte[6];
+    typed:   [3] u16;
+    untyped: [6] byte;
 
-    let ?untyped_as_typed = untyped: byte[]: u16[];
+    let ?untyped_as_typed = untyped: [] byte: [] u16;
 }
 
 """
@@ -166,7 +166,7 @@ def test_named_exprs_2(params_named_exprs_2):
 
 spec_file_named_exprs_3 = """
 
-let u16 = byte[2]: integer { signed: false; endian: 'little'; };
+let u16 = [2] byte: integer { signed: false; endian: 'little'; };
 
 let Number = struct {
     value: u16;
@@ -175,8 +175,8 @@ let Number = struct {
 };
 
 file {
-    typed:   u16[3];
-    numbers: Number[3];
+    typed:   [3] u16;
+    numbers: [3] Number;
 
     let ?numbers = numbers;
 }
@@ -210,15 +210,15 @@ def test_named_exprs_3(params_named_exprs_3):
 
 spec_file_named_exprs_4 = """
 
-let u16 = byte[2]: integer { signed: false; endian: 'little'; };
+let u16 = [2] byte: integer { signed: false; endian: 'little'; };
 
 let Number = struct {
     value: u16;
 };
 
 file {
-    data: byte[];
-    let ?second_and_third_numbers = data[sizeof(Number)..]: Number[];
+    data: [] byte;
+    let ?second_and_third_numbers = data[sizeof(Number)..]: [] Number;
 }
 
 """
@@ -255,13 +255,13 @@ let ?minus_one_plus_two = -1 + 2;
 let ?false = false;
 let ?little = 'little';
 
-let u8 = byte[?one]: integer { signed: ?false; endian: ?little; };
-let u16 = byte[?two]: integer { signed: ?false; endian: ?little; };
+let u8 = [?one] byte: integer { signed: ?false; endian: ?little; };
+let u16 = [?two] byte: integer { signed: ?false; endian: ?little; };
 
 let ?two = ?one + ?one;
 
 let Series = struct {
-    values:        u16[?series_length];
+    values:        [?series_length] u16;
 
     let ?my_index = index(series, self);
     let ?series_length = series_length[?my_index];
@@ -269,8 +269,8 @@ let Series = struct {
 
 file {
     nb_series:     u8;
-    series_length: u8[nb_series];
-    series:        Series[nb_series];
+    series_length: [nb_series] u8;
+    series:        [nb_series] Series;
     let ?series_type = Series;
     let ?first_series = series[0];
     let ?first_series_first_value = series[0].values[0];
@@ -310,19 +310,19 @@ def test_named_exprs_5(params_named_exprs_5):
 spec_file_named_exprs_polymorphic = """
 
 let Selector = byte: integer { signed: false; };
-let Count = byte[2]: integer { signed: false; endian: 'big'; };
+let Count = [2] byte: integer { signed: false; endian: 'big'; };
 let Value = Selector;
 
 
 let T = struct {
     let IntArray = struct {
         count: Count;
-        values: Value[count];
+        values: [count] Value;
         let ?my_type = ?type;
     };
 
     let Message = struct {
-        value: byte[]: string { boundary: '\\n'; };
+        value: [] byte: string { boundary: '\\n'; };
         let ?my_type = ?type;
     };
 
@@ -340,7 +340,7 @@ let T = struct {
 };
 
 file {
-    items: T[];
+    items: [] T;
 }
 
 """
@@ -348,7 +348,7 @@ file {
 spec_file_named_exprs_polymorphic_in_anonymous_1 = """
 
 let Selector = byte: integer { signed: false; };
-let Count = byte[2]: integer { signed: false; endian: 'big'; };
+let Count = [2] byte: integer { signed: false; endian: 'big'; };
 let Value = Selector;
 
 
@@ -359,12 +359,12 @@ let T = struct {
 let SubT = struct {
     let IntArray = struct {
         count: Count;
-        values: Value[count];
+        values: [count] Value;
         let ?my_type = ?type;
     };
 
     let Message = struct {
-        value: byte[]: string { boundary: '\\n'; };
+        value: [] byte: string { boundary: '\\n'; };
         let ?my_type = ?type;
     };
 
@@ -382,7 +382,7 @@ let SubT = struct {
 };
 
 file {
-    items: T[];
+    items: [] T;
 }
 
 """
@@ -502,7 +502,7 @@ let SubT = struct {
 };
 
 file {
-    items: T[];
+    items: [] T;
 }
 
 """
@@ -534,14 +534,14 @@ def test_named_exprs_polymorphic_hydra(params_named_exprs_polymorphic_hydra):
 
 spec_file_named_exprs_invalid_1 = """
 
-let u16 = byte[2]: integer { signed: false; endian: 'little'; };
+let u16 = [2] byte: integer { signed: false; endian: 'little'; };
 
 let Number = struct {
     value: u16;
 };
 
 file {
-    data: byte[];
+    data: [] byte;
     let ?something = does_not_exist;
 }
 
@@ -549,14 +549,14 @@ file {
 
 spec_file_named_exprs_invalid_2 = """
 
-let u16 = byte[2]: integer { signed: false; endian: 'little'; };
+let u16 = [2] byte: integer { signed: false; endian: 'little'; };
 
 let Number = struct {
     value: u16;
 };
 
 file {
-    data: byte[];
+    data: [] byte;
     let ?something = ?does_not_exist;
 }
 

@@ -18,7 +18,7 @@ file {
 
 let Foo = struct {
     length:   u8;
-    contents: byte[length];
+    contents: [length] byte;
 };
 
 """, """
@@ -30,35 +30,35 @@ file {
 
 let Foo = struct {
     length:     u8;
-    bars:       Bar[length];
+    bars:       [length] Bar;
 };
 
 let Bar = struct {
-    sub_bar:    byte[4];
+    sub_bar:    [4] byte;
 };
 
 """, """
 let u8 = byte: integer { signed: false; };
 
 file {
-    data: byte[]: Foo;
+    data: [] byte: Foo;
 }
 
 let Foo = struct {
     length:   u8;
-    contents: byte[length];
+    contents: [length] byte;
 };
 
 """, """
 let u8 = byte: integer { signed: false; };
 
 file {
-    data: byte[]: Foo[];
+    data: [] byte: [] Foo;
 }
 
 let Foo = struct {
     length:   u8;
-    contents: byte[length];
+    contents: [length] byte;
 };
 
 """, """
@@ -69,41 +69,41 @@ file {
 
 let Foo = struct {
     length:   u8;
-    contents: byte[length];
+    contents: [length] byte;
 };
 
 """, """
 let u8 = byte: integer { signed: false; };
 
 file {
-    data: byte[];
+    data: [] byte;
     let ?data = data: Foo;
 }
 
 let Foo = struct {
     length:   u8;
-    contents: byte[length];
+    contents: [length] byte;
 };
 
 """, """
 let u8 = byte: integer { signed: false; };
 
 file {
-    data: byte[];
+    data: [] byte;
     let ?data1 = data;
     let ?data2 = ?data1: Foo;
 }
 
 let Foo = struct {
     length:   u8;
-    contents: byte[length];
+    contents: [length] byte;
 };
 
 """, """
 let u8 = byte: integer { signed: false; };
 
 file {
-    data: byte[];
+    data: [] byte;
     let ?data1 = data;
     let ?data2 = ?data1: Foo;
 }
@@ -114,32 +114,32 @@ let Foo = struct {
 
 let Bar = struct {
     length:   u8;
-    contents: byte[length];
+    contents: [length] byte;
 };
 
 """, """
 let u8 = byte: integer { signed: false; };
 
 file {
-    data: byte[];
+    data: [] byte;
     let ?data1 = data;
     let ?data2 = ?data1: Foo;
 }
 
 let Foo = struct {
     length: u8;
-    bars:   Bar[length];
+    bars:   [length] Bar;
 };
 
 let Bar = struct {
-    sub_bar: byte[4];
+    sub_bar: [4] byte;
 };
 
 """, """
 let u8 = byte: integer { signed: false; };
 
 file {
-    data: byte[];
+    data: [] byte;
     let ?data1 = data;
     let ?data2 = ?data1: Foo;
 }
@@ -149,7 +149,7 @@ let Foo = struct {
 
     let Bar = struct {
         length:   u8;
-        contents: byte[length];
+        contents: [length] byte;
     };
 };
 
@@ -162,7 +162,7 @@ file {
 
 let Foo = struct {
     length:   u8;
-    contents: byte[length];
+    contents: [length] byte;
 };
 
 """, """
@@ -172,18 +172,18 @@ file {
     foo: Foo;
 }
 
-let Foo = byte[]: Bar;
+let Foo = [] byte: Bar;
 
 let Bar = struct {
     length:   u8;
-    contents: byte[length];
+    contents: [length] byte;
 };
 
 """, """
 let u8 = byte: integer { signed: false; };
 
 file {
-    data: byte[];
+    data: [] byte;
     let ?data_slice = data[10..20];
 }
 
@@ -191,7 +191,7 @@ file {
 let u8 = byte: integer { signed: false; };
 
 file {
-    data: byte[];
+    data: [] byte;
     let ?data = data;
     let ?data_slice1 = ?data[10..20];
 }
@@ -221,7 +221,7 @@ file {
 }
 
 let Foo = struct {
-    sub_foo: u8[4];
+    sub_foo: [4] u8;
 };
 
 """, """
@@ -231,12 +231,12 @@ file {
     foo_offset: u8;
     nb_foo:     u8;
     foo_size:   u8;
-    let ?data = bytes(file)[foo_offset..]: Foo[nb_foo];
+    let ?data = bytes(file)[foo_offset..]: [nb_foo] Foo;
     let ?data_slice = ?data[2..3];
 }
 
 let Foo = struct {
-    sub_foo: u8[foo_size];
+    sub_foo: [foo_size] u8;
 };
 
 """, """
@@ -246,12 +246,12 @@ file {
     foo_offset: byte;
     nb_foo:     byte;
     foo_size:   byte;
-    let ?data = bytes(file)[foo_offset:u8..]: Foo[nb_foo:u8];
+    let ?data = bytes(file)[foo_offset:u8..]: [nb_foo:u8] Foo;
     let ?data_slice = ?data[2..3];
 }
 
 let Foo = struct {
-    sub_foo: u8[foo_size: u8];
+    sub_foo: [foo_size: u8] u8;
 };
 
 """
@@ -267,7 +267,7 @@ def test_resolve_types_and_expr(spec):
 #
 
 spec_unknown_type_name_1 = """
-let Foo = byte[42];
+let Foo = [42] byte;
 
 file {
     bar: Bar;

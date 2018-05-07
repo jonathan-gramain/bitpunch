@@ -6,15 +6,15 @@
 
 let MP4Int = integer { signed: false; endian: 'big'; };
 
-let u8  = byte[1]: MP4Int;
-let u16 = byte[2]: MP4Int;
-let u32 = byte[4]: MP4Int;
-let u64 = byte[8]: MP4Int;
+let u8  = [1] byte: MP4Int;
+let u16 = [2] byte: MP4Int;
+let u32 = [4] byte: MP4Int;
+let u64 = [8] byte: MP4Int;
 
 let timestamp32 = u32;
 let timestamp64 = u64;
 
-let ATOM = byte[4]: string;
+let ATOM = [4] byte: string;
 
 let BOX_HDR = struct {
     size: u32;
@@ -26,30 +26,30 @@ let BOX = struct {
 
     if (hdr.atom == "free" ||
         hdr.atom == "skip") {
-        free_space: byte[];
+        free_space: [] byte;
     }
 
     if (hdr.atom == "ftyp") {
         ftyp: struct {
             major_brand: ATOM;
             major_brand_version: u32;
-            compatible_brands: ATOM[];
+            compatible_brands: [] ATOM;
         };
     }
 
     if (hdr.atom == "uuid") {
-        uuid_bytes: byte[];
+        uuid_bytes: [] byte;
     }
 
     if (hdr.atom == "mdat") {
-        media_data: byte[];
+        media_data: [] byte;
     }
 
     if (hdr.atom == "moov") {
-        moov_boxes: BOX_MOOV[];
+        moov_boxes: [] BOX_MOOV;
     }
 
-    trailer: byte[];
+    trailer: [] byte;
 
     span hdr.size;
     key hdr.atom;
@@ -67,7 +67,7 @@ let BOX_MOOV = struct {
     if (hdr.atom == "mvhd") {
         mvhd: struct {
             version: u8;
-            flags: u8[3];
+            flags: [3] u8;
             if (version == 0) {
                 v0: struct {
                     created: timestamp32;
@@ -86,7 +86,7 @@ let BOX_MOOV = struct {
             }
             playback_speed: u32;
             user_volume: u16;
-            reserved: u16[5];
+            reserved: [5] u16;
             width: TRANSFORM;
             height: TRANSFORM;
             left: u32;
@@ -96,10 +96,10 @@ let BOX_MOOV = struct {
     }
 
     if (hdr.atom == "trak") {
-        trak_boxes: BOX_TRAK[];
+        trak_boxes: [] BOX_TRAK;
     }
 
-    trailer: byte[];
+    trailer: [] byte;
 
     span hdr.size;
     key hdr.atom;
@@ -111,13 +111,13 @@ let BOX_TRAK = struct {
     if (hdr.atom == "tkhd") {
         tkhd: struct {
             version: u8;
-            flags: u8[3];
+            flags: [3] u8;
             if (version == 0) {
                 v0: struct {
                     created: timestamp32;
                     modified: timestamp32;
                     track_id: u32;
-                    reserved: u32[2];
+                    reserved: [2] u32;
                     duration: u32;
                 };
             }
@@ -126,7 +126,7 @@ let BOX_TRAK = struct {
                     created: timestamp64;
                     modified: timestamp64;
                     track_id: u32;
-                    reserved: u32[2];
+                    reserved: [2] u32;
                     duration: u64;
                 };
             }
@@ -146,14 +146,14 @@ let BOX_TRAK = struct {
     }
 
     if (hdr.atom == "edts") {
-        edts_boxes: BOX_EDTS[];
+        edts_boxes: [] BOX_EDTS;
     }
 
     if (hdr.atom == "mdia") {
-        mdia_boxes: BOX_MDIA[];
+        mdia_boxes: [] BOX_MDIA;
     }
 
-    trailer: byte[];
+    trailer: [] byte;
 
     span hdr.size;
     key hdr.atom;
@@ -165,7 +165,7 @@ let BOX_EDTS = struct {
     if (hdr.atom == "elst") {
         elst: struct {
             version: u8;
-            flags: u8[3];
+            flags: [3] u8;
             nb_edits: u32;
             if (version == 0) {
                 v0: struct {
@@ -183,7 +183,7 @@ let BOX_EDTS = struct {
         };
     }
 
-    trailer: byte[];
+    trailer: [] byte;
 
     span hdr.size;
     key hdr.atom;
@@ -196,7 +196,7 @@ let BOX_MDIA = struct {
     if (hdr.atom == "mdhd") {
         mdhd: struct {
             version: u8;
-            flags: u8[3];
+            flags: [3] u8;
             if (version == 0) {
                 v0: struct {
                     created: timestamp32;
@@ -219,19 +219,19 @@ let BOX_MDIA = struct {
     if (hdr.atom == "hdlr") {
         hdlr: struct {
             version: u8;
-            flags: u8[3];
+            flags: [3] u8;
             quicktime_type: ATOM;
             subtype_media: ATOM;
             manufacturer: ATOM;
-            unused: u32[2];
+            unused: [2] u32;
         };
     }
 
     if (hdr.atom == "minf") {
-        minf_boxes: BOX_MINF[];
+        minf_boxes: [] BOX_MINF;
     }
 
-    trailer: byte[];
+    trailer: [] byte;
 
     span hdr.size;
     key hdr.atom;
@@ -243,26 +243,26 @@ let BOX_MINF = struct {
     if (hdr.atom == "vmhd") {
         vmhd: struct {
             version: u8;
-            flags: u8[3];
+            flags: [3] u8;
         };
     }
 
     if (hdr.atom == "smhd") {
         smhd: struct {
             version: u8;
-            flags: u8[3];
+            flags: [3] u8;
         };
     }
 
     if (hdr.atom == "dinf") {
-        dinf_boxes: BOX_DINF[];
+        dinf_boxes: [] BOX_DINF;
     }
 
     if (hdr.atom == "stbl") {
-        stbl_boxes: BOX_STBL[];
+        stbl_boxes: [] BOX_STBL;
     }
 
-    trailer: byte[];
+    trailer: [] byte;
 
     span hdr.size;
     key hdr.atom;
@@ -274,11 +274,11 @@ let BOX_DINF = struct {
     if (hdr.atom == "dref") {
         dref: struct {
             version: u8;
-            flags: u8[3];
+            flags: [3] u8;
         };
     }
 
-    trailer: byte[];
+    trailer: [] byte;
 
     span hdr.size;
     key hdr.atom;
@@ -290,9 +290,9 @@ let BOX_STBL = struct {
     if (hdr.atom == "stsd") {
         stsd: struct {
             version: u8;
-            flags: u8[3];
+            flags: [3] u8;
             number_of_descriptions: u32;
-            stsd_boxes: BOX_STSD[];
+            stsd_boxes: [] BOX_STSD;
         };
     }
 
@@ -303,9 +303,9 @@ let BOX_STBL = struct {
         };
         stts: struct {
             version: u8;
-            flags: u8[3];
+            flags: [3] u8;
             number_of_durations: u32;
-            durations: DURATION[number_of_durations];
+            durations: [number_of_durations] DURATION;
         };
     }
 
@@ -315,16 +315,16 @@ let BOX_STBL = struct {
         };
         stss: struct {
             version: u8;
-            flags: u8[3];
+            flags: [3] u8;
             number_of_key_frames: u32;
-            key_frames: KEY_FRAME[number_of_key_frames];
+            key_frames: [number_of_key_frames] KEY_FRAME;
         };
     }
 
     if (hdr.atom == "ctts") {
         ctts: struct {
             version: u8;
-            flags: u8[3];
+            flags: [3] u8;
         };
     }
 
@@ -336,32 +336,32 @@ let BOX_STBL = struct {
         };
         stsc: struct {
             version: u8;
-            flags: u8[3];
+            flags: [3] u8;
             number_of_blocks: u32;
-            blocks: BLOCK[number_of_blocks];
+            blocks: [number_of_blocks] BLOCK;
         };
     }
 
     if (hdr.atom == "stsz") {
         stsz: struct {
             version: u8;
-            flags: u8[3];
+            flags: [3] u8;
             frame_byte_size_for_all: u32;
             number_of_frame_sizes: u32;
-            frame_sizes: u32[number_of_frame_sizes];
+            frame_sizes: [number_of_frame_sizes] u32;
         };
     }
 
     if (hdr.atom == "stco") {
         stco: struct {
             version: u8;
-            flags: u8[3];
+            flags: [3] u8;
             number_of_block_offsets: u32;
-            block_offsets: u32[number_of_block_offsets];
+            block_offsets: [number_of_block_offsets] u32;
         };
     }
 
-    trailer: byte[];
+    trailer: [] byte;
 
     span hdr.size;
     key hdr.atom;
@@ -370,7 +370,7 @@ let BOX_STBL = struct {
 let BOX_STSD = struct {
     hdr: BOX_HDR;
 
-    skip: byte[6];
+    skip: [6] byte;
     data_ref_key: u16;
     encoding_version: u16;
     encoding_revision_level: u16;
@@ -389,7 +389,7 @@ let BOX_STSD = struct {
             data_size: u32;
             frame_count: u16;
             encoder_name_len: u8;
-            encoder_name: byte[31]: string;
+            encoder_name: [31] byte: string;
             pixel_depth: u16;
             color_table_id: u16;
         };
@@ -408,12 +408,12 @@ let BOX_STSD = struct {
         };
     }
 
-    trailer: byte[];
+    trailer: [] byte;
 
     span hdr.size;
     key hdr.atom;
 };
 
 file {
-     boxes: BOX[];
+     boxes: [] BOX;
 }

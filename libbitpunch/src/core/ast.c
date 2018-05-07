@@ -1818,14 +1818,18 @@ compile_array(struct ast_node_hdl *node,
               struct compile_ctx *ctx,
               enum resolve_expect_mask expect_mask)
 {
-    if (NULL != node->ndat->u.array.item_count
-        && -1 == compile_expr(node->ndat->u.array.item_count, ctx, FALSE)) {
-        return -1;
+    if (NULL != node->ndat->u.array.item_count) {
+        compile_expr(node->ndat->u.array.item_count, ctx, FALSE);
     }
     compile_dpath(&node->ndat->u.array.item_type, ctx,
-                  0u, COMPILE_TAG_NODE_TYPE);
+                  COMPILE_TAG_NODE_TYPE, 0u);
+    if (!compile_continue(ctx)) {
+        return -1;
+    }
+    assert(NULL != node->ndat->u.array.item_type.filter);
     if (AST_NODE_TYPE_BYTE == node->ndat->u.array.item_type.item->ndat->type
-        && NULL == node->ndat->u.array.item_type.filter) {
+        && AST_NODE_TYPE_REXPR_ITEM ==
+        node->ndat->u.array.item_type.filter->ndat->type) {
         struct ast_node_data *byte_array;
 
         byte_array = new_safe(struct ast_node_data);
@@ -2181,48 +2185,12 @@ compile_expr_operator_subscript(struct ast_node_hdl *node,
                                 enum resolve_expect_mask expect_mask)
 {
     struct ast_node_hdl *anchor_expr;
-    struct ast_node_hdl *anchor_target;
-    struct ast_node_hdl *key;
-    struct ast_node_hdl *twin;
     struct ast_node_data *compiled_type;
     
     anchor_expr = node->ndat->u.op_subscript_common.anchor_expr;
-    key = node->ndat->u.op_subscript.index.key;
-    twin = node->ndat->u.op_subscript.index.twin;
     if (-1 == compile_node(anchor_expr, ctx, COMPILE_TAG_NODE_TYPE, 0u,
                            expect_mask)) {
         return -1;
-    }
-    if (0 != (expect_mask & RESOLVE_EXPECT_TYPE)) {
-        // XXX check that all polymorphic targets are types
-        anchor_target = ast_node_get_target_type(anchor_expr);
-        if (NULL != anchor_target) {
-            assert(ast_node_is_item(anchor_target));
-            if (NULL != twin) {
-                semantic_error(SEMANTIC_LOGLEVEL_ERROR, &twin->loc,
-                               "cannot have a twin index for array type "
-                               "declaration");
-                return -1;
-            }
-            if (NULL != key && -1 == compile_expr(key, ctx, TRUE)) {
-                return -1;
-            }
-            compiled_type = new_safe(struct ast_node_data);
-            compiled_type->type = AST_NODE_TYPE_ARRAY;
-            compiled_type->u.item.min_span_size = SPAN_SIZE_UNDEF;
-            dpath_node_reset(&compiled_type->u.array.item_type);
-            compiled_type->u.array.item_type.item = anchor_expr;
-            compiled_type->u.array.item_count = key;
-            node->ndat = compiled_type;
-            return 0;
-        } else if (0 == (expect_mask & RESOLVE_EXPECT_EXPRESSION)) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &anchor_expr->loc,
-                           "expecting type, got '%s'",
-                           ast_node_type_str(
-                               ast_node_get_named_expr_target(anchor_expr)
-                               ->ndat->type));
-            return -1;
-        }
     }
     if (0 != (expect_mask & RESOLVE_EXPECT_EXPRESSION)) {
         struct subscript_index *index;

@@ -14,14 +14,14 @@ spec_file_pseudo_fs = """
 
 let Int = integer { signed: false; endian: 'little'; };
 let u8 = byte: Int;
-let u16 = byte[2]: Int;
+let u16 = [2] byte: Int;
 
 file {
     hdr:     Header;
-    contents: byte[];
+    contents: [] byte;
 
     let ?raw_catalog = bytes(file)[hdr.catalog_location..];
-    let ?catalog = ?raw_catalog: Entry[hdr.nb_catalog_entries];
+    let ?catalog = ?raw_catalog: [hdr.nb_catalog_entries] Entry;
 }
 
 let Header = struct {
@@ -32,7 +32,7 @@ let Header = struct {
 let Entry = struct {
     entry_location: u16;
     entry_size:     u16;
-    entry_type:     byte[4]: string { boundary: ' '; };
+    entry_type:     [4] byte: string { boundary: ' '; };
 
     let ?data = bytes(file)[entry_location ..
                             entry_location + entry_size];
@@ -49,7 +49,7 @@ let Entry = struct {
         filesize:        u16;
         filedata_offset: u16;
         dir_entry_index: u16;
-        filename:        byte[]: string;
+        filename:        [] byte: string;
 
         let ?dir = ?catalog[dir_entry_index].?data: Dir;
         let ?filedata = bytes(file)[filedata_offset ..
@@ -57,7 +57,7 @@ let Entry = struct {
     };
 
     let Dir = struct {
-        dirname:         byte[]: string;
+        dirname:         [] byte: string;
     };
 };
 

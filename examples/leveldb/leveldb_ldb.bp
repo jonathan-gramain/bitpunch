@@ -8,14 +8,14 @@
 
 let FixInt   = integer { signed: false; endian: 'little'; };
 let FixInt8  = byte: FixInt;
-let FixInt32 = byte[4]: FixInt;
-let VarInt   = byte[]: varint;
+let FixInt32 = [4] byte: FixInt;
+let VarInt   = [] byte: varint;
 
-let CompressedDataBlock = byte[]: snappy: DataBlock;
+let CompressedDataBlock = [] byte: snappy: DataBlock;
 
 let DataBlock = struct {
-    entries:     KeyValue[];
-    restarts:    FixInt32[nb_restarts];
+    entries:     [] KeyValue;
+    restarts:    [nb_restarts] FixInt32;
     nb_restarts: FixInt32;
 };
 
@@ -23,8 +23,8 @@ let KeyValue = struct {
     key_shared_size:     VarInt;
     key_non_shared_size: VarInt;
     value_size:          VarInt;
-    key_non_shared:      byte[key_non_shared_size];
-    value:               byte[value_size];
+    key_non_shared:      [key_non_shared_size] byte;
+    value:               [value_size] byte;
 };
 
 let BlockTrailer = struct {
@@ -54,13 +54,13 @@ let BlockHandle = struct {
 let Footer = struct {
     metaindex_handle: BlockHandle;
     index_handle:     BlockHandle;
-    :                 byte[];
-    magic:            byte[8];
+    :                 [] byte;
+    magic:            [8] byte;
     span 48;
 };
 
 file {
-    payload: byte[];
+    payload: [] byte;
     footer:  Footer;
 
     let ?index =     footer.index_handle;

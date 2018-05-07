@@ -2,7 +2,7 @@
 
 Invalid array size type:
 
-u32[1 == 2] contents;
+contents: [1 == 2] u32;
 
 
 ===============
@@ -10,18 +10,18 @@ u32[1 == 2] contents;
 Test that contents get a static span size:
 
 
-contents: byte[sizeof (MYTYPE)];
+contents: [sizeof (MYTYPE)] byte;
 ...
 
 struct MYTYPE {
-    foo: byte[sizeof (OTHERTYPE)];
+    foo: [sizeof (OTHERTYPE)] byte;
 };
 
 struct OTHERTYPE {
     struct INNERTYPE {
-        bar: byte[42];
+        bar: [42] byte;
     };
-    baz: byte[sizeof (INNERTYPE)];
+    baz: [sizeof (INNERTYPE)] byte;
 };
 
 ===============
@@ -29,12 +29,12 @@ struct OTHERTYPE {
 Test that contents get a static span size:
 
 
-contents: byte[sizeof (MYTYPE)];
+contents: [sizeof (MYTYPE)] byte;
 ...
 
 struct MYTYPE {
-    foo: byte[sizeof (bar)];
-    : byte[42]          bar;
+    foo: [sizeof (bar)] byte;
+    : [42] byte          bar;
 };
 
 ===============

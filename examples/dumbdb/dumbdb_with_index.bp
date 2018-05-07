@@ -5,17 +5,17 @@
  * reached.
  */
 
-let u32 = byte[4]: integer { signed: false; endian: 'big'; };
+let u32 = [4] byte: integer { signed: false; endian: 'big'; };
 
 let DumbDBValue = struct {
-    byte flags : integer { signed: false; };
-    u32 key_size;
-    key_data: byte[key_size]: string;
-    u32 value_size;
-    value_data: byte[value_size];
+    flags: byte: integer { signed: false; };
+    key_size: u32;
+    key_data: [key_size] byte: string;
+    value_size: u32;
+    value_data: [value_size] byte;
     key key_data;
 };
 
 file {
-    DumbDBValue[] values;
+    values: [] DumbDBValue;
 }

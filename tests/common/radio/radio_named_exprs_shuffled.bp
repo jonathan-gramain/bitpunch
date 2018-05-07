@@ -1,19 +1,19 @@
 let RadioInt = integer { signed: false; endian: 'big'; };
-let u8  = byte[1]: RadioInt;
-let u16 = byte[2]: RadioInt;
-let u32 = byte[4]: RadioInt;
-let u64 = byte[8]: RadioInt;
+let u8  = [1] byte: RadioInt;
+let u16 = [2] byte: RadioInt;
+let u32 = [4] byte: RadioInt;
+let u64 = [8] byte: RadioInt;
 
 
 file {
     n_codes: u32;
-    codes: RadioCode[n_codes];
-    data: byte[];
+    codes: [n_codes] RadioCode;
+    data: [] byte;
 
     let RadioCode = struct {
-        : byte[3];
+        : [3] byte;
         start: u8;
-        : byte[3];
+        : [3] byte;
         len: u8;
         let codename = data[start..start+len]: string;
         key codename;

@@ -8,23 +8,23 @@ import conftest
 spec_file_conditional_fields = """
 
 let u8 = byte: integer { signed: false; };
-let u32 = byte[4]: integer { signed: false; endian: 'big'; };
+let u32 = [4] byte: integer { signed: false; endian: 'big'; };
 
 let IntegerItem = struct {
     value: u32;
 };
 
 let StringItem = struct {
-    value: byte[]: string { boundary: '...'; };
+    value: [] byte: string { boundary: '...'; };
 };
 
 let RawItem = struct {
     size: u32;
-    value: byte[size];
+    value: [size] byte;
 };
 
 let Item = struct {
-    item_type: byte[8]: string { boundary: ' '; };
+    item_type: [8] byte: string { boundary: ' '; };
     if (item_type == 'integer') {
         item: IntegerItem;
     } else if (item_type == 'string') {
@@ -35,7 +35,7 @@ let Item = struct {
 };
 
 file {
-    items: Item[];
+    items: [] Item;
 }
 
 """

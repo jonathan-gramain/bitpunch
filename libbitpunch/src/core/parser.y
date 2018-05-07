@@ -755,10 +755,11 @@
 %right OP_ARITH_UNARY_OP '!' '~' OP_SIZEOF
 %left  ':'
 %left  OP_SUBSCRIPT OP_FCALL '.'
+%right OP_ARRAY_DECL
 %left  OP_BRACKETS
 
 %type <ident> opt_identifier
-%type <ast_node_hdl> g_integer g_boolean g_identifier g_literal block block_def expr twin_index opt_twin_index
+%type <ast_node_hdl> g_integer g_boolean g_identifier g_literal block block_def expr opt_expr twin_index opt_twin_index
 %type <file_block> file_block
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
 %type <field> field_stmt
@@ -946,6 +947,20 @@ expr:
   | '(' expr ')' {
         $$ = $2;
     }
+  | '[' opt_expr ']' expr %prec OP_ARRAY_DECL {
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_ARRAY, NULL);
+        parser_location_make_span(&$$->loc, &@1, &@4);
+        $$->ndat->u.item.min_span_size = SPAN_SIZE_UNDEF;
+        $$->ndat->u.array.item_count = $2;
+        dpath_node_reset(&$$->ndat->u.array.item_type);
+        $$->ndat->u.array.item_type.item = $4;
+    }
+
+opt_expr:
+    /* empty */ {
+      memset(&$$, 0, sizeof ($$));
+    }
+  | expr
 
 key_expr:
     expr opt_twin_index {

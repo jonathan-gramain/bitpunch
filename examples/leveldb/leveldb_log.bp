@@ -13,28 +13,28 @@
 let FixInt = integer { signed: false; endian: 'little'; };
 
 let FixInt8 =  byte:    FixInt;
-let FixInt16 = byte[2]: FixInt;
-let FixInt32 = byte[4]: FixInt;
+let FixInt16 = [2] byte: FixInt;
+let FixInt32 = [4] byte: FixInt;
 
 file {
-    head_blocks: LogBlock[];
+    head_blocks: [] LogBlock;
     tail_block: LogTailBlock;
 }
 
 let LogBlock = struct {
-       records: Record[];
-       trailer: byte[];
+       records: [] Record;
+       trailer: [] byte;
        span 32768;
 };
 
 let LogTailBlock = struct {
-       records: Record[];
+       records: [] Record;
 };
 
 let Record = struct {
        checksum: FixInt32;
        length:   FixInt16;
        rtype:    FixInt8;
-       data:     byte[length]: string;
+       data:     [length] byte: string;
        minspan 7;
 };

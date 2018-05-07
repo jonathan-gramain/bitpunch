@@ -7,54 +7,54 @@ import conftest
 
 spec_file_simple_filter_as_type = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
 let AsContents = struct {
     n: u32;
-    data: byte[n];
+    data: [n] byte;
 };
 
 file {
-    contents: byte[]: AsContents;
+    contents: [] byte: AsContents;
 }
 
 """
 
 spec_file_simple_filter_as_type_twice = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
 let DummyStruct = struct {
     n: u32;
-    dummy: byte[n];
+    dummy: [n] byte;
 };
 
 let AsContents = struct {
     n: u32;
-    data: byte[n];
+    data: [n] byte;
 };
 
 file {
-    contents: byte[]: DummyStruct: AsContents;
+    contents: [] byte: DummyStruct: AsContents;
 }
 
 """
 
 spec_file_simple_filter_as_type_anon_hop = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
 let HopStruct = struct {
     n: u32;
-    : byte[n]: AsContents;
+    : [n] byte: AsContents;
 };
 
 let AsContents = struct {
-    data: byte[];
+    data: [] byte;
 };
 
 file {
-    contents: byte[]: HopStruct;
+    contents: [] byte: HopStruct;
 }
 
 """
@@ -66,17 +66,17 @@ data_file_simple_filter_as_type = """
 
 spec_file_simple_filter_as_type_constrained = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
 let AsContents = struct {
     n: u32;
-    data: byte[n];
+    data: [n] byte;
 };
 
 file {
-    header: byte[30];
-    contents: byte[20]: AsContents;
-    footer: byte[30];
+    header: [30] byte;
+    contents: [20] byte: AsContents;
+    footer: [30] byte;
 }
 
 """
@@ -97,39 +97,39 @@ data_file_simple_filter_as_type_constrained_bad = """
 
 spec_file_simple_filter_as_type_base64 = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
 let Base64Block = struct {
     n: u32;
-    : byte[n]: base64: AsContents;
+    : [n] byte: base64: AsContents;
 };
 
 let AsContents = struct {
-    data: byte[];
+    data: [] byte;
 };
 
 file {
-    contents: byte[]: Base64Block;
+    contents: [] byte: Base64Block;
 }
 
 """
 
 spec_file_simple_filter_as_type_base64_template = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 let Base64 = base64 {};
 
 let Base64Block = struct {
     n: u32;
-    : byte[n]: Base64: AsContents;
+    : [n] byte: Base64: AsContents;
 };
 
 let AsContents = struct {
-    data: byte[];
+    data: [] byte;
 };
 
 file {
-    contents: byte[]: Base64Block;
+    contents: [] byte: Base64Block;
 }
 
 """
@@ -208,71 +208,71 @@ def test_filter_bad(params_filter_bad):
 
 spec_file_simple_filter_line_separated_base64 = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
 let RawBlock = struct {
     n: u32;
-    : byte[n]: AsContents;
+    : [n] byte: AsContents;
 };
 
-let Base64Block = byte[]: string { boundary: '\\n'; }: base64: RawBlock;
+let Base64Block = [] byte: string { boundary: '\\n'; }: base64: RawBlock;
 
 let AsContents = struct {
-    data: byte[];
+    data: [] byte;
 
     let ?data_preview = data[..10];
 };
 
 file {
-    blocks: Base64Block[];
+    blocks: [] Base64Block;
 }
 
 """
 
 spec_file_simple_filter_line_separated_base64_2 = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
-let Base64Block = byte[]
+let Base64Block = [] byte
   : string { boundary: '\\n'; }
   : base64
   : struct {
     n: u32;
-    : byte[n]: AsContents;
+    : [n] byte: AsContents;
 };
 
 let AsContents = struct {
-    data: byte[];
+    data: [] byte;
 
     let ?data_preview = data[..10];
 };
 
 file {
-    blocks: Base64Block[];
+    blocks: [] Base64Block;
 }
 
 """
 
 spec_file_simple_filter_line_separated_base64_template = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 let CustomBase64Filter = base64 {};
 
-let Base64Block = byte[]
+let Base64Block = [] byte
   : string { boundary: '\\n'; }
   : CustomBase64Filter: struct {
       n: u32;
-      : byte[n]: AsContents;
+      : [n] byte: AsContents;
   };
 
 let AsContents = struct {
-    data: byte[];
+    data: [] byte;
 
     let ?data_preview = data[..10];
 };
 
 file {
-    blocks: Base64Block[];
+    blocks: [] Base64Block;
 }
 
 """
@@ -349,18 +349,18 @@ spec_file_filter_in_field_expression = """
 let Int = integer { signed: false; endian: 'big'; };
 
 let AsStruct = struct {
-    value: byte[1]: Int;
+    value: [1] byte: Int;
 };
 
 file {
-    a: byte[1];
-    b: byte[2];
+    a: [1] byte;
+    b: [2] byte;
 
     let a_as_int = (a: Int);
     let b_as_int = (b: Int);
 
     let ?a_as_struct = a: AsStruct;
-    let ?b_as_struct = bytes(b)[..]: byte[]: AsStruct;
+    let ?b_as_struct = bytes(b)[..]: [] byte: AsStruct;
 
     if (a_as_int == 1) {
         let ?nb_as_struct = ?a_as_struct;
@@ -416,10 +416,10 @@ spec_file_filter_encoded_integer_field = """
 
 let Int = integer { signed: false; endian: 'big'; };
 
-let Base64Line = byte[]: string { boundary: '\\n'; }: base64 {};
+let Base64Line = [] byte: string { boundary: '\\n'; }: base64 {};
 
 let Header = struct {
-    nb_messages: byte[4]: Int;
+    nb_messages: [4] byte: Int;
 
     let ?nb_messages = nb_messages;
 };
@@ -427,21 +427,21 @@ let Header = struct {
 let B64Header = Base64Line: Header;
 
 let B64Message = Base64Line: struct {
-    data: byte[]: string;
+    data: [] byte: string;
 
     let ?data = data;
     let ?data_as_split_strings = data: struct {
-        first_two: byte[2];
-        remain:    byte[];
+        first_two: [2] byte;
+        remain:    [] byte;
     };
 };
 
 file {
     hdr:      B64Header;
-    messages: B64Message[hdr.?nb_messages];
-    garbage:  byte[];
+    messages: [hdr.?nb_messages] B64Message;
+    garbage:  [] byte;
 
-    let ?first_message_data_3_chars = messages[0].data: byte[3]: string;
+    let ?first_message_data_3_chars = messages[0].data: [3] byte: string;
 }
 
 """
@@ -459,10 +459,10 @@ spec_file_filter_nested_base64 = """
 
 let Int = integer { signed: false; endian: 'big'; };
 
-let Base64Line = byte[]: string { boundary: '\\n'; }: base64 {};
+let Base64Line = [] byte: string { boundary: '\\n'; }: base64 {};
 
 let Header = struct {
-    nb_messages: byte[4]: Int;
+    nb_messages: [4] byte: Int;
 
     let ?nb_messages = nb_messages;
 };
@@ -470,25 +470,25 @@ let Header = struct {
 let B64Header = Base64Line: Header;
 
 let B64Message = Base64Line: struct {
-    data: byte[]: string;
+    data: [] byte: string;
 
     let ?data = data;
     let ?data_as_split_strings = data: struct {
-        first_two: byte[2];
-        remain:    byte[];
+        first_two: [2] byte;
+        remain:    [] byte;
     };
 };
 
 file {
-    : byte[]: base64: DecodedFile;
+    : [] byte: base64: DecodedFile;
 
-    let ?first_message_data_3_chars = messages[0].data: byte[3]: string;
+    let ?first_message_data_3_chars = messages[0].data: [3] byte: string;
 }
 
 let DecodedFile = struct {
     hdr:      B64Header;
-    messages: B64Message[hdr.?nb_messages];
-    garbage:  byte[];
+    messages: [hdr.?nb_messages] B64Message;
+    garbage:  [] byte;
 };
 
 """
@@ -503,11 +503,11 @@ spec_file_filter_base64_selector = """
 
 let Int = integer { signed: false; endian: 'big'; };
 
-let PlainLine = byte[]: string { boundary: '\\n'; };
+let PlainLine = [] byte: string { boundary: '\\n'; };
 let Base64Line = PlainLine: base64 {};
 
 let Header = struct {
-    nb_messages: byte[4]: Int;
+    nb_messages: [4] byte: Int;
 
     let ?nb_messages = nb_messages;
 };
@@ -515,7 +515,7 @@ let Header = struct {
 let B64Header = Base64Line: Header;
 
 let MessagePayload = struct {
-    data: byte[]: string;
+    data: [] byte: string;
 
     let ?data = data;
 };
@@ -530,17 +530,17 @@ let Message = struct {
     }
     let ?data = data;
     let ?data_as_split_strings = data: struct {
-        first_two: byte[2];
-        remain:    byte[];
+        first_two: [2] byte;
+        remain:    [] byte;
     };
 };
 
 file {
     hdr:      B64Header;
-    messages: Message[hdr.?nb_messages];
-    garbage:  byte[];
+    messages: [hdr.?nb_messages] Message;
+    garbage:  [] byte;
 
-    let ?first_message_data_3_chars = messages[0].data: byte[3]: string;
+    let ?first_message_data_3_chars = messages[0].data: [3] byte: string;
 }
 
 """
@@ -703,7 +703,7 @@ spec_file_ancestor_of_u8 = """
 let u8 = byte: integer { signed: false; };
 
 file {
-    contents: u8[5];
+    contents: [5] u8;
 }
 
 """
@@ -737,7 +737,7 @@ def test_ancestor_of_u8(params_ancestor_of_u8):
 
 spec_file_non_slack_array_filtered = """
 
-let NullTermFixedString = byte[8]: string { boundary: '\\0'; };
+let NullTermFixedString = [8] byte: string { boundary: '\\0'; };
 
 file {
     contents: NullTermFixedString;
@@ -786,12 +786,12 @@ spec_file_nested_filter_defining_size = """
 
 let Base64 = base64 {};
 let Base64LS = string { boundary: '\\n'; }: Base64;
-let Base64Line = byte[]: Base64LS;
+let Base64Line = [] byte: Base64LS;
 
 let Item = Base64Line: string { boundary: ' '; };
 
 file {
-    contents: Item[];
+    contents: [] Item;
 }
 
 """
@@ -834,9 +834,9 @@ file {
     }
 
     let Integer = integer { endian: ?endian; signed: false; };
-    let u16 = byte[2]: Integer;
+    let u16 = [2] byte: Integer;
 
-    values: u16[5];
+    values: [5] u16;
 }
 
 """
@@ -897,12 +897,12 @@ spec_file_dynamic_filter_param_string = """
 let u8 = byte: integer { signed: false; };
 
 file {
-    let BoundedString = byte[]: string { boundary: boundary; };
+    let BoundedString = [] byte: string { boundary: boundary; };
 
     boundary_size: u8;
-    boundary: byte[boundary_size]: string;
+    boundary: [boundary_size] byte: string;
 
-    values: BoundedString[];
+    values: [] BoundedString;
 }
 
 """

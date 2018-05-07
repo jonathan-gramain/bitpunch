@@ -11,8 +11,8 @@ import conftest
 
 spec_varint = """
 file {
-    value:   byte[]: varint;
-    trailer: byte[];
+    value:   [] byte: varint;
+    trailer: [] byte;
 }
 """
 
@@ -43,24 +43,24 @@ def test_varint(params_varint):
 #
 
 spec_varint_pools = """
-let u8 = byte[1]: integer { signed: false; };
-let v8 = byte[1]: varint;
-let v16 = byte[2]: varint;
-let v32 = byte[4]: varint;
-let v64 = byte[8]: varint;
-let vx = byte[]: varint;
+let u8 = [1] byte: integer { signed: false; };
+let v8 = [1] byte: varint;
+let v16 = [2] byte: varint;
+let v32 = [4] byte: varint;
+let v64 = [8] byte: varint;
+let vx = [] byte: varint;
 
 file {
     v8_count:  u8;
-    v8_array:  v8[v8_count];
+    v8_array:  [v8_count] v8;
     v16_count: u8;
-    v16_array: v16[v16_count];
+    v16_array: [v16_count] v16;
     v32_count: u8;
-    v32_array: v32[v32_count];
+    v32_array: [v32_count] v32;
     v64_count: u8;
-    v64_array: v64[v64_count];
+    v64_array: [v64_count] v64;
     vx_count:  u8;
-    vx_array:  vx[vx_count];
+    vx_array:  [vx_count] vx;
 }
 """
 
@@ -126,15 +126,15 @@ def test_varint_pools(params_varint_pools):
 
 
 spec_varint_in_blocks = """
-let VarInt = byte[]: varint;
+let VarInt = [] byte: varint;
 
 file {
-    blocks: Block[];
+    blocks: [] Block;
 }
 
 let Block = struct {
     length: VarInt;
-    data:   byte[length];
+    data:   [length] byte;
 };
 """
 

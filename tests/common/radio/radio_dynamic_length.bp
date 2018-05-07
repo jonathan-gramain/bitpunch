@@ -1,15 +1,15 @@
 let RadioInt = integer { signed: false; endian: 'big'; };
-let u8  = byte[1]: RadioInt;
-let u16 = byte[2]: RadioInt;
-let u32 = byte[4]: RadioInt;
-let u64 = byte[8]: RadioInt;
+let u8  = [1] byte: RadioInt;
+let u16 = [2] byte: RadioInt;
+let u32 = [4] byte: RadioInt;
+let u64 = [8] byte: RadioInt;
 
 let RadioCode = struct {
-       codename: byte[8]: string { boundary: '\0'; };
+       codename: [8] byte: string { boundary: '\0'; };
        key codename;
 };
 
 file {
      n_codes: u32;
-     codes: RadioCode[n_codes];
+     codes: [n_codes] RadioCode;
 }

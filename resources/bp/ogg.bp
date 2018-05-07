@@ -7,21 +7,21 @@
 let SignedInt = integer { signed: true; endian: 'little'; };
 let UnsignedInt = integer { signed: false; endian: 'little'; };
 
-let s64 = byte[8]: SignedInt;
+let s64 = [8] byte: SignedInt;
 
 let u8 = byte: UnsignedInt;
-let u32 = byte[4]: UnsignedInt;
+let u32 = [4] byte: UnsignedInt;
 
 file {
-    ogg_pages: OggPage[];
+    ogg_pages: [] OggPage;
 }
 
 let OggPage = struct {
     hdr:      OggPageHdr;
-    segments: OggPageSegment[hdr.n_page_segments];
+    segments: [hdr.n_page_segments] OggPageSegment;
 
     let OggPageHdr = struct {
-        capture_pattern:           byte[4]: string;
+        capture_pattern:           [4] byte: string;
         stream_structure_version:  u8;
         header_type_flags:         u8; // bit-mask
         absolute_granule_position: s64;
@@ -29,11 +29,11 @@ let OggPage = struct {
         page_sequence_no:          u32;
         page_checksum:             u32;
         n_page_segments:           u8;
-        segment_sizes:             u8[n_page_segments];
+        segment_sizes:             [n_page_segments] u8;
     };
 
     let OggPageSegment = struct {
-        segment_data: byte[?segment_size];
+        segment_data: [?segment_size] byte;
 
         let ?segment_size = hdr.segment_sizes[index(segments, self)];
     };

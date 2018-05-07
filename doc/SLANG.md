@@ -58,7 +58,7 @@
 
 - **slack container**: container that has no predefined size: it takes
    as much space as possible from the slack space allocated from the
-   parent. An array that has no set size (e.g. byte[]) and no
+   parent. An array that has no set size (e.g. [] byte) and no
    interpreter-defined size (like null-terminated strings) is a slack
    container.
 

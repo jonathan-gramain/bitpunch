@@ -100,7 +100,7 @@ def test_string_literals():
 
 spec_file_illegal_expr = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
 let Contents = struct {
     a: u32;

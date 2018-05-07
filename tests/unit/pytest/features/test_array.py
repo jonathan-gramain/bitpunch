@@ -7,14 +7,14 @@ import conftest
 
 spec_file_array_static_sized = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'big'; };
+let u32 = [4] byte: integer { signed: false; endian: 'big'; };
 
 let Item = struct {
     value: u32;
 };
 
 file {
-    integers: Item[10];
+    integers: [10] Item;
 }
 
 """
@@ -40,7 +40,7 @@ let Item = struct {
 };
 
 file {
-    integers: Item[10];
+    integers: [10] Item;
 }
 
 """
@@ -80,7 +80,7 @@ spec_file_array_bytes_as_integers_1 = """
 let u8 = byte: integer { signed: false; };
 
 file {
-    integers: u8[10];
+    integers: [10] u8;
 }
 
 """
@@ -90,7 +90,7 @@ spec_file_array_bytes_as_integers_2 = """
 let u8 = byte: integer { signed: false; };
 
 file {
-    integers: byte[10]: byte[]: byte[10]: u8[];
+    integers: [10] byte: [] byte: [10] byte: [] u8;
 }
 
 """
@@ -105,7 +105,7 @@ spec_file_array_bytes_as_integers_filtered = """
 let u8 = byte: integer { signed: false; };
 
 file {
-    integers: byte[]: base64: u8[];
+    integers: [] byte: base64: [] u8;
 }
 
 """
@@ -144,16 +144,16 @@ def test_array_flat(params_array_flat):
 
 spec_file_array_keyed_items = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
 let Item = struct {
-    name: byte[]: string { boundary: '\\0'; };
+    name: [] byte: string { boundary: '\\0'; };
     value: u32;
     key name;
 };
 
 file {
-    integers: Item[];
+    integers: [] Item;
 }
 
 """
@@ -166,16 +166,16 @@ data_file_array_keyed_items = """
 
 spec_file_array_keyed_filtered_keys = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
 let Item = struct {
-    name: byte[]: string { boundary: '\\0'; }: base64: string;
+    name: [] byte: string { boundary: '\\0'; }: base64: string;
     value: u32;
     key name;
 };
 
 file {
-    integers: Item[];
+    integers: [] Item;
 }
 
 """
@@ -188,16 +188,16 @@ data_file_array_keyed_filtered_keys = """
 
 spec_file_array_keyed_filtered_items = """
 
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
-let Item = byte[]: string { boundary: '\\n'; }: base64: struct {
-    name: byte[]: string { boundary: '\\0'; };
+let Item = [] byte: string { boundary: '\\n'; }: base64: struct {
+    name: [] byte: string { boundary: '\\0'; };
     value: u32;
     key name;
 };
 
 file {
-    integers: Item[];
+    integers: [] Item;
 }
 
 """
@@ -241,7 +241,7 @@ def test_array_keyed_items(params_array_keyed_items):
 spec_file_array_raw_bytes = """
 
 file {
-    integers: byte[];
+    integers: [] byte;
 }
 
 """

@@ -25,29 +25,29 @@ def spec_log():
     let FixInt = integer { signed: false; endian: 'little'; };
 
     let FixInt8 =  byte:    FixInt;
-    let FixInt16 = byte[2]: FixInt;
-    let FixInt32 = byte[4]: FixInt;
+    let FixInt16 = [2] byte: FixInt;
+    let FixInt32 = [4] byte: FixInt;
 
     file {
-        head_blocks: LogBlock[];
+        head_blocks: [] LogBlock;
         tail_block: LogTailBlock;
     }
 
     let LogBlock = struct {
-           records: Record[];
-           trailer: byte[];
+           records: [] Record;
+           trailer: [] byte;
            span 32768;
     };
 
     let LogTailBlock = struct {
-           records: Record[];
+           records: [] Record;
     };
 
     let Record = struct {
            checksum: FixInt32;
            length:   FixInt16;
            rtype:    FixInt8;
-           data:     byte[length]: string;
+           data:     [length] byte: string;
            minspan 7;
     };
 """
@@ -182,14 +182,14 @@ def spec_ldb():
     return """
     let FixInt   = integer { signed: false; endian: 'little'; };
     let FixInt8  = byte: FixInt;
-    let FixInt32 = byte[4]: FixInt;
-    let VarInt   = byte[]: varint;
+    let FixInt32 = [4] byte: FixInt;
+    let VarInt   = [] byte: varint;
 
-    let CompressedDataBlock = byte[]: snappy: DataBlock;
+    let CompressedDataBlock = [] byte: snappy: DataBlock;
 
     let DataBlock = struct {
-        entries:     KeyValue[];
-        restarts:    FixInt32[nb_restarts];
+        entries:     [] KeyValue;
+        restarts:    [nb_restarts] FixInt32;
         nb_restarts: FixInt32;
     };
 
@@ -197,8 +197,8 @@ def spec_ldb():
         key_shared_size:     VarInt;
         key_non_shared_size: VarInt;
         value_size:          VarInt;
-        key_non_shared:      byte[key_non_shared_size];
-        value:               byte[value_size];
+        key_non_shared:      [key_non_shared_size] byte;
+        value:               [value_size] byte;
     };
 
     let BlockTrailer = struct {
@@ -228,13 +228,13 @@ def spec_ldb():
     let Footer = struct {
         metaindex_handle: BlockHandle;
         index_handle:     BlockHandle;
-        :                 byte[];
-        magic:            byte[8];
+        :                 [] byte;
+        magic:            [8] byte;
         span 48;
     };
 
     file {
-        payload: byte[];
+        payload: [] byte;
         footer:  Footer;
 
         let ?index =     footer.index_handle;

@@ -7,7 +7,7 @@ import conftest
 
 spec_file_anonymous_struct_embedded = """
 
-let u32 = byte[4]: integer { endian: 'little'; signed: false; };
+let u32 = [4] byte: integer { endian: 'little'; signed: false; };
 
 file {
     : struct {
@@ -26,7 +26,7 @@ file {
 
 spec_file_anonymous_field = """
 
-let u32 = byte[4]: integer { endian: 'little'; signed: false; };
+let u32 = [4] byte: integer { endian: 'little'; signed: false; };
 
 let Foo = struct {
     a: u32;
@@ -48,7 +48,7 @@ file {
 spec_file_hidden_field = """
 
 let u8 = byte: integer { signed: false; };
-let u32 = byte[4]: integer { endian: 'little'; signed: false; };
+let u32 = [4] byte: integer { endian: 'little'; signed: false; };
 
 let Foo = struct {
     a: u32;
@@ -56,7 +56,7 @@ let Foo = struct {
 
 let Bar = struct {
     b: u8;
-    :  byte[3]; // hidden field
+    :  [3] byte; // hidden field
     c: u32;
 };
 
@@ -80,7 +80,7 @@ data_file_anonymous = """
 spec_file_anonymous_in_trailer = """
 
 let u8 = byte: integer { signed: false; };
-let u32 = byte[4]: integer { endian: 'little'; signed: false; };
+let u32 = [4] byte: integer { endian: 'little'; signed: false; };
 
 let Foo = struct {
     a: u32;
@@ -88,18 +88,18 @@ let Foo = struct {
 
 let Bar = struct {
     b: u8;
-    :  byte[3]; // hidden field
+    :  [3] byte; // hidden field
 };
 
 let SlackBody = struct {
     : struct {
-        :     byte[2];
-        data: byte[];
+        :     [2] byte;
+        data: [] byte;
     };
 };
 
 let Trailer = struct {
-    : byte[4];
+    : [4] byte;
     : struct {
         c: u32;
     };

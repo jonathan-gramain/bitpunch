@@ -268,5 +268,5 @@ correctly (b_filter is empty)
 
 - add properties to arrays, or even arbitrary types:
 
-  - e.g. myfield: byte[size] { minspan 30; };
+  - e.g. myfield: [size] byte { minspan 30; };
          myfield: MyStruct { maxspan: 60; };

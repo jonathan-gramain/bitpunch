@@ -10,23 +10,23 @@ import conftest
 #
 
 spec_embedded = """
-let u32 = byte[4]: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte: integer { signed: false; endian: 'little'; };
 
 file {
     greeting_set: GreetingSet;
-    garbage: byte[];
+    garbage: [] byte;
 }
 
 let Greeting = struct {
     size: u32;
-    contents: byte[];
+    contents: [] byte;
     span size;
 };
 
 let GreetingSet = struct {
     set_size: u32;
-    greetings: Greeting[];
-    padding: byte[];
+    greetings: [] Greeting;
+    padding: [] byte;
     span set_size;
 };
 
