@@ -1742,13 +1742,18 @@ expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
             STATEMENT_TYPE_FIELD | STATEMENT_TYPE_NAMED_EXPR,
             expr->ndat->u.rexpr_polymorphic.identifier,
             stmt_typep, nstmtp, member_scopep, bst);
-        box_delete(anchor_box);
         if (BITPUNCH_OK != bt_ret) {
             if (BITPUNCH_NO_ITEM == bt_ret) {
-                bt_ret = BITPUNCH_DATA_ERROR;
+                bt_ret = box_error(
+                    BITPUNCH_DATA_ERROR, anchor_box, expr, bst,
+                    "polymorphic member '%s' does not exist in "
+                    "block in current evaluation context",
+                    expr->ndat->u.rexpr_polymorphic.identifier);
             }
+            box_delete(anchor_box);
             goto error;
         }
+        box_delete(anchor_box);
         return BITPUNCH_OK;
     }
     /* look for attribute in turn from inner to outer scope */
@@ -1767,7 +1772,11 @@ expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
         }
         anchor_box = anchor_box->parent_box;
         if (NULL == anchor_box) {
-            bt_ret = BITPUNCH_DATA_ERROR;
+            bt_ret =box_error(
+                BITPUNCH_DATA_ERROR, scope, expr, bst,
+                "polymorphic identifier '%s' does not exist in "
+                "current evaluation context",
+                expr->ndat->u.rexpr_polymorphic.identifier);
             goto error;
         }
     }
