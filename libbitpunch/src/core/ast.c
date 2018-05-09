@@ -444,7 +444,7 @@ identifier_is_visible_in_block_stmt_lists(
     const struct block_stmt_list *stmt_lists)
 {
     // -1 means that there was more names to lookup than the maximum
-    // -requested (0), so at least one.
+    // requested (0), so at least one.
     return -1 == lookup_visible_statements_in_lists_internal(
         stmt_mask, identifier, stmt_lists, FALSE,
         NULL, NULL);
@@ -3593,6 +3593,7 @@ compile_dpath_type(struct dpath_node *node,
     struct ast_node_hdl *expr;
     struct ast_node_hdl *target_item;
 
+    assert(NULL == node->filter);
     if (-1 == compile_node(node->item, ctx,
                            COMPILE_TAG_NODE_TYPE, 0u,
                            RESOLVE_EXPECT_TYPE |

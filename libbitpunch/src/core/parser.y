@@ -618,30 +618,6 @@
         return nhdl;
     }
 
-    static struct ast_node_data *
-    ast_node_data_new_rexpr_item_root(struct ast_node_hdl *root)
-    {
-        struct ast_node_data *ndat;
-
-        ndat = new_safe(struct ast_node_data);
-        ndat->type = AST_NODE_TYPE_REXPR_ITEM;
-        ndat->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_BYTES;
-        ndat->u.rexpr_item.item_type = root;
-        return ndat;
-    }
-
-    struct ast_node_hdl *
-    ast_node_new_rexpr_item_root(struct ast_node_hdl *root)
-    {
-        struct ast_node_hdl *node;
-
-        node = ast_node_hdl_new();
-        node->loc = root->loc;
-        node->ndat = ast_node_data_new_rexpr_item_root(root);
-        node->flags |= ASTFLAG_IS_REXPR_DPATH;
-        return node;
-    }
-
     static struct ast_node_hdl *
     expr_gen_ast_node(enum ast_node_type op_type,
                       struct ast_node_hdl *opd1,
@@ -1085,7 +1061,7 @@ file_block: KW_FILE '{' block_stmt_list '}' {
         item->u.block_def.block_stmt_list = $block_stmt_list;
         item->u.item.min_span_size = SPAN_SIZE_UNDEF;
         $$.root->item->flags = ASTFLAG_IS_ROOT_BLOCK;
-        $$.root->filter = ast_node_new_rexpr_item_root($$.root->item);
+        $$.root->filter = NULL;
     }
 
 block_def:
