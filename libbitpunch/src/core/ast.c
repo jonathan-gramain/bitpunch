@@ -1299,6 +1299,23 @@ op_type_ast2rexpr(enum ast_node_type type)
 }
 
 static int
+resolve_user_expr_internal(struct ast_node_hdl *expr,
+                           struct list_of_visible_refs *inmost_refs)
+{
+    if (-1 == resolve_identifiers_in_expression(expr, inmost_refs,
+                                                RESOLVE_ALL_IDENTIFIERS)) {
+        return -1;
+    }
+    if (-1 == compile_ast_node_all(expr, RESOLVE_EXPECT_EXPRESSION)) {
+        return -1;
+    }
+    if (-1 == browse_setup_backends_expr(expr)) {
+        return -1;
+    }
+    return 0;
+}
+
+static int
 resolve_user_expr_scoped_recur(struct ast_node_hdl *expr,
                                struct box *cur_scope,
                                struct list_of_visible_refs *inner_refs,
@@ -1311,14 +1328,7 @@ resolve_user_expr_scoped_recur(struct ast_node_hdl *expr,
         cur_scope = cur_scope->parent_box;
     }
     if (NULL == cur_scope) {
-        if (-1 == resolve_identifiers_in_expression(expr, inmost_refs,
-                                                    RESOLVE_ALL_IDENTIFIERS)) {
-            return -1;
-        }
-        if (-1 == compile_ast_node_all(expr, RESOLVE_EXPECT_EXPRESSION)) {
-            return -1;
-        }
-        return 0;
+        return resolve_user_expr_internal(expr, inmost_refs);
     }
     visible_refs.outer_refs = NULL;
     visible_refs.cur_block = cur_scope->dpath.item;
@@ -1339,14 +1349,7 @@ resolve_user_expr(struct ast_node_hdl *expr, struct box *scope)
     if (NULL != scope) {
         return resolve_user_expr_scoped_recur(expr, scope, NULL, NULL);
     }
-    if (-1 == resolve_identifiers_in_expression(expr, NULL,
-                                                RESOLVE_ALL_IDENTIFIERS)) {
-        return -1;
-    }
-    if (-1 == compile_ast_node_all(expr, RESOLVE_EXPECT_EXPRESSION)) {
-        return -1;
-    }
-    return 0;
+    return resolve_user_expr_internal(expr, NULL);
 }
 
 __attribute__((unused))

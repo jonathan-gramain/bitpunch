@@ -352,6 +352,10 @@ let AsStruct = struct {
     value: [1] byte: Int;
 };
 
+let UnusedByteStruct = struct {
+    by: [1] byte;
+};
+
 file {
     a: [1] byte;
     b: [2] byte;
@@ -382,12 +386,12 @@ data_file_filter_in_field_expression = """
         'data': data_file_filter_in_field_expression,
     }
 ])
-def params_filter_3(request):
+def params_filter_in_field_expression(request):
     return conftest.make_testcase(request.param)
 
 
-def test_filter_3(params_filter_3):
-    params = params_filter_3
+def test_filter_in_field_expression(params_filter_in_field_expression):
+    params = params_filter_in_field_expression
     dtree = params['dtree']
 
     assert dtree.a_as_int == 1
@@ -396,6 +400,9 @@ def test_filter_3(params_filter_3):
     with pytest.raises(AttributeError):
         dtree.eval_expr('^?nb_as_struct').value
     assert dtree.eval_expr('a_as_int') == 1
+    assert dtree.eval_expr('a: Int') == 1
+    assert model.make_python_object(
+        dtree.eval_expr('a: UnusedByteStruct').by) == '\x01'
     assert model.make_python_object(dtree.eval_expr('^a_as_int')) == '\x01'
     with pytest.raises(AttributeError):
         dtree.eval_expr('^?a_as_struct').value

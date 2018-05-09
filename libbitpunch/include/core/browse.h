@@ -608,6 +608,8 @@ int
 browse_setup_global_backends(void);
 int
 browse_setup_backends_dpath(struct dpath_node *dpath);
+int
+browse_setup_backends_expr(struct ast_node_hdl *expr);
 
 
 #endif /*__BROWSE_H__*/

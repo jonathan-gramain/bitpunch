@@ -8338,6 +8338,12 @@ browse_setup_backends_fcall(struct ast_node_hdl *expr)
     return 0;
 }
 
+int
+browse_setup_backends_expr(struct ast_node_hdl *expr)
+{
+    return browse_setup_backends_node_recur(expr);
+}
+
 static int
 browse_setup_backends_node_recur(struct ast_node_hdl *node)
 {
