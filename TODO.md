@@ -270,3 +270,7 @@ correctly (b_filter is empty)
 
   - e.g. myfield: [size] byte { minspan 30; };
          myfield: MyStruct { maxspan: 60; };
+
+- ability to compare reference to objects with equal/notequal operators
+
+  - self == entries['abc']
