@@ -2842,7 +2842,6 @@ static bitpunch_status_t
 box_compute_slack_size(struct box *box,
                        struct browse_state *bst)
 {
-    struct box *parent_box;
     bitpunch_status_t bt_ret;
 
     if (0 != (box->flags & BOX_FILTER)) {
@@ -2855,24 +2854,8 @@ box_compute_slack_size(struct box *box,
         /* nothing to do */
         return BITPUNCH_OK;
     }
-    parent_box = box->parent_box;
-    if (NULL != parent_box) {
-        bt_ret = box_compute_slack_size(parent_box, bst);
-        if (BITPUNCH_OK == bt_ret) {
-            /* early bound check */
-            bt_ret = box_check_start_offset(
-                box, box_get_known_start_offset(parent_box),
-                BOX_START_OFFSET_SLACK, bst);
-            bt_ret = box_check_end_offset(
-                box, box_get_known_end_offset(parent_box),
-                BOX_END_OFFSET_SLACK, bst);
-        }
-    } else {
-        bt_ret = BITPUNCH_OK;
-    }
-    if (BITPUNCH_OK == bt_ret) {
-        bt_ret = box->dpath.item->ndat->u.container.b_box.compute_slack_size(box, bst);
-    }
+    bt_ret = box->dpath.item->ndat->u.container.b_box.compute_slack_size(
+        box, bst);
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_box_context(
             box, bst, "when computing slack size");
@@ -5473,13 +5456,37 @@ box_compute_min_span_size__as_hard_min(struct box *box,
 }
 
 static bitpunch_status_t
-box_compute_slack_size__block_file(struct box *box,
-                                    struct browse_state *bst)
+box_compute_slack_size__from_file_hdl(struct box *box,
+                                      struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     int64_t file_size;
 
     DBG_BOX_DUMP(box);
+    if (NULL == box->file_hdl) {
+        assert(0 == (box->flags & BOX_FILTER_APPLIED));
+        bt_ret = box_apply_filter_internal(box, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
+    }
+    file_size = (int64_t)box->file_hdl->bf_data_length;
+    return box_set_end_offset(box, file_size, BOX_END_OFFSET_SLACK, bst);
+}
+
+static bitpunch_status_t
+box_compute_slack_size__as_bytes(struct box *box,
+                                 struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    int64_t file_size;
+
+    DBG_BOX_DUMP(box);
+    if (0 != (box->flags & BOX_DATA_FILTER)) {
+        return box_compute_slack_size__from_file_hdl(box, bst);
+    } else {
+        return box_compute_slack_size__from_parent(box, bst);
+    }
     if (NULL == box->file_hdl) {
         assert(0 == (box->flags & BOX_FILTER_APPLIED));
         bt_ret = box_apply_filter_internal(box, bst);
@@ -7769,7 +7776,7 @@ browse_setup_backends__box__block(struct ast_node_hdl *item)
     memset(b_box, 0, sizeof (*b_box));
 
     if (0 != (item->flags & ASTFLAG_IS_ROOT_BLOCK)) {
-        b_box->compute_slack_size = box_compute_slack_size__block_file;
+        b_box->compute_slack_size = box_compute_slack_size__from_file_hdl;
     } else if (0 != (item->ndat->u.item.flags & ITEMFLAG_USES_SLACK)) {
         b_box->compute_slack_size = box_compute_slack_size__container_slack;
     } else {
@@ -8106,7 +8113,7 @@ browse_setup_backends__box__as_bytes(struct ast_node_hdl *item)
     b_box = &item->ndat->u.container.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
-    b_box->compute_slack_size = box_compute_slack_size__from_parent;
+    b_box->compute_slack_size = box_compute_slack_size__as_bytes;
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
     b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
     b_box->compute_used_size = box_compute_used_size__as_bytes;

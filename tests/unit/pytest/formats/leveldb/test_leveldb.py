@@ -269,7 +269,17 @@ def test_ldb(spec_ldb, data_ldb):
     assert len(index_block.restarts) == index_block.nb_restarts
     assert index_block.restarts.get_size() == index_block.nb_restarts * 4
 
-    # get a child block now
+    # get a heading child block
+    child_handle = index_block.eval_expr('entries[1].value: BlockHandle')
+    assert child_handle.offset == 959
+    assert child_handle.size == 1423
+    child_block = child_handle['?stored_block']
+    assert child_block.get_location() == (959, 1428)
+    assert child_block.trailer.blocktype == 1 # compressed
+    assert len(child_block.entries) == 5
+    assert len(child_block.entries[2].value) == 1022
+
+    # get an intermediate child block
     child_handle = index_block.eval_expr('entries[42].value: BlockHandle')
     assert child_handle.offset == 33953
     assert child_handle.size == 821
