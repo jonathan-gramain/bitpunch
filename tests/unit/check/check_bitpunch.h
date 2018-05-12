@@ -42,6 +42,7 @@ void check_index_add_tcases(Suite *s);
 void check_dynarray_add_tcases(Suite *s);
 void testcase_radio_add_tests(Suite *s);
 void check_base64_add_tcases(Suite *s);
+void check_formatted_integer_add_tcases(Suite *s);
 void check_dep_resolver_add_tcases(Suite *s);
 
 #endif /*__CHECK_BITPUNCH_H__*/

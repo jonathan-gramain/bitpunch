@@ -80,7 +80,7 @@ interpreter_declare(const char *name,
                     enum expr_value_type value_type_mask,
                     interpreter_rcall_build_func_t rcall_build_func,
                     int n_params,
-                    ... /* params: (name, type, flags) tuples */)
+                    ... /* params: (name, index, type, flags) tuples */)
 {
     struct interpreter *interpreter;
     int max_param_ref;
@@ -145,6 +145,7 @@ void interpreter_declare_string(void);
 void interpreter_declare_varint(void);
 void interpreter_declare_base64(void);
 void interpreter_declare_snappy(void);
+void interpreter_declare_formatted_integer(void);
 
 void
 interpreter_declare_std(void)
@@ -154,6 +155,7 @@ interpreter_declare_std(void)
     interpreter_declare_varint();
     interpreter_declare_base64();
     interpreter_declare_snappy();
+    interpreter_declare_formatted_integer();
 }
 
 static int
