@@ -2189,65 +2189,62 @@ compile_expr_operator_subscript(struct ast_node_hdl *node,
 {
     struct ast_node_hdl *anchor_expr;
     struct ast_node_data *compiled_type;
+    struct subscript_index *index;
+    const struct ast_node_hdl *anchor_item;
+    enum expr_value_type value_type_mask = EXPR_VALUE_TYPE_UNSET;
     
     anchor_expr = node->ndat->u.op_subscript_common.anchor_expr;
     if (-1 == compile_node(anchor_expr, ctx, COMPILE_TAG_NODE_TYPE, 0u,
                            expect_mask)) {
         return -1;
     }
-    if (0 != (expect_mask & RESOLVE_EXPECT_EXPRESSION)) {
-        struct subscript_index *index;
-        const struct ast_node_hdl *anchor_item;
-        enum expr_value_type value_type_mask = EXPR_VALUE_TYPE_UNSET;
-
-        index = &node->ndat->u.op_subscript.index;
-        if (NULL == index->key) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &node->loc,
-                           "array subscript index cannot be empty");
-            return -1;
-        }
-        assert(NULL != anchor_expr);
-        if (-1 == compile_expr(anchor_expr, ctx, TRUE)) {
-            return -1;
-        }
-        anchor_item = ast_node_get_as_type(anchor_expr);
-        if (NULL != anchor_item) {
-            switch (anchor_item->ndat->type) {
-            case AST_NODE_TYPE_ARRAY:
-            case AST_NODE_TYPE_ARRAY_SLICE:
-                if (-1 == compile_dpath(&anchor_item->ndat->u.array.item_type,
-                                        ctx, COMPILE_TAG_NODE_TYPE, 0u)) {
-                    return -1;
-                }
-                value_type_mask = expr_value_type_mask_from_dpath_node(
-                    &anchor_item->ndat->u.array.item_type);
-                break ;
-            case AST_NODE_TYPE_BYTE_ARRAY:
-            case AST_NODE_TYPE_BYTE_SLICE:
-                value_type_mask = EXPR_VALUE_TYPE_BYTES;
-                break ;
-            default:
-                semantic_error(
-                    SEMANTIC_LOGLEVEL_ERROR, &node->loc,
-                    "invalid use of subscript operator on non-subscriptable "
-                    "path of type '%s'",
-                    ast_node_type_str(anchor_item->ndat->type));
+    index = &node->ndat->u.op_subscript.index;
+    if (NULL == index->key) {
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &node->loc,
+                       "array subscript index cannot be empty");
+        return -1;
+    }
+    assert(NULL != anchor_expr);
+    if (-1 == compile_expr(anchor_expr, ctx, TRUE)) {
+        return -1;
+    }
+    anchor_item = ast_node_get_as_type(anchor_expr);
+    if (NULL != anchor_item) {
+        switch (anchor_item->ndat->type) {
+        case AST_NODE_TYPE_ARRAY:
+        case AST_NODE_TYPE_ARRAY_SLICE:
+            if (-1 == compile_dpath(&anchor_item->ndat->u.array.item_type,
+                                    ctx, COMPILE_TAG_NODE_TYPE, 0u)) {
                 return -1;
             }
-        }
-        if (-1 == compile_subscript_index(node, index, ctx)) {
+            value_type_mask = expr_value_type_mask_from_dpath_node(
+                &anchor_item->ndat->u.array.item_type);
+            break ;
+        case AST_NODE_TYPE_BYTE_ARRAY:
+        case AST_NODE_TYPE_BYTE_SLICE:
+            value_type_mask = EXPR_VALUE_TYPE_BYTES;
+            break ;
+        default:
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &node->loc,
+                "invalid use of subscript operator on non-subscriptable "
+                "path of type '%s'",
+                ast_node_type_str(anchor_item->ndat->type));
             return -1;
         }
-        compiled_type = new_safe(struct ast_node_data);
-        compiled_type->type = AST_NODE_TYPE_REXPR_OP_SUBSCRIPT;
-        compiled_type->u.rexpr.value_type_mask = value_type_mask;
-        assert(ast_node_is_rexpr(anchor_expr));
-        compiled_type->u.rexpr_op_subscript_common.anchor_expr = anchor_expr;
-        compiled_type->u.rexpr_op_subscript.index = *index;
-        index = &compiled_type->u.op_subscript.index;
-        node->ndat = compiled_type;
-        node->flags |= ASTFLAG_IS_REXPR_DPATH;
     }
+    if (-1 == compile_subscript_index(node, index, ctx)) {
+        return -1;
+    }
+    compiled_type = new_safe(struct ast_node_data);
+    compiled_type->type = AST_NODE_TYPE_REXPR_OP_SUBSCRIPT;
+    compiled_type->u.rexpr.value_type_mask = value_type_mask;
+    assert(ast_node_is_rexpr(anchor_expr));
+    compiled_type->u.rexpr_op_subscript_common.anchor_expr = anchor_expr;
+    compiled_type->u.rexpr_op_subscript.index = *index;
+    index = &compiled_type->u.op_subscript.index;
+    node->ndat = compiled_type;
+    node->flags |= ASTFLAG_IS_REXPR_DPATH;
     return 0;
 }
 
