@@ -72,10 +72,6 @@ expr_evaluate_value_addrof(struct ast_node_hdl *expr, struct box *scope,
                            expr_value_t *eval_valuep,
                            struct browse_state *bst);
 static bitpunch_status_t
-expr_evaluate_value_ancestor(struct ast_node_hdl *expr, struct box *scope,
-                             expr_value_t *eval_valuep,
-                             struct browse_state *bst);
-static bitpunch_status_t
 expr_evaluate_value_fcall(struct ast_node_hdl *expr, struct box *scope,
                           expr_value_t *eval_valuep,
                           struct browse_state *bst);
@@ -1826,8 +1822,6 @@ expr_evaluate_value_internal(struct ast_node_hdl *expr, struct box *scope,
         return expr_evaluate_value_sizeof(expr, scope, eval_valuep, bst);
     case AST_NODE_TYPE_REXPR_OP_ADDROF:
         return expr_evaluate_value_addrof(expr, scope, eval_valuep, bst);
-    case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
-        return expr_evaluate_value_ancestor(expr, scope, eval_valuep, bst);
     case AST_NODE_TYPE_REXPR_OP_FCALL:
         return expr_evaluate_value_fcall(expr, scope, eval_valuep, bst);
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
@@ -1985,17 +1979,6 @@ expr_evaluate_value_addrof(struct ast_node_hdl *expr, struct box *scope,
     eval_valuep->type = EXPR_VALUE_TYPE_INTEGER;
     eval_valuep->integer = item_offset;
     return BITPUNCH_OK;
-}
-
-static bitpunch_status_t
-expr_evaluate_value_ancestor(struct ast_node_hdl *expr, struct box *scope,
-                             expr_value_t *eval_valuep,
-                             struct browse_state *bst)
-{
-    struct ast_node_hdl *opd;
-
-    opd = expr->ndat->u.rexpr_op.op.operands[0];
-    return expr_evaluate_value_internal(opd, scope, eval_valuep, bst);
 }
 
 static bitpunch_status_t
