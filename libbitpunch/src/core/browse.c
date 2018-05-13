@@ -228,7 +228,7 @@ box_iter_statements_next_internal(struct box *box,
 
 static bitpunch_status_t
 box_get_first_statement_internal(struct box *box,
-                                 enum statement_type stmt_type,
+                                 enum statement_type stmt_mask,
                                  const char *identifier,
                                  int stmt_flags,
                                  const struct statement **stmtp,
@@ -236,7 +236,7 @@ box_get_first_statement_internal(struct box *box,
 
 static bitpunch_status_t
 box_get_n_statements_internal(struct box *box,
-                              enum statement_type stmt_type,
+                              enum statement_type stmt_mask,
                               const char *identifier,
                               int stmt_flags,
                               int64_t *stmt_countp,
@@ -4339,41 +4339,89 @@ box_iter_statements_advance_if_invalid_internal(
     return box_iter_statements_advance_internal(it, stmt);
 }
 
+static void
+box_iter_start_list_internal(struct statement_iterator *it)
+{
+    if (0 != (it->stmt_remaining & STATEMENT_TYPE_FIELD)) {
+        it->next_stmt = TAILQ_FIRST(it->stmt_lists->field_list);
+        it->stmt_remaining &= ~STATEMENT_TYPE_FIELD;
+        return ;
+    }
+    if (0 != (it->stmt_remaining & STATEMENT_TYPE_NAMED_EXPR)) {
+        it->next_stmt = TAILQ_FIRST(it->stmt_lists->named_expr_list);
+        it->stmt_remaining &= ~STATEMENT_TYPE_NAMED_EXPR;
+        return ;
+    }
+    if (0 != (it->stmt_remaining & STATEMENT_TYPE_ATTRIBUTE)) {
+        it->next_stmt = box_iter_statements_advance_if_invalid_internal(
+            it, TAILQ_FIRST(it->stmt_lists->attribute_list));
+        it->stmt_remaining &= ~STATEMENT_TYPE_ATTRIBUTE;
+        return ;
+    }
+    if (0 != (it->stmt_remaining & STATEMENT_TYPE_LAST)) {
+        it->next_stmt = TAILQ_FIRST(it->stmt_lists->last_stmt_list);
+        it->stmt_remaining &= ~STATEMENT_TYPE_LAST;
+        return ;
+    }
+    if (0 != (it->stmt_remaining & STATEMENT_TYPE_MATCH)) {
+        it->next_stmt = TAILQ_FIRST(it->stmt_lists->match_list);
+        it->stmt_remaining &= ~STATEMENT_TYPE_MATCH;
+        return ;
+    }
+}
+
+static void
+box_riter_start_list_internal(struct statement_iterator *it)
+{
+    if (0 != (it->stmt_remaining & STATEMENT_TYPE_FIELD)) {
+        it->next_stmt = TAILQ_LAST(it->stmt_lists->field_list,
+                                   statement_list);
+        it->stmt_remaining &= ~STATEMENT_TYPE_FIELD;
+        return ;
+    }
+    if (0 != (it->stmt_remaining & STATEMENT_TYPE_NAMED_EXPR)) {
+        it->next_stmt = TAILQ_LAST(it->stmt_lists->named_expr_list,
+                                   statement_list);
+        it->stmt_remaining &= ~STATEMENT_TYPE_NAMED_EXPR;
+        return ;
+    }
+    if (0 != (it->stmt_remaining & STATEMENT_TYPE_ATTRIBUTE)) {
+        it->next_stmt = box_iter_statements_advance_if_invalid_internal(
+            it, TAILQ_LAST(it->stmt_lists->attribute_list, statement_list));
+        it->stmt_remaining &= ~STATEMENT_TYPE_ATTRIBUTE;
+        return ;
+    }
+    if (0 != (it->stmt_remaining & STATEMENT_TYPE_LAST)) {
+        it->next_stmt = TAILQ_LAST(it->stmt_lists->last_stmt_list,
+                                   statement_list);
+        it->stmt_remaining &= ~STATEMENT_TYPE_LAST;
+        return ;
+    }
+    if (0 != (it->stmt_remaining & STATEMENT_TYPE_MATCH)) {
+        it->next_stmt = TAILQ_LAST(it->stmt_lists->match_list,
+                                   statement_list);
+        it->stmt_remaining &= ~STATEMENT_TYPE_MATCH;
+        return ;
+    }
+}
+
 struct statement_iterator
 box_iter_statements(struct box *box,
-                    enum statement_type stmt_type,
+                    enum statement_type stmt_mask,
                     const char *identifier,
                     int stmt_flags)
 {
     struct statement_iterator it;
-    const struct block_stmt_list *stmt_lists;
 
+    memset(&it, 0, sizeof (it));
     it.identifier = identifier;
     it.stmt_flags = stmt_flags;
-    it.it_flags = 0;
-    it.next_stmt = NULL;
     if (AST_NODE_TYPE_BLOCK_DEF != box->dpath.item->ndat->type) {
         return it;
     }
-    stmt_lists = &box->dpath.item->ndat->u.block_def.block_stmt_list;
-    switch (stmt_type) {
-    case STATEMENT_TYPE_FIELD:
-        it.next_stmt = TAILQ_FIRST(stmt_lists->field_list);
-        break ;
-    case STATEMENT_TYPE_NAMED_EXPR:
-        it.next_stmt = TAILQ_FIRST(stmt_lists->named_expr_list);
-        break ;
-    case STATEMENT_TYPE_ATTRIBUTE:
-        it.next_stmt = box_iter_statements_advance_if_invalid_internal(
-            &it, TAILQ_FIRST(stmt_lists->attribute_list));
-        break ;
-    case STATEMENT_TYPE_LAST:
-        it.next_stmt = TAILQ_FIRST(stmt_lists->last_stmt_list);
-        break ;
-    case STATEMENT_TYPE_MATCH:
-        it.next_stmt = TAILQ_FIRST(stmt_lists->match_list);
-        break ;
-    }
+    it.stmt_lists = &box->dpath.item->ndat->u.block_def.block_stmt_list;
+    it.stmt_remaining = stmt_mask;
+    box_iter_start_list_internal(&it);
     return it;
 }
 
@@ -4385,49 +4433,31 @@ box_iter_statements_from(struct box *box,
 {
     struct statement_iterator it;
 
+    memset(&it, 0, sizeof (it));
     it.identifier = identifier;
     it.stmt_flags = stmt_flags;
-    it.it_flags = 0;
     it.next_stmt = box_iter_statements_advance_internal(&it, stmt);
     return it;
 }
 
 struct statement_iterator
 box_riter_statements(struct box *box,
-                     enum statement_type stmt_type,
+                     enum statement_type stmt_mask,
                      const char *identifier,
                      int stmt_flags)
 {
     struct statement_iterator it;
-    const struct block_stmt_list *stmt_lists;
 
+    memset(&it, 0, sizeof (it));
     it.identifier = identifier;
     it.stmt_flags = stmt_flags;
     it.it_flags = STATEMENT_ITERATOR_FLAG_REVERSE;
-    it.next_stmt = NULL;
     if (AST_NODE_TYPE_BLOCK_DEF != box->dpath.item->ndat->type) {
         return it;
     }
-    stmt_lists = &box->dpath.item->ndat->u.block_def.block_stmt_list;
-    switch (stmt_type) {
-    case STATEMENT_TYPE_FIELD:
-        it.next_stmt = TAILQ_LAST(stmt_lists->field_list, statement_list);
-        break ;
-    case STATEMENT_TYPE_NAMED_EXPR:
-        it.next_stmt = TAILQ_LAST(stmt_lists->named_expr_list, statement_list);
-        break ;
-    case STATEMENT_TYPE_ATTRIBUTE:
-        it.next_stmt = box_iter_statements_advance_if_invalid_internal(
-            &it, TAILQ_LAST(stmt_lists->attribute_list, statement_list));
-        break ;
-    case STATEMENT_TYPE_LAST:
-        it.next_stmt = TAILQ_LAST(stmt_lists->last_stmt_list,
-                                  statement_list);
-        break ;
-    case STATEMENT_TYPE_MATCH:
-        it.next_stmt = TAILQ_LAST(stmt_lists->match_list, statement_list);
-        break ;
-    }
+    it.stmt_lists = &box->dpath.item->ndat->u.block_def.block_stmt_list;
+    it.stmt_remaining = stmt_mask;
+    box_riter_start_list_internal(&it);
     return it;
 }
 
@@ -4439,6 +4469,7 @@ box_riter_statements_from(struct box *box,
 {
     struct statement_iterator it;
 
+    memset(&it, 0, sizeof (it));
     it.identifier = identifier;
     it.stmt_flags = stmt_flags;
     it.it_flags = STATEMENT_ITERATOR_FLAG_REVERSE;
@@ -4479,6 +4510,14 @@ box_iter_statements_next_internal(struct box *box,
             // condition is false: go on with next statement
         }
         stmt = box_iter_statements_advance_internal(it, stmt);
+    }
+    if (0 != it->stmt_remaining) {
+        if (0 != (it->it_flags & STATEMENT_ITERATOR_FLAG_REVERSE)) {
+            box_riter_start_list_internal(it);
+        } else {
+            box_iter_start_list_internal(it);
+        }
+        return box_iter_statements_next_internal(box, it, stmtp, bst);
     }
     return BITPUNCH_NO_ITEM;
 }
@@ -4649,15 +4688,13 @@ box_lookup_statement_recur(struct box *box,
     // recurse in anonymous struct/union fields
     TAILQ_FOREACH(stmt, stmt_lists->field_list, list) {
         nstmt = (struct named_statement *)stmt;
-        if (NULL == nstmt->name) {
-            assert(STATEMENT_TYPE_FIELD == stmt_type);
-            if (!(nstmt->stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
-                bt_ret = box_lookup_statement_in_anonymous_field_recur(
-                    box, stmt_mask, identifier, nstmt,
-                    stmt_typep, stmtp, scopep, bst);
-                if (BITPUNCH_NO_ITEM != bt_ret) {
-                    return bt_ret;
-                }
+        if (NULL == nstmt->name
+            && !(nstmt->stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
+            bt_ret = box_lookup_statement_in_anonymous_field_recur(
+                box, stmt_mask, identifier, nstmt,
+                stmt_typep, stmtp, scopep, bst);
+            if (BITPUNCH_NO_ITEM != bt_ret) {
+                return bt_ret;
             }
         }
     }
@@ -4683,7 +4720,7 @@ box_lookup_statement_internal(struct box *box,
 
 static bitpunch_status_t
 box_get_first_statement_internal(struct box *box,
-                                 enum statement_type stmt_type,
+                                 enum statement_type stmt_mask,
                                  const char *identifier,
                                  int stmt_flags,
                                  const struct statement **stmtp,
@@ -4691,13 +4728,13 @@ box_get_first_statement_internal(struct box *box,
 {
     struct statement_iterator it;
 
-    it = box_iter_statements(box, stmt_type, identifier, stmt_flags);
+    it = box_iter_statements(box, stmt_mask, identifier, stmt_flags);
     return box_iter_statements_next_internal(box, &it, stmtp, bst);
 }
 
 bitpunch_status_t
 box_get_n_statements_internal(struct box *box,
-                              enum statement_type stmt_type,
+                              enum statement_type stmt_mask,
                               const char *identifier,
                               int stmt_flags,
                               int64_t *stmt_countp,
@@ -4707,7 +4744,7 @@ box_get_n_statements_internal(struct box *box,
     struct statement_iterator it;
     int64_t stmt_count;
 
-    it = box_iter_statements(box, stmt_type, identifier, stmt_flags);
+    it = box_iter_statements(box, stmt_mask, identifier, stmt_flags);
     stmt_count = -1;
     do {
         ++stmt_count;
@@ -4726,42 +4763,48 @@ box_get_n_statements_internal(struct box *box,
  * named expressions API
  */
 
-tnamed_expr_iterator
-box_iter_named_exprs(struct box *box)
+tattr_iterator
+box_iter_attributes(struct box *box)
 {
-    return box_iter_statements(box, STATEMENT_TYPE_NAMED_EXPR, NULL, 0);
+    return box_iter_statements(box,
+                               STATEMENT_TYPE_NAMED_EXPR |
+                               STATEMENT_TYPE_ATTRIBUTE, NULL, 0);
 }
 
 static bitpunch_status_t
-box_iter_named_exprs_next_internal(struct box *box,
-                                   tnamed_expr_iterator *it,
-                                   const struct named_expr **named_exprp,
-                                   struct browse_state *bst)
+box_iter_attributes_next_internal(struct box *box,
+                                  tattr_iterator *it,
+                                  const struct named_expr **named_exprp,
+                                  struct browse_state *bst)
 {
     return box_iter_statements_next_internal(
         box, it, (const struct statement **)named_exprp, bst);
 }
 
 bitpunch_status_t
-box_lookup_named_expr_internal(struct box *box, const char *named_expr_name,
-                               const struct named_expr **named_exprp,
-                               struct box **scopep,
-                               struct browse_state *bst)
-{
-    return box_lookup_statement_internal(
-        box, STATEMENT_TYPE_NAMED_EXPR, named_expr_name,
-        NULL, (const struct named_statement **)named_exprp, scopep, bst);
-}
-
-bitpunch_status_t
-box_lookup_attribute_internal(struct box *box, const char *name,
-                              enum statement_type *stmt_typep,
-                              const struct named_statement **named_stmtp,
+box_lookup_attribute_internal(struct box *box, const char *attr_name,
+                              const struct named_expr **attrp,
                               struct box **scopep,
                               struct browse_state *bst)
 {
     return box_lookup_statement_internal(
-        box, STATEMENT_TYPE_FIELD | STATEMENT_TYPE_NAMED_EXPR, name,
+        box, STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_ATTRIBUTE,
+        attr_name,
+        NULL, (const struct named_statement **)attrp, scopep, bst);
+}
+
+bitpunch_status_t
+box_lookup_member_internal(struct box *box, const char *name,
+                           enum statement_type *stmt_typep,
+                           const struct named_statement **named_stmtp,
+                           struct box **scopep,
+                           struct browse_state *bst)
+{
+    return box_lookup_statement_internal(
+        box,
+        STATEMENT_TYPE_FIELD |
+        STATEMENT_TYPE_NAMED_EXPR |
+        STATEMENT_TYPE_ATTRIBUTE, name,
         stmt_typep, named_stmtp, scopep, bst);
 }
 
@@ -4801,14 +4844,15 @@ box_evaluate_attribute_internal(struct box *box,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    bt_ret = box_lookup_attribute_internal(box, attr_name,
-                                           &stmt_type, &named_stmt, &scope,
-                                           bst);
+    bt_ret = box_lookup_member_internal(box, attr_name,
+                                        &stmt_type, &named_stmt, &scope,
+                                        bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
     switch (stmt_type) {
-    case STATEMENT_TYPE_NAMED_EXPR: {
+    case STATEMENT_TYPE_NAMED_EXPR:
+    case STATEMENT_TYPE_ATTRIBUTE:{
         const struct named_expr *named_expr;
         struct ast_node_hdl *expr;
         expr_value_t eval_value;
@@ -9070,15 +9114,15 @@ box_evaluate_attribute(struct box *box,
 }
 
 bitpunch_status_t
-box_iter_named_exprs_next(struct box *box, tnamed_expr_iterator *it,
-                          const struct named_expr **named_exprp,
-                          struct tracker_error **errp)
+box_iter_attributes_next(struct box *box, tattr_iterator *it,
+                         const struct named_expr **named_exprp,
+                         struct tracker_error **errp)
 {
     struct browse_state bst;
 
     browse_state_init(&bst);
     return transmit_error(
-        box_iter_named_exprs_next_internal(box, it, named_exprp, &bst),
+        box_iter_attributes_next_internal(box, it, named_exprp, &bst),
         &bst, errp);
 }
 

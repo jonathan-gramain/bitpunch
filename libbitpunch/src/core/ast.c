@@ -313,14 +313,26 @@ lookup_visible_statements_in_lists_internal(
     const struct statement_list *stmt_list;
     struct statement *stmt;
     struct named_statement *nstmt;
-    enum statement_type stmt_types_by_prio[] = {
+    enum statement_type named_stmt_types_by_prio[] = {
         STATEMENT_TYPE_NAMED_EXPR,
         STATEMENT_TYPE_FIELD,
     };
+    enum statement_type attribute_types_by_prio[] = {
+        STATEMENT_TYPE_ATTRIBUTE,
+    };
+    enum statement_type *stmt_types_by_prio;
+    int n_stmt_types_by_prio;
     int i;
     int ret;
 
-    for (i = 0; i < N_ELEM(stmt_types_by_prio); ++i) {
+    if (identifier[0] == '$') {
+        stmt_types_by_prio = attribute_types_by_prio;
+        n_stmt_types_by_prio = N_ELEM(attribute_types_by_prio);
+    } else {
+        stmt_types_by_prio = named_stmt_types_by_prio;
+        n_stmt_types_by_prio = N_ELEM(named_stmt_types_by_prio);
+    }
+    for (i = 0; i < n_stmt_types_by_prio; ++i) {
         stmt_type = stmt_types_by_prio[i];
         if (0 == (stmt_mask & stmt_type)) {
             continue ;
@@ -348,7 +360,8 @@ lookup_visible_statements_in_lists_internal(
     // recurse in anonymous struct/union fields
     TAILQ_FOREACH(stmt, stmt_lists->field_list, list) {
         nstmt = (struct named_statement *)stmt;
-        if (NULL == nstmt->name) {
+        if (NULL == nstmt->name
+            && !(nstmt->stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
             ret = lookup_visible_statements_in_anonymous_field(
                 stmt_mask, identifier, (struct field *)nstmt,
                 visible_statementsp, visible_statements_indexp);
@@ -504,6 +517,7 @@ resolve_identifier_as_scoped_statement(
                 (struct ast_node_hdl *)stmt_spec->anchor_block;
             switch (stmt_spec->stmt_type) {
             case STATEMENT_TYPE_NAMED_EXPR:
+            case STATEMENT_TYPE_ATTRIBUTE:
                 resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
                 resolved_type->u.rexpr_named_expr.named_expr =
                     (struct named_expr *)stmt_spec->nstmt;
@@ -2602,16 +2616,17 @@ compile_rexpr_polymorphic(struct ast_node_hdl *expr,
          ++i) {
         stmt_spec = &expr->ndat->u.rexpr_polymorphic.visible_statements[i];
         switch (stmt_spec->stmt_type) {
-        case STATEMENT_TYPE_FIELD:
-            field = (struct field *)stmt_spec->nstmt;
-            compile_field(field, ctx, COMPILE_TAG_NODE_TYPE, 0u);
-            break ;
         case STATEMENT_TYPE_NAMED_EXPR:
+        case STATEMENT_TYPE_ATTRIBUTE:
             named_expr = (struct named_expr *)stmt_spec->nstmt;
             compile_node(named_expr->expr, ctx, COMPILE_TAG_NODE_TYPE, 0u,
                          RESOLVE_EXPECT_TYPE |
                          RESOLVE_EXPECT_EXPRESSION |
                          RESOLVE_EXPECT_INTERPRETER);
+            break ;
+        case STATEMENT_TYPE_FIELD:
+            field = (struct field *)stmt_spec->nstmt;
+            compile_field(field, ctx, COMPILE_TAG_NODE_TYPE, 0u);
             break ;
         default:
             assert(0);
@@ -2627,14 +2642,15 @@ compile_rexpr_polymorphic(struct ast_node_hdl *expr,
          ++i) {
         stmt_spec = &expr->ndat->u.rexpr_polymorphic.visible_statements[i];
         switch (stmt_spec->stmt_type) {
+        case STATEMENT_TYPE_NAMED_EXPR:
+        case STATEMENT_TYPE_ATTRIBUTE:
+            named_expr = (struct named_expr *)stmt_spec->nstmt;
+            target_expr = named_expr->expr;
+            break ;
         case STATEMENT_TYPE_FIELD:
             field = (struct field *)stmt_spec->nstmt;
             target_expr = field->dpath.filter;
             assert(ast_node_is_rexpr(expr));
-            break ;
-        case STATEMENT_TYPE_NAMED_EXPR:
-            named_expr = (struct named_expr *)stmt_spec->nstmt;
-            target_expr = named_expr->expr;
             break ;
         default:
             assert(0);
@@ -2699,6 +2715,7 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
     int n_visible_statements;
     struct ast_node_hdl *anchor_expr;
     struct ast_node_hdl *anchor_target;
+    enum statement_type lookup_mask;
     const struct ast_node_hdl *anchor_block, *member;
     struct named_statement_spec *stmt_spec;
     struct ast_node_data *resolved_type;
@@ -2724,8 +2741,13 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
                 "invalid use of member operator on non-block dpath");
             return -1;
         }
+        if (member->ndat->u.identifier[0] == '$') {
+            lookup_mask = STATEMENT_TYPE_ATTRIBUTE;
+        } else {
+            lookup_mask = STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD;
+        }
         n_visible_statements = lookup_visible_statements_in_lists(
-            STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD,
+            lookup_mask,
             member->ndat->u.identifier,
             &anchor_block->ndat->u.block_def.block_stmt_list,
             &visible_statements);
@@ -2735,7 +2757,7 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
         if (0 == n_visible_statements) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &member->loc,
-                "no named expression or field named '%s' exists in block",
+                "no attribute named '%s' exists in block",
                 member->ndat->u.identifier);
             semantic_error(SEMANTIC_LOGLEVEL_INFO, &anchor_block->loc,
                            "declared here");
@@ -2754,6 +2776,7 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
             }
             switch (stmt_spec->stmt_type) {
             case STATEMENT_TYPE_NAMED_EXPR:
+            case STATEMENT_TYPE_ATTRIBUTE:
                 resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
                 resolved_type->u.rexpr_named_expr.named_expr =
                     (struct named_expr *)stmt_spec->nstmt;

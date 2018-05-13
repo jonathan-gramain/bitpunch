@@ -1671,7 +1671,7 @@ expr_evaluate_named_expr_internal(
     if (0 != (expr->flags & ASTFLAG_IS_ANONYMOUS_MEMBER)) {
         struct box *direct_scope;
 
-        bt_ret = box_lookup_named_expr_internal(
+        bt_ret = box_lookup_attribute_internal(
             member_scope, named_expr->nstmt.name, NULL, &direct_scope, bst);
         box_delete(member_scope);
         if (BITPUNCH_OK != bt_ret) {
@@ -1708,11 +1708,17 @@ expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
                                    struct browse_state *bst)
 {
     struct ast_node_hdl *anchor_expr;
+    enum statement_type lookup_mask;
     expr_dpath_t anchor_dpath;
     bitpunch_status_t bt_ret;
     struct box *anchor_box;
 
     anchor_expr = expr->ndat->u.rexpr_member_common.anchor_expr;
+    if (expr->ndat->u.rexpr_polymorphic.identifier[0] == '$') {
+        lookup_mask = STATEMENT_TYPE_ATTRIBUTE;
+    } else {
+        lookup_mask = STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD;
+    }
     if (NULL != anchor_expr) {
         bt_ret = expr_evaluate_dpath_internal(anchor_expr, scope,
                                               &anchor_dpath, bst);
@@ -1734,8 +1740,7 @@ expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
             goto error;
         }
         bt_ret = box_lookup_statement_internal(
-            anchor_box,
-            STATEMENT_TYPE_FIELD | STATEMENT_TYPE_NAMED_EXPR,
+            anchor_box, lookup_mask,
             expr->ndat->u.rexpr_polymorphic.identifier,
             stmt_typep, nstmtp, member_scopep, bst);
         if (BITPUNCH_OK != bt_ret) {
@@ -1756,8 +1761,7 @@ expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
     anchor_box = scope;
     while (TRUE) {
         bt_ret = box_lookup_statement_internal(
-            anchor_box,
-            STATEMENT_TYPE_FIELD | STATEMENT_TYPE_NAMED_EXPR,
+            anchor_box, lookup_mask,
             expr->ndat->u.rexpr_polymorphic.identifier,
             stmt_typep, nstmtp, member_scopep, bst);
         if (BITPUNCH_OK == bt_ret) {

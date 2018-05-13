@@ -463,8 +463,10 @@ enum statement_iterator_flag {
 struct statement_iterator {
     /** attribute name to iterate, or NULL for all statements */
     const char *identifier;
+    enum statement_type stmt_remaining;
     int stmt_flags;
     enum statement_iterator_flag it_flags;
+    const struct block_stmt_list *stmt_lists;
     const struct statement *next_stmt;
 };
 
@@ -480,7 +482,7 @@ statement_type_str(enum statement_type stmt_type);
 
 struct statement_iterator
 box_iter_statements(struct box *box,
-                    enum statement_type stmt_type,
+                    enum statement_type stmt_mask,
                     const char *identifier,
                     int stmt_flags);
 
@@ -492,7 +494,7 @@ box_iter_statements_from(struct box *box,
 
 struct statement_iterator
 box_riter_statements(struct box *box,
-                     enum statement_type stmt_type,
+                     enum statement_type stmt_mask,
                      const char *identifier,
                      int stmt_flags);
 
@@ -535,10 +537,10 @@ box_get_n_statements(struct box *box,
 
 /* named expressions API */
 
-typedef struct statement_iterator tnamed_expr_iterator;
+typedef struct statement_iterator tattr_iterator;
 
-tnamed_expr_iterator
-box_iter_named_exprs(struct box *box);
+tattr_iterator
+box_iter_attributes(struct box *box);
 
 bitpunch_status_t
 box_evaluate_attribute_value(struct box *box,
@@ -557,9 +559,9 @@ box_evaluate_attribute(struct box *box,
                        expr_dpath_t *eval_dpathp,
                        struct tracker_error **errp);
 bitpunch_status_t
-box_iter_named_exprs_next(struct box *box, tnamed_expr_iterator *it,
-                          const struct named_expr **named_exprp,
-                          struct tracker_error **errp);
+box_iter_attributes_next(struct box *box, tattr_iterator *it,
+                         const struct named_expr **named_exprp,
+                         struct tracker_error **errp);
 
 /* error reporting */
 

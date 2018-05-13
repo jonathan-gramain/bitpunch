@@ -1050,7 +1050,7 @@ DataContainer_get_dict(DataContainerObject *self, const char *attr_str)
     bitpunch_status_t bt_ret;
     PyObject *py_key;
     expr_value_t key_value;
-    tnamed_expr_iterator named_expr_iter;
+    tattr_iterator attr_iter;
     const struct named_expr *named_expr;
     struct tracker_error *tk_err = NULL;
 
@@ -1082,17 +1082,17 @@ DataContainer_get_dict(DataContainerObject *self, const char *attr_str)
         bt_ret = tracker_goto_next_item(tk, NULL);
     }
     tracker_delete(tk);
-    named_expr_iter = box_iter_named_exprs(self->box);
-    bt_ret = box_iter_named_exprs_next(self->box, &named_expr_iter,
-                                       &named_expr, NULL);
+    attr_iter = box_iter_attributes(self->box);
+    bt_ret = box_iter_attributes_next(self->box, &attr_iter,
+                                      &named_expr, NULL);
     while (BITPUNCH_OK == bt_ret) {
         py_key = PyString_FromString(named_expr->nstmt.name);
         if (NULL != py_key) {
             PyDict_SetItem(dict, py_key, Py_None);
             Py_DECREF(py_key);
         }
-        bt_ret = box_iter_named_exprs_next(self->box, &named_expr_iter,
-                                           &named_expr, NULL);
+        bt_ret = box_iter_attributes_next(self->box, &attr_iter,
+                                          &named_expr, NULL);
     }
     return dict;
 }
@@ -1929,7 +1929,7 @@ DataArray_bytes_box_to_python_object(
     X(ITER_FIELD_NAMES, "iterate over field names")                     \
     X(ITER_FIELD_VALUES, "iterate over field values")                   \
     X(ITER_FIELD_KEYVALUE_TUPLES, "iterate over field's (key, value) tuples") \
-    X(ITER_NAMED_EXPR_NAMES, "iterate over all named expressions' names")                 \
+    X(ITER_ATTRIBUTE_NAMES, "iterate over all attributes (named exprs and properties)") \
     X(ITER_MEMBER_NAMES, "iterate over all member's names (fields and " \
       "named expressions)")                                             \
 
@@ -1954,7 +1954,7 @@ typedef struct TrackerObject {
     struct tracker *tk;
     TrackerIterType iter_mode;
     TrackerIterType current_iter_mode;
-    tnamed_expr_iterator named_expr_iter;
+    tattr_iterator attr_iter;
 } TrackerObject;
 
 
@@ -2648,8 +2648,8 @@ Tracker_iter(TrackerObject *self)
 {
     Py_INCREF((PyObject *)self);
     self->current_iter_mode = self->iter_mode;
-    if (TRACKER_ITER_NAMED_EXPR_NAMES == self->iter_mode) {
-        self->named_expr_iter = box_iter_named_exprs(self->tk->box);
+    if (TRACKER_ITER_ATTRIBUTE_NAMES == self->iter_mode) {
+        self->attr_iter = box_iter_attributes(self->tk->box);
     }
     return (PyObject *)self;
 }
@@ -2657,13 +2657,13 @@ Tracker_iter(TrackerObject *self)
 static PyObject *
 Tracker_iternext(TrackerObject *self)
 {
-    if (TRACKER_ITER_NAMED_EXPR_NAMES != self->current_iter_mode) {
+    if (TRACKER_ITER_ATTRIBUTE_NAMES != self->current_iter_mode) {
         if (NULL == Tracker_goto_next_item(self)) {
             if (PyErr_ExceptionMatches(BitpunchExc_NoItemError)) {
                 PyErr_Clear();
                 if (TRACKER_ITER_MEMBER_NAMES == self->current_iter_mode) {
-                    self->current_iter_mode = TRACKER_ITER_NAMED_EXPR_NAMES;
-                    self->named_expr_iter = box_iter_named_exprs(self->tk->box);
+                    self->current_iter_mode = TRACKER_ITER_ATTRIBUTE_NAMES;
+                    self->attr_iter = box_iter_attributes(self->tk->box);
                 } else {
                     /* StopIteration is implicitly set by the API */
                     return NULL;
@@ -2698,14 +2698,14 @@ Tracker_iternext(TrackerObject *self)
         Py_DECREF(value);
         return res;
     }
-    case TRACKER_ITER_NAMED_EXPR_NAMES: {
+    case TRACKER_ITER_ATTRIBUTE_NAMES: {
         bitpunch_status_t bt_ret;
         const struct named_expr *named_expr;
         struct tracker_error *tk_err = NULL;
 
-        bt_ret = box_iter_named_exprs_next(self->tk->box,
-                                           &self->named_expr_iter,
-                                           &named_expr, &tk_err);
+        bt_ret = box_iter_attributes_next(self->tk->box,
+                                          &self->attr_iter,
+                                          &named_expr, &tk_err);
         if (BITPUNCH_NO_ITEM == bt_ret) {
             PyErr_Clear();
             /* StopIteration is implicitly set by the API */

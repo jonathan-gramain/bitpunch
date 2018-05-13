@@ -483,9 +483,8 @@ class CLI(NestedCmd):
         obj = self.data_tree.eval_expr(expr) if expr else self.data_tree
         if (isinstance(obj, model.DataBlock) or
             isinstance(obj, model.DataArray)):
-            keys = list(str(key)
-                        for key in model.Tracker(obj,
-                                                   iter_mode=model.Tracker.ITER_MEMBER_NAMES))
+            keys = list(str(key) for key in model.Tracker(
+                obj, iter_mode=model.Tracker.ITER_MEMBER_NAMES))
             self.columnize(keys)
         else:
             raise CommandError('keys',
