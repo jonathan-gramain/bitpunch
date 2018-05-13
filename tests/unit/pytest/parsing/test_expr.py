@@ -134,6 +134,8 @@ def test_illegal_expr(params_illegal_expr):
     with pytest.raises(ValueError):
         dtree.eval_expr('this_field_does_not_exist')
     with pytest.raises(ValueError):
+        dtree.eval_expr('$this_attribute_does_not_exist')
+    with pytest.raises(ValueError):
         dtree.eval_expr('contents_struct[42]')
     with pytest.raises(ValueError):
         dtree.eval_expr('contents_struct: byte[10]')

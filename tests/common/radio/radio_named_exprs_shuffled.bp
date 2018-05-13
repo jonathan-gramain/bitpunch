@@ -16,6 +16,6 @@ file {
         : [3] byte;
         len: u8;
         let codename = data[start..start+len]: string;
-        key codename;
+        $key: codename;
     };
 }

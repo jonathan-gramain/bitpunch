@@ -11,8 +11,8 @@ import conftest
 # Slack objects are objects containing at least one slack array. The
 # number of items in a slack array is settled with a greedy iteration,
 # stopping when there is no more room for a full extra element without
-# going over the maximum offset. The minspan, maxspan and span
-# keywords can affect how many items are allocated in slack arrays.
+# going over the maximum offset. The $minspan, $maxspan and $span
+# attributes can affect how many items are allocated in slack arrays.
 #
 
 BLOCK_SIZES = [100, 30, 10, 3]

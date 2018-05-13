@@ -32,7 +32,7 @@ spec_file_footer_static_sized_span = """
 
 let Footer = struct {
     data: [] byte;
-    span 6;
+    $span: 6;
 };
 
 file {
@@ -127,7 +127,7 @@ let Footer = struct {
     footer_contents: [] byte;
     footer_size: u16;
     footer_hdr_size: u8;
-    span footer_size;
+    $span: footer_size;
 };
 
 let Contents = struct {
@@ -151,7 +151,7 @@ let Footer = struct {
     footer_contents: [] byte;
     footer_size: u16;
     footer_hdr_size: u8;
-    span 14;
+    $span: 14;
 };
 
 let Contents = struct {

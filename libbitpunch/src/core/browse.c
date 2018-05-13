@@ -5501,7 +5501,7 @@ box_compute_min_span_size__span_expr(struct box *box,
                                      struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    const struct span_stmt *span_stmt;
+    const struct expr_stmt *span_stmt;
     struct ast_node_hdl *span_expr;
     expr_value_t span_size;
 
@@ -5519,7 +5519,7 @@ box_compute_min_span_size__span_expr(struct box *box,
     default:
         return bt_ret;
     }
-    span_expr = span_stmt->span_expr;
+    span_expr = span_stmt->expr;
     bt_ret = expr_evaluate_value_internal(span_expr, box, &span_size, bst);
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_box_context(
@@ -5545,7 +5545,7 @@ box_compute_max_span_size__span_expr(struct box *box,
                                      struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    const struct span_stmt *span_stmt;
+    const struct expr_stmt *span_stmt;
     struct ast_node_hdl *span_expr;
     expr_value_t span_size;
 
@@ -5562,7 +5562,7 @@ box_compute_max_span_size__span_expr(struct box *box,
     default:
         return bt_ret;
     }
-    span_expr = span_stmt->span_expr;
+    span_expr = span_stmt->expr;
     bt_ret = expr_evaluate_value_internal(span_expr, box, &span_size, bst);
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_box_context(
@@ -8205,9 +8205,9 @@ browse_setup_backends_recur_block(struct ast_node_hdl *block)
 {
     struct block_stmt_list *stmt_lists;
     struct field *field;
-    struct span_stmt *span_stmt;
-    struct key_stmt *key_stmt;
-    struct match *match;
+    struct expr_stmt *span_stmt;
+    struct expr_stmt *key_stmt;
+    struct expr_stmt *match;
     struct named_expr *named_expr;
 
     stmt_lists = &block->ndat->u.block_def.block_stmt_list;
@@ -8239,17 +8239,17 @@ browse_setup_backends_recur_block(struct ast_node_hdl *block)
             return -1;
         }
     }
-    STATEMENT_FOREACH(span_stmt, span_stmt, stmt_lists->span_list, list) {
-        if (-1 == browse_setup_backends_node_recur(span_stmt->span_expr)) {
+    STATEMENT_FOREACH(expr_stmt, span_stmt, stmt_lists->span_list, list) {
+        if (-1 == browse_setup_backends_node_recur(span_stmt->expr)) {
             return -1;
         }
     }
-    STATEMENT_FOREACH(key_stmt, key_stmt, stmt_lists->key_list, list) {
-        if (-1 == browse_setup_backends_node_recur(key_stmt->key_expr)) {
+    STATEMENT_FOREACH(expr_stmt, key_stmt, stmt_lists->key_list, list) {
+        if (-1 == browse_setup_backends_node_recur(key_stmt->expr)) {
             return -1;
         }
     }
-    STATEMENT_FOREACH(match, match, stmt_lists->match_list, list) {
+    STATEMENT_FOREACH(expr_stmt, match, stmt_lists->match_list, list) {
         if (-1 == browse_setup_backends_node_recur(match->expr)) {
             return -1;
         }

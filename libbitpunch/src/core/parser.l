@@ -101,12 +101,8 @@ int lit_alloc;
 
 file       { return KW_FILE; }
 match      { return KW_MATCH; }
-span       { return KW_SPAN; }
-minspan    { return KW_MINSPAN; }
-maxspan    { return KW_MAXSPAN; }
 if         { return KW_IF; }
 else       { return KW_ELSE; }
-key        { return KW_KEY; }
 self       { return KW_SELF; }
 last       { return KW_LAST; }
 let        { return KW_LET; }
@@ -137,7 +133,7 @@ false       {
 [|^&><+\-*/%!~()=[\].{}] { return yytext[0]; }
 sizeof        { return OP_SIZEOF; }
 
-\??[A-Za-z_][A-Za-z0-9_]*  {
+(\?|\$)?[A-Za-z_][A-Za-z0-9_]*  {
     yylval_param->ident = strdup(yytext);
     return IDENTIFIER;
 }

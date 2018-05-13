@@ -6,7 +6,7 @@ let u64 = [8] byte: RadioInt;
 
 let RadioCode = struct {
        codename: [8] byte: string { boundary: '\0'; };
-       key codename;
+       $key: codename;
 };
 
 file {

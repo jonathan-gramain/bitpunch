@@ -682,8 +682,8 @@ resolve_identifiers_in_block_body(
     struct list_of_visible_refs visible_refs;
     struct statement *stmt;
     struct field *field;
-    struct span_stmt *span_stmt;
-    struct key_stmt *key_stmt;
+    struct expr_stmt *span_stmt;
+    struct expr_stmt *key_stmt;
     struct named_expr *named_expr;
 
     stmt_lists = &block->ndat->u.block_def.block_stmt_list;
@@ -731,16 +731,16 @@ resolve_identifiers_in_block_body(
         }
     }
     TAILQ_FOREACH(stmt, stmt_lists->span_list, list) {
-        span_stmt = (struct span_stmt *)stmt;
+        span_stmt = (struct expr_stmt *)stmt;
         if (-1 == resolve_identifiers_in_expression(
-                span_stmt->span_expr, &visible_refs, resolve_tags)) {
+                span_stmt->expr, &visible_refs, resolve_tags)) {
             return -1;
         }
     }
     TAILQ_FOREACH(stmt, stmt_lists->key_list, list) {
-        key_stmt = (struct key_stmt *)stmt;
+        key_stmt = (struct expr_stmt *)stmt;
         if (-1 == resolve_identifiers_in_expression(
-                key_stmt->key_expr, &visible_refs, resolve_tags)) {
+                key_stmt->expr, &visible_refs, resolve_tags)) {
             return -1;
         }
     }
@@ -1672,9 +1672,9 @@ compile_stmt_list_generic(struct statement_list *stmt_list,
 }
 
 static int
-compile_key_stmt(struct key_stmt *key_stmt, struct compile_ctx *ctx)
+compile_key_stmt(struct expr_stmt *key_stmt, struct compile_ctx *ctx)
 {
-    return compile_expr(key_stmt->key_expr, ctx, FALSE);
+    return compile_expr(key_stmt->expr, ctx, FALSE);
 }
 
 static int
@@ -1771,9 +1771,9 @@ compile_stmt_lists(struct block_stmt_list *stmt_lists,
                     struct compile_ctx *ctx)
 {
     struct field *field;
-    struct span_stmt *span_stmt;
-    struct key_stmt *key_stmt;
-    struct match *match;
+    struct expr_stmt *span_stmt;
+    struct expr_stmt *key_stmt;
+    struct expr_stmt *match;
     struct named_expr *named_expr;
 
     compile_stmt_list_generic(stmt_lists->named_expr_list, ctx);
@@ -1792,13 +1792,13 @@ compile_stmt_lists(struct block_stmt_list *stmt_lists,
     STATEMENT_FOREACH(field, field, stmt_lists->field_list, list) {
         compile_field(field, ctx, 0u, COMPILE_TAG_NODE_TYPE);
     }
-    STATEMENT_FOREACH(span_stmt, span_stmt, stmt_lists->span_list, list) {
-        compile_expr(span_stmt->span_expr, ctx, FALSE);
+    STATEMENT_FOREACH(expr_stmt, span_stmt, stmt_lists->span_list, list) {
+        compile_expr(span_stmt->expr, ctx, FALSE);
     }
-    STATEMENT_FOREACH(key_stmt, key_stmt, stmt_lists->key_list, list) {
+    STATEMENT_FOREACH(expr_stmt, key_stmt, stmt_lists->key_list, list) {
         compile_key_stmt(key_stmt, ctx);
     }
-    STATEMENT_FOREACH(match, match, stmt_lists->match_list, list) {
+    STATEMENT_FOREACH(expr_stmt, match, stmt_lists->match_list, list) {
         compile_expr(match->expr, ctx, FALSE);
     }
     return compile_continue(ctx) ? 0 : -1;
@@ -2419,12 +2419,7 @@ compile_expr_operator_sizeof(struct ast_node_hdl *expr,
 }
 
 /**
- * @brief first compile pass of addrof (&) operator
- *
- * The first pass focuses on resolving data types and dpaths of addrof
- * argument expression. Second pass will compute static address or
- * set it to dynamic, as this requires all dpaths to be resolved
- * first.
+ * @brief compile addrof (&) operator
  */
 static int
 compile_expr_operator_addrof(struct ast_node_hdl *expr,
@@ -2459,11 +2454,6 @@ compile_expr_operator_addrof(struct ast_node_hdl *expr,
 
 /**
  * @brief compile ancestor (unary ^) operator
- *
- * The first pass focuses on resolving data types and dpaths of addrof
- * argument expression. Second pass will compute static address or
- * set it to dynamic, as this requires all dpaths to be resolved
- * first.
  */
 static int
 compile_expr_operator_ancestor(struct ast_node_hdl *expr,
@@ -2959,7 +2949,7 @@ compile_node_type(struct ast_node_hdl *node,
 static int
 compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
 {
-    struct span_stmt *span_stmt;
+    struct expr_stmt *span_stmt;
     struct ast_node_hdl *min_span_expr;
     struct ast_node_hdl *max_span_expr;
     const struct statement_list *field_list;
@@ -2997,17 +2987,17 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
 
     min_span_expr = NULL;
     max_span_expr = NULL;
-    STATEMENT_FOREACH(span_stmt, span_stmt,
+    STATEMENT_FOREACH(expr_stmt, span_stmt,
                       item->ndat->u.block_def.block_stmt_list.span_list, list) {
-        if (-1 == compile_expr(span_stmt->span_expr, ctx, TRUE)) {
+        if (-1 == compile_expr(span_stmt->expr, ctx, TRUE)) {
             return -1;
         }
         if (NULL == span_stmt->stmt.cond) {
             if ((span_stmt->stmt.stmt_flags & SPAN_FLAG_MIN)) {
-                min_span_expr = span_stmt->span_expr;
+                min_span_expr = span_stmt->expr;
             }
             if ((span_stmt->stmt.stmt_flags & SPAN_FLAG_MAX)) {
-                max_span_expr = span_stmt->span_expr;
+                max_span_expr = span_stmt->expr;
             }
             if (min_span_expr != max_span_expr) {
                 dynamic_span = TRUE;
@@ -4169,9 +4159,9 @@ ast_node_get_key_expr(const struct ast_node_hdl *node)
         if (TAILQ_EMPTY(target->ndat->u.block_def.block_stmt_list.key_list)) {
             return NULL;
         }
-        return ((struct key_stmt *)TAILQ_FIRST(
+        return ((struct expr_stmt *)TAILQ_FIRST(
                     target->ndat->u.block_def
-                    .block_stmt_list.key_list))->key_expr;
+                    .block_stmt_list.key_list))->expr;
     default:
         return NULL;
     }

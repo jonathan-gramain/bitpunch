@@ -486,7 +486,7 @@
         NAMED_STATEMENT_FLAGS_END          = (STATEMENT_FLAGS_END<<0),
     };
 
-    struct match {
+    struct expr_stmt {
         struct statement stmt; // inherits
         struct ast_node_hdl *expr;
     };
@@ -508,19 +508,9 @@
         FIELD_FLAG_TRAILER       = (NAMED_STATEMENT_FLAGS_END<<2),
     };
 
-    struct span_stmt {
-        struct statement stmt; // inherits
-        struct ast_node_hdl *span_expr;
-    };
-
-    enum span_stmt_flag {
+    enum span_flag {
         SPAN_FLAG_MIN = (STATEMENT_FLAGS_END<<0),
         SPAN_FLAG_MAX = (STATEMENT_FLAGS_END<<1),
-    };
-
-    struct key_stmt {
-        struct statement stmt; // inherits
-        struct ast_node_hdl *key_expr;
     };
 
     struct last_stmt {
@@ -690,10 +680,8 @@
     struct block_stmt_list block_stmt_list;
     struct statement_list *statement_list;
     struct file_block file_block;
-    struct match *match;
+    struct expr_stmt *expr_stmt;
     struct named_expr *named_expr;
-    struct span_stmt *span_stmt;
-    struct key_stmt *key_stmt;
     struct func_param *func_param;
     struct subscript_index subscript_index;
     struct last_stmt *last_stmt;
@@ -738,13 +726,10 @@
 %type <ast_node_hdl> g_integer g_boolean g_identifier g_literal block block_def expr opt_expr twin_index opt_twin_index
 %type <file_block> file_block
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
-%type <field> field_stmt
 %type <statement_list> func_params func_param_nonempty_list
-%type <match> match_stmt
-%type <named_expr> let_stmt func_param
-%type <span_stmt> span_stmt
-%type <key_stmt> key_stmt
+%type <named_expr> let_stmt attribute_stmt func_param
 %type <subscript_index> key_expr opt_key_expr
+%type <expr_stmt> match_stmt
 %type <last_stmt> last_stmt
 %locations
 
@@ -1149,10 +1134,51 @@ block_stmt_list:
     /* empty */ {
         init_block_stmt_list(&$$);
     }
-  | block_stmt_list field_stmt {
+  | block_stmt_list attribute_stmt {
         $$ = $1;
-        TAILQ_INSERT_TAIL($$.field_list,
-                          (struct statement *)$field_stmt, list);
+        const char *attr_name;
+
+        attr_name = $attribute_stmt->nstmt.name;
+        if (NULL != attr_name && attr_name[0] == '$') {
+            struct expr_stmt *attr;
+
+            attr = new_safe(struct expr_stmt);
+            attr->stmt.loc = @attribute_stmt;
+            attr->expr = $attribute_stmt->expr;
+            if (0 == strcmp(attr_name + 1, "span")) {
+                attr->expr->flags |= ASTFLAG_IS_SPAN_EXPR;
+                attr->stmt.stmt_flags = SPAN_FLAG_MIN | SPAN_FLAG_MAX;
+            } else if (0 == strcmp(attr_name + 1, "minspan")) {
+                attr->expr->flags |= ASTFLAG_IS_SPAN_EXPR;
+                attr->stmt.stmt_flags = SPAN_FLAG_MIN;
+            } else if (0 == strcmp(attr_name + 1, "maxspan")) {
+                attr->expr->flags |= ASTFLAG_IS_SPAN_EXPR;
+                attr->stmt.stmt_flags = SPAN_FLAG_MAX;
+            } else if (0 == strcmp(attr_name + 1, "key")) {
+                attr->expr->flags |= ASTFLAG_IS_KEY_EXPR;
+            } else {
+                semantic_error(SEMANTIC_LOGLEVEL_ERROR,
+                               &$attribute_stmt->nstmt.stmt.loc,
+                               "unsupported attribute '%s'", attr_name);
+                free(attr);
+                YYERROR;
+            }
+            if (0 != (attr->expr->flags & ASTFLAG_IS_SPAN_EXPR)) {
+                TAILQ_INSERT_TAIL($$.span_list,
+                                  (struct statement *)attr, list);
+            } else if (0 != (attr->expr->flags & ASTFLAG_IS_KEY_EXPR)) {
+                TAILQ_INSERT_TAIL($$.key_list,
+                                  (struct statement *)attr, list);
+            }
+        } else {
+            struct field *field;
+
+            field = new_safe(struct field);
+            field->nstmt = $attribute_stmt->nstmt;
+            dpath_node_reset(&field->dpath);
+            field->dpath.item = $attribute_stmt->expr;
+            TAILQ_INSERT_TAIL($$.field_list, (struct statement *)field, list);
+        }
     }
 
   | block_stmt_list match_stmt {
@@ -1161,25 +1187,6 @@ block_stmt_list:
                           (struct statement *)$match_stmt, list);
     }
 
-  | block_stmt_list span_stmt {
-        $$ = $1;
-        TAILQ_INSERT_TAIL($$.span_list,
-                          (struct statement *)$span_stmt, list);
-    }
-  | block_stmt_list key_stmt {
-        $$ = $1;
-        if (!TAILQ_EMPTY($$.key_list)) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                           &$key_stmt->stmt.loc,
-                           "multiple key statements not supported");
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                           &TAILQ_FIRST($$.key_list)->loc,
-                           "first key statement here");
-            YYERROR;
-        }
-        TAILQ_INSERT_TAIL($$.key_list,
-                          (struct statement *)$key_stmt, list);
-    }
   | block_stmt_list let_stmt {
         $$ = $1;
         TAILQ_INSERT_TAIL($$.named_expr_list,
@@ -1199,52 +1206,20 @@ block_stmt_list:
       }
   }
 
-field_stmt:
+attribute_stmt:
     opt_identifier ':' expr ';' {
-        $$ = new_safe(struct field);
-        dpath_node_reset(&$$->dpath);
+        $$ = new_safe(struct named_expr);
         $$->nstmt.name = $opt_identifier;
         $$->nstmt.stmt.loc = @$;
-        $$->dpath.item = $expr;
+        $$->expr = $expr;
     }
 
 match_stmt:
     KW_MATCH expr ';' {
-        $$ = new_safe(struct match);
+        $$ = new_safe(struct expr_stmt);
         $$->stmt.loc = @$;
         $$->expr = $expr;
         $$->expr->flags |= ASTFLAG_IS_MATCH_EXPR;
-    }
-
-span_stmt:
-    KW_SPAN expr ';' {
-        $$ = new_safe(struct span_stmt);
-        $$->stmt.loc = @$;
-        $$->span_expr = $expr;
-        $$->span_expr->flags |= ASTFLAG_IS_SPAN_EXPR;
-        $$->stmt.stmt_flags = SPAN_FLAG_MIN | SPAN_FLAG_MAX;
-    }
-  | KW_MINSPAN expr ';' {
-        $$ = new_safe(struct span_stmt);
-        $$->stmt.loc = @$;
-        $$->span_expr = $expr;
-        $$->span_expr->flags |= ASTFLAG_IS_SPAN_EXPR;
-        $$->stmt.stmt_flags = SPAN_FLAG_MIN;
-    }
-  | KW_MAXSPAN expr ';' {
-        $$ = new_safe(struct span_stmt);
-        $$->stmt.loc = @$;
-        $$->span_expr = $expr;
-        $$->span_expr->flags |= ASTFLAG_IS_SPAN_EXPR;
-        $$->stmt.stmt_flags = SPAN_FLAG_MAX;
-    }
-
-key_stmt:
-    KW_KEY expr ';' {
-        $$ = new_safe(struct key_stmt);
-        $$->stmt.loc = @$;
-        $$->key_expr = $expr;
-        $$->key_expr->flags |= ASTFLAG_IS_KEY_EXPR;
     }
 
 let_stmt:

@@ -8,8 +8,8 @@ let RadioCode = struct {
        foo: [6] byte;
        item_span: struct { value: u16; };
        codename: [] byte: string { boundary: '\0'; };
-       key codename;
-       span item_span.value;
+       $key: codename;
+       $span: item_span.value;
 };
 
 file {
