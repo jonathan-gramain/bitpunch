@@ -452,8 +452,7 @@ tracker_read_item_value(struct tracker *tk,
 enum statement_type {
     STATEMENT_TYPE_FIELD = (1<<0),
     STATEMENT_TYPE_NAMED_EXPR = (1<<1),
-    STATEMENT_TYPE_SPAN = (1<<2),
-    STATEMENT_TYPE_KEY = (1<<3),
+    STATEMENT_TYPE_ATTRIBUTE = (1<<2),
     STATEMENT_TYPE_LAST = (1<<4),
     STATEMENT_TYPE_MATCH = (1<<5),
 };
@@ -462,6 +461,8 @@ enum statement_iterator_flag {
     STATEMENT_ITERATOR_FLAG_REVERSE = (1<<0),
 };
 struct statement_iterator {
+    /** attribute name to iterate, or NULL for all statements */
+    const char *identifier;
     int stmt_flags;
     enum statement_iterator_flag it_flags;
     const struct statement *next_stmt;
@@ -480,21 +481,25 @@ statement_type_str(enum statement_type stmt_type);
 struct statement_iterator
 box_iter_statements(struct box *box,
                     enum statement_type stmt_type,
+                    const char *identifier,
                     int stmt_flags);
 
 struct statement_iterator
 box_iter_statements_from(struct box *box,
                          const struct statement *stmt,
+                         const char *identifier,
                          int stmt_flags);
 
 struct statement_iterator
 box_riter_statements(struct box *box,
                      enum statement_type stmt_type,
+                     const char *identifier,
                      int stmt_flags);
 
 struct statement_iterator
 box_riter_statements_from(struct box *box,
                           const struct statement *stmt,
+                          const char *identifier,
                           int stmt_flags);
 
 bitpunch_status_t
@@ -514,6 +519,7 @@ box_lookup_statement(struct box *box,
 bitpunch_status_t
 box_get_first_statement(struct box *box,
                         enum statement_type stmt_type,
+                        const char *stmt_name,
                         int stmt_flags,
                         const struct statement **stmtp,
                         struct tracker_error **errp);
@@ -521,6 +527,7 @@ box_get_first_statement(struct box *box,
 bitpunch_status_t
 box_get_n_statements(struct box *box,
                      enum statement_type stmt_type,
+                     const char *stmt_name,
                      int stmt_flags,
                      int64_t *stmt_countp,
                      struct tracker_error **errp);

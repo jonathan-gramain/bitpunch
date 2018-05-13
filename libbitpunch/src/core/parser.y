@@ -112,8 +112,7 @@
     struct block_stmt_list {
         struct statement_list *field_list;
         struct statement_list *named_expr_list;
-        struct statement_list *span_list;
-        struct statement_list *key_list;
+        struct statement_list *attribute_list;
         struct statement_list *last_stmt_list;
         struct statement_list *match_list;
     };
@@ -508,11 +507,6 @@
         FIELD_FLAG_TRAILER       = (NAMED_STATEMENT_FLAGS_END<<2),
     };
 
-    enum span_flag {
-        SPAN_FLAG_MIN = (STATEMENT_FLAGS_END<<0),
-        SPAN_FLAG_MAX = (STATEMENT_FLAGS_END<<1),
-    };
-
     struct last_stmt {
         struct statement stmt; // inherits
     };
@@ -628,14 +622,12 @@
         memset(dst, 0, sizeof (*dst));
         dst->field_list = new_safe(struct statement_list);
         dst->named_expr_list = new_safe(struct statement_list);
-        dst->span_list = new_safe(struct statement_list);
-        dst->key_list = new_safe(struct statement_list);
+        dst->attribute_list = new_safe(struct statement_list);
         dst->last_stmt_list = new_safe(struct statement_list);
         dst->match_list = new_safe(struct statement_list);
         TAILQ_INIT(dst->field_list);
         TAILQ_INIT(dst->named_expr_list);
-        TAILQ_INIT(dst->span_list);
-        TAILQ_INIT(dst->key_list);
+        TAILQ_INIT(dst->attribute_list);
         TAILQ_INIT(dst->last_stmt_list);
         TAILQ_INIT(dst->match_list);
     }
@@ -647,8 +639,7 @@
         TAILQ_CONCAT(dst->field_list, src->field_list, list);
         TAILQ_CONCAT(dst->named_expr_list, src->named_expr_list, list);
 
-        TAILQ_CONCAT(dst->span_list, src->span_list, list);
-        TAILQ_CONCAT(dst->key_list, src->key_list, list);
+        TAILQ_CONCAT(dst->attribute_list, src->attribute_list, list);
         TAILQ_CONCAT(dst->last_stmt_list, src->last_stmt_list, list);
         return 0;
     }
@@ -1028,21 +1019,6 @@ file_block: KW_FILE '{' block_stmt_list '}' {
             semantic_error(SEMANTIC_LOGLEVEL_WARNING, &@$,
                            "file block has zero field");
         }
-        if (!TAILQ_EMPTY($block_stmt_list.span_list)) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR,
-                &TAILQ_FIRST($block_stmt_list.span_list)->loc,
-                "file block cannot have span information "
-                "(it's always the whole file)");
-            YYERROR;
-        }
-        if (!TAILQ_EMPTY($block_stmt_list.key_list)) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR,
-                &TAILQ_FIRST($block_stmt_list.key_list)->loc,
-                "file block cannot have key information");
-            YYERROR;
-        }
         item->u.block_def.block_stmt_list = $block_stmt_list;
         item->u.item.min_span_size = SPAN_SIZE_UNDEF;
         $$.root->item->flags = ASTFLAG_IS_ROOT_BLOCK;
@@ -1079,10 +1055,7 @@ if_block:
         TAILQ_FOREACH(stmt, $block_stmt_list.named_expr_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
-        TAILQ_FOREACH(stmt, $block_stmt_list.span_list, list) {
-            attach_outer_conditional(&stmt->cond, cond);
-        }
-        TAILQ_FOREACH(stmt, $block_stmt_list.key_list, list) {
+        TAILQ_FOREACH(stmt, $block_stmt_list.attribute_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
         TAILQ_FOREACH(stmt, $block_stmt_list.last_stmt_list, list) {
@@ -1100,10 +1073,7 @@ if_block:
         TAILQ_FOREACH(stmt, $opt_else_block.named_expr_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
-        TAILQ_FOREACH(stmt, $opt_else_block.span_list, list) {
-            attach_outer_conditional(&stmt->cond, cond);
-        }
-        TAILQ_FOREACH(stmt, $opt_else_block.key_list, list) {
+        TAILQ_FOREACH(stmt, $opt_else_block.attribute_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
         TAILQ_FOREACH(stmt, $opt_else_block.last_stmt_list, list) {
@@ -1137,39 +1107,25 @@ block_stmt_list:
   | block_stmt_list attribute_stmt {
         $$ = $1;
         const char *attr_name;
+        struct ast_node_hdl *expr;
 
         attr_name = $attribute_stmt->nstmt.name;
+        expr = $attribute_stmt->expr;
         if (NULL != attr_name && attr_name[0] == '$') {
-            struct expr_stmt *attr;
-
-            attr = new_safe(struct expr_stmt);
-            attr->stmt.loc = @attribute_stmt;
-            attr->expr = $attribute_stmt->expr;
-            if (0 == strcmp(attr_name + 1, "span")) {
-                attr->expr->flags |= ASTFLAG_IS_SPAN_EXPR;
-                attr->stmt.stmt_flags = SPAN_FLAG_MIN | SPAN_FLAG_MAX;
-            } else if (0 == strcmp(attr_name + 1, "minspan")) {
-                attr->expr->flags |= ASTFLAG_IS_SPAN_EXPR;
-                attr->stmt.stmt_flags = SPAN_FLAG_MIN;
-            } else if (0 == strcmp(attr_name + 1, "maxspan")) {
-                attr->expr->flags |= ASTFLAG_IS_SPAN_EXPR;
-                attr->stmt.stmt_flags = SPAN_FLAG_MAX;
+            if (0 == strcmp(attr_name + 1, "span")
+                || 0 == strcmp(attr_name + 1, "minspan")
+                || 0 == strcmp(attr_name + 1, "maxspan")) {
+                expr->flags |= ASTFLAG_IS_SPAN_EXPR;
             } else if (0 == strcmp(attr_name + 1, "key")) {
-                attr->expr->flags |= ASTFLAG_IS_KEY_EXPR;
+                expr->flags |= ASTFLAG_IS_KEY_EXPR;
             } else {
                 semantic_error(SEMANTIC_LOGLEVEL_ERROR,
                                &$attribute_stmt->nstmt.stmt.loc,
                                "unsupported attribute '%s'", attr_name);
-                free(attr);
                 YYERROR;
             }
-            if (0 != (attr->expr->flags & ASTFLAG_IS_SPAN_EXPR)) {
-                TAILQ_INSERT_TAIL($$.span_list,
-                                  (struct statement *)attr, list);
-            } else if (0 != (attr->expr->flags & ASTFLAG_IS_KEY_EXPR)) {
-                TAILQ_INSERT_TAIL($$.key_list,
-                                  (struct statement *)attr, list);
-            }
+            TAILQ_INSERT_TAIL($$.attribute_list,
+                              (struct statement *)$attribute_stmt, list);
         } else {
             struct field *field;
 

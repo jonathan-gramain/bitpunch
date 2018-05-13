@@ -219,10 +219,8 @@ block_stmt_lists_get_list(enum statement_type stmt_type,
         return stmt_lists->field_list;
     case STATEMENT_TYPE_NAMED_EXPR:
         return stmt_lists->named_expr_list;
-    case STATEMENT_TYPE_SPAN:
-        return stmt_lists->span_list;
-    case STATEMENT_TYPE_KEY:
-        return stmt_lists->key_list;
+    case STATEMENT_TYPE_ATTRIBUTE:
+        return stmt_lists->attribute_list;
     case STATEMENT_TYPE_LAST:
         return stmt_lists->last_stmt_list;
     case STATEMENT_TYPE_MATCH:
@@ -680,10 +678,7 @@ resolve_identifiers_in_block_body(
 {
     struct block_stmt_list *stmt_lists;
     struct list_of_visible_refs visible_refs;
-    struct statement *stmt;
     struct field *field;
-    struct expr_stmt *span_stmt;
-    struct expr_stmt *key_stmt;
     struct named_expr *named_expr;
 
     stmt_lists = &block->ndat->u.block_def.block_stmt_list;
@@ -704,7 +699,7 @@ resolve_identifiers_in_block_body(
         return -1;
     }
     if (-1 == resolve_identifiers_in_statement_list(
-            stmt_lists->span_list, &visible_refs, resolve_tags)) {
+            stmt_lists->attribute_list, &visible_refs, resolve_tags)) {
         return -1;
     }
     if (-1 == resolve_identifiers_in_statement_list(
@@ -730,17 +725,10 @@ resolve_identifiers_in_block_body(
             return -1;
         }
     }
-    TAILQ_FOREACH(stmt, stmt_lists->span_list, list) {
-        span_stmt = (struct expr_stmt *)stmt;
+    STATEMENT_FOREACH(named_expr, named_expr,
+                      stmt_lists->attribute_list, list) {
         if (-1 == resolve_identifiers_in_expression(
-                span_stmt->expr, &visible_refs, resolve_tags)) {
-            return -1;
-        }
-    }
-    TAILQ_FOREACH(stmt, stmt_lists->key_list, list) {
-        key_stmt = (struct expr_stmt *)stmt;
-        if (-1 == resolve_identifiers_in_expression(
-                key_stmt->expr, &visible_refs, resolve_tags)) {
+                named_expr->expr, &visible_refs, resolve_tags)) {
             return -1;
         }
     }
@@ -1672,12 +1660,6 @@ compile_stmt_list_generic(struct statement_list *stmt_list,
 }
 
 static int
-compile_key_stmt(struct expr_stmt *key_stmt, struct compile_ctx *ctx)
-{
-    return compile_expr(key_stmt->expr, ctx, FALSE);
-}
-
-static int
 compile_named_expr(struct named_expr *named_expr, struct compile_ctx *ctx,
                    enum resolve_expect_mask expect_mask)
 {
@@ -1771,8 +1753,6 @@ compile_stmt_lists(struct block_stmt_list *stmt_lists,
                     struct compile_ctx *ctx)
 {
     struct field *field;
-    struct expr_stmt *span_stmt;
-    struct expr_stmt *key_stmt;
     struct expr_stmt *match;
     struct named_expr *named_expr;
 
@@ -1786,17 +1766,15 @@ compile_stmt_lists(struct block_stmt_list *stmt_lists,
                            RESOLVE_EXPECT_EXPRESSION);
     }
     compile_stmt_list_generic(stmt_lists->field_list, ctx);
-    compile_stmt_list_generic(stmt_lists->span_list, ctx);
+    compile_stmt_list_generic(stmt_lists->attribute_list, ctx);
     compile_stmt_list_generic(stmt_lists->last_stmt_list, ctx);
     
     STATEMENT_FOREACH(field, field, stmt_lists->field_list, list) {
         compile_field(field, ctx, 0u, COMPILE_TAG_NODE_TYPE);
     }
-    STATEMENT_FOREACH(expr_stmt, span_stmt, stmt_lists->span_list, list) {
-        compile_expr(span_stmt->expr, ctx, FALSE);
-    }
-    STATEMENT_FOREACH(expr_stmt, key_stmt, stmt_lists->key_list, list) {
-        compile_key_stmt(key_stmt, ctx);
+    STATEMENT_FOREACH(named_expr, named_expr,
+                      stmt_lists->attribute_list, list) {
+        compile_expr(named_expr->expr, ctx, FALSE);
     }
     STATEMENT_FOREACH(expr_stmt, match, stmt_lists->match_list, list) {
         compile_expr(match->expr, ctx, FALSE);
@@ -2949,7 +2927,7 @@ compile_node_type(struct ast_node_hdl *node,
 static int
 compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
 {
-    struct expr_stmt *span_stmt;
+    struct named_expr *span_stmt;
     struct ast_node_hdl *min_span_expr;
     struct ast_node_hdl *max_span_expr;
     const struct statement_list *field_list;
@@ -2987,20 +2965,26 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
 
     min_span_expr = NULL;
     max_span_expr = NULL;
-    STATEMENT_FOREACH(expr_stmt, span_stmt,
-                      item->ndat->u.block_def.block_stmt_list.span_list, list) {
+    STATEMENT_FOREACH(
+        named_expr, span_stmt,
+        item->ndat->u.block_def.block_stmt_list.attribute_list, list) {
+        if (0 == (span_stmt->expr->flags & ASTFLAG_IS_SPAN_EXPR)) {
+            continue ;
+        }
         if (-1 == compile_expr(span_stmt->expr, ctx, TRUE)) {
             return -1;
         }
-        if (NULL == span_stmt->stmt.cond) {
-            if ((span_stmt->stmt.stmt_flags & SPAN_FLAG_MIN)) {
+        if (NULL == span_stmt->nstmt.stmt.cond) {
+            if (0 == strcmp(span_stmt->nstmt.name, "$minspan")) {
                 min_span_expr = span_stmt->expr;
-            }
-            if ((span_stmt->stmt.stmt_flags & SPAN_FLAG_MAX)) {
-                max_span_expr = span_stmt->expr;
-            }
-            if (min_span_expr != max_span_expr) {
                 dynamic_span = TRUE;
+            } else if (0 == strcmp(span_stmt->nstmt.name, "$maxspan")) {
+                max_span_expr = span_stmt->expr;
+                dynamic_span = TRUE;
+            } else {
+                assert(0 == strcmp(span_stmt->nstmt.name, "$span"));
+                min_span_expr = span_stmt->expr;
+                max_span_expr = span_stmt->expr;
             }
             break ;
         } else {
@@ -4125,6 +4109,22 @@ ast_node_is_slack(const struct ast_node_hdl *node)
     return FALSE;
 }
 
+struct ast_node_hdl *
+block_get_first_attribute(const struct ast_node_hdl *block,
+                          const char *attr_name)
+{
+    struct named_expr *attr_stmt;
+
+    STATEMENT_FOREACH(
+        named_expr, attr_stmt,
+        block->ndat->u.block_def.block_stmt_list.attribute_list, list) {
+        if (0 == strcmp(attr_stmt->nstmt.name, attr_name)) {
+            return attr_stmt->expr;
+        }
+    }
+    return NULL;
+}
+
 int
 ast_node_is_indexed(const struct ast_node_hdl *node)
 {
@@ -4136,7 +4136,7 @@ ast_node_is_indexed(const struct ast_node_hdl *node)
         if (AST_NODE_TYPE_BLOCK_DEF != target->ndat->type) {
             return FALSE;
         }
-        return !TAILQ_EMPTY(target->ndat->u.block_def.block_stmt_list.key_list);
+        return NULL != block_get_first_attribute(target, "$key");
     default:
         return FALSE;
     }
@@ -4156,12 +4156,7 @@ ast_node_get_key_expr(const struct ast_node_hdl *node)
         // TODO: multiple or conditional key expressions currently not
         // supported (needs proper support in index cache)
 
-        if (TAILQ_EMPTY(target->ndat->u.block_def.block_stmt_list.key_list)) {
-            return NULL;
-        }
-        return ((struct expr_stmt *)TAILQ_FIRST(
-                    target->ndat->u.block_def
-                    .block_stmt_list.key_list))->expr;
+        return block_get_first_attribute(target, "$key");
     default:
         return NULL;
     }

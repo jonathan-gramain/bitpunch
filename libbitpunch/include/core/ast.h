@@ -140,6 +140,9 @@ int64_t
 ast_node_get_min_span_size(const struct ast_node_hdl *node);
 int
 ast_node_is_slack(const struct ast_node_hdl *node);
+struct ast_node_hdl *
+block_get_first_attribute(const struct ast_node_hdl *block,
+                          const char *attr_name);
 int
 ast_node_is_indexed(const struct ast_node_hdl *node);
 struct ast_node_hdl *
