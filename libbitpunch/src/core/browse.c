@@ -3469,7 +3469,7 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
         /* TODO free expr_node */
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
-    if (0 == (expr_node->flags & ASTFLAG_IS_REXPR_DPATH)) {
+    if (0 != (expr_node->flags & ASTFLAG_IS_VALUE_TYPE)) {
         free(parser_ctx);
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
@@ -4864,7 +4864,7 @@ box_evaluate_attribute_internal(struct box *box,
         named_expr = (const struct named_expr *)named_stmt;
         expr = named_expr->expr;
         if (NULL != eval_dpathp
-            && 0 != (expr->flags & ASTFLAG_IS_REXPR_DPATH)) {
+            && 0 == (expr->flags & ASTFLAG_IS_VALUE_TYPE)) {
             bt_ret = expr_evaluate_dpath_internal(
                 expr, scope, &eval_dpath, bst);
             if (BITPUNCH_OK == bt_ret) {
@@ -4872,7 +4872,8 @@ box_evaluate_attribute_internal(struct box *box,
             }
         }
         if (BITPUNCH_OK == bt_ret && NULL != eval_valuep) {
-            if (eval_dpath_computed) {
+            if (eval_dpath_computed
+                && EXPR_DPATH_TYPE_NONE != eval_dpath.type) {
                 bt_ret = dpath_read_value_internal(eval_dpath,
                                                    &eval_value, bst);
             } else {

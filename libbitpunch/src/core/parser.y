@@ -155,7 +155,7 @@
         ASTFLAG_IS_KEY_EXPR                 = (1<<1),
         ASTFLAG_IS_MATCH_EXPR               = (1<<2),
         ASTFLAG_IS_ROOT_BLOCK               = (1<<3),
-        ASTFLAG_IS_REXPR_DPATH              = (1<<4),
+        ASTFLAG_IS_VALUE_TYPE               = (1<<4),
         ASTFLAG_IS_ANONYMOUS_MEMBER         = (1<<5),
         ASTFLAG_HAS_POLYMORPHIC_ANCHOR      = (1<<6),
         ASTFLAG_REVERSE_COND                = (1<<8),

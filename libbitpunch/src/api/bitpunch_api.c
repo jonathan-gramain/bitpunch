@@ -467,7 +467,7 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
     assert(ast_node_is_rexpr(expr_node));
     compute_dpath =
         (NULL != expr_dpathp
-         && 0 != (expr_node->flags & ASTFLAG_IS_REXPR_DPATH));
+         && 0 == (expr_node->flags & ASTFLAG_IS_VALUE_TYPE));
     compute_value =
         (NULL != expr_valuep
          && EXPR_VALUE_TYPE_UNSET

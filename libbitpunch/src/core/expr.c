@@ -891,10 +891,9 @@ expr_eval_builtin_bytes(struct ast_node_hdl *object,
     struct box *bytes_box;
 
     expr = ((struct named_expr *)TAILQ_FIRST(params))->expr;
-    if (0 == (expr->flags & ASTFLAG_IS_REXPR_DPATH)) {
+    if (0 != (expr->flags & ASTFLAG_IS_VALUE_TYPE)) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                       "cannot evaluate 'bytes': expression is not "
-                       "a dpath");
+                       "cannot evaluate 'bytes' on value-type expression");
         return BITPUNCH_INVALID_PARAM;
     }
     bt_ret = expr_evaluate_dpath_internal(expr, scope,
@@ -947,16 +946,16 @@ expr_eval_builtin_index(struct ast_node_hdl *object,
     array_dpath = ((struct named_expr *)TAILQ_FIRST(params))->expr;
     item_dpath = ((struct named_expr *)
                   TAILQ_NEXT(TAILQ_FIRST(params), list))->expr;
-    if (0 == (array_dpath->flags & ASTFLAG_IS_REXPR_DPATH)) {
+    if (0 != (array_dpath->flags & ASTFLAG_IS_VALUE_TYPE)) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &array_dpath->loc,
-                       "cannot evaluate 'index': 1st argument is not "
-                       "a dpath");
+                       "cannot evaluate 'index': 1st argument is a "
+                       "value-type expression");
         return BITPUNCH_INVALID_PARAM;
     }
-    if (0 == (item_dpath->flags & ASTFLAG_IS_REXPR_DPATH)) {
+    if (0 != (item_dpath->flags & ASTFLAG_IS_VALUE_TYPE)) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &item_dpath->loc,
-                       "cannot evaluate 'index': 2nd argument is not "
-                       "a dpath");
+                       "cannot evaluate 'index': 2nd argument is a "
+                       "value-type expression");
         return BITPUNCH_INVALID_PARAM;
     }
     bt_ret = expr_evaluate_dpath_internal(array_dpath, scope,
@@ -1029,9 +1028,9 @@ expr_eval_builtin_len(struct ast_node_hdl *object,
     struct box *box = NULL;
 
     expr = ((struct named_expr *)TAILQ_FIRST(params))->expr;
-    if (0 == (expr->flags & ASTFLAG_IS_REXPR_DPATH)) {
+    if (0 != (expr->flags & ASTFLAG_IS_VALUE_TYPE)) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                       "cannot evaluate 'len' on expression: not a dpath");
+                       "cannot evaluate 'len' on value-type expression");
         return BITPUNCH_INVALID_PARAM;
     }
     bt_ret = expr_evaluate_dpath_internal(expr, scope, &dpath_eval, bst);
@@ -1835,7 +1834,7 @@ expr_evaluate_value_internal(struct ast_node_hdl *expr, struct box *scope,
         return expr_evaluate_value_polymorphic(expr, scope,
                                                eval_valuep, bst);
     default:
-        if (0 != (expr->flags & ASTFLAG_IS_REXPR_DPATH)) {
+        if (0 == (expr->flags & ASTFLAG_IS_VALUE_TYPE)) {
             return expr_evaluate_value_from_dpath(expr, scope, eval_valuep,
                                                   bst);
         }
@@ -2387,10 +2386,10 @@ expr_evaluate_dpath_ancestor(struct ast_node_hdl *expr, struct box *scope,
     struct box *ancestor_box;
 
     opd = expr->ndat->u.rexpr_op.op.operands[0];
-    if (0 == (opd->flags & ASTFLAG_IS_REXPR_DPATH)) {
+    if (0 != (opd->flags & ASTFLAG_IS_VALUE_TYPE)) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                       "cannot evaluate ancestor operator: "
-                       "expression is not a dpath");
+                       "cannot evaluate ancestor operator on value-type "
+                       "expression");
         return BITPUNCH_INVALID_PARAM;
     }
     bt_ret = expr_evaluate_dpath_internal(opd, scope, &dpath_eval, bst);

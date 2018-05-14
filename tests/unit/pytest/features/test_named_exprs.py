@@ -443,6 +443,60 @@ def test_named_exprs_polymorphic(params_named_exprs_polymorphic):
     assert dtree.eval_expr('items[2].?item.?my_type') == 'array'
 
 
+spec_file_named_exprs_polymorphic_dpath_or_value = """
+
+let Selector = byte: integer { signed: false; };
+
+let T = struct {
+    type: Selector;
+    if (type == 1) {
+        let ?poly = 'a_value';
+    }
+    if (type == 2) {
+        let ?poly = a_dpath;
+        a_dpath: [7] byte: string;
+    }
+};
+
+file {
+    items: [] T;
+}
+
+"""
+
+data_file_named_exprs_polymorphic_dpath_or_value = """
+01 // value
+02 // dpath
+    "a_dpath"
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_named_exprs_polymorphic_dpath_or_value,
+        'data': data_file_named_exprs_polymorphic_dpath_or_value,
+    }])
+def params_named_exprs_polymorphic_dpath_or_value(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_named_exprs_polymorphic_dpath_or_value(
+        params_named_exprs_polymorphic_dpath_or_value):
+    params = params_named_exprs_polymorphic_dpath_or_value
+    dtree = params['dtree']
+    assert len(dtree.items) == 2
+    assert str(dtree.eval_expr('items[0].?poly')) == 'a_value'
+    assert str(dtree.items[0].eval_expr('?poly')) == 'a_value'
+    with pytest.raises(AttributeError):
+        dtree.items[0].eval_expr('?poly').get_location()
+    with pytest.raises(AttributeError):
+        dtree.eval_expr('items[0].?poly').get_location()
+    assert str(dtree.items[1].eval_expr('?poly')) == 'a_dpath'
+    assert str(dtree.eval_expr('items[1].?poly')) == 'a_dpath'
+    assert dtree.items[1].eval_expr('?poly').get_location() == (2, 7)
+    assert dtree.eval_expr('items[1].?poly').get_location() == (2, 7)
+
+
 spec_file_named_exprs_polymorphic_hydra = """
 
 let Selector = byte: integer { signed: false; };

@@ -175,6 +175,10 @@ interpreter_rcall_build(struct ast_node_hdl *node,
                          + (interpreter->max_param_ref + 1)
                          * sizeof (struct ast_node_hdl));
     rcall->type = AST_NODE_TYPE_REXPR_INTERPRETER;
+    rcall->flags = (0 == (rcall->u.rexpr.value_type_mask &
+                          (EXPR_VALUE_TYPE_BYTES |
+                           EXPR_VALUE_TYPE_STRING)) ?
+                    ASTFLAG_IS_VALUE_TYPE : 0u);
     rcall->u.rexpr.value_type_mask = interpreter->value_type_mask;
     rcall->u.rexpr_interpreter.interpreter = interpreter;
     rcall->u.rexpr_interpreter.get_size_func = NULL;
