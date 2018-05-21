@@ -453,7 +453,6 @@ enum statement_type {
     STATEMENT_TYPE_FIELD = (1<<0),
     STATEMENT_TYPE_NAMED_EXPR = (1<<1),
     STATEMENT_TYPE_ATTRIBUTE = (1<<2),
-    STATEMENT_TYPE_LAST = (1<<4),
     STATEMENT_TYPE_MATCH = (1<<5),
 };
 

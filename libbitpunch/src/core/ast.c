@@ -221,8 +221,6 @@ block_stmt_lists_get_list(enum statement_type stmt_type,
         return stmt_lists->named_expr_list;
     case STATEMENT_TYPE_ATTRIBUTE:
         return stmt_lists->attribute_list;
-    case STATEMENT_TYPE_LAST:
-        return stmt_lists->last_stmt_list;
     case STATEMENT_TYPE_MATCH:
         return stmt_lists->match_list;
     default:
@@ -714,10 +712,6 @@ resolve_identifiers_in_block_body(
     }
     if (-1 == resolve_identifiers_in_statement_list(
             stmt_lists->attribute_list, &visible_refs, resolve_tags)) {
-        return -1;
-    }
-    if (-1 == resolve_identifiers_in_statement_list(
-            stmt_lists->last_stmt_list, &visible_refs, resolve_tags)) {
         return -1;
     }
     STATEMENT_FOREACH(named_expr, named_expr,
@@ -1778,19 +1772,33 @@ compile_stmt_lists(struct block_stmt_list *stmt_lists,
     }
     compile_stmt_list_generic(stmt_lists->field_list, ctx);
     compile_stmt_list_generic(stmt_lists->attribute_list, ctx);
-    compile_stmt_list_generic(stmt_lists->last_stmt_list, ctx);
     
     STATEMENT_FOREACH(field, field, stmt_lists->field_list, list) {
         compile_field(field, ctx, 0u, COMPILE_TAG_NODE_TYPE);
     }
     STATEMENT_FOREACH(named_expr, named_expr,
                       stmt_lists->attribute_list, list) {
-        compile_expr(named_expr->expr, ctx, FALSE);
+        compile_expr(named_expr->expr, ctx, TRUE);
     }
     STATEMENT_FOREACH(expr_stmt, match, stmt_lists->match_list, list) {
         compile_expr(match->expr, ctx, FALSE);
     }
-    return compile_continue(ctx) ? 0 : -1;
+    if (!compile_continue(ctx)) {
+        return -1;
+    }
+    STATEMENT_FOREACH(named_expr, named_expr,
+                      stmt_lists->attribute_list, list) {
+        if (0 == strcmp(named_expr->nstmt.name, "$last")
+            && 0 == (EXPR_VALUE_TYPE_BOOLEAN
+                     & named_expr->expr->ndat->u.rexpr.value_type_mask)) {
+            semantic_error(SEMANTIC_LOGLEVEL_ERROR,
+                           &named_expr->expr->loc,
+                           "expect a boolean expression for attribute "
+                           "\"$last\"");
+            return -1;
+        }
+    }
+    return 0;
 }
 
 static int
@@ -2914,7 +2922,7 @@ compile_node_type(struct ast_node_hdl *node,
 static int
 compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
 {
-    struct named_expr *span_stmt;
+    struct named_expr *attr;
     struct ast_node_hdl *min_span_expr;
     struct ast_node_hdl *max_span_expr;
     const struct statement_list *field_list;
@@ -2923,6 +2931,7 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
     int64_t min_span_size;
     int dynamic_span;
     int dynamic_used;
+    int contains_last_attr;
     int child_uses_slack;
     int child_spreads_slack;
     int child_conditionally_spreads_slack;
@@ -2944,6 +2953,7 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
     min_span_size = 0;
     dynamic_span = FALSE;
     dynamic_used = FALSE;
+    contains_last_attr = FALSE;
     child_uses_slack = FALSE;
     child_spreads_slack = FALSE;
     child_conditionally_spreads_slack = FALSE;
@@ -2953,29 +2963,30 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
     min_span_expr = NULL;
     max_span_expr = NULL;
     STATEMENT_FOREACH(
-        named_expr, span_stmt,
+        named_expr, attr,
         item->ndat->u.block_def.block_stmt_list.attribute_list, list) {
-        if (0 == (span_stmt->expr->flags & ASTFLAG_IS_SPAN_EXPR)) {
-            continue ;
-        }
-        if (-1 == compile_expr(span_stmt->expr, ctx, TRUE)) {
-            return -1;
-        }
-        if (NULL == span_stmt->nstmt.stmt.cond) {
-            if (0 == strcmp(span_stmt->nstmt.name, "$minspan")) {
-                min_span_expr = span_stmt->expr;
-                dynamic_span = TRUE;
-            } else if (0 == strcmp(span_stmt->nstmt.name, "$maxspan")) {
-                max_span_expr = span_stmt->expr;
-                dynamic_span = TRUE;
-            } else {
-                assert(0 == strcmp(span_stmt->nstmt.name, "$span"));
-                min_span_expr = span_stmt->expr;
-                max_span_expr = span_stmt->expr;
+        if (0 != (attr->expr->flags & ASTFLAG_IS_SPAN_EXPR)) {
+            if (-1 == compile_expr(attr->expr, ctx, TRUE)) {
+                return -1;
             }
-            break ;
-        } else {
-            dynamic_span = TRUE;
+            if (NULL == attr->nstmt.stmt.cond) {
+                if (0 == strcmp(attr->nstmt.name, "$minspan")) {
+                    min_span_expr = attr->expr;
+                    dynamic_span = TRUE;
+                } else if (0 == strcmp(attr->nstmt.name, "$maxspan")) {
+                    max_span_expr = attr->expr;
+                    dynamic_span = TRUE;
+                } else {
+                    assert(0 == strcmp(attr->nstmt.name, "$span"));
+                    min_span_expr = attr->expr;
+                    max_span_expr = attr->expr;
+                }
+                break ;
+            } else {
+                dynamic_span = TRUE;
+            }
+        } else if (0 == strcmp(attr->nstmt.name, "$last")) {
+            contains_last_attr = TRUE;
         }
     }
     field_list = item->ndat->u.block_def.block_stmt_list.field_list;
@@ -3142,8 +3153,8 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
     if (dynamic_used) {
         item->ndat->u.item.flags |= ITEMFLAG_IS_USED_SIZE_DYNAMIC;
     }
-    if (!TAILQ_EMPTY(item->ndat->u.block_def.block_stmt_list.last_stmt_list)) {
-        item->flags |= ASTFLAG_CONTAINS_LAST_STMT;
+    if (contains_last_attr) {
+        item->flags |= ASTFLAG_CONTAINS_LAST_ATTR;
     }
     return 0;
 }
@@ -3195,7 +3206,7 @@ compile_span_size_array(struct ast_node_hdl *array, struct compile_ctx *ctx)
         item_count = item_count_expr->ndat->u.rexpr_native.value.integer;
         min_span_size = item_count * item_type->ndat->u.item.min_span_size;
         dynamic_span =
-            (0 != (item_dpath->u.item.flags & ASTFLAG_CONTAINS_LAST_STMT)
+            (0 != (item_dpath->u.item.flags & ASTFLAG_CONTAINS_LAST_ATTR)
              || 0 != (item_dpath->u.item.flags
                       & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC));
     } else {
@@ -3218,7 +3229,7 @@ compile_span_size_array(struct ast_node_hdl *array, struct compile_ctx *ctx)
         array->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_DYNAMIC |
                                       ITEMFLAG_IS_USED_SIZE_DYNAMIC);
     }
-    if (0 == (item_type->flags & ASTFLAG_CONTAINS_LAST_STMT)) {
+    if (0 == (item_type->flags & ASTFLAG_CONTAINS_LAST_ATTR)) {
         if (NULL == item_count_expr) {
             // because the array items can take more than one byte of
             // space, they may not allow to fill the whole slack

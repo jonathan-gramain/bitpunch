@@ -113,7 +113,6 @@
         struct statement_list *field_list;
         struct statement_list *named_expr_list;
         struct statement_list *attribute_list;
-        struct statement_list *last_stmt_list;
         struct statement_list *match_list;
     };
 
@@ -159,7 +158,7 @@
         ASTFLAG_IS_ANONYMOUS_MEMBER         = (1<<5),
         ASTFLAG_HAS_POLYMORPHIC_ANCHOR      = (1<<6),
         ASTFLAG_REVERSE_COND                = (1<<8),
-        ASTFLAG_CONTAINS_LAST_STMT          = (1<<9),
+        ASTFLAG_CONTAINS_LAST_ATTR          = (1<<9),
         ASTFLAG_DUMPING                     = (1<<11),
         ASTFLAG_RESOLVE_IDENTIFIERS_IN_PROGRESS   = (1<<14),
         ASTFLAG_RESOLVE_IDENTIFIERS_COMPLETED     = (1<<15),
@@ -507,10 +506,6 @@
         FIELD_FLAG_TRAILER       = (NAMED_STATEMENT_FLAGS_END<<2),
     };
 
-    struct last_stmt {
-        struct statement stmt; // inherits
-    };
-
     typedef bitpunch_status_t
         (*expr_eval_value_builtin_fn_t)(struct ast_node_hdl *object,
                                         struct statement_list *params,
@@ -623,12 +618,10 @@
         dst->field_list = new_safe(struct statement_list);
         dst->named_expr_list = new_safe(struct statement_list);
         dst->attribute_list = new_safe(struct statement_list);
-        dst->last_stmt_list = new_safe(struct statement_list);
         dst->match_list = new_safe(struct statement_list);
         TAILQ_INIT(dst->field_list);
         TAILQ_INIT(dst->named_expr_list);
         TAILQ_INIT(dst->attribute_list);
-        TAILQ_INIT(dst->last_stmt_list);
         TAILQ_INIT(dst->match_list);
     }
 
@@ -638,9 +631,7 @@
     {
         TAILQ_CONCAT(dst->field_list, src->field_list, list);
         TAILQ_CONCAT(dst->named_expr_list, src->named_expr_list, list);
-
         TAILQ_CONCAT(dst->attribute_list, src->attribute_list, list);
-        TAILQ_CONCAT(dst->last_stmt_list, src->last_stmt_list, list);
         return 0;
     }
 
@@ -675,7 +666,6 @@
     struct named_expr *named_expr;
     struct func_param *func_param;
     struct subscript_index subscript_index;
-    struct last_stmt *last_stmt;
 }
 
 %token TOK_ERROR
@@ -683,7 +673,7 @@
 %token <integer> INTEGER
 %token <literal> LITERAL
 %token <boolean> KW_TRUE KW_FALSE
-%token KW_STRUCT KW_UNION KW_FILE KW_MATCH KW_SPAN KW_MINSPAN KW_MAXSPAN KW_IF KW_ELSE KW_KEY KW_SELF KW_LAST KW_LET
+%token KW_STRUCT KW_UNION KW_FILE KW_MATCH KW_SPAN KW_MINSPAN KW_MAXSPAN KW_IF KW_ELSE KW_KEY KW_SELF KW_LET
 
 %token <ast_node_type> '|' '^' '&' '>' '<' '+' '-' '*' '/' '%' '!' '~' '.' ':'
 %token <ast_node_type> TOK_LOR "||"
@@ -721,7 +711,6 @@
 %type <named_expr> let_stmt attribute_stmt func_param
 %type <subscript_index> key_expr opt_key_expr
 %type <expr_stmt> match_stmt
-%type <last_stmt> last_stmt
 %locations
 
 %token START_DEF_FILE START_EXPR
@@ -1058,9 +1047,6 @@ if_block:
         TAILQ_FOREACH(stmt, $block_stmt_list.attribute_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
-        TAILQ_FOREACH(stmt, $block_stmt_list.last_stmt_list, list) {
-            attach_outer_conditional(&stmt->cond, cond);
-        }
         $$ = $block_stmt_list;
 
         cond = ast_node_hdl_create(AST_NODE_TYPE_CONDITIONAL, &@expr);
@@ -1074,9 +1060,6 @@ if_block:
             attach_outer_conditional(&stmt->cond, cond);
         }
         TAILQ_FOREACH(stmt, $opt_else_block.attribute_list, list) {
-            attach_outer_conditional(&stmt->cond, cond);
-        }
-        TAILQ_FOREACH(stmt, $opt_else_block.last_stmt_list, list) {
             attach_outer_conditional(&stmt->cond, cond);
         }
         if (-1 == merge_block_stmt_list(&$$, &$opt_else_block)) {
@@ -1111,6 +1094,7 @@ block_stmt_list:
 
         attr_name = $attribute_stmt->nstmt.name;
         expr = $attribute_stmt->expr;
+        // FIXME these checks should be done by each filter backend
         if (NULL != attr_name && attr_name[0] == '$') {
             if (0 == strcmp(attr_name + 1, "span")
                 || 0 == strcmp(attr_name + 1, "minspan")
@@ -1118,6 +1102,8 @@ block_stmt_list:
                 expr->flags |= ASTFLAG_IS_SPAN_EXPR;
             } else if (0 == strcmp(attr_name + 1, "key")) {
                 expr->flags |= ASTFLAG_IS_KEY_EXPR;
+            } else if (0 == strcmp(attr_name + 1, "last")) {
+                // no-op
             } else {
                 semantic_error(SEMANTIC_LOGLEVEL_ERROR,
                                &$attribute_stmt->nstmt.stmt.loc,
@@ -1149,12 +1135,6 @@ block_stmt_list:
                           (struct statement *)$let_stmt, list);
     }
 
-  | block_stmt_list last_stmt {
-        $$ = $1;
-        TAILQ_INSERT_TAIL($$.last_stmt_list,
-                          (struct statement *)$last_stmt, list);
-    }
-
   | block_stmt_list if_block {
       /* join 'if' node children to block stmt lists */
       if (-1 == merge_block_stmt_list(&$$, &$if_block)) {
@@ -1184,12 +1164,6 @@ let_stmt:
         $$->nstmt.stmt.loc = @$;
         $$->nstmt.name = $IDENTIFIER;
         $$->expr = $expr;
-    }
-
-last_stmt:
-    KW_LAST ';' {
-        $$ = new_safe(struct last_stmt);
-        $$->stmt.loc = @$;
     }
 
 %%

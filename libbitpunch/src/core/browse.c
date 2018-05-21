@@ -4297,8 +4297,6 @@ statement_type_str(enum statement_type stmt_type)
         return "named expr";
     case STATEMENT_TYPE_ATTRIBUTE:
         return "attribute";
-    case STATEMENT_TYPE_LAST:
-        return "last";
     case STATEMENT_TYPE_MATCH:
         return "match";
     }
@@ -4358,11 +4356,6 @@ box_iter_start_list_internal(struct statement_iterator *it)
         it->stmt_remaining &= ~STATEMENT_TYPE_ATTRIBUTE;
         return ;
     }
-    if (0 != (it->stmt_remaining & STATEMENT_TYPE_LAST)) {
-        it->next_stmt = TAILQ_FIRST(it->stmt_lists->last_stmt_list);
-        it->stmt_remaining &= ~STATEMENT_TYPE_LAST;
-        return ;
-    }
     if (0 != (it->stmt_remaining & STATEMENT_TYPE_MATCH)) {
         it->next_stmt = TAILQ_FIRST(it->stmt_lists->match_list);
         it->stmt_remaining &= ~STATEMENT_TYPE_MATCH;
@@ -4389,12 +4382,6 @@ box_riter_start_list_internal(struct statement_iterator *it)
         it->next_stmt = box_iter_statements_advance_if_invalid_internal(
             it, TAILQ_LAST(it->stmt_lists->attribute_list, statement_list));
         it->stmt_remaining &= ~STATEMENT_TYPE_ATTRIBUTE;
-        return ;
-    }
-    if (0 != (it->stmt_remaining & STATEMENT_TYPE_LAST)) {
-        it->next_stmt = TAILQ_LAST(it->stmt_lists->last_stmt_list,
-                                   statement_list);
-        it->stmt_remaining &= ~STATEMENT_TYPE_LAST;
         return ;
     }
     if (0 != (it->stmt_remaining & STATEMENT_TYPE_MATCH)) {
@@ -4533,8 +4520,6 @@ block_stmt_lists_get_list(enum statement_type stmt_type,
         return stmt_lists->named_expr_list;
     case STATEMENT_TYPE_ATTRIBUTE:
         return stmt_lists->attribute_list;
-    case STATEMENT_TYPE_LAST:
-        return stmt_lists->last_stmt_list;
     case STATEMENT_TYPE_MATCH:
         return stmt_lists->match_list;
     default:
@@ -6388,7 +6373,7 @@ box_compute_n_items_by_iteration(struct box *box,
             // the last element of the array, otherwise trigger an
             // inconsistency error
             assert(0 != (box->dpath.item->ndat->u.array.item_type.item->flags
-                         & ASTFLAG_CONTAINS_LAST_STMT));
+                         & ASTFLAG_CONTAINS_LAST_ATTR));
             if (box->u.array_generic.n_items != n_items) {
                 tracker_delete(tk);
                 return box_error(
@@ -6606,11 +6591,13 @@ tracker_goto_next_item__array(struct tracker *tk,
     bitpunch_status_t bt_ret;
     struct box *filtered_box;
     int64_t item_size;
+    const struct named_expr *last_attr;
+    expr_value_t last_eval;
     int is_last;
 
     DBG_TRACKER_DUMP(tk);
     is_last = FALSE;
-    if (0 != (tk->dpath->item->flags & ASTFLAG_CONTAINS_LAST_STMT)) {
+    if (0 != (tk->dpath->item->flags & ASTFLAG_CONTAINS_LAST_ATTR)) {
         bt_ret = tracker_get_filtered_item_box_internal(tk, &filtered_box,
                                                         bst);
         if (BITPUNCH_OK != bt_ret) {
@@ -6619,17 +6606,30 @@ tracker_goto_next_item__array(struct tracker *tk,
         bt_ret = box_apply_filter_internal(filtered_box, bst);
         if (BITPUNCH_OK == bt_ret) {
             bt_ret = box_get_first_statement_internal(
-                filtered_box, STATEMENT_TYPE_LAST, NULL, 0, NULL, bst);
+                filtered_box, STATEMENT_TYPE_ATTRIBUTE, "$last", 0,
+                (const struct statement **)&last_attr, bst);
         }
-        box_delete_non_null(filtered_box);
         switch (bt_ret) {
         case BITPUNCH_OK:
-            // explicit 'last': last item of the array
-            is_last = TRUE;
+            bt_ret = expr_evaluate_value_internal(
+                last_attr->expr, filtered_box, &last_eval, bst);
+            box_delete_non_null(filtered_box);
+            if (BITPUNCH_OK != bt_ret) {
+                return bt_ret;
+            }
+            if (EXPR_VALUE_TYPE_BOOLEAN != last_eval.type) {
+                return tracker_error(
+                    BITPUNCH_INVALID_PARAM, tk, last_attr->expr, bst,
+                    "'$last': expect boolean expression, not \"%s\"",
+                    expr_value_type_str(last_eval.type));
+            }
+            is_last = last_eval.boolean;
             break ;
         case BITPUNCH_NO_ITEM:
+            box_delete_non_null(filtered_box);
             break ;
         default:
+            box_delete_non_null(filtered_box);
             return bt_ret;
         }
     }
@@ -7971,7 +7971,7 @@ browse_setup_backends__box__array(struct ast_node_hdl *item)
         b_box->compute_used_size =
             box_compute_used_size__packed_dynamic_size;
     }
-    if (0 != (item_type->flags & ASTFLAG_CONTAINS_LAST_STMT)) {
+    if (0 != (item_type->flags & ASTFLAG_CONTAINS_LAST_ATTR)) {
         if (NULL != item->ndat->u.array.item_count) {
             b_box->get_n_items = box_get_n_items__array_non_slack_with_last;
         } else {
@@ -8328,10 +8328,6 @@ browse_setup_backends_recur_block(struct ast_node_hdl *block)
     }
     if (-1 == browse_setup_backends_stmt_list_generic(
             stmt_lists->attribute_list)) {
-        return -1;
-    }
-    if (-1 == browse_setup_backends_stmt_list_generic(
-            stmt_lists->last_stmt_list)) {
         return -1;
     }
     STATEMENT_FOREACH(named_expr, named_expr,

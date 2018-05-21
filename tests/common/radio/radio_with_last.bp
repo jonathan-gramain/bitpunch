@@ -9,7 +9,7 @@ let RadioCode = struct {
     $key: codename;
 
     if (codename == 'zulu') {
-        last;
+        $last: true;
     }
 };
 

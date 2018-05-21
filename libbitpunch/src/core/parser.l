@@ -104,7 +104,6 @@ match      { return KW_MATCH; }
 if         { return KW_IF; }
 else       { return KW_ELSE; }
 self       { return KW_SELF; }
-last       { return KW_LAST; }
 let        { return KW_LET; }
 
 true        {
