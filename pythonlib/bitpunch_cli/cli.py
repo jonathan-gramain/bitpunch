@@ -472,14 +472,14 @@ class CLI(NestedCmd):
         return self.complete_filename(text[begin:end])
 
 
-    def do_keys(self, args):
-        """List keys of an object
+    def do_list(self, args):
+        """List attributes of an object
 
-    Usage: keys [<expression>]
+    Usage: list [<expression>]
 """
         expr = args
         if self.format_spec and self.bin_file:
-            self.open_data_tree('keys')
+            self.open_data_tree('list')
         obj = self.data_tree.eval_expr(expr) if expr else self.data_tree
         if (isinstance(obj, model.DataBlock) or
             isinstance(obj, model.DataArray)):
@@ -487,11 +487,11 @@ class CLI(NestedCmd):
                 obj, iter_mode=model.Tracker.ITER_MEMBER_NAMES))
             self.columnize(keys)
         else:
-            raise CommandError('keys',
-                               'cannot list keys on object of type %s'
+            raise CommandError('list',
+                               'cannot list attributes on object of type %s'
                                % type(obj))
 
-    def complete_keys(self, text, begin, end):
+    def complete_list(self, text, begin, end):
         return self._complete_expression(text, begin, end, True)
 
 
