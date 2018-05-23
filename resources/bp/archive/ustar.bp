@@ -22,6 +22,8 @@ let FileEntry = struct {
     blocks: [(header.size + 511) / 512] FileBlock;
 
     let ?data = blocks: [header.size] byte;
+
+    $key: header.name;
 };
 
 let FileBlock = [512] byte;
