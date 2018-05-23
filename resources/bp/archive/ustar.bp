@@ -8,7 +8,7 @@ let NullTerminatedString = string {
     boundary: '\0';
 };
 
-let OctalInt = NullTerminatedString: formatted_integer {
+let OctalInt = NullTerminatedString <> formatted_integer {
     base: 8;
     empty_value: 0;
 };
@@ -21,7 +21,7 @@ let FileEntry = struct {
     header: FileHeader;
     blocks: [(header.size + 511) / 512] FileBlock;
 
-    let ?data = blocks: [header.size] byte;
+    let ?data = blocks <> [header.size] byte;
 
     $key: header.name;
 };
@@ -31,20 +31,20 @@ let FileBlock = [512] byte;
 let FileHeader = struct {
     $span: 512;
 
-    name:     [100] byte: NullTerminatedString;
-    mode:     [8]   byte: OctalInt;
-    uid:      [8]   byte: OctalInt;
-    gid:      [8]   byte: OctalInt;
-    size:     [12]  byte: OctalInt;
-    mtime:    [12]  byte: OctalInt;
-    chksum:   [8]   byte: OctalInt;
-    typeflag:       byte: OctalInt;
-    linkname: [100] byte: NullTerminatedString;
-    magic:    [6]   byte: NullTerminatedString;
+    name:     [100] byte <> NullTerminatedString;
+    mode:     [8]   byte <> OctalInt;
+    uid:      [8]   byte <> OctalInt;
+    gid:      [8]   byte <> OctalInt;
+    size:     [12]  byte <> OctalInt;
+    mtime:    [12]  byte <> OctalInt;
+    chksum:   [8]   byte <> OctalInt;
+    typeflag:       byte <> OctalInt;
+    linkname: [100] byte <> NullTerminatedString;
+    magic:    [6]   byte <> NullTerminatedString;
     version:  [2]   byte;
-    uname:    [32]  byte: NullTerminatedString;
-    gname:    [32]  byte: NullTerminatedString;
+    uname:    [32]  byte <> NullTerminatedString;
+    gname:    [32]  byte <> NullTerminatedString;
     devmajor: [8]   byte;
     devminor: [8]   byte;
-    prefix:   [155] byte: string;
+    prefix:   [155] byte <> string;
 };

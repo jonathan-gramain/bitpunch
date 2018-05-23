@@ -1,8 +1,8 @@
 let RadioInt = integer { signed: false; endian: 'big'; };
-let u8  = [1] byte: RadioInt;
-let u16 = [2] byte: RadioInt;
-let u32 = [4] byte: RadioInt;
-let u64 = [8] byte: RadioInt;
+let u8  = [1] byte <> RadioInt;
+let u16 = [2] byte <> RadioInt;
+let u32 = [4] byte <> RadioInt;
+let u64 = [8] byte <> RadioInt;
 
 
 file {
@@ -15,7 +15,7 @@ file {
         start: u8;
         : [3] byte;
         len: u8;
-        let codename = data[start..start+len]: string;
+        let codename = data[start..start+len] <> string;
         $key: codename;
     };
 }

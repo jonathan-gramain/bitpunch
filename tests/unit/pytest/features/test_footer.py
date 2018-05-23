@@ -49,7 +49,7 @@ data_file_footer_static_sized = """
 
 spec_file_footer_dynamic_sized_len_at_start = """
 
-let u8 = byte: integer { signed: false; };
+let u8 = byte <> integer { signed: false; };
 
 file {
     footer_size: u8;
@@ -68,7 +68,7 @@ data_file_footer_dynamic_sized_len_at_start = """
 
 spec_file_footer_dynamic_sized_len_in_footer = """
 
-let u8 = byte: integer { signed: false; };
+let u8 = byte <> integer { signed: false; };
 
 file {
     contents: [] byte;
@@ -119,8 +119,8 @@ def test_footer_simple(params_footer_simple):
 
 spec_file_footer_dynamic_sized_complex_footer_dynamic_span = """
 
-let u8 = byte: integer { signed: false; };
-let u16 = [2] byte: integer { signed: false; endian: 'big'; };
+let u8 = byte <> integer { signed: false; };
+let u16 = [2] byte <> integer { signed: false; endian: 'big'; };
 
 let Footer = struct {
     hdr: [footer_hdr_size] byte;
@@ -143,8 +143,8 @@ file {
 
 spec_file_footer_dynamic_sized_complex_footer_static_span = """
 
-let u8 = byte: integer { signed: false; };
-let u16 = [2] byte: integer { signed: false; endian: 'big'; };
+let u8 = byte <> integer { signed: false; };
+let u16 = [2] byte <> integer { signed: false; endian: 'big'; };
 
 let Footer = struct {
     hdr: [footer_hdr_size] byte;
@@ -167,8 +167,8 @@ file {
 
 spec_file_footer_dynamic_sized_complex_footer_packed = """
 
-let u8 = byte: integer { signed: false; };
-let u16 = [2] byte: integer { signed: false; endian: 'big'; };
+let u8 = byte <> integer { signed: false; };
+let u16 = [2] byte <> integer { signed: false; endian: 'big'; };
 
 let Footer = struct {
     hdr: [footer_hdr_size] byte;

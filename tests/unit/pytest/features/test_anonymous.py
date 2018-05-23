@@ -7,7 +7,7 @@ import conftest
 
 spec_file_anonymous_struct_embedded = """
 
-let u32 = [4] byte: integer { endian: 'little'; signed: false; };
+let u32 = [4] byte <> integer { endian: 'little'; signed: false; };
 
 file {
     : struct {
@@ -26,7 +26,7 @@ file {
 
 spec_file_anonymous_field = """
 
-let u32 = [4] byte: integer { endian: 'little'; signed: false; };
+let u32 = [4] byte <> integer { endian: 'little'; signed: false; };
 
 let Foo = struct {
     a: u32;
@@ -47,8 +47,8 @@ file {
 
 spec_file_hidden_field = """
 
-let u8 = byte: integer { signed: false; };
-let u32 = [4] byte: integer { endian: 'little'; signed: false; };
+let u8 = byte <> integer { signed: false; };
+let u32 = [4] byte <> integer { endian: 'little'; signed: false; };
 
 let Foo = struct {
     a: u32;
@@ -79,8 +79,8 @@ data_file_anonymous = """
 
 spec_file_anonymous_in_trailer = """
 
-let u8 = byte: integer { signed: false; };
-let u32 = [4] byte: integer { endian: 'little'; signed: false; };
+let u8 = byte <> integer { signed: false; };
+let u32 = [4] byte <> integer { endian: 'little'; signed: false; };
 
 let Foo = struct {
     a: u32;

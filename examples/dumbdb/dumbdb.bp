@@ -5,12 +5,12 @@
  * reached.
  */
 
-let u32 = [4] byte: integer { signed: false; endian: 'big'; };
+let u32 = [4] byte <> integer { signed: false; endian: 'big'; };
 
 let DumbDBValue = struct {
-    flags: byte: integer { signed: false; };
+    flags: byte <> integer { signed: false; };
     key_size: u32;
-    key_data: [key_size] byte: string;
+    key_data: [key_size] byte <> string;
     value_size: u32;
     value_data: [value_size] byte;
 };

@@ -7,11 +7,11 @@
  */
 
 let FixInt   = integer { signed: false; endian: 'little'; };
-let FixInt8  = byte: FixInt;
-let FixInt32 = [4] byte: FixInt;
-let VarInt   = [] byte: varint;
+let FixInt8  = byte <> FixInt;
+let FixInt32 = [4] byte <> FixInt;
+let VarInt   = [] byte <> varint;
 
-let CompressedDataBlock = [] byte: snappy: DataBlock;
+let CompressedDataBlock = [] byte <> snappy <> DataBlock;
 
 let DataBlock = struct {
     entries:     [] KeyValue;
@@ -48,7 +48,7 @@ let BlockHandle = struct {
 
     let ?stored_block =
         file.payload[offset .. offset + size + sizeof(BlockTrailer)]
-            : FileBlock;
+             <> FileBlock;
 };
 
 let Footer = struct {

@@ -100,7 +100,7 @@ def test_string_literals():
 
 spec_file_illegal_expr = """
 
-let u32 = [4] byte: integer { signed: false; endian: 'little'; };
+let u32 = [4] byte <> integer { signed: false; endian: 'little'; };
 
 let Contents = struct {
     a: u32;
@@ -138,4 +138,4 @@ def test_illegal_expr(params_illegal_expr):
     with pytest.raises(ValueError):
         dtree.eval_expr('contents_struct[42]')
     with pytest.raises(ValueError):
-        dtree.eval_expr('contents_struct: byte[10]')
+        dtree.eval_expr('contents_struct <> byte[10]')

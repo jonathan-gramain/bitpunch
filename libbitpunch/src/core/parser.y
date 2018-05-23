@@ -685,6 +685,7 @@
 %token <ast_node_type> TOK_LSHIFT "<<"
 %token <ast_node_type> TOK_RSHIFT ">>"
 %token <ast_node_type> TOK_RANGE ".."
+%token <ast_node_type> TOK_FILTER "<>"
 %token <ast_node_type> OP_SIZEOF
 
 %left  "||"
@@ -698,7 +699,7 @@
 %left  '+' '-'
 %left  '*' '/' '%'
 %right OP_ARITH_UNARY_OP '!' '~' OP_SIZEOF
-%left  ':'
+%left  ':' "<>"
 %left  OP_SUBSCRIPT OP_FCALL '.'
 %right OP_ARRAY_DECL
 %left  OP_BRACKETS
@@ -863,7 +864,7 @@ expr:
         $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_MEMBER, $1, $3, &@2);
         parser_location_make_span(&$$->loc, &@1, &@3);
     }
-  | expr ':' expr {
+  | expr TOK_FILTER expr {
         $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_SET_FILTER, $1, $3, &@2);
     }
   | expr '[' opt_key_expr ']' %prec OP_SUBSCRIPT {

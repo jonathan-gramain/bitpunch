@@ -24,9 +24,9 @@ def spec_log():
     fmt = """
     let FixInt = integer { signed: false; endian: 'little'; };
 
-    let FixInt8 =  byte:    FixInt;
-    let FixInt16 = [2] byte: FixInt;
-    let FixInt32 = [4] byte: FixInt;
+    let FixInt8 =  byte     <> FixInt;
+    let FixInt16 = [2] byte <> FixInt;
+    let FixInt32 = [4] byte <> FixInt;
 
     file {
         head_blocks: [] LogBlock;
@@ -47,7 +47,7 @@ def spec_log():
            checksum: FixInt32;
            length:   FixInt16;
            rtype:    FixInt8;
-           data:     [length] byte: string;
+           data:     [length] byte <> string;
            $minspan: 7;
     };
 """
@@ -181,11 +181,11 @@ def test_leveldb_log_multiblock(spec_log, data_log_multiblock):
 def spec_ldb():
     return """
     let FixInt   = integer { signed: false; endian: 'little'; };
-    let FixInt8  = byte: FixInt;
-    let FixInt32 = [4] byte: FixInt;
-    let VarInt   = [] byte: varint;
+    let FixInt8  = byte <> FixInt;
+    let FixInt32 = [4] byte <> FixInt;
+    let VarInt   = [] byte <> varint;
 
-    let CompressedDataBlock = [] byte: snappy: DataBlock;
+    let CompressedDataBlock = [] byte <> snappy <> DataBlock;
 
     let DataBlock = struct {
         entries:     [] KeyValue;
@@ -222,7 +222,7 @@ def spec_ldb():
 
         let ?stored_block =
             file.payload[offset .. offset + size + sizeof(BlockTrailer)]
-                : FileBlock;
+                 <> FileBlock;
     };
 
     let Footer = struct {
@@ -270,7 +270,7 @@ def test_ldb(spec_ldb, data_ldb):
     assert index_block.restarts.get_size() == index_block.nb_restarts * 4
 
     # get a heading child block
-    child_handle = index_block.eval_expr('entries[1].value: BlockHandle')
+    child_handle = index_block.eval_expr('entries[1].value <> BlockHandle')
     assert child_handle.offset == 959
     assert child_handle.size == 1423
     child_block = child_handle['?stored_block']
@@ -280,7 +280,7 @@ def test_ldb(spec_ldb, data_ldb):
     assert len(child_block.entries[2].value) == 1022
 
     # get an intermediate child block
-    child_handle = index_block.eval_expr('entries[42].value: BlockHandle')
+    child_handle = index_block.eval_expr('entries[42].value <> BlockHandle')
     assert child_handle.offset == 33953
     assert child_handle.size == 821
     child_block = child_handle['?stored_block']

@@ -129,6 +129,7 @@ false       {
 "<<"          { return TOK_LSHIFT; }
 ">>"          { return TOK_RSHIFT; }
 ".."          { return TOK_RANGE; }
+"<>"          { return TOK_FILTER; }
 [|^&><+\-*/%!~()=[\].{}] { return yytext[0]; }
 sizeof        { return OP_SIZEOF; }
 

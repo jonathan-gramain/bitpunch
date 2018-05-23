@@ -7,10 +7,10 @@ import conftest
 
 spec_file_bp_1 = """
 
-let u8 = [4] byte: integer { signed: false; };
+let u8 = [4] byte <> integer { signed: false; };
 
 let Foobar = struct {
-    value: [6] byte: string;
+    value: [6] byte <> string;
 };
 
 file {
@@ -40,10 +40,10 @@ def test_bp(params_bp):
 
 spec_file_invalid_attribute = """
 
-let u8 = [4] byte: integer { signed: false; };
+let u8 = [4] byte <> integer { signed: false; };
 
 let Foobar = struct {
-    value: [6] byte: string;
+    value: [6] byte <> string;
 
     $foo: 42; // invalid
 };

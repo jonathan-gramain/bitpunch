@@ -6,15 +6,15 @@
 
 let MP4Int = integer { signed: false; endian: 'big'; };
 
-let u8  = [1] byte: MP4Int;
-let u16 = [2] byte: MP4Int;
-let u32 = [4] byte: MP4Int;
-let u64 = [8] byte: MP4Int;
+let u8  = [1] byte <> MP4Int;
+let u16 = [2] byte <> MP4Int;
+let u32 = [4] byte <> MP4Int;
+let u64 = [8] byte <> MP4Int;
 
 let timestamp32 = u32;
 let timestamp64 = u64;
 
-let ATOM = [4] byte: string;
+let ATOM = [4] byte <> string;
 
 let BOX_HDR = struct {
     size: u32;
@@ -389,7 +389,7 @@ let BOX_STSD = struct {
             data_size: u32;
             frame_count: u16;
             encoder_name_len: u8;
-            encoder_name: [31] byte: string;
+            encoder_name: [31] byte <> string;
             pixel_depth: u16;
             color_table_id: u16;
         };
