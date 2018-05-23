@@ -46,7 +46,7 @@ let u32 = [4] byte <> integer { signed: false; endian: 'little'; };
 
 let HopStruct = struct {
     n: u32;
-    : [n] byte <> AsContents;
+    [n] byte <> AsContents;
 };
 
 let AsContents = struct {
@@ -101,7 +101,7 @@ let u32 = [4] byte <> integer { signed: false; endian: 'little'; };
 
 let Base64Block = struct {
     n: u32;
-    : [n] byte <> base64 <> AsContents;
+    [n] byte <> base64 <> AsContents;
 };
 
 let AsContents = struct {
@@ -121,7 +121,7 @@ let Base64 = base64 {};
 
 let Base64Block = struct {
     n: u32;
-    : [n] byte <> Base64 <> AsContents;
+    [n] byte <> Base64 <> AsContents;
 };
 
 let AsContents = struct {
@@ -212,7 +212,7 @@ let u32 = [4] byte <> integer { signed: false; endian: 'little'; };
 
 let RawBlock = struct {
     n: u32;
-    : [n] byte <> AsContents;
+    [n] byte <> AsContents;
 };
 
 let Base64Block = [] byte <> string { boundary: '\\n'; } <> base64 <> RawBlock;
@@ -238,7 +238,7 @@ let Base64Block = [] byte
    <> base64
    <> struct {
     n: u32;
-    : [n] byte <> AsContents;
+    [n] byte <> AsContents;
 };
 
 let AsContents = struct {
@@ -263,7 +263,7 @@ let Base64Block = [] byte
    <> CustomBase64Filter
    <> struct {
       n: u32;
-      : [n] byte <> AsContents;
+      [n] byte <> AsContents;
   };
 
 let AsContents = struct {
@@ -488,7 +488,7 @@ let B64Message = Base64Line <> struct {
 };
 
 file {
-    : [] byte <> base64 <> DecodedFile;
+    [] byte <> base64 <> DecodedFile;
 
     let ?first_message_data_3_chars = messages[0].data <> [3] byte <> string;
 }

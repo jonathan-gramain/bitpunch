@@ -10,10 +10,10 @@ spec_file_anonymous_struct_embedded = """
 let u32 = [4] byte <> integer { endian: 'little'; signed: false; };
 
 file {
-    : struct {
+    struct {
         a: u32;
-        : struct {
-            : struct {
+        struct {
+            struct {
                 b: u32;
                 c: u32;
             };
@@ -38,8 +38,8 @@ let Bar = struct {
 };
 
 file {
-    :  Foo;
-    :  Bar;
+    Foo;
+    Bar;
     d: u32;
 }
 
@@ -56,13 +56,13 @@ let Foo = struct {
 
 let Bar = struct {
     b: u8;
-    :  [3] byte; // hidden field
+    [3] byte; // hidden field
     c: u32;
 };
 
 file {
-    :  Foo;
-    :  Bar;
+    Foo;
+    Bar;
     d: u32;
 }
 
@@ -88,29 +88,29 @@ let Foo = struct {
 
 let Bar = struct {
     b: u8;
-    :  [3] byte; // hidden field
+    [3] byte; // hidden field
 };
 
 let SlackBody = struct {
-    : struct {
-        :     [2] byte;
+    struct {
+        [2] byte;
         data: [] byte;
     };
 };
 
 let Trailer = struct {
-    : [4] byte;
-    : struct {
+    [4] byte;
+    struct {
         c: u32;
     };
     d: u32;
 };
 
 file {
-    : Foo;
-    : Bar;
-    : SlackBody;
-    : Trailer;
+    Foo;
+    Bar;
+    SlackBody;
+    Trailer;
 }
 
 """

@@ -208,10 +208,10 @@ def spec_ldb():
 
     let FileBlock = struct {
         if (trailer.blocktype == 0) { // uncompressed
-            :    DataBlock;
+            DataBlock;
         }
         if (trailer.blocktype == 1) {
-            :    CompressedDataBlock;
+            CompressedDataBlock;
         }
         trailer: BlockTrailer;
     };
@@ -228,8 +228,9 @@ def spec_ldb():
     let Footer = struct {
         metaindex_handle: BlockHandle;
         index_handle:     BlockHandle;
-        :                 [] byte;
+                          [] byte;
         magic:            [8] byte;
+
         $span: 48;
     };
 

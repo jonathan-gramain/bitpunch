@@ -197,7 +197,7 @@ static const char *check_slack_trailing_field_def =
     "file {\n"
     "    hdr: MyHdr;\n"
     "    slack_array: [] u32;\n"
-    "    : [] byte;\n" // to ensure slack space is filled
+    "    [] byte;\n" // to ensure slack space is filled
     "    trailer: [7] byte;\n"
     "}\n";
 

@@ -353,7 +353,7 @@ let Value = Selector;
 
 
 let T = struct {
-    : SubT;
+    SubT;
 };
 
 let SubT = struct {
@@ -502,7 +502,7 @@ spec_file_named_exprs_polymorphic_hydra = """
 let Selector = byte <> integer { signed: false; };
 
 let T = struct {
-    : SubT;
+    SubT;
     if (type == 8) {
         let ?item = 8;
     }
@@ -512,20 +512,20 @@ let SubT = struct {
     type: Selector;
     if (type != 8) {
         if (type == 1) {
-            : Sub2T;
+            Sub2T;
         } 
         if (type == 7) {
             let ?item = 7;
         }
         if (type == 2 || type == 5 || type == 6) {
-            : Sub3T;
+            Sub3T;
         }
         if (type == 3) {
             let ?item = type;
         }
         if (type == 4) {
-            : struct {
-                : struct {
+            struct {
+                struct {
                     let ?item = 2 + 2;
                     let ?item = 10;
                 };
@@ -537,9 +537,9 @@ let SubT = struct {
 
         let Sub3T = struct {
             if (type == 2) {
-                : Sub4T;
+                Sub4T;
             } else if (type == 5) {
-                : Sub5T;
+                Sub5T;
             } else {
                 let ?item = 6;
             }

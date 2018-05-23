@@ -704,7 +704,6 @@
 %right OP_ARRAY_DECL
 %left  OP_BRACKETS
 
-%type <ident> opt_identifier
 %type <ast_node_hdl> g_integer g_boolean g_identifier g_literal block block_def expr opt_expr twin_index opt_twin_index
 %type <file_block> file_block
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
@@ -724,14 +723,6 @@ start:
     START_DEF_FILE schema
   | START_EXPR start_expr
     /* here go other parsers with shared grammar */
-
-opt_identifier:
-    /* empty */ {
-        $$ = NULL;
-    }
-  | IDENTIFIER {
-        $$ = $IDENTIFIER;
-    }
 
 g_integer:
     INTEGER {
@@ -1144,9 +1135,15 @@ block_stmt_list:
   }
 
 attribute_stmt:
-    opt_identifier ':' expr ';' {
+    IDENTIFIER ':' expr ';' {
         $$ = new_safe(struct named_expr);
-        $$->nstmt.name = $opt_identifier;
+        $$->nstmt.name = $IDENTIFIER;
+        $$->nstmt.stmt.loc = @$;
+        $$->expr = $expr;
+    }
+  | expr ';' {
+        $$ = new_safe(struct named_expr);
+        $$->nstmt.name = NULL;
         $$->nstmt.stmt.loc = @$;
         $$->expr = $expr;
     }

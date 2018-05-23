@@ -69,7 +69,7 @@ let BOX_MOOV = struct {
             version: u8;
             flags: [3] u8;
             if (version == 0) {
-                v0: struct {
+                struct {
                     created: timestamp32;
                     modified: timestamp32;
                     timescale: u32;
@@ -77,7 +77,7 @@ let BOX_MOOV = struct {
                 };
             }
             if (version == 1) {
-                v1: struct {
+                struct {
                     created: timestamp64;
                     modified: timestamp64;
                     timescale: u32;
@@ -86,7 +86,7 @@ let BOX_MOOV = struct {
             }
             playback_speed: u32;
             user_volume: u16;
-            reserved: [5] u16;
+            [5] u16;
             width: TRANSFORM;
             height: TRANSFORM;
             left: u32;
@@ -113,28 +113,28 @@ let BOX_TRAK = struct {
             version: u8;
             flags: [3] u8;
             if (version == 0) {
-                v0: struct {
+                struct {
                     created: timestamp32;
                     modified: timestamp32;
                     track_id: u32;
-                    reserved: [2] u32;
+                    [2] u32;
                     duration: u32;
                 };
             }
             if (version == 1) {
-                v1: struct {
+                struct {
                     created: timestamp64;
                     modified: timestamp64;
                     track_id: u32;
-                    reserved: [2] u32;
+                    [2] u32;
                     duration: u64;
                 };
             }
-            reserved1: u32;
+            u32;
             video_layer: u16;
             alternate_track_id: u16;
             audio_volume: u16;
-            reserved2: u16;
+            u16;
             width: TRANSFORM;
             height: TRANSFORM;
             left: u32;
@@ -168,13 +168,13 @@ let BOX_EDTS = struct {
             flags: [3] u8;
             nb_edits: u32;
             if (version == 0) {
-                v0: struct {
+                struct {
                     length: u32;
                     start_time: u32;
                 };
             }
             if (version == 1) {
-                v1: struct {
+                struct {
                     length: u64;
                     start_time: u64;
                 };
@@ -198,7 +198,7 @@ let BOX_MDIA = struct {
             version: u8;
             flags: [3] u8;
             if (version == 0) {
-                v0: struct {
+                struct {
                     created: timestamp32;
                     modified: timestamp32;
                     timescale: u32;
@@ -206,7 +206,7 @@ let BOX_MDIA = struct {
                 };
             }
             if (version == 1) {
-                v1: struct {
+                struct {
                     created: timestamp64;
                     modified: timestamp64;
                     timescale: u32;
@@ -223,7 +223,7 @@ let BOX_MDIA = struct {
             quicktime_type: ATOM;
             subtype_media: ATOM;
             manufacturer: ATOM;
-            unused: [2] u32;
+            [2] u32;
         };
     }
 
