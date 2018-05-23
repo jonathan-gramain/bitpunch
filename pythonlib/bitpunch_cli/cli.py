@@ -439,22 +439,26 @@ class CLI(NestedCmd):
 
     def load_file(self, data_path=None, bp_path=None):
         if bp_path:
-            self.format_spec_path = os.path.expanduser(bp_path)
-            self.format_spec = model.FormatSpec(open(self.format_spec_path, 'r'))
+            format_spec_path = os.path.expanduser(bp_path)
+            self.format_spec = model.FormatSpec(open(format_spec_path, 'r'))
+            self.format_spec_path = format_spec_path
         if data_path:
             filepath = os.path.expanduser(data_path)
             new_bin_file = open(filepath, 'r')
+            if not bp_path:
+                extension = filepath[filepath.rindex('.') + 1:]
+                format_handler = model.find_handler(extension=extension)
+                if not format_handler:
+                    new_bin_file.close()
+                    raise CommandError(
+                        'file', 'no handler found by file extension, please ' +
+                        'provide path to bitpunch model as second argument')
+                self.format_spec = model.FormatSpec(format_handler)
+                self.format_spec_path = format_handler.name;
             if self.bin_file:
                 self.bin_file.close()
             self.bin_file = new_bin_file
             self.data_tree = None
-            try:
-                extension = filepath[filepath.rindex('.') + 1:].lower()
-                format_handler = model.find_format_as_stream(extension)
-                self.format_spec = model.FormatSpec(format_handler)
-                self.format_spec_path = format_handler.name;
-            except Exception as e:
-                pass
         else:
             print('file   -> {bin}\n'
                   'format -> {fmt}'

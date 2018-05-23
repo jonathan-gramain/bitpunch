@@ -64,7 +64,7 @@ if __name__ == '__main__':
                   outf=output_file.name))
 
     script_dir = os.path.dirname(sys.argv[0])
-    ldb_bp = open('{dir}/leveldb_ldb.bp'.format(dir=script_dir), 'r')
+    ldb_bp = model.find_handler(path='database.leveldb.ldb')
     ldb_model = model.DataTree(input_file, ldb_bp)
 
     # here goes the magic :)

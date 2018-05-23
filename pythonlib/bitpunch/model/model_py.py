@@ -30,6 +30,57 @@
 
 import pkg_resources
 
-def find_format_as_stream(extension):
-    return pkg_resources.resource_stream('bitpunch.resources',
-                                         'bp/{0}.bp'.format(extension))
+# TODO bp resources should expose their own support per extension
+extension_to_path = {
+    'mp4': 'media.video.mp4',
+    'ogg': 'media.container.ogg',
+    'tar': 'archive.ustar',
+    'ldb': 'database.leveldb.ldb',
+}
+
+mimetype_to_path = {
+    'application/ogg': 'media.container.ogg',
+    'application/tar': 'archive.ustar',
+    'application/x-tar': 'archive.ustar',
+    'video/mp4': 'media.video.mp4',
+}
+
+def find_handler(**kwargs):
+    """find a bitpunch handler by various criteria
+
+    Parameters
+    ----------
+    Pass one of these parameters:
+
+    path: path to the format handler, with dots separating components
+          and without the '.bp' extension (e.g. 'media.container.ogg')
+    extension: file extension (e.g. 'ogg')
+    mimetype: mime type (e.g. 'application/ogg')
+
+    """
+    if not kwargs:
+        raise ValueError('require keyword argument')
+    handler_path = None
+    if handler_path is None and 'path' in kwargs:
+        handler_path = kwargs['path']
+        if (len(handler_path) == 0 or
+            handler_path.startswith('.') or
+            '/' in handler_path):
+            raise ValueError('"path" keyword argument is not a valid path')
+    if handler_path is None and 'mimetype' in kwargs:
+        try:
+            handler_path = mimetype_to_path[kwargs['mimetype']]
+        except KeyError:
+            pass
+    if handler_path is None and 'extension' in kwargs:
+        try:
+            handler_path = extension_to_path[kwargs['extension'].lower()]
+        except KeyError:
+            pass
+    if handler_path is not None:
+        bp_path = 'bp/' + handler_path.replace('.', '/') + '.bp'
+        try:
+            return pkg_resources.resource_stream('bitpunch.resources', bp_path)
+        except Exception:
+            return None
+    return None
