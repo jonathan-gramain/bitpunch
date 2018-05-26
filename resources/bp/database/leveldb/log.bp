@@ -24,7 +24,7 @@ file {
 let LogBlock = struct {
        records: [] Record;
        trailer: [] byte;
-       @span: 32768;
+       @span = 32768;
 };
 
 let LogTailBlock = struct {
@@ -36,5 +36,5 @@ let Record = struct {
        length:   FixInt16;
        rtype:    FixInt8;
        data:     [length] byte <> string;
-       @minspan: 7;
+       @minspan = 7;
 };

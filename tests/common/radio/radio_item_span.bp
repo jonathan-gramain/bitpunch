@@ -9,8 +9,8 @@ let RadioCode = struct {
        codename: [] byte <> string { boundary: '\0'; };
        padding: [] byte;
        bar: [3] byte;
-       @key: codename;
-       @span: sizeof (foo) + 8 + sizeof (bar);
+       @key = codename;
+       @span = sizeof (foo) + 8 + sizeof (bar);
 };
 
 file {

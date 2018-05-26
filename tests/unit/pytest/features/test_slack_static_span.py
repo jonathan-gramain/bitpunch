@@ -15,7 +15,7 @@ file {
 
 let VarBlock = struct {
     contents: [] byte;
-    @span: 10;
+    @span = 10;
 };
 
 """
@@ -39,7 +39,7 @@ file {
 let VarBlock = struct {
     contents: [] byte <> string { boundary: '\x42'; };
     padding:  [] byte;
-    @span: 10;
+    @span = 10;
 };
 
 """
@@ -58,7 +58,7 @@ let VarBlock = struct {
     };
     contents: BlockContents;
     padding:  [] byte;
-    @span: 10;
+    @span = 10;
 };
 
 """
@@ -84,7 +84,7 @@ let VarBlock = struct {
     contents: [length] byte;
     if (sizeof(length) + sizeof(contents) < 10) {
         padding: [] byte;
-        @span: 10;
+        @span = 10;
     }
 };
 
@@ -111,7 +111,7 @@ let VarBlock = struct {
     contents: [length] byte;
     padding:  [] byte;
     length:   u8;
-    @span: 10;
+    @span = 10;
 };
 """
 
@@ -131,7 +131,7 @@ let VarBlock = struct {
     }
     padding: [] byte;
     length:  u8;
-    @span: 10;
+    @span = 10;
 };
 """
 
@@ -155,7 +155,7 @@ let VarBlock = struct {
     contents:       [] byte;
     padding:        [padding_length] byte;
     padding_length: u8;
-    @span: 10;
+    @span = 10;
 };
 """
 
@@ -180,7 +180,7 @@ let VarBlock = struct {
     contents:        [] byte;
     padding:         [n_padding_items] u16;
     n_padding_items: u8;
-    @span: 10;
+    @span = 10;
 };
 """
 
@@ -205,7 +205,7 @@ let VarBlock = struct {
     contents:        [] byte;
     padding:         TrailerBlock;
     n_padding_items: u8;
-    @span: 10;
+    @span = 10;
 
     let TrailerBlock = struct {
         padding_array:              [n_padding_items] u16;
@@ -236,7 +236,7 @@ let VarBlock = struct {
     contents:        [] byte;
     padding:         TrailerBlock;
     n_padding_items: u8;
-    @span: 10;
+    @span = 10;
 
     let TrailerSubBlock = struct {
         padding_array:              [n_padding_items] u16;
@@ -479,44 +479,44 @@ data_static_minmaxspan_and_subblocks = """
     scope='module',
     params=[{
         'spec': spec_static_span_template.format(
-            span_huge='@span: 100;',
-            span_big='@span: 30;',
-            span_avg='@span: 10;',
-            span_small='@span: 3;'),
+            span_huge='@span = 100;',
+            span_big='@span = 30;',
+            span_avg='@span = 10;',
+            span_small='@span = 3;'),
         'data': data_static_span_and_subblocks,
         'block_counts': [0, 1, 2, 3]
     }, {
         'spec': spec_static_span_template.format(
-            span_huge='@minspan: 100; @maxspan: 100;',
-            span_big='@minspan: 30; @maxspan: 30;',
-            span_avg='@minspan: 10; @maxspan: 10;',
-            span_small='@minspan: 3; @maxspan: 3;'),
+            span_huge='@minspan = 100; @maxspan = 100;',
+            span_big='@minspan = 30; @maxspan = 30;',
+            span_avg='@minspan = 10; @maxspan = 10;',
+            span_small='@minspan = 3; @maxspan = 3;'),
         'data': data_static_span_and_subblocks,
         'block_counts': [0, 1, 2, 3]
     }, {
         'spec': spec_static_span_template.format(
-            span_huge='@minspan: 100;',
-            span_big='@minspan: 30;',
-            span_avg='@minspan: 10;',
-            span_small='@minspan: 3;'),
+            span_huge='@minspan = 100;',
+            span_big='@minspan = 30;',
+            span_avg='@minspan = 10;',
+            span_small='@minspan = 3;'),
         'data': data_static_minspan_and_subblocks,
         'block_counts': [0, 1, 0, 0]
     }, { 
         # set @minspan to 1 in blocks, because they can potentially be
         # 0 bytes otherwise, leaving an ambiguous situation
         'spec': spec_static_span_template.format(
-            span_huge='@minspan: 1; @maxspan: 100;',
-            span_big='@minspan: 1; @maxspan: 30;',
-            span_avg='@minspan: 1; @maxspan: 10;',
-            span_small='@minspan: 1; @maxspan: 3;'),
+            span_huge='@minspan = 1; @maxspan = 100;',
+            span_big='@minspan = 1; @maxspan = 30;',
+            span_avg='@minspan = 1; @maxspan = 10;',
+            span_small='@minspan = 1; @maxspan = 3;'),
         'data': data_static_maxspan_and_subblocks,
         'block_counts': [1, 0, 0, 0]
     }, {
         'spec': spec_static_span_template.format(
-            span_huge='@minspan: 90; @maxspan: 110;',
-            span_big='@minspan: 26; @maxspan: 34;',
-            span_avg='@minspan: 9; @maxspan: 11;',
-            span_small='@minspan: 3; @maxspan: 3;'),
+            span_huge='@minspan = 90; @maxspan = 110;',
+            span_big='@minspan = 26; @maxspan = 34;',
+            span_avg='@minspan = 9; @maxspan = 11;',
+            span_small='@minspan = 3; @maxspan = 3;'),
         'data': data_static_minmaxspan_and_subblocks,
         'block_counts': [0, 2, 1, 1]
     }

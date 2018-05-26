@@ -12,6 +12,6 @@ file {
     let RadioCode = struct {
         foo:      [6] byte;
         codename: [radio_item_sizes[index(codes, self)]] byte <> string;
-        @key: codename;
+        @key = codename;
     };
 }

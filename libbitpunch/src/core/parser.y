@@ -708,7 +708,7 @@
 %type <file_block> file_block
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
 %type <statement_list> func_params func_param_nonempty_list
-%type <named_expr> let_stmt attribute_stmt func_param
+%type <named_expr> let_stmt field_stmt attribute_stmt func_param
 %type <subscript_index> key_expr opt_key_expr
 %type <expr_stmt> match_stmt
 %locations
@@ -1079,6 +1079,17 @@ block_stmt_list:
     /* empty */ {
         init_block_stmt_list(&$$);
     }
+  | block_stmt_list field_stmt {
+        $$ = $1;
+        struct field *field;
+
+        field = new_safe(struct field);
+        field->nstmt = $field_stmt->nstmt;
+        dpath_node_reset(&field->dpath);
+        field->dpath.item = $field_stmt->expr;
+        TAILQ_INSERT_TAIL($$.field_list, (struct statement *)field, list);
+    }
+
   | block_stmt_list attribute_stmt {
         $$ = $1;
         const char *attr_name;
@@ -1086,45 +1097,41 @@ block_stmt_list:
 
         attr_name = $attribute_stmt->nstmt.name;
         expr = $attribute_stmt->expr;
-        // FIXME these checks should be done by each filter backend
-        if (NULL != attr_name && attr_name[0] == '@') {
-            if (0 == strcmp(attr_name + 1, "span")
-                || 0 == strcmp(attr_name + 1, "minspan")
-                || 0 == strcmp(attr_name + 1, "maxspan")) {
-                expr->flags |= ASTFLAG_IS_SPAN_EXPR;
-            } else if (0 == strcmp(attr_name + 1, "key")) {
-                expr->flags |= ASTFLAG_IS_KEY_EXPR;
-            } else if (0 == strcmp(attr_name + 1, "last")) {
-                // no-op
-            } else {
-                semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                               &$attribute_stmt->nstmt.stmt.loc,
-                               "unsupported attribute '%s'", attr_name);
-                YYERROR;
-            }
-            TAILQ_INSERT_TAIL($$.attribute_list,
-                              (struct statement *)$attribute_stmt, list);
-        } else {
-            struct field *field;
-
-            field = new_safe(struct field);
-            field->nstmt = $attribute_stmt->nstmt;
-            dpath_node_reset(&field->dpath);
-            field->dpath.item = $attribute_stmt->expr;
-            TAILQ_INSERT_TAIL($$.field_list, (struct statement *)field, list);
+        if (attr_name[0] != '@') {
+            semantic_error(SEMANTIC_LOGLEVEL_ERROR,
+                           &$attribute_stmt->nstmt.stmt.loc,
+                           "attribute names must start with symbol '@'");
+            YYERROR;
         }
-    }
-
-  | block_stmt_list match_stmt {
-        $$ = $1;
-        TAILQ_INSERT_TAIL($$.match_list,
-                          (struct statement *)$match_stmt, list);
+        // FIXME these checks should be done by each filter backend
+        if (0 == strcmp(attr_name + 1, "span")
+            || 0 == strcmp(attr_name + 1, "minspan")
+            || 0 == strcmp(attr_name + 1, "maxspan")) {
+            expr->flags |= ASTFLAG_IS_SPAN_EXPR;
+        } else if (0 == strcmp(attr_name + 1, "key")) {
+            expr->flags |= ASTFLAG_IS_KEY_EXPR;
+        } else if (0 == strcmp(attr_name + 1, "last")) {
+            // no-op
+        } else {
+            semantic_error(SEMANTIC_LOGLEVEL_ERROR,
+                           &$attribute_stmt->nstmt.stmt.loc,
+                           "unsupported attribute '%s'", attr_name);
+            YYERROR;
+        }
+        TAILQ_INSERT_TAIL($$.attribute_list,
+                          (struct statement *)$attribute_stmt, list);
     }
 
   | block_stmt_list let_stmt {
         $$ = $1;
         TAILQ_INSERT_TAIL($$.named_expr_list,
                           (struct statement *)$let_stmt, list);
+    }
+
+  | block_stmt_list match_stmt {
+        $$ = $1;
+        TAILQ_INSERT_TAIL($$.match_list,
+                          (struct statement *)$match_stmt, list);
     }
 
   | block_stmt_list if_block {
@@ -1134,7 +1141,7 @@ block_stmt_list:
       }
   }
 
-attribute_stmt:
+field_stmt:
     IDENTIFIER ':' expr ';' {
         $$ = new_safe(struct named_expr);
         $$->nstmt.name = $IDENTIFIER;
@@ -1148,12 +1155,12 @@ attribute_stmt:
         $$->expr = $expr;
     }
 
-match_stmt:
-    KW_MATCH expr ';' {
-        $$ = new_safe(struct expr_stmt);
-        $$->stmt.loc = @$;
+attribute_stmt:
+    IDENTIFIER '=' expr ';' {
+        $$ = new_safe(struct named_expr);
+        $$->nstmt.stmt.loc = @$;
+        $$->nstmt.name = $IDENTIFIER;
         $$->expr = $expr;
-        $$->expr->flags |= ASTFLAG_IS_MATCH_EXPR;
     }
 
 let_stmt:
@@ -1162,6 +1169,14 @@ let_stmt:
         $$->nstmt.stmt.loc = @$;
         $$->nstmt.name = $IDENTIFIER;
         $$->expr = $expr;
+    }
+
+match_stmt:
+    KW_MATCH expr ';' {
+        $$ = new_safe(struct expr_stmt);
+        $$->stmt.loc = @$;
+        $$->expr = $expr;
+        $$->expr->flags |= ASTFLAG_IS_MATCH_EXPR;
     }
 
 %%

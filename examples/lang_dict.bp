@@ -5,7 +5,7 @@
 
 let Word = struct {
     word: [] byte <> string { boundary: '\n'; };
-    @key: word;
+    @key = word;
 };
 
 file {

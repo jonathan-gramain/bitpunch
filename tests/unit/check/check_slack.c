@@ -285,7 +285,7 @@ static const char *check_slack_trailing_field_recur_def =
     "    sub_boxes:   [] BOX;\n"
     "    trailer_str: [7] byte <> string;\n"
     "\n"
-    "    @span: size;\n"
+    "    @span = size;\n"
     "};\n"
     "file {\n"
     "     hello_str:  [6] byte <> string;\n"

@@ -36,7 +36,7 @@ def spec_log():
     let LogBlock = struct {
            records: [] Record;
            trailer: [] byte;
-           @span: 32768;
+           @span = 32768;
     };
 
     let LogTailBlock = struct {
@@ -48,7 +48,7 @@ def spec_log():
            length:   FixInt16;
            rtype:    FixInt8;
            data:     [length] byte <> string;
-           @minspan: 7;
+           @minspan = 7;
     };
 """
 
@@ -231,7 +231,7 @@ def spec_ldb():
                           [] byte;
         magic:            [8] byte;
 
-        @span: 48;
+        @span = 48;
     };
 
     file {
