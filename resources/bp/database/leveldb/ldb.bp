@@ -57,7 +57,7 @@ let Footer = struct {
                       [] byte;
     magic:            [8] byte;
 
-    $span: 48;
+    @span: 48;
 };
 
 file {

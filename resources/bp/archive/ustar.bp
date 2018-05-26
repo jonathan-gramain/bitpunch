@@ -23,13 +23,13 @@ let FileEntry = struct {
 
     let ?data = blocks <> [header.size] byte;
 
-    $key: header.name;
+    @key: header.name;
 };
 
 let FileBlock = [512] byte;
 
 let FileHeader = struct {
-    $span: 512;
+    @span: 512;
 
     name:     [100] byte <> NullTerminatedString;
     mode:     [8]   byte <> OctalInt;

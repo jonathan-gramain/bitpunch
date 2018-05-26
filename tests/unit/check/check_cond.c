@@ -61,7 +61,7 @@ static const char *check_cond_def =
     "    } else {\n"
     "        contents: [] byte;\n"
     "    }\n"
-    "    $span: sizeof (hdr) + hdr.size;\n"
+    "    @span: sizeof (hdr) + hdr.size;\n"
     "};\n"
     "file {\n"
     "    ifs: [2] IfStruct;\n"

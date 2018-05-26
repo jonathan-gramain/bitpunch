@@ -1087,7 +1087,7 @@ block_stmt_list:
         attr_name = $attribute_stmt->nstmt.name;
         expr = $attribute_stmt->expr;
         // FIXME these checks should be done by each filter backend
-        if (NULL != attr_name && attr_name[0] == '$') {
+        if (NULL != attr_name && attr_name[0] == '@') {
             if (0 == strcmp(attr_name + 1, "span")
                 || 0 == strcmp(attr_name + 1, "minspan")
                 || 0 == strcmp(attr_name + 1, "maxspan")) {

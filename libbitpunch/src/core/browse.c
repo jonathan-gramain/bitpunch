@@ -4627,7 +4627,7 @@ box_lookup_statement_recur(struct box *box,
     bitpunch_status_t bt_ret;
     int cond_eval;
 
-    if (identifier[0] == '$') {
+    if (identifier[0] == '@') {
         stmt_types_by_prio = attribute_types_by_prio;
         n_stmt_types_by_prio = N_ELEM(attribute_types_by_prio);
     } else {
@@ -5582,12 +5582,12 @@ box_compute_min_span_size__span_expr(struct box *box,
     DBG_BOX_DUMP(box);
     span_expr_defines_max = FALSE;
     bt_ret = box_get_first_statement_internal(
-        box, STATEMENT_TYPE_ATTRIBUTE, "$minspan", 0,
+        box, STATEMENT_TYPE_ATTRIBUTE, "@minspan", 0,
         (const struct statement **)&span_stmt, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
         span_expr_defines_max = TRUE;
         bt_ret = box_get_first_statement_internal(
-            box, STATEMENT_TYPE_ATTRIBUTE, "$span", 0,
+            box, STATEMENT_TYPE_ATTRIBUTE, "@span", 0,
             (const struct statement **)&span_stmt, bst);
     }
     switch (bt_ret) {
@@ -5633,12 +5633,12 @@ box_compute_max_span_size__span_expr(struct box *box,
     DBG_BOX_DUMP(box);
     span_expr_defines_min = FALSE;
     bt_ret = box_get_first_statement_internal(
-        box, STATEMENT_TYPE_ATTRIBUTE, "$maxspan", 0,
+        box, STATEMENT_TYPE_ATTRIBUTE, "@maxspan", 0,
         (const struct statement **)&span_stmt, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
         span_expr_defines_min = TRUE;
         bt_ret = box_get_first_statement_internal(
-            box, STATEMENT_TYPE_ATTRIBUTE, "$span", 0,
+            box, STATEMENT_TYPE_ATTRIBUTE, "@span", 0,
             (const struct statement **)&span_stmt, bst);
     }
     switch (bt_ret) {
@@ -6606,7 +6606,7 @@ tracker_goto_next_item__array(struct tracker *tk,
         bt_ret = box_apply_filter_internal(filtered_box, bst);
         if (BITPUNCH_OK == bt_ret) {
             bt_ret = box_get_first_statement_internal(
-                filtered_box, STATEMENT_TYPE_ATTRIBUTE, "$last", 0,
+                filtered_box, STATEMENT_TYPE_ATTRIBUTE, "@last", 0,
                 (const struct statement **)&last_attr, bst);
         }
         switch (bt_ret) {
@@ -6620,7 +6620,7 @@ tracker_goto_next_item__array(struct tracker *tk,
             if (EXPR_VALUE_TYPE_BOOLEAN != last_eval.type) {
                 return tracker_error(
                     BITPUNCH_INVALID_PARAM, tk, last_attr->expr, bst,
-                    "'$last': expect boolean expression, not \"%s\"",
+                    "'@last': expect boolean expression, not \"%s\"",
                     expr_value_type_str(last_eval.type));
             }
             is_last = last_eval.boolean;
@@ -7896,9 +7896,9 @@ browse_setup_backends__box__block(struct ast_node_hdl *item)
     } else /* union */ {
         b_box->compute_used_size = box_compute_used_size__union_dynamic_size;
     }
-    if (NULL != block_get_first_attribute(item, "$span") ||
-        NULL != block_get_first_attribute(item, "$minspan") ||
-        NULL != block_get_first_attribute(item, "$maxspan")) {
+    if (NULL != block_get_first_attribute(item, "@span") ||
+        NULL != block_get_first_attribute(item, "@minspan") ||
+        NULL != block_get_first_attribute(item, "@maxspan")) {
         b_box->compute_min_span_size = box_compute_min_span_size__span_expr;
         b_box->compute_max_span_size = box_compute_max_span_size__span_expr;
     } else {

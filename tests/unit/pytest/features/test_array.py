@@ -149,7 +149,7 @@ let u32 = [4] byte <> integer { signed: false; endian: 'little'; };
 let Item = struct {
     name: [] byte <> string { boundary: '\\0'; };
     value: u32;
-    $key: name;
+    @key: name;
 };
 
 file {
@@ -171,7 +171,7 @@ let u32 = [4] byte <> integer { signed: false; endian: 'little'; };
 let Item = struct {
     name: [] byte <> string { boundary: '\\0'; } <> base64 <> string;
     value: u32;
-    $key: name;
+    @key: name;
 };
 
 file {
@@ -193,7 +193,7 @@ let u32 = [4] byte <> integer { signed: false; endian: 'little'; };
 let Item = [] byte <> string { boundary: '\\n'; } <> base64 <> struct {
     name: [] byte <> string { boundary: '\\0'; };
     value: u32;
-    $key: name;
+    @key: name;
 };
 
 file {

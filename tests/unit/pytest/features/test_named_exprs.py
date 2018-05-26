@@ -64,7 +64,7 @@ let Number = struct {
     let ?byte_count = ?global_byte_count;
     let ?value = raw <> integer { signed: false; endian: 'little'; };
 
-    $key: raw <> integer { signed: false; endian: 'little'; };
+    @key: raw <> integer { signed: false; endian: 'little'; };
 };
 
 file {
@@ -171,7 +171,7 @@ let u16 = [2] byte <> integer { signed: false; endian: 'little'; };
 let Number = struct {
     value: u16;
 
-    $key: value;
+    @key: value;
 };
 
 file {

@@ -6,12 +6,12 @@ let u64 = [8] byte <> RadioInt;
 
 let RadioCode = struct {
        codename: [8] byte <> string { boundary: '\0'; };
-       $key: codename;
+       @key: codename;
        if (codename == 'juliett' || codename == 'romeo') {
-           $span: sizeof(codename) + 6;
+           @span: sizeof(codename) + 6;
        }
        if (codename == 'india' || codename == 'quebec') {
-           $span: sizeof(codename) + 12;
+           @span: sizeof(codename) + 12;
        }
 };
 

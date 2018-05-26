@@ -133,7 +133,7 @@ false       {
 [|^&><+\-*/%!~()=[\].{}] { return yytext[0]; }
 sizeof        { return OP_SIZEOF; }
 
-(\?|\$)?[A-Za-z_][A-Za-z0-9_]*  {
+(\?|@)?[A-Za-z_][A-Za-z0-9_]*  {
     yylval_param->ident = strdup(yytext);
     return IDENTIFIER;
 }

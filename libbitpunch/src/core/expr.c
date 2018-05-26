@@ -1713,7 +1713,7 @@ expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
     struct box *anchor_box;
 
     anchor_expr = expr->ndat->u.rexpr_member_common.anchor_expr;
-    if (expr->ndat->u.rexpr_polymorphic.identifier[0] == '$') {
+    if (expr->ndat->u.rexpr_polymorphic.identifier[0] == '@') {
         lookup_mask = STATEMENT_TYPE_ATTRIBUTE;
     } else {
         lookup_mask = STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD;

@@ -323,7 +323,7 @@ lookup_visible_statements_in_lists_internal(
     int i;
     int ret;
 
-    if (identifier[0] == '$') {
+    if (identifier[0] == '@') {
         stmt_types_by_prio = attribute_types_by_prio;
         n_stmt_types_by_prio = N_ELEM(attribute_types_by_prio);
     } else {
@@ -1788,13 +1788,13 @@ compile_stmt_lists(struct block_stmt_list *stmt_lists,
     }
     STATEMENT_FOREACH(named_expr, named_expr,
                       stmt_lists->attribute_list, list) {
-        if (0 == strcmp(named_expr->nstmt.name, "$last")
+        if (0 == strcmp(named_expr->nstmt.name, "@last")
             && 0 == (EXPR_VALUE_TYPE_BOOLEAN
                      & named_expr->expr->ndat->u.rexpr.value_type_mask)) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR,
                            &named_expr->expr->loc,
                            "expect a boolean expression for attribute "
-                           "\"$last\"");
+                           "\"@last\"");
             return -1;
         }
     }
@@ -2713,7 +2713,7 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
                 "invalid use of member operator on non-block dpath");
             return -1;
         }
-        if (member->ndat->u.identifier[0] == '$') {
+        if (member->ndat->u.identifier[0] == '@') {
             lookup_mask = STATEMENT_TYPE_ATTRIBUTE;
         } else {
             lookup_mask = STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD;
@@ -2970,14 +2970,14 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
                 return -1;
             }
             if (NULL == attr->nstmt.stmt.cond) {
-                if (0 == strcmp(attr->nstmt.name, "$minspan")) {
+                if (0 == strcmp(attr->nstmt.name, "@minspan")) {
                     min_span_expr = attr->expr;
                     dynamic_span = TRUE;
-                } else if (0 == strcmp(attr->nstmt.name, "$maxspan")) {
+                } else if (0 == strcmp(attr->nstmt.name, "@maxspan")) {
                     max_span_expr = attr->expr;
                     dynamic_span = TRUE;
                 } else {
-                    assert(0 == strcmp(attr->nstmt.name, "$span"));
+                    assert(0 == strcmp(attr->nstmt.name, "@span"));
                     min_span_expr = attr->expr;
                     max_span_expr = attr->expr;
                 }
@@ -2985,7 +2985,7 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
             } else {
                 dynamic_span = TRUE;
             }
-        } else if (0 == strcmp(attr->nstmt.name, "$last")) {
+        } else if (0 == strcmp(attr->nstmt.name, "@last")) {
             contains_last_attr = TRUE;
         }
     }
@@ -4134,7 +4134,7 @@ ast_node_is_indexed(const struct ast_node_hdl *node)
         if (AST_NODE_TYPE_BLOCK_DEF != target->ndat->type) {
             return FALSE;
         }
-        return NULL != block_get_first_attribute(target, "$key");
+        return NULL != block_get_first_attribute(target, "@key");
     default:
         return FALSE;
     }
@@ -4154,7 +4154,7 @@ ast_node_get_key_expr(const struct ast_node_hdl *node)
         // TODO: multiple or conditional key expressions currently not
         // supported (needs proper support in index cache)
 
-        return block_get_first_attribute(target, "$key");
+        return block_get_first_attribute(target, "@key");
     default:
         return NULL;
     }
