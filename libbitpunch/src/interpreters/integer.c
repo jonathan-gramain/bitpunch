@@ -75,7 +75,7 @@ static enum endian str2endian(struct expr_value_string string)
     binary_integer_read_##SIGN##int##NBITS##_##ENDIAN_STR(              \
         expr_value_t *read_value,                                  \
         const char *data, size_t span_size,                             \
-        const struct ast_node_hdl *param_values)                            \
+        const struct ast_node_hdl *attr_values)                            \
     {                                                                   \
         read_value->integer = (int64_t)(SIGN##int##NBITS##_t)ENDIAN_STR##NBITS##toh(*(uint##NBITS##_t *)data); \
         return 0;                                                       \
@@ -85,7 +85,7 @@ static enum endian str2endian(struct expr_value_string string)
     binary_integer_write_##SIGN##int##NBITS##_##ENDIAN_STR(             \
         const expr_value_t *write_value,                           \
         char *data, size_t span_size,                                   \
-        const struct ast_node_hdl *param_values)                            \
+        const struct ast_node_hdl *attr_values)                            \
     {                                                                   \
         *((uint##NBITS##_t *)data) = hto##ENDIAN_STR##NBITS((uint##NBITS##_t)write_value->integer); \
         return 0;                                                       \
@@ -111,7 +111,7 @@ GEN_ALL_RW_FUNCS
 static int
 binary_integer_rcall_build(struct ast_node_hdl *rcall,
                            const struct ast_node_hdl *data_source,
-                           const struct ast_node_hdl *param_values,
+                           const struct ast_node_hdl *attr_values,
                            struct compile_ctx *ctx)
 {
     struct ast_node_hdl *size_value;
@@ -122,11 +122,11 @@ binary_integer_rcall_build(struct ast_node_hdl *rcall,
     interpreter_read_func_t read_func;
     interpreter_write_func_t write_func;
 
-    assert(param_values[REF_SIGNED].ndat->u.rexpr.value_type
+    assert(attr_values[REF_SIGNED].ndat->u.rexpr.value_type
            == EXPR_VALUE_TYPE_BOOLEAN);
-    assert(param_values[REF_ENDIAN].ndat->u.rexpr.value_type
+    assert(attr_values[REF_ENDIAN].ndat->u.rexpr.value_type
            == EXPR_VALUE_TYPE_STRING ||
-           param_values[REF_ENDIAN].ndat->u.rexpr.value_type
+           attr_values[REF_ENDIAN].ndat->u.rexpr.value_type
            == EXPR_VALUE_TYPE_UNSET);
     assert(NULL != data_source);
 
@@ -165,21 +165,21 @@ binary_integer_rcall_build(struct ast_node_hdl *rcall,
         return -1;
     }
     _signed = ast_node_get_named_expr_target(
-        (struct ast_node_hdl *)&param_values[REF_SIGNED])
+        (struct ast_node_hdl *)&attr_values[REF_SIGNED])
         ->ndat->u.rexpr_native.value.boolean;
     endian_value = ast_node_get_named_expr_target(
-        (struct ast_node_hdl *)&param_values[REF_ENDIAN]);
+        (struct ast_node_hdl *)&attr_values[REF_ENDIAN]);
     if (endian_value->ndat->u.rexpr.value_type == EXPR_VALUE_TYPE_UNSET) {
         endian = ENDIAN_DEFAULT;
     } else {
         endian = str2endian(endian_value->ndat->u.rexpr_native.value.string);
         if (endian == ENDIAN_BAD) {
             semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &param_values[REF_ENDIAN].loc,
+                SEMANTIC_LOGLEVEL_ERROR, &attr_values[REF_ENDIAN].loc,
                 "bad endian value \"%.*s\": "
                 "must be \"big\", \"little\" or \"native\"",
-                (int)param_values[REF_ENDIAN].ndat->u.string.len,
-                param_values[REF_ENDIAN].ndat->u.string.str);
+                (int)attr_values[REF_ENDIAN].ndat->u.string.len,
+                attr_values[REF_ENDIAN].ndat->u.string.str);
             return -1;
         }
     }
@@ -238,21 +238,21 @@ binary_integer_read_generic(
     struct ast_node_hdl *rcall,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    int *param_is_specified, expr_value_t *param_value)
+    int *attr_is_specified, expr_value_t *attr_value)
 {
     int _signed;
     enum endian endian;
 
-    _signed = param_value[REF_SIGNED].boolean;
-    if (param_is_specified[REF_ENDIAN]) {
-        endian = str2endian(param_value[REF_ENDIAN].string);
+    _signed = attr_value[REF_SIGNED].boolean;
+    if (attr_is_specified[REF_ENDIAN]) {
+        endian = str2endian(attr_value[REF_ENDIAN].string);
         if (endian == ENDIAN_BAD) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
                 "bad endian value \"%.*s\": "
                 "must be \"big\", \"little\" or \"native\"",
-                (int)param_value[REF_ENDIAN].string.len,
-                param_value[REF_ENDIAN].string.str);
+                (int)attr_value[REF_ENDIAN].string.len,
+                attr_value[REF_ENDIAN].string.str);
             return -1;
         }
     } else {
@@ -309,7 +309,7 @@ binary_integer_write_generic(
     struct ast_node_hdl *rcall,
     const expr_value_t *write_value,
     char *data, size_t span_size,
-    int *param_is_specified, expr_value_t *param_value)
+    int *attr_is_specified, expr_value_t *attr_value)
 {
     // TODO
     return -1;
@@ -317,7 +317,7 @@ binary_integer_write_generic(
 
 static int
 binary_integer_rcall_build(struct ast_node_hdl *rcall,
-                           const struct ast_node_hdl *param_values,
+                           const struct ast_node_hdl *attr_values,
                            struct compile_ctx *ctx)
 {
     rcall->ndat->u.rexpr_interpreter.read_func =
@@ -340,7 +340,7 @@ interpreter_declare_binary_integer(void)
                               2,
                               "signed", REF_SIGNED,
                               EXPR_VALUE_TYPE_BOOLEAN,
-                              INTERPRETER_PARAM_FLAG_MANDATORY,
+                              INTERPRETER_ATTR_FLAG_MANDATORY,
                               "endian", REF_ENDIAN,
                               EXPR_VALUE_TYPE_STRING,
                               0);

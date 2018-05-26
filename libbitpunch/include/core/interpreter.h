@@ -44,45 +44,45 @@
     offsetof(struct ast_node_data, u.rexpr_interpreter) \
     + sizeof (struct rexpr_interpreter)
 
-#define INTERPRETER_RCALL_PARAM(rcall, n)               \
+#define INTERPRETER_RCALL_ATTR(rcall, n)               \
     ((struct ast_node_hdl *) (                          \
         (((char *)((rcall)->ndat))                      \
          + INTERPRETER_RCALL_BASE_SIZE                  \
          + (n) * sizeof (struct ast_node_hdl))))
 
-enum interpreter_param_flags {
-    INTERPRETER_PARAM_FLAG_MANDATORY = 1,
+enum interpreter_attr_flags {
+    INTERPRETER_ATTR_FLAG_MANDATORY = 1,
 };
 
-struct interpreter_param_def {
-    STAILQ_ENTRY(interpreter_param_def) list;
+struct interpreter_attr_def {
+    STAILQ_ENTRY(interpreter_attr_def) list;
     const char *name;
     int ref_idx;
     enum expr_value_type value_type_mask;
-    enum interpreter_param_flags flags;
+    enum interpreter_attr_flags flags;
 };
 
 typedef int
 (*interpreter_rcall_build_func_t)(
     struct ast_node_hdl *rcall,
-    const struct ast_node_hdl *param_values,
+    const struct ast_node_hdl *attr_values,
     struct compile_ctx *ctx);
 
 struct interpreter {
     const char *name;
     enum expr_value_type value_type_mask;
     interpreter_rcall_build_func_t rcall_build_func;
-    int n_params;
-    int max_param_ref;
-    STAILQ_HEAD(interpreter_param_list, interpreter_param_def) param_list;
+    int n_attrs;
+    int max_attr_ref;
+    STAILQ_HEAD(interpreter_attr_list, interpreter_attr_def) attr_list;
 };
 
 int
 interpreter_declare(const char *name,
                     enum expr_value_type value_type_mask,
                     interpreter_rcall_build_func_t rcall_build_func,
-                    int n_params,
-                    ... /* params: (name, ref_idx, type, flags) tuples */);
+                    int n_attrs,
+                    ... /* attrs: (name, ref_idx, type, flags) tuples */);
 
 struct interpreter *
 interpreter_lookup(const char *name);
@@ -93,24 +93,24 @@ interpreter_declare_std(void);
 int
 interpreter_rcall_build(struct ast_node_hdl *node,
                         const struct interpreter *interpreter,
-                        struct statement_list *param_list);
+                        struct statement_list *attr_list);
 
 static inline struct ast_node_hdl *
-interpreter_rcall_get_params(const struct ast_node_hdl *rcall) {
-    return INTERPRETER_RCALL_PARAM(rcall, 0);
+interpreter_rcall_get_attrs(const struct ast_node_hdl *rcall) {
+    return INTERPRETER_RCALL_ATTR(rcall, 0);
 }
 
 bitpunch_status_t
-interpreter_rcall_evaluate_params(struct ast_node_hdl *expr,
-                                  struct box *scope,
-                                  int **param_is_specifiedp,
-                                  expr_value_t **param_valuep,
-                                  struct browse_state *bst);
+interpreter_rcall_evaluate_attrs(struct ast_node_hdl *expr,
+                                 struct box *scope,
+                                 int **attr_is_specifiedp,
+                                 expr_value_t **attr_valuep,
+                                 struct browse_state *bst);
 
 void
-interpreter_rcall_destroy_param_values(struct ast_node_hdl *expr,
-                                       int *param_is_specified,
-                                       expr_value_t *param_value);
+interpreter_rcall_destroy_attr_values(struct ast_node_hdl *expr,
+                                      int *attr_is_specified,
+                                      expr_value_t *attr_value);
 
 bitpunch_status_t
 interpreter_rcall_read_value(struct ast_node_hdl *interpreter,

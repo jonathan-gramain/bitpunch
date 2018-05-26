@@ -5,7 +5,7 @@
  */
 
 let NullTerminatedString = string {
-    boundary: '\0';
+    @boundary: '\0';
 };
 
 let OctalInt = NullTerminatedString <> formatted_integer {

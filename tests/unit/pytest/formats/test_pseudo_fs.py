@@ -12,7 +12,7 @@ import conftest
 
 spec_file_pseudo_fs = """
 
-let Int = integer { signed: false; endian: 'little'; };
+let Int = integer { @signed: false; @endian: 'little'; };
 let u8 = byte <> Int;
 let u16 = [2] byte <> Int;
 
@@ -32,7 +32,7 @@ let Header = struct {
 let Entry = struct {
     entry_location: u16;
     entry_size:     u16;
-    entry_type:     [4] byte <> string { boundary: ' '; };
+    entry_type:     [4] byte <> string { @boundary: ' '; };
 
     let ?data = bytes(file)[entry_location ..
                             entry_location + entry_size];

@@ -601,11 +601,11 @@ resolve_identifiers_identifier_as_interpreter(
 
     interpreter = interpreter_lookup(node->ndat->u.identifier);
     if (NULL != interpreter) {
-        struct statement_list empty_param_list;
+        struct statement_list empty_attr_list;
 
-        TAILQ_INIT(&empty_param_list);
+        TAILQ_INIT(&empty_attr_list);
         if (-1 == interpreter_rcall_build(node, interpreter,
-                                          &empty_param_list)) {
+                                          &empty_attr_list)) {
             return -1;
         }
         return 0;
@@ -779,7 +779,7 @@ resolve_identifiers_block(struct ast_node_hdl *block,
         }
         if (-1 == interpreter_rcall_build(
                 block, interpreter,
-                block->ndat->u.block_def.block_stmt_list.field_list)) {
+                block->ndat->u.block_def.block_stmt_list.attribute_list)) {
             return -1;
         }
     } else {
@@ -1055,12 +1055,12 @@ resolve_identifiers_rexpr_interpreter(
 {
     const struct interpreter *interpreter;
     int p_idx;
-    struct ast_node_hdl *param_node;
+    struct ast_node_hdl *attr_node;
 
     interpreter = node->ndat->u.rexpr_interpreter.interpreter;
-    for (p_idx = 0; p_idx < interpreter->n_params; ++p_idx) {
-        param_node = INTERPRETER_RCALL_PARAM(node, p_idx);
-        if (-1 == resolve_identifiers(param_node, visible_refs,
+    for (p_idx = 0; p_idx < interpreter->n_attrs; ++p_idx) {
+        attr_node = INTERPRETER_RCALL_ATTR(node, p_idx);
+        if (-1 == resolve_identifiers(attr_node, visible_refs,
                                       RESOLVE_EXPECT_EXPRESSION,
                                       resolve_tags)) {
             return -1;
@@ -2526,33 +2526,33 @@ compile_rexpr_interpreter(struct ast_node_hdl *expr,
                           struct compile_ctx *ctx)
 {
     const struct interpreter *interpreter;
-    struct ast_node_hdl *param_valuep;
-    struct interpreter_param_def *param_def;
+    struct ast_node_hdl *attr_valuep;
+    struct interpreter_attr_def *attr_def;
     int sem_error = FALSE;
 
     interpreter = expr->ndat->u.rexpr_interpreter.interpreter;
-    STAILQ_FOREACH(param_def, &interpreter->param_list, list) {
-        param_valuep = INTERPRETER_RCALL_PARAM(expr, param_def->ref_idx);
-        compile_expr(param_valuep, ctx, TRUE);
+    STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
+        attr_valuep = INTERPRETER_RCALL_ATTR(expr, attr_def->ref_idx);
+        compile_expr(attr_valuep, ctx, TRUE);
     }
     if (!compile_continue(ctx)) {
         return -1;
     }
-    STAILQ_FOREACH(param_def, &interpreter->param_list, list) {
-        param_valuep = INTERPRETER_RCALL_PARAM(expr, param_def->ref_idx);
-        if (AST_NODE_TYPE_NONE != param_valuep->ndat->type) {
-            assert(ast_node_is_rexpr(param_valuep));
-            if (0 == (param_def->value_type_mask
-                      & param_valuep->ndat->u.rexpr.value_type_mask)) {
+    STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
+        attr_valuep = INTERPRETER_RCALL_ATTR(expr, attr_def->ref_idx);
+        if (AST_NODE_TYPE_NONE != attr_valuep->ndat->type) {
+            assert(ast_node_is_rexpr(attr_valuep));
+            if (0 == (attr_def->value_type_mask
+                      & attr_valuep->ndat->u.rexpr.value_type_mask)) {
                 semantic_error(
-                    SEMANTIC_LOGLEVEL_ERROR, &param_valuep->loc,
-                    "parameter \"%s\" passed to interpreter \"%s\" has "
+                    SEMANTIC_LOGLEVEL_ERROR, &attr_valuep->loc,
+                    "attribute \"%s\" passed to interpreter \"%s\" has "
                     "an incompatible value-type '%s', acceptable "
                     "value-types are '%s'",
-                    param_def->name, interpreter->name,
+                    attr_def->name, interpreter->name,
                     expr_value_type_str(
-                        param_valuep->ndat->u.rexpr.value_type_mask),
-                    expr_value_type_str(param_def->value_type_mask));
+                        attr_valuep->ndat->u.rexpr.value_type_mask),
+                    expr_value_type_str(attr_def->value_type_mask));
                 sem_error = TRUE;
                 continue ;
             }
@@ -2562,7 +2562,7 @@ compile_rexpr_interpreter(struct ast_node_hdl *expr,
         return -1;
     }
     if (-1 == interpreter->rcall_build_func(
-            expr, interpreter_rcall_get_params(expr), ctx)) {
+            expr, interpreter_rcall_get_attrs(expr), ctx)) {
         return -1;
     }
     // template flag may be removed when compiling OP_SET_FILTER
@@ -4582,23 +4582,23 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         break ;
     case AST_NODE_TYPE_REXPR_INTERPRETER: {
         const struct interpreter *interpreter;
-        struct interpreter_param_def *param_def;
-        struct ast_node_hdl *param;
+        struct interpreter_attr_def *attr_def;
+        struct ast_node_hdl *attr;
         int i;
 
         dump_ast_rexpr(node,out);
         interpreter = node->ndat->u.rexpr_interpreter.interpreter;
-        fprintf(out, " name: %s\n%*s\\_ interpreter params:\n",
+        fprintf(out, " name: %s\n%*s\\_ interpreter attrs:\n",
                 interpreter->name, (depth + 1) * INDENT_N_SPACES, "");
-        param_def = STAILQ_FIRST(&interpreter->param_list);
-        for (i = 0; i < node->ndat->u.rexpr_interpreter.interpreter->n_params;
+        attr_def = STAILQ_FIRST(&interpreter->attr_list);
+        for (i = 0; i < node->ndat->u.rexpr_interpreter.interpreter->n_attrs;
              ++i) {
-            param = INTERPRETER_RCALL_PARAM(node, i);
+            attr = INTERPRETER_RCALL_ATTR(node, i);
             fprintf(out, "%*s\\_ \"%s\" [%d]:\n",
                     (depth + 2) * INDENT_N_SPACES, "",
-                    param_def->name, i);
-            fdump_ast_recur(param, depth + 3, visible_refs, out);
-            param_def = STAILQ_NEXT(param_def, list);
+                    attr_def->name, i);
+            fdump_ast_recur(attr, depth + 3, visible_refs, out);
+            attr_def = STAILQ_NEXT(attr_def, list);
         }
         break ;
     }

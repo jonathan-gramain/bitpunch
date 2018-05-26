@@ -68,7 +68,7 @@ static int
 formatted_integer_read(struct ast_node_hdl *rcall,
                        expr_value_t *read_value,
                        const char *data, size_t span_size,
-                       int *param_is_specified, expr_value_t *param_value)
+                       int *attr_is_specified, expr_value_t *attr_value)
 {
     int base;
     int64_t parsed_value;
@@ -84,20 +84,20 @@ formatted_integer_read(struct ast_node_hdl *rcall,
     // regarding validity checks for our purpose: basically the buffer
     // has to represent a valid formatted number in its entirety.
 
-    if (param_is_specified[REF_BASE]) {
-        base = param_value[REF_BASE].integer;
+    if (attr_is_specified[REF_BASE]) {
+        base = attr_value[REF_BASE].integer;
     } else {
         base = 10;
     }
-    if (param_is_specified[REF_SIGNED]) {
-        _signed = param_value[REF_SIGNED].boolean;
+    if (attr_is_specified[REF_SIGNED]) {
+        _signed = attr_value[REF_SIGNED].boolean;
     } else {
         _signed = TRUE;
     }
     if (0 == span_size) {
-        if (param_is_specified[REF_EMPTY_VALUE]) {
+        if (attr_is_specified[REF_EMPTY_VALUE]) {
             read_value->type = EXPR_VALUE_TYPE_INTEGER;
-            read_value->integer = param_value[REF_EMPTY_VALUE].integer;
+            read_value->integer = attr_value[REF_EMPTY_VALUE].integer;
             return 0;
         }
         semantic_error(SEMANTIC_LOGLEVEL_ERROR,
@@ -174,7 +174,7 @@ static int
 formatted_integer_write(struct ast_node_hdl *rcall,
                         const expr_value_t *write_value,
                         char *data, size_t span_size,
-                        int *param_is_specified, expr_value_t *param_value)
+                        int *attr_is_specified, expr_value_t *attr_value)
 {
     return -1;
 }
@@ -182,7 +182,7 @@ formatted_integer_write(struct ast_node_hdl *rcall,
 
 static int
 formatted_integer_rcall_build(struct ast_node_hdl *rcall,
-                              const struct ast_node_hdl *param_values,
+                              const struct ast_node_hdl *attr_values,
                               struct compile_ctx *ctx)
 {
     rcall->ndat->u.rexpr_interpreter.read_func = formatted_integer_read;
@@ -221,20 +221,20 @@ formatted_integer_read_test(expr_value_t *resultp,
                             int empty_value,
                             int _signed)
 {
-    int param_is_specified[3];
-    expr_value_t param_value[3];
+    int attr_is_specified[3];
+    expr_value_t attr_value[3];
     int ret;
 
-    param_is_specified[REF_BASE] = base != -1;
-    param_is_specified[REF_EMPTY_VALUE] = empty_value != -1;
-    param_is_specified[REF_SIGNED] = _signed != -1;
-    param_value[REF_BASE].integer = base;
-    param_value[REF_EMPTY_VALUE].integer = empty_value;
-    param_value[REF_SIGNED].boolean = _signed;
+    attr_is_specified[REF_BASE] = base != -1;
+    attr_is_specified[REF_EMPTY_VALUE] = empty_value != -1;
+    attr_is_specified[REF_SIGNED] = _signed != -1;
+    attr_value[REF_BASE].integer = base;
+    attr_value[REF_EMPTY_VALUE].integer = empty_value;
+    attr_value[REF_SIGNED].boolean = _signed;
 
     ret = formatted_integer_read(NULL, resultp,
                                  buffer, strlen(buffer),
-                                 param_is_specified, param_value);
+                                 attr_is_specified, attr_value);
     if (0 == ret) {
         ck_assert_int_eq(resultp->type, EXPR_VALUE_TYPE_INTEGER);
     }

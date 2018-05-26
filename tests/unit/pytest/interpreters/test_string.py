@@ -12,7 +12,7 @@ import conftest
 expected_string_table = ['Bonjour', 'Hello', 'Guten Tag', 'Hola', 'Privet']
 
 spec_string_table = """
-let cstr = [] byte <> string { boundary: '\\0'; };
+let cstr = [] byte <> string { @boundary: '\\0'; };
 
 file {
     string_table: [] cstr;
@@ -26,7 +26,7 @@ data_string_table_1 = """
 
 
 spec_string_table_multi_char_boundary = """
-let cstr = [] byte <> string { boundary: '--delimiter--'; };
+let cstr = [] byte <> string { @boundary: '--delimiter--'; };
 
 file {
     string_table: [] cstr;

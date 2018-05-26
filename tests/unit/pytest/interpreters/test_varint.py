@@ -43,7 +43,7 @@ def test_varint(params_varint):
 #
 
 spec_varint_pools = """
-let u8 = [1] byte <> integer { signed: false; };
+let u8 = [1] byte <> integer { @signed: false; };
 let v8 = [1] byte <> varint;
 let v16 = [2] byte <> varint;
 let v32 = [4] byte <> varint;

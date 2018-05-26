@@ -7,11 +7,11 @@ import conftest
 
 spec_file_named_exprs_1_1 = """
 
-let u16 = [2] byte <> integer { signed: false; endian: 'little'; };
+let u16 = [2] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Number = struct {
     raw: [2] byte;
-    let ?value = raw <> integer { signed: false; endian: 'little'; };
+    let ?value = raw <> integer { @signed: false; @endian: 'little'; };
 };
 
 file {
@@ -29,13 +29,13 @@ data_file_named_exprs_1_1 = """
 
 spec_file_named_exprs_1_2 = """
 
-let u16 = [2] byte <> integer { signed: false; endian: 'little'; };
+let u16 = [2] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Number = struct {
     raw: [?byte_count] byte;
 
     let ?byte_count = 2;
-    let ?value = raw <> integer { signed: false; endian: 'little'; };
+    let ?value = raw <> integer { @signed: false; @endian: 'little'; };
 };
 
 file {
@@ -55,16 +55,16 @@ spec_file_named_exprs_1_3 = """
 
 let ?global_byte_count = 2;
 
-let u16 = [?global_byte_count] byte <> integer { signed: false;
-                                                 endian: 'little'; };
+let u16 = [?global_byte_count] byte <> integer { @signed: false;
+                                                 @endian: 'little'; };
 
 let Number = struct {
     raw: [?byte_count] byte;
 
     let ?byte_count = ?global_byte_count;
-    let ?value = raw <> integer { signed: false; endian: 'little'; };
+    let ?value = raw <> integer { @signed: false; @endian: 'little'; };
 
-    @key = raw <> integer { signed: false; endian: 'little'; };
+    @key = raw <> integer { @signed: false; @endian: 'little'; };
 };
 
 file {
@@ -108,7 +108,7 @@ def test_named_exprs_1(params_named_exprs_1):
 
 spec_file_named_exprs_2_1 = """
 
-let u16 = [2] byte <> integer { signed: false; endian: 'little'; };
+let u16 = [2] byte <> integer { @signed: false; @endian: 'little'; };
 
 file {
     typed:   [3] u16;
@@ -121,7 +121,7 @@ file {
 
 spec_file_named_exprs_2_2 = """
 
-let u16 = [2] byte <> integer { signed: false; endian: 'little'; };
+let u16 = [2] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Foo = struct {
     bar: [] byte;
@@ -166,7 +166,7 @@ def test_named_exprs_2(params_named_exprs_2):
 
 spec_file_named_exprs_3 = """
 
-let u16 = [2] byte <> integer { signed: false; endian: 'little'; };
+let u16 = [2] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Number = struct {
     value: u16;
@@ -210,7 +210,7 @@ def test_named_exprs_3(params_named_exprs_3):
 
 spec_file_named_exprs_4 = """
 
-let u16 = [2] byte <> integer { signed: false; endian: 'little'; };
+let u16 = [2] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Number = struct {
     value: u16;
@@ -255,8 +255,8 @@ let ?minus_one_plus_two = -1 + 2;
 let ?false = false;
 let ?little = 'little';
 
-let u8 = [?one] byte <> integer { signed: ?false; endian: ?little; };
-let u16 = [?two] byte <> integer { signed: ?false; endian: ?little; };
+let u8 = [?one] byte <> integer { @signed: ?false; @endian: ?little; };
+let u16 = [?two] byte <> integer { @signed: ?false; @endian: ?little; };
 
 let ?two = ?one + ?one;
 
@@ -309,8 +309,8 @@ def test_named_exprs_5(params_named_exprs_5):
 
 spec_file_named_exprs_polymorphic = """
 
-let Selector = byte <> integer { signed: false; };
-let Count = [2] byte <> integer { signed: false; endian: 'big'; };
+let Selector = byte <> integer { @signed: false; };
+let Count = [2] byte <> integer { @signed: false; @endian: 'big'; };
 let Value = Selector;
 
 
@@ -322,7 +322,7 @@ let T = struct {
     };
 
     let Message = struct {
-        value: [] byte <> string { boundary: '\\n'; };
+        value: [] byte <> string { @boundary: '\\n'; };
         let ?my_type = ?type;
     };
 
@@ -347,8 +347,8 @@ file {
 
 spec_file_named_exprs_polymorphic_in_anonymous_1 = """
 
-let Selector = byte <> integer { signed: false; };
-let Count = [2] byte <> integer { signed: false; endian: 'big'; };
+let Selector = byte <> integer { @signed: false; };
+let Count = [2] byte <> integer { @signed: false; @endian: 'big'; };
 let Value = Selector;
 
 
@@ -364,7 +364,7 @@ let SubT = struct {
     };
 
     let Message = struct {
-        value: [] byte <> string { boundary: '\\n'; };
+        value: [] byte <> string { @boundary: '\\n'; };
         let ?my_type = ?type;
     };
 
@@ -445,7 +445,7 @@ def test_named_exprs_polymorphic(params_named_exprs_polymorphic):
 
 spec_file_named_exprs_polymorphic_dpath_or_value = """
 
-let Selector = byte <> integer { signed: false; };
+let Selector = byte <> integer { @signed: false; };
 
 let T = struct {
     type: Selector;
@@ -499,7 +499,7 @@ def test_named_exprs_polymorphic_dpath_or_value(
 
 spec_file_named_exprs_polymorphic_hydra = """
 
-let Selector = byte <> integer { signed: false; };
+let Selector = byte <> integer { @signed: false; };
 
 let T = struct {
     SubT;
@@ -588,7 +588,7 @@ def test_named_exprs_polymorphic_hydra(params_named_exprs_polymorphic_hydra):
 
 spec_file_named_exprs_invalid_1 = """
 
-let u16 = [2] byte <> integer { signed: false; endian: 'little'; };
+let u16 = [2] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Number = struct {
     value: u16;
@@ -603,7 +603,7 @@ file {
 
 spec_file_named_exprs_invalid_2 = """
 
-let u16 = [2] byte <> integer { signed: false; endian: 'little'; };
+let u16 = [2] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Number = struct {
     value: u16;
