@@ -22,7 +22,7 @@ import conftest
 @pytest.fixture
 def spec_log():
     fmt = """
-    let FixInt = integer { @signed: false; @endian: 'little'; };
+    let FixInt = integer { @signed = false; @endian = 'little'; };
 
     let FixInt8 =  byte     <> FixInt;
     let FixInt16 = [2] byte <> FixInt;
@@ -180,7 +180,7 @@ def test_leveldb_log_multiblock(spec_log, data_log_multiblock):
 @pytest.fixture
 def spec_ldb():
     return """
-    let FixInt   = integer { @signed: false; @endian: 'little'; };
+    let FixInt   = integer { @signed = false; @endian = 'little'; };
     let FixInt8  = byte <> FixInt;
     let FixInt32 = [4] byte <> FixInt;
     let VarInt   = [] byte <> varint;

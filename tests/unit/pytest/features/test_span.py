@@ -10,7 +10,7 @@ import conftest
 #
 
 spec_embedded = """
-let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
+let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
 
 file {
     greeting_set: GreetingSet;

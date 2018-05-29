@@ -7,7 +7,7 @@ import conftest
 
 spec_file_1 = """
 
-let u8 = byte <> integer { @signed: false; };
+let u8 = byte <> integer { @signed = false; };
 
 let Thing = struct {
     nb_props: u8;

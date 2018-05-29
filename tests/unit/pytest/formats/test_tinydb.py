@@ -12,10 +12,10 @@ from bitpunch.model import FormatSpec, Tracker, DataTree
 @pytest.fixture
 def spec():
     tinydb_fmt = """
-let u32 = [4] byte <> integer { @signed: false; @endian: 'big'; };
+let u32 = [4] byte <> integer { @signed = false; @endian = 'big'; };
 
 let TinyDBValue = struct {
-    flags:      byte <> integer { @signed: false; };
+    flags:      byte <> integer { @signed = false; };
     key_size:   u32;
     key_value:  [key_size] byte <> string;
     value_size: u32;

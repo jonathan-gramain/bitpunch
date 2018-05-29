@@ -7,15 +7,15 @@ import conftest
 
 spec_file_conditional_fields = """
 
-let u8 = byte <> integer { @signed: false; };
-let u32 = [4] byte <> integer { @signed: false; @endian: 'big'; };
+let u8 = byte <> integer { @signed = false; };
+let u32 = [4] byte <> integer { @signed = false; @endian = 'big'; };
 
 let IntegerItem = struct {
     value: u32;
 };
 
 let StringItem = struct {
-    value: [] byte <> string { @boundary: '...'; };
+    value: [] byte <> string { @boundary = '...'; };
 };
 
 let RawItem = struct {
@@ -24,7 +24,7 @@ let RawItem = struct {
 };
 
 let Item = struct {
-    item_type: [8] byte <> string { @boundary: ' '; };
+    item_type: [8] byte <> string { @boundary = ' '; };
     if (item_type == 'integer') {
         item: IntegerItem;
     } else if (item_type == 'string') {

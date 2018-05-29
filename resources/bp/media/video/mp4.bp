@@ -4,7 +4,7 @@
  * Reference: http://xhelmboyx.tripod.com/formats/mp4-layout.txt
  */
 
-let MP4Int = integer { @signed: false; @endian: 'big'; };
+let MP4Int = integer { @signed = false; @endian = 'big'; };
 
 let u8  = [1] byte <> MP4Int;
 let u16 = [2] byte <> MP4Int;

@@ -46,10 +46,10 @@
 #include "check_tracker.h"
 
 static const char *check_struct_def =
-    "let u8 = [1] byte <> integer { @signed: false; };\n"
-    "let u16_le = [2] byte <> integer { @signed: false; @endian: 'little'; };\n"
-    "let u32 = [4] byte <> integer { @signed: false; @endian: 'big'; };\n"
-    "let u32_le = [4] byte <> integer { @signed: false; @endian: 'little'; };\n"
+    "let u8 = [1] byte <> integer { @signed = false; };\n"
+    "let u16_le = [2] byte <> integer { @signed = false; @endian = 'little'; };\n"
+    "let u32 = [4] byte <> integer { @signed = false; @endian = 'big'; };\n"
+    "let u32_le = [4] byte <> integer { @signed = false; @endian = 'little'; };\n"
     "let MyStruct = struct {\n"
     "    field1_u32: u32;\n"
     "    field2_byte: byte;\n"
@@ -191,10 +191,10 @@ check_struct_invalid_truncated1_spec = {
 
 
 static const char *check_vstruct_def =
-    "let u8 = [1] byte <> integer { @signed: false; };\n"
-    "let u16_le = [2] byte <> integer { @signed: false; @endian: 'little'; };\n"
-    "let u32 = [4] byte <> integer { @signed: false; @endian: 'big'; };\n"
-    "let u32_le = [4] byte <> integer { @signed: false; @endian: 'little'; };\n"
+    "let u8 = [1] byte <> integer { @signed = false; };\n"
+    "let u16_le = [2] byte <> integer { @signed = false; @endian = 'little'; };\n"
+    "let u32 = [4] byte <> integer { @signed = false; @endian = 'big'; };\n"
+    "let u32_le = [4] byte <> integer { @signed = false; @endian = 'little'; };\n"
     "let MyStruct = struct {\n"
     "    field1_u32: u32;\n"
     "    field2_bytes: [field1_u32] byte;\n"

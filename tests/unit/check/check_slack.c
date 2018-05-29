@@ -46,7 +46,7 @@
 #include "check_tracker.h"
 
 static const char *check_slack_def =
-    "let u32 = [4] byte <> integer { @signed: false; @endian: 'big'; };\n"
+    "let u32 = [4] byte <> integer { @signed = false; @endian = 'big'; };\n"
     "let MyHdr = struct {\n"
     "    magic: [5] byte;\n"
     "};\n"
@@ -125,7 +125,7 @@ static const struct test_tracker_spec check_slack_valid1_spec = {
 
 
 static const char *check_slack_byte_array_def =
-    "let u32 = [4] byte <> integer { @signed: false; @endian: 'big'; };\n"
+    "let u32 = [4] byte <> integer { @signed = false; @endian = 'big'; };\n"
     "let MyHdr = struct {\n"
     "    magic: [5] byte;\n"
     "};\n"
@@ -190,7 +190,7 @@ static const struct test_tracker_spec check_slack_byte_array_valid1_spec = {
 
 
 static const char *check_slack_trailing_field_def =
-    "let u32 = [4] byte <> integer { @signed: false; @endian: 'big'; };\n"
+    "let u32 = [4] byte <> integer { @signed = false; @endian = 'big'; };\n"
     "let MyHdr = struct {\n"
     "    magic: [5] byte;\n"
     "};\n"
@@ -278,7 +278,7 @@ static const struct test_tracker_spec check_slack_trailing_field_valid1_spec = {
 
 
 static const char *check_slack_trailing_field_recur_def =
-    "let u32 = [4] byte <> integer { @signed: false; @endian: 'big'; };\n"
+    "let u32 = [4] byte <> integer { @signed = false; @endian = 'big'; };\n"
     "let BOX = struct {\n"
     "    size:        u32;\n"
     "    name:        [8] byte <> string;\n"

@@ -7,7 +7,7 @@ import conftest
 
 spec_static_span_and_slack = """
 
-let u8 = byte <> integer { @signed: false; };
+let u8 = byte <> integer { @signed = false; };
 
 file {
     blocks: [] VarBlock;
@@ -30,14 +30,14 @@ data_static_span_and_slack = """
 
 spec_static_span_and_slack_sized = """
 
-let u8 = byte <> integer { @signed: false; };
+let u8 = byte <> integer { @signed = false; };
 
 file {
     blocks: [] VarBlock;
 }
 
 let VarBlock = struct {
-    contents: [] byte <> string { @boundary: '\x42'; };
+    contents: [] byte <> string { @boundary = '\x42'; };
     padding:  [] byte;
     @span = 10;
 };
@@ -46,7 +46,7 @@ let VarBlock = struct {
 
 spec_static_span_and_slack_sized_subblock = """
 
-let u8 = byte <> integer { @signed: false; };
+let u8 = byte <> integer { @signed = false; };
 
 file {
     blocks: [] VarBlock;
@@ -54,7 +54,7 @@ file {
 
 let VarBlock = struct {
     let BlockContents = struct {
-        data: [] byte <> string { @boundary: '\x42'; };
+        data: [] byte <> string { @boundary = '\x42'; };
     };
     contents: BlockContents;
     padding:  [] byte;
@@ -73,7 +73,7 @@ data_static_span_and_slack_sized = """
 
 spec_static_minspan_conditional = """
 
-let u8 = byte <> integer { @signed: false; };
+let u8 = byte <> integer { @signed = false; };
 
 file {
     blocks: [] VarBlock;
@@ -101,7 +101,7 @@ data_static_minspan_conditional = """
 
 spec_length_in_trailer = """
 
-let u8 = byte <> integer { @signed: false; };
+let u8 = byte <> integer { @signed = false; };
 
 file {
     blocks: [] VarBlock;
@@ -117,7 +117,7 @@ let VarBlock = struct {
 
 spec_length_in_trailer_conditional = """
 
-let u8 = byte <> integer { @signed: false; };
+let u8 = byte <> integer { @signed = false; };
 
 file {
     blocks: [] VarBlock;
@@ -145,7 +145,7 @@ data_length_in_trailer = """
 
 spec_var_length_trailer = """
 
-let u8 = byte <> integer { @signed: false; };
+let u8 = byte <> integer { @signed = false; };
 
 file {
     blocks: [] VarBlock;
@@ -169,8 +169,8 @@ data_var_length_trailer = """
 
 spec_var_length_array_trailer = """
 
-let u8 = byte <> integer { @signed: false; };
-let u16 = [2] byte <> integer { @signed: false; };
+let u8 = byte <> integer { @signed = false; };
+let u16 = [2] byte <> integer { @signed = false; };
 
 file {
     blocks: [] VarBlock;
@@ -194,8 +194,8 @@ data_var_length_array_trailer = """
 
 spec_var_length_block_trailer = """
 
-let u8 = byte <> integer { @signed: false; };
-let u16 = [2] byte <> integer { @signed: false; };
+let u8 = byte <> integer { @signed = false; };
+let u16 = [2] byte <> integer { @signed = false; };
 
 file {
     blocks: [] VarBlock;
@@ -225,8 +225,8 @@ ff ff ff ff ff ff ff ff ff 03
 
 spec_var_length_subblock_trailer = """
 
-let u8 = byte <> integer { @signed: false; };
-let u16 = [2] byte <> integer { @signed: false; };
+let u8 = byte <> integer { @signed = false; };
+let u16 = [2] byte <> integer { @signed = false; };
 
 file {
     blocks: [] VarBlock;
@@ -335,7 +335,7 @@ def test_slack_span_simple(params_slack_span_simple):
 
 spec_static_span_template = """
 
-let u8 = byte <> integer {{ @signed: false; }};
+let u8 = byte <> integer {{ @signed = false; }};
 
 file {{
     huge_blocks:  [] HugeBlock;
