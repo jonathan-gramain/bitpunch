@@ -747,6 +747,7 @@ resolve_identifiers_block(struct ast_node_hdl *block,
                           enum resolve_identifiers_tag resolve_tags)
 {
     const char *filter_type;
+    const struct interpreter *interpreter;
 
     filter_type = block->ndat->u.block_def.filter_type;
     // XXX can it be NULL?
@@ -764,8 +765,6 @@ resolve_identifiers_block(struct ast_node_hdl *block,
         return -1;
     }
     if (BLOCK_TYPE_INTERPRETER == block->ndat->u.block_def.type) {
-        const struct interpreter *interpreter;
-
         interpreter = interpreter_lookup(filter_type);
         if (NULL == interpreter) {
             semantic_error(
@@ -774,12 +773,14 @@ resolve_identifiers_block(struct ast_node_hdl *block,
                 filter_type);
             return -1;
         }
-        if (-1 == interpreter_rcall_build(
-                block, interpreter,
-                block->ndat->u.block_def.block_stmt_list.attribute_list)) {
-            return -1;
-        }
     } else {
+        interpreter = interpreter_lookup("item");
+        assert(NULL != interpreter);
+    }
+    if (-1 == interpreter_rcall_build(
+            block, interpreter,
+            block->ndat->u.block_def.block_stmt_list.attribute_list)) {
+        return -1;
     }
     return 0;
 }

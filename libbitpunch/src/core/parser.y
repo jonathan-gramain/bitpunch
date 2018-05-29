@@ -150,9 +150,6 @@
     extern const int SPAN_SIZE_UNDEF;
 
     enum ast_node_flag {
-        ASTFLAG_IS_SPAN_EXPR                = (1<<0),
-        ASTFLAG_IS_KEY_EXPR                 = (1<<1),
-        ASTFLAG_IS_MATCH_EXPR               = (1<<2),
         ASTFLAG_IS_ROOT_BLOCK               = (1<<3),
         ASTFLAG_IS_VALUE_TYPE               = (1<<4),
         ASTFLAG_IS_ANONYMOUS_MEMBER         = (1<<5),
@@ -199,6 +196,7 @@
     struct item_node {
         enum item_flag flags;
         int64_t min_span_size; /* minimum size */
+        struct interpreter *interpreter;
     };
 
     struct dpath_node {

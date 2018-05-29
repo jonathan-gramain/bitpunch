@@ -6,7 +6,10 @@
  * https://github.com/google/leveldb/blob/master/doc/table_format.md
  */
 
-let FixInt   = integer { @signed = false; @endian = 'little'; };
+let FixInt   = integer {
+    @signed = false;
+    @endian = 'little';
+};
 let FixInt8  = byte <> FixInt;
 let FixInt32 = [4] byte <> FixInt;
 let VarInt   = [] byte <> varint;
