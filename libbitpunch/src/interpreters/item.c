@@ -51,13 +51,17 @@ item_rcall_build(struct ast_node_hdl *rcall,
                  struct compile_ctx *ctx)
 {
     if (attr_values[REF_SPAN].ndat->u.rexpr.value_type
-        != EXPR_VALUE_TYPE_UNSET)
-        || 0 == strcmp(attr_name + 1, "minspan")
-        || 0 == strcmp(attr_name + 1, "maxspan")) {
+        != EXPR_VALUE_TYPE_UNSET
+        || attr_values[REF_MINSPAN].ndat->u.rexpr.value_type
+        != EXPR_VALUE_TYPE_UNSET
+        || attr_values[REF_MAXSPAN].ndat->u.rexpr.value_type
+        != EXPR_VALUE_TYPE_UNSET) {
         expr->flags |= ASTFLAG_IS_SPAN_EXPR;
-    } else if (0 == strcmp(attr_name + 1, "key")) {
+    } else if (attr_values[REF_KEY].ndat->u.rexpr.value_type
+               != EXPR_VALUE_TYPE_UNSET) {
         expr->flags |= ASTFLAG_IS_KEY_EXPR;
-    } else if (0 == strcmp(attr_name + 1, "last")) {
+    } else if (attr_values[REF_LAST].ndat->u.rexpr.value_type
+               != EXPR_VALUE_TYPE_UNSET) {
         // no-op
     } else {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR,

@@ -115,9 +115,6 @@ compile_dpath_type(struct dpath_node *node,
 static int
 compile_dpath_span_size(struct dpath_node *node,
                         struct compile_ctx *ctx);
-static int
-compile_node_post_check(struct ast_node_hdl *expr,
-                        struct compile_ctx *ctx);
 static dep_resolver_tagset_t
 compile_field_cb(struct compile_ctx *ctx,
                  enum resolve_expect_mask expect_mask,
@@ -2912,10 +2909,6 @@ compile_node_type(struct ast_node_hdl *node,
             return -1;
         }
     } while (old_data != node->ndat);
-
-    if (-1 == compile_node_post_check(node, ctx)) {
-        return -1;
-    }
     return 0;
 }
 
@@ -3602,82 +3595,6 @@ compile_dpath_span_size(struct dpath_node *node, struct compile_ctx *ctx)
         return -1;
     }
     node->u.item = node->item->ndat->u.item;
-    return 0;
-}
-
-static int
-compile_node_post_check_span_expr(struct ast_node_hdl *span_expr,
-                                  struct compile_ctx *ctx)
-{
-    assert(ast_node_is_rexpr(span_expr));
-    if (span_expr->ndat->u.rexpr.value_type_mask != EXPR_VALUE_TYPE_INTEGER) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &span_expr->loc,
-            "span expression must be of integer type, not '%s'",
-            expr_value_type_str(span_expr->ndat->u.rexpr.value_type_mask));
-        return -1;
-    }
-    return 0;
-}
-
-static int
-compile_node_post_check_key_expr(struct ast_node_hdl *key_expr,
-                                 struct compile_ctx *ctx)
-{
-    assert(ast_node_is_rexpr(key_expr));
-    if (0 != (key_expr->ndat->u.rexpr.value_type_mask
-              & ~(EXPR_VALUE_TYPE_INTEGER | EXPR_VALUE_TYPE_STRING))) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &key_expr->loc,
-            "index expression must be of integer or string type, not '%s'",
-            expr_value_type_str(key_expr->ndat->u.rexpr.value_type_mask));
-        return -1;
-    }
-    return 0;
-}
-
-static int
-compile_node_post_check_match_expr(struct ast_node_hdl *match_expr,
-                                   struct compile_ctx *ctx)
-{
-    assert(ast_node_is_rexpr(match_expr));
-    if (match_expr->ndat->u.rexpr.value_type_mask
-        != EXPR_VALUE_TYPE_BOOLEAN) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &match_expr->loc,
-            "match expression must be of boolean type, not '%s'",
-            expr_value_type_str(match_expr->ndat->u.rexpr.value_type_mask));
-        return -1;
-    }
-    if (match_expr->ndat->type == AST_NODE_TYPE_REXPR_NATIVE) {
-        if (match_expr->ndat->u.rexpr_native.value.boolean) {
-            semantic_error(SEMANTIC_LOGLEVEL_WARNING, &match_expr->loc,
-                           "match expression always true");
-        } else {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &match_expr->loc,
-                           "match expression always false");
-            return -1;
-        }
-    }
-    return 0;
-}
-
-static int
-compile_node_post_check(struct ast_node_hdl *expr,
-                        struct compile_ctx *ctx)
-{
-    if (0 != (expr->flags & ASTFLAG_IS_SPAN_EXPR)
-        && -1 == compile_node_post_check_span_expr(expr, ctx)) {
-        return -1;
-    }
-    if (0 != (expr->flags & ASTFLAG_IS_KEY_EXPR)
-        && -1 == compile_node_post_check_key_expr(expr, ctx)) {
-        return -1;
-    }
-    if (0 != (expr->flags & ASTFLAG_IS_MATCH_EXPR)
-        && -1 == compile_node_post_check_match_expr(expr, ctx)) {
-        return -1;
-    }
     return 0;
 }
 
