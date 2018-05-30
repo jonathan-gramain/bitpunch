@@ -1784,17 +1784,19 @@ compile_stmt_lists(struct block_stmt_list *stmt_lists,
     if (!compile_continue(ctx)) {
         return -1;
     }
-    STATEMENT_FOREACH(named_expr, named_expr,
-                      stmt_lists->attribute_list, list) {
-        if (0 == strcmp(named_expr->nstmt.name, "@last")
-            && 0 == (EXPR_VALUE_TYPE_BOOLEAN
-                     & named_expr->expr->ndat->u.rexpr.value_type_mask)) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                           &named_expr->expr->loc,
-                           "expect a boolean expression for attribute "
-                           "\"@last\"");
-            return -1;
-        }
+    return 0;
+}
+
+static int
+compile_item(struct ast_node_hdl *item,
+             struct statement_list *attribute_list,
+             struct compile_ctx *ctx)
+{
+    if (-1 == compile_interpreter_attributes(
+            item,
+            item->ndat->u.item.interpreter,
+            item->ndat->u.item.attributes, ctx)) {
+        return -1;
     }
     return 0;
 }
@@ -1806,6 +1808,11 @@ compile_block(struct ast_node_hdl *block,
 {
     if (-1 == compile_stmt_lists(&block->ndat->u.block_def.block_stmt_list,
                                  ctx)) {
+        return -1;
+    }
+    if (-1 == compile_item(
+            block,
+            block->ndat->u.block_def.block_stmt_list.attribute_list, ctx)) {
         return -1;
     }
     return 0;

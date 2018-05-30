@@ -197,6 +197,7 @@
         enum item_flag flags;
         int64_t min_span_size; /* minimum size */
         struct interpreter *interpreter;
+        struct ast_node_hdl *attributes;
     };
 
     struct dpath_node {
