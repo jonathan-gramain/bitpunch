@@ -375,12 +375,10 @@
             struct rexpr_interpreter {
                 struct rexpr_dpath rexpr_dpath; /* inherits */
                 const struct interpreter *interpreter;
+                struct ast_node_hdl *attributes;
                 interpreter_read_func_t read_func;
                 interpreter_write_func_t write_func;
                 interpreter_get_size_func_t get_size_func;
-                /* cannot declare the following array but that's how
-                 * it will be interpreted */
-                /* struct ast_node_hdl params[]; */
             } rexpr_interpreter;
             struct rexpr_filter {
                 struct rexpr_dpath rexpr_dpath; /* inherits */

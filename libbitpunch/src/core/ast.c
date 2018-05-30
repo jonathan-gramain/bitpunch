@@ -1057,7 +1057,7 @@ resolve_identifiers_rexpr_interpreter(
 
     interpreter = node->ndat->u.rexpr_interpreter.interpreter;
     for (p_idx = 0; p_idx < interpreter->n_attrs; ++p_idx) {
-        attr_node = INTERPRETER_RCALL_ATTR(node, p_idx);
+        attr_node = &node->ndat->u.rexpr_interpreter.attributes[p_idx];
         if (-1 == resolve_identifiers(attr_node, visible_refs,
                                       RESOLVE_EXPECT_EXPRESSION,
                                       resolve_tags)) {
@@ -2530,14 +2530,16 @@ compile_rexpr_interpreter(struct ast_node_hdl *expr,
 
     interpreter = expr->ndat->u.rexpr_interpreter.interpreter;
     STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
-        attr_valuep = INTERPRETER_RCALL_ATTR(expr, attr_def->ref_idx);
+        attr_valuep = &expr->ndat->u.rexpr_interpreter.attributes[
+            attr_def->ref_idx];
         compile_expr(attr_valuep, ctx, TRUE);
     }
     if (!compile_continue(ctx)) {
         return -1;
     }
     STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
-        attr_valuep = INTERPRETER_RCALL_ATTR(expr, attr_def->ref_idx);
+        attr_valuep =
+            &expr->ndat->u.rexpr_interpreter.attributes[attr_def->ref_idx];
         if (AST_NODE_TYPE_NONE != attr_valuep->ndat->type) {
             assert(ast_node_is_rexpr(attr_valuep));
             if (0 == (attr_def->value_type_mask
@@ -2560,7 +2562,7 @@ compile_rexpr_interpreter(struct ast_node_hdl *expr,
         return -1;
     }
     if (-1 == interpreter->rcall_build_func(
-            expr, interpreter_rcall_get_attrs(expr), ctx)) {
+            expr, expr->ndat->u.rexpr_interpreter.attributes, ctx)) {
         return -1;
     }
     // template flag may be removed when compiling OP_SET_FILTER
@@ -4511,7 +4513,7 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         attr_def = STAILQ_FIRST(&interpreter->attr_list);
         for (i = 0; i < node->ndat->u.rexpr_interpreter.interpreter->n_attrs;
              ++i) {
-            attr = INTERPRETER_RCALL_ATTR(node, i);
+            attr = &node->ndat->u.rexpr_interpreter.attributes[i];
             fprintf(out, "%*s\\_ \"%s\" [%d]:\n",
                     (depth + 2) * INDENT_N_SPACES, "",
                     attr_def->name, i);

@@ -40,16 +40,6 @@
 
 #include PATH_TO_PARSER_TAB_H
 
-#define INTERPRETER_RCALL_BASE_SIZE                     \
-    offsetof(struct ast_node_data, u.rexpr_interpreter) \
-    + sizeof (struct rexpr_interpreter)
-
-#define INTERPRETER_RCALL_ATTR(rcall, n)               \
-    ((struct ast_node_hdl *) (                          \
-        (((char *)((rcall)->ndat))                      \
-         + INTERPRETER_RCALL_BASE_SIZE                  \
-         + (n) * sizeof (struct ast_node_hdl))))
-
 enum interpreter_attr_flags {
     INTERPRETER_ATTR_FLAG_MANDATORY = 1,
 };
@@ -94,11 +84,6 @@ int
 interpreter_rcall_build(struct ast_node_hdl *node,
                         const struct interpreter *interpreter,
                         struct statement_list *attr_list);
-
-static inline struct ast_node_hdl *
-interpreter_rcall_get_attrs(const struct ast_node_hdl *rcall) {
-    return INTERPRETER_RCALL_ATTR(rcall, 0);
-}
 
 bitpunch_status_t
 interpreter_rcall_evaluate_attrs(struct ast_node_hdl *expr,
