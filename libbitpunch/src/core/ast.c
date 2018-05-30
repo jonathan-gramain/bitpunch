@@ -37,12 +37,12 @@
 
 #include "api/bitpunch-structs.h"
 #include "core/ast.h"
-#include "core/interpreter.h"
 #include "core/expr.h"
 #include "core/browse.h"
 #include "core/browse_internal.h"
 #include "core/print.h"
 #include "core/parser.h"
+#include "interpreters/item.h"
 #include PATH_TO_PARSER_TAB_H
 
 //#define OUTPUT_DEP_GRAPH
@@ -2942,6 +2942,7 @@ compile_node_type(struct ast_node_hdl *node,
 static int
 compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
 {
+    struct ast_node_hdl *attributes;
     struct named_expr *attr;
     struct ast_node_hdl *min_span_expr;
     struct ast_node_hdl *max_span_expr;
@@ -2958,6 +2959,8 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
     int child_fills_slack;
     int child_conditionally_fills_slack;
     struct field *first_trailer_field;
+
+    attributes = item->ndat->u.block_def.attributes;
 
     /* - Compute the minimum span size from the sum (struct) or
        max (union) of fields' minimum span sizes. If size is
@@ -2982,32 +2985,32 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
 
     min_span_expr = NULL;
     max_span_expr = NULL;
-    STATEMENT_FOREACH(
-        named_expr, attr,
-        item->ndat->u.block_def.block_stmt_list.attribute_list, list) {
-        if (0 != (attr->expr->flags & ASTFLAG_IS_SPAN_EXPR)) {
-            if (-1 == compile_expr(attr->expr, ctx, TRUE)) {
-                return -1;
-            }
-            if (NULL == attr->nstmt.stmt.cond) {
-                if (0 == strcmp(attr->nstmt.name, "@minspan")) {
-                    min_span_expr = attr->expr;
-                    dynamic_span = TRUE;
-                } else if (0 == strcmp(attr->nstmt.name, "@maxspan")) {
-                    max_span_expr = attr->expr;
-                    dynamic_span = TRUE;
-                } else {
-                    assert(0 == strcmp(attr->nstmt.name, "@span"));
-                    min_span_expr = attr->expr;
-                    max_span_expr = attr->expr;
-                }
-                break ;
-            } else {
-                dynamic_span = TRUE;
-            }
-        } else if (0 == strcmp(attr->nstmt.name, "@last")) {
-            contains_last_attr = TRUE;
+    if (AST_NODE_TYPE_NONE
+        != attributes[REF_ITEM_MINSPAN].ndat->u.rexpr.value_type) {
+        if (NULL == attr->nstmt.stmt.cond) {
+            min_span_expr = attr->expr;
         }
+        dynamic_span = TRUE;
+    }
+    if (AST_NODE_TYPE_NONE
+        != attributes[REF_ITEM_MAXSPAN].ndat->u.rexpr.value_type) {
+        if (NULL == attr->nstmt.stmt.cond) {
+            max_span_expr = attr->expr;
+        }
+        dynamic_span = TRUE;
+    }
+    if (AST_NODE_TYPE_NONE
+        != attributes[REF_ITEM_SPAN].ndat->u.rexpr.value_type) {
+        if (NULL == attr->nstmt.stmt.cond) {
+            min_span_expr = attr->expr;
+            max_span_expr = attr->expr;
+        } else {
+            dynamic_span = TRUE;
+        }
+    }
+    if (AST_NODE_TYPE_NONE
+        != attributes[REF_ITEM_LAST].ndat->u.rexpr.value_type) {
+        contains_last_attr = TRUE;
     }
     field_list = item->ndat->u.block_def.block_stmt_list.field_list;
     first_trailer_field = NULL;
