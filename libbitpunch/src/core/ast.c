@@ -1788,10 +1788,63 @@ compile_stmt_lists(struct block_stmt_list *stmt_lists,
 }
 
 static int
+compile_interpreter_attributes(struct ast_node_hdl *node,
+                               const struct interpreter *interpreter,
+                               struct ast_node_hdl *attributes,
+                               struct compile_ctx *ctx)
+{
+    struct ast_node_hdl *attr_valuep;
+    struct interpreter_attr_def *attr_def;
+    int sem_error = FALSE;
+
+    STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
+        attr_valuep = &attributes[attr_def->ref_idx];
+        compile_expr(attr_valuep, ctx, TRUE);
+    }
+    if (!compile_continue(ctx)) {
+        return -1;
+    }
+    STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
+        attr_valuep = &attributes[attr_def->ref_idx];
+        if (AST_NODE_TYPE_NONE != attr_valuep->ndat->type) {
+            assert(ast_node_is_rexpr(attr_valuep));
+            if (0 == (attr_def->value_type_mask
+                      & attr_valuep->ndat->u.rexpr.value_type_mask)) {
+                semantic_error(
+                    SEMANTIC_LOGLEVEL_ERROR, &attr_valuep->loc,
+                    "attribute \"%s\" passed to interpreter \"%s\" has "
+                    "an incompatible value-type '%s', acceptable "
+                    "value-types are '%s'",
+                    attr_def->name, interpreter->name,
+                    expr_value_type_str(
+                        attr_valuep->ndat->u.rexpr.value_type_mask),
+                    expr_value_type_str(attr_def->value_type_mask));
+                sem_error = TRUE;
+                continue ;
+            }
+        }
+    }
+    if (sem_error) {
+        return -1;
+    }
+    if (-1 == interpreter->rcall_build_func(node, attributes, ctx)) {
+        return -1;
+    }
+    return 0;
+}
+
+static int
 compile_item(struct ast_node_hdl *item,
              struct statement_list *attribute_list,
              struct compile_ctx *ctx)
 {
+    if (-1 == interpreter_build_attrs(
+            item,
+            item->ndat->u.item.interpreter,
+            attribute_list,
+            &item->ndat->u.item.attributes)) {
+        return -1;
+    }
     if (-1 == compile_interpreter_attributes(
             item,
             item->ndat->u.item.interpreter,
@@ -2521,52 +2574,6 @@ compile_conditional(struct ast_node_hdl *cond, struct compile_ctx *ctx)
     if (NULL != cond->ndat->u.conditional.outer_cond
         && -1 == compile_expr(cond->ndat->u.conditional.outer_cond, ctx,
                               FALSE)) {
-        return -1;
-    }
-    return 0;
-}
-
-static int
-compile_interpreter_attributes(struct ast_node_hdl *node,
-                               const struct interpreter *interpreter,
-                               struct ast_node_hdl *attributes,
-                               struct compile_ctx *ctx)
-{
-    struct ast_node_hdl *attr_valuep;
-    struct interpreter_attr_def *attr_def;
-    int sem_error = FALSE;
-
-    STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
-        attr_valuep = &attributes[attr_def->ref_idx];
-        compile_expr(attr_valuep, ctx, TRUE);
-    }
-    if (!compile_continue(ctx)) {
-        return -1;
-    }
-    STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
-        attr_valuep = &attributes[attr_def->ref_idx];
-        if (AST_NODE_TYPE_NONE != attr_valuep->ndat->type) {
-            assert(ast_node_is_rexpr(attr_valuep));
-            if (0 == (attr_def->value_type_mask
-                      & attr_valuep->ndat->u.rexpr.value_type_mask)) {
-                semantic_error(
-                    SEMANTIC_LOGLEVEL_ERROR, &attr_valuep->loc,
-                    "attribute \"%s\" passed to interpreter \"%s\" has "
-                    "an incompatible value-type '%s', acceptable "
-                    "value-types are '%s'",
-                    attr_def->name, interpreter->name,
-                    expr_value_type_str(
-                        attr_valuep->ndat->u.rexpr.value_type_mask),
-                    expr_value_type_str(attr_def->value_type_mask));
-                sem_error = TRUE;
-                continue ;
-            }
-        }
-    }
-    if (sem_error) {
-        return -1;
-    }
-    if (-1 == interpreter->rcall_build_func(node, attributes, ctx)) {
         return -1;
     }
     return 0;

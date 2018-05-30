@@ -159,12 +159,6 @@ interpreter_declare_std(void)
     interpreter_declare_formatted_integer();
 }
 
-static int
-interpreter_build_attrs(struct ast_node_hdl *node,
-                        const struct interpreter *interpreter,
-                        struct statement_list *attr_list);
-
-
 int
 interpreter_rcall_build(struct ast_node_hdl *node,
                         const struct interpreter *interpreter,
@@ -182,7 +176,9 @@ interpreter_rcall_build(struct ast_node_hdl *node,
     ndat->u.rexpr_interpreter.interpreter = interpreter;
     ndat->u.rexpr_interpreter.get_size_func = NULL;
     node->ndat = ndat;
-    if (-1 == interpreter_build_attrs(node, interpreter, attr_list)) {
+    if (-1 == interpreter_build_attrs(
+            node, interpreter, attr_list,
+            &node->ndat->u.rexpr_interpreter.attributes)) {
         free(ndat);
         node->ndat = NULL;
         return -1;
@@ -204,10 +200,11 @@ get_attr_index(const struct interpreter *interpreter,
     return -1; /* not found */
 }
 
-static int
+int
 interpreter_build_attrs(struct ast_node_hdl *node,
                         const struct interpreter *interpreter,
-                        struct statement_list *attr_list)
+                        struct statement_list *attr_list,
+                        struct ast_node_hdl **attributesp)
 {
     struct named_expr *attr;
     struct ast_node_hdl *attr_valuep;
@@ -215,8 +212,8 @@ interpreter_build_attrs(struct ast_node_hdl *node,
     struct interpreter_attr_def *attr_def;
     int sem_error = FALSE;
 
-    node->ndat->u.rexpr_interpreter.attributes =
-        new_n_safe(struct ast_node_hdl, interpreter->max_attr_ref + 1);
+    *attributesp = new_n_safe(struct ast_node_hdl,
+                              interpreter->max_attr_ref + 1);
     STATEMENT_FOREACH(named_expr, attr, attr_list, list) {
         attr_ref = get_attr_index(interpreter, attr->nstmt.name);
         if (-1 == attr_ref) {
@@ -227,7 +224,7 @@ interpreter_build_attrs(struct ast_node_hdl *node,
             continue ;
         }
         assert(attr_ref >= 0 && attr_ref <= interpreter->max_attr_ref);
-        attr_valuep = &node->ndat->u.rexpr_interpreter.attributes[attr_ref];
+        attr_valuep = &(*attributesp)[attr_ref];
         if (NULL != attr_valuep->ndat) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR, &attr->nstmt.stmt.loc,
                            "duplicate attribute \"@%s\"", attr->nstmt.name);
@@ -237,8 +234,7 @@ interpreter_build_attrs(struct ast_node_hdl *node,
         *attr_valuep = *attr->expr;
     }
     STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
-        attr_valuep =
-            &node->ndat->u.rexpr_interpreter.attributes[attr_def->ref_idx];
+        attr_valuep = &(*attributesp)[attr_def->ref_idx];
         if (NULL == attr_valuep->ndat) {
             if (0 != (INTERPRETER_ATTR_FLAG_MANDATORY & attr_def->flags)) {
                 semantic_error(SEMANTIC_LOGLEVEL_ERROR, &node->loc,

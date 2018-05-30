@@ -85,6 +85,12 @@ interpreter_rcall_build(struct ast_node_hdl *node,
                         const struct interpreter *interpreter,
                         struct statement_list *attr_list);
 
+int
+interpreter_build_attrs(struct ast_node_hdl *node,
+                        const struct interpreter *interpreter,
+                        struct statement_list *attr_list,
+                        struct ast_node_hdl **attributesp);
+
 bitpunch_status_t
 interpreter_rcall_evaluate_attrs(struct ast_node_hdl *expr,
                                  struct box *scope,
