@@ -81,16 +81,16 @@ interpreter_declare_item(void)
                               EXPR_VALUE_TYPE_UNSET,
                               item_rcall_build,
                               5,
-                              "span", REF_SPAN,
+                              "@span", REF_SPAN,
                               EXPR_VALUE_TYPE_INTEGER, 0,
-                              "minspan", REF_MINSPAN,
+                              "@minspan", REF_MINSPAN,
                               EXPR_VALUE_TYPE_INTEGER, 0,
-                              "maxspan", REF_MAXSPAN,
+                              "@maxspan", REF_MAXSPAN,
                               EXPR_VALUE_TYPE_INTEGER, 0,
-                              "key", REF_KEY,
+                              "@key", REF_KEY,
                               (EXPR_VALUE_TYPE_INTEGER |
                                EXPR_VALUE_TYPE_STRING), 0,
-                              "last", REF_LAST,
+                              "@last", REF_LAST,
                               EXPR_VALUE_TYPE_BOOLEAN, 0);
     assert(0 == ret);
 }

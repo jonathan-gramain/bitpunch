@@ -199,11 +199,11 @@ interpreter_declare_formatted_integer(void)
                               EXPR_VALUE_TYPE_INTEGER,
                               formatted_integer_rcall_build,
                               3,
-                              "base", REF_BASE,
+                              "@base", REF_BASE,
                               EXPR_VALUE_TYPE_INTEGER, 0,
-                              "empty_value", REF_EMPTY_VALUE,
+                              "@empty_value", REF_EMPTY_VALUE,
                               EXPR_VALUE_TYPE_INTEGER, 0,
-                              "signed", REF_SIGNED,
+                              "@signed", REF_SIGNED,
                               EXPR_VALUE_TYPE_BOOLEAN, 0);
     assert(0 == ret);
 }

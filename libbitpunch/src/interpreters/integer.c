@@ -338,10 +338,10 @@ interpreter_declare_binary_integer(void)
                               EXPR_VALUE_TYPE_INTEGER,
                               binary_integer_rcall_build,
                               2,
-                              "signed", REF_SIGNED,
+                              "@signed", REF_SIGNED,
                               EXPR_VALUE_TYPE_BOOLEAN,
                               INTERPRETER_ATTR_FLAG_MANDATORY,
-                              "endian", REF_ENDIAN,
+                              "@endian", REF_ENDIAN,
                               EXPR_VALUE_TYPE_STRING,
                               0);
     assert(0 == ret);

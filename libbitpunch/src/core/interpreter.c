@@ -85,7 +85,7 @@ interpreter_declare(const char *name,
     struct interpreter *interpreter;
     int max_attr_ref;
     va_list ap;
-    int n_attrs_remain;
+    int i;
     struct interpreter_attr_def *attr_def;
 
     assert(NULL != rcall_build_func);
@@ -107,8 +107,7 @@ interpreter_declare(const char *name,
     max_attr_ref = -1;
     STAILQ_INIT(&interpreter->attr_list);
     va_start(ap, n_attrs);
-    for (n_attrs_remain = n_attrs;
-         n_attrs_remain > 0; --n_attrs_remain) {
+    for (i = 0; i < n_attrs; ++i) {
         attr_def = interpreter_attr_def_new();
         if (NULL == attr_def) {
             return -1;

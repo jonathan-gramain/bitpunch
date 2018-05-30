@@ -209,7 +209,7 @@ interpreter_declare_string(void)
                               EXPR_VALUE_TYPE_STRING,
                               string_rcall_build,
                               1,
-                              "boundary", REF_BOUNDARY,
+                              "@boundary", REF_BOUNDARY,
                               EXPR_VALUE_TYPE_STRING,
                               0);
     assert(0 == ret);

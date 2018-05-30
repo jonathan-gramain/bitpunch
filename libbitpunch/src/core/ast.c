@@ -2520,26 +2520,24 @@ compile_conditional(struct ast_node_hdl *cond, struct compile_ctx *ctx)
 }
 
 static int
-compile_rexpr_interpreter(struct ast_node_hdl *expr,
-                          struct compile_ctx *ctx)
+compile_interpreter_attributes(struct ast_node_hdl *node,
+                               const struct interpreter *interpreter,
+                               struct ast_node_hdl *attributes,
+                               struct compile_ctx *ctx)
 {
-    const struct interpreter *interpreter;
     struct ast_node_hdl *attr_valuep;
     struct interpreter_attr_def *attr_def;
     int sem_error = FALSE;
 
-    interpreter = expr->ndat->u.rexpr_interpreter.interpreter;
     STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
-        attr_valuep = &expr->ndat->u.rexpr_interpreter.attributes[
-            attr_def->ref_idx];
+        attr_valuep = &attributes[attr_def->ref_idx];
         compile_expr(attr_valuep, ctx, TRUE);
     }
     if (!compile_continue(ctx)) {
         return -1;
     }
     STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
-        attr_valuep =
-            &expr->ndat->u.rexpr_interpreter.attributes[attr_def->ref_idx];
+        attr_valuep = &attributes[attr_def->ref_idx];
         if (AST_NODE_TYPE_NONE != attr_valuep->ndat->type) {
             assert(ast_node_is_rexpr(attr_valuep));
             if (0 == (attr_def->value_type_mask
@@ -2561,8 +2559,20 @@ compile_rexpr_interpreter(struct ast_node_hdl *expr,
     if (sem_error) {
         return -1;
     }
-    if (-1 == interpreter->rcall_build_func(
-            expr, expr->ndat->u.rexpr_interpreter.attributes, ctx)) {
+    if (-1 == interpreter->rcall_build_func(node, attributes, ctx)) {
+        return -1;
+    }
+    return 0;
+}
+
+static int
+compile_rexpr_interpreter(struct ast_node_hdl *expr,
+                          struct compile_ctx *ctx)
+{
+    if (-1 == compile_interpreter_attributes(
+            expr,
+            expr->ndat->u.rexpr_interpreter.interpreter,
+            expr->ndat->u.rexpr_interpreter.attributes, ctx)) {
         return -1;
     }
     // template flag may be removed when compiling OP_SET_FILTER
