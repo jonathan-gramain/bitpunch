@@ -55,7 +55,7 @@ struct interpreter_attr_def {
 typedef int
 (*interpreter_rcall_build_func_t)(
     struct ast_node_hdl *rcall,
-    const struct ast_node_hdl *attr_values,
+    const struct attribute_set *attr_set,
     struct compile_ctx *ctx);
 
 struct interpreter {

@@ -155,21 +155,20 @@ string_write_byte_array(
 
 static int
 string_rcall_build(struct ast_node_hdl *rcall,
-                   const struct ast_node_hdl *attr_values,
+                   const struct attribute_set *attr_set,
                    struct compile_ctx *ctx)
 {
     struct expr_value_string boundary;
+    struct ast_node_hdl *attr_expr;
 
     // default read function, may be overriden next
     rcall->ndat->u.rexpr_interpreter.read_func =
         string_read_byte_array_no_boundary;
 
-    if (attr_values[REF_BOUNDARY].ndat->u.rexpr.value_type_mask
-        != EXPR_VALUE_TYPE_UNSET) {
-        if (AST_NODE_TYPE_REXPR_NATIVE
-            == attr_values[REF_BOUNDARY].ndat->type) {
-            boundary = attr_values[REF_BOUNDARY].ndat
-                ->u.rexpr_native.value.string;
+    if (NULL != attr_set->attrs[REF_BOUNDARY]) {
+        attr_expr = attr_set->attrs[REF_BOUNDARY]->expr;
+        if (AST_NODE_TYPE_REXPR_NATIVE == attr_expr->ndat->type) {
+            boundary = attr_expr->ndat->u.rexpr_native.value.string;
             switch (boundary.len) {
             case 0:
                 /* keep default byte array size */

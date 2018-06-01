@@ -92,7 +92,7 @@ snappy_write(struct ast_node_hdl *rcall,
 
 static int
 snappy_rcall_build(struct ast_node_hdl *rcall,
-                   const struct ast_node_hdl *attr_values,
+                   const struct attribute_set *attr_set,
                    struct compile_ctx *ctx)
 {
     rcall->ndat->u.rexpr_interpreter.read_func = snappy_read;

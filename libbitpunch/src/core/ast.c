@@ -1053,14 +1053,15 @@ resolve_identifiers_rexpr_interpreter(
 {
     const struct interpreter *interpreter;
     int p_idx;
-    struct ast_node_hdl *attr_node;
+    struct named_expr *attr;
 
     interpreter = node->ndat->u.rexpr_interpreter.interpreter;
     for (p_idx = 0; p_idx < interpreter->n_attrs; ++p_idx) {
-        attr_node = &node->ndat->u.rexpr_interpreter.attributes[p_idx];
-        if (-1 == resolve_identifiers(attr_node, visible_refs,
-                                      RESOLVE_EXPECT_EXPRESSION,
-                                      resolve_tags)) {
+        attr = node->ndat->u.rexpr_interpreter.attr_set.attrs[p_idx];
+        if (NULL != attr
+            && -1 == resolve_identifiers(attr->expr, visible_refs,
+                                         RESOLVE_EXPECT_EXPRESSION,
+                                         resolve_tags)) {
             return -1;
         }
     }
@@ -1848,7 +1849,7 @@ compile_item(struct ast_node_hdl *item,
     if (-1 == compile_interpreter_attributes(
             item,
             item->ndat->u.item.interpreter,
-            item->ndat->u.item.attr_set, ctx)) {
+            &item->ndat->u.item.attr_set, ctx)) {
         return -1;
     }
     return 0;
@@ -2586,7 +2587,7 @@ compile_rexpr_interpreter(struct ast_node_hdl *expr,
     if (-1 == compile_interpreter_attributes(
             expr,
             expr->ndat->u.rexpr_interpreter.interpreter,
-            expr->ndat->u.rexpr_interpreter.attributes, ctx)) {
+            &expr->ndat->u.rexpr_interpreter.attr_set, ctx)) {
         return -1;
     }
     // template flag may be removed when compiling OP_SET_FILTER
@@ -2942,7 +2943,7 @@ compile_node_type(struct ast_node_hdl *node,
 static int
 compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
 {
-    struct ast_node_hdl *attributes;
+    struct attribute_set *attr_set;
     struct named_expr *attr;
     struct ast_node_hdl *min_span_expr;
     struct ast_node_hdl *max_span_expr;
@@ -2960,7 +2961,7 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
     int child_conditionally_fills_slack;
     struct field *first_trailer_field;
 
-    attributes = item->ndat->u.item.attributes;
+    attr_set = &item->ndat->u.item.attr_set;
 
     /* - Compute the minimum span size from the sum (struct) or
        max (union) of fields' minimum span sizes. If size is
@@ -2985,19 +2986,22 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
 
     min_span_expr = NULL;
     max_span_expr = NULL;
-    if (AST_NODE_TYPE_NONE != attributes[REF_ITEM_MINSPAN].ndat->type) {
+    attr = attr_set->attrs[REF_ITEM_MINSPAN];
+    if (NULL != attr) {
         if (NULL == attr->nstmt.stmt.cond) {
             min_span_expr = attr->expr;
         }
         dynamic_span = TRUE;
     }
-    if (AST_NODE_TYPE_NONE != attributes[REF_ITEM_MAXSPAN].ndat->type) {
+    attr = attr_set->attrs[REF_ITEM_MAXSPAN];
+    if (NULL != attr) {
         if (NULL == attr->nstmt.stmt.cond) {
             max_span_expr = attr->expr;
         }
         dynamic_span = TRUE;
     }
-    if (AST_NODE_TYPE_NONE != attributes[REF_ITEM_SPAN].ndat->type) {
+    attr = attr_set->attrs[REF_ITEM_SPAN];
+    if (NULL != attr) {
         if (NULL == attr->nstmt.stmt.cond) {
             min_span_expr = attr->expr;
             max_span_expr = attr->expr;
@@ -3005,7 +3009,8 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
             dynamic_span = TRUE;
         }
     }
-    if (AST_NODE_TYPE_NONE != attributes[REF_ITEM_LAST].ndat->type) {
+    attr = attr_set->attrs[REF_ITEM_LAST];
+    if (NULL != attr) {
         contains_last_attr = TRUE;
     }
     field_list = item->ndat->u.block_def.block_stmt_list.field_list;
@@ -4526,7 +4531,7 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_REXPR_INTERPRETER: {
         const struct interpreter *interpreter;
         struct interpreter_attr_def *attr_def;
-        struct ast_node_hdl *attr;
+        struct named_expr *attr;
         int i;
 
         dump_ast_rexpr(node,out);
@@ -4536,11 +4541,13 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         attr_def = STAILQ_FIRST(&interpreter->attr_list);
         for (i = 0; i < node->ndat->u.rexpr_interpreter.interpreter->n_attrs;
              ++i) {
-            attr = &node->ndat->u.rexpr_interpreter.attributes[i];
+            attr = node->ndat->u.rexpr_interpreter.attr_set.attrs[i];
             fprintf(out, "%*s\\_ \"%s\" [%d]:\n",
                     (depth + 2) * INDENT_N_SPACES, "",
                     attr_def->name, i);
-            fdump_ast_recur(attr, depth + 3, visible_refs, out);
+            if (NULL != attr) {
+                fdump_ast_recur(attr->expr, depth + 3, visible_refs, out);
+            }
             attr_def = STAILQ_NEXT(attr_def, list);
         }
         break ;

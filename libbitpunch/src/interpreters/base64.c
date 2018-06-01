@@ -159,7 +159,7 @@ base64_write(struct ast_node_hdl *rcall,
 
 static int
 base64_rcall_build(struct ast_node_hdl *rcall,
-                   const struct ast_node_hdl *attr_values,
+                   const struct attribute_set *attr_set,
                    struct compile_ctx *ctx)
 {
     rcall->ndat->u.rexpr_interpreter.read_func = base64_read;
