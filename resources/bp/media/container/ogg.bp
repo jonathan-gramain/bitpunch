@@ -4,8 +4,8 @@
  * https://www.xiph.org/ogg/
  */
 
-let SignedInt = integer { signed: true; endian: 'little'; };
-let UnsignedInt = integer { signed: false; endian: 'little'; };
+let SignedInt = integer { @signed = true; @endian = 'little'; };
+let UnsignedInt = integer { @signed = false; @endian = 'little'; };
 
 let s64 = [8] byte <> SignedInt;
 

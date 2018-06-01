@@ -44,7 +44,7 @@ static int
 snappy_read(struct ast_node_hdl *rcall,
             expr_value_t *read_value,
             const char *data, size_t span_size,
-            int *param_is_specified, expr_value_t *param_value)
+            int *attr_is_specified, expr_value_t *attr_value)
 {
     snappy_status snappy_ret;
     size_t uncompressed_length;
@@ -84,7 +84,7 @@ static int
 snappy_write(struct ast_node_hdl *rcall,
              const expr_value_t *write_value,
              char *data, size_t span_size,
-             int *param_is_specified, expr_value_t *param_value)
+             int *attr_is_specified, expr_value_t *attr_value)
 {
     return -1;
 }
@@ -92,7 +92,7 @@ snappy_write(struct ast_node_hdl *rcall,
 
 static int
 snappy_rcall_build(struct ast_node_hdl *rcall,
-                   const struct ast_node_hdl *param_values,
+                   const struct statement_list *attribute_list,
                    struct compile_ctx *ctx)
 {
     rcall->ndat->u.rexpr_interpreter.read_func = snappy_read;

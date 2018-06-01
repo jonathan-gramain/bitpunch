@@ -1,11 +1,11 @@
-let RadioInt = integer { signed: false; endian: 'big'; };
+let RadioInt = integer { @signed = false; @endian = 'big'; };
 let u8  = [1] byte <> RadioInt;
 let u16 = [2] byte <> RadioInt;
 let u32 = [4] byte <> RadioInt;
 let u64 = [8] byte <> RadioInt;
 
 let RadioCode = struct {
-       codename: [8] byte <> string { boundary: '\0'; };
+       codename: [8] byte <> string { @boundary = '\0'; };
        @key = codename;
        if (codename == 'juliett' || codename == 'romeo') {
            @span = sizeof(codename) + 6;

@@ -44,7 +44,7 @@ varint_get_size(struct ast_node_hdl *rcall,
                 int64_t *span_sizep,
                 int64_t *used_sizep,
                 const char *data, int64_t max_span_size,
-                int *param_is_specified, expr_value_t *param_value)
+                int *attr_is_specified, expr_value_t *attr_value)
 {
     size_t bytepos;
 
@@ -64,7 +64,7 @@ static int
 varint_read(struct ast_node_hdl *rcall,
             expr_value_t *read_value,
             const char *data, size_t span_size,
-            int *param_is_specified, expr_value_t *param_value)
+            int *attr_is_specified, expr_value_t *attr_value)
 {
     // FIXME optimize
     const unsigned char *udata = (const unsigned char *)data;
@@ -99,7 +99,7 @@ static int
 varint_write(struct ast_node_hdl *rcall,
              const expr_value_t *write_value,
              char *data, size_t span_size,
-             int *param_is_specified, expr_value_t *param_value)
+             int *attr_is_specified, expr_value_t *attr_value)
 {
     return -1;
 }
@@ -107,7 +107,7 @@ varint_write(struct ast_node_hdl *rcall,
 
 static int
 varint_rcall_build(struct ast_node_hdl *rcall,
-                   const struct ast_node_hdl *param_values,
+                   const struct statement_list *attribute_list,
                    struct compile_ctx *ctx)
 {
 #if 0

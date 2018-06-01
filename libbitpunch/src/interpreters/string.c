@@ -47,11 +47,11 @@ string_get_size_byte_array_single_char_boundary(
     int64_t *span_sizep,
     int64_t *used_sizep,
     const char *data, int64_t max_span_size,
-    int *param_is_specified, expr_value_t *param_value)
+    int *attr_is_specified, expr_value_t *attr_value)
 {
     const char *end;
 
-    end = memchr(data, param_value[REF_BOUNDARY].string.str[0],
+    end = memchr(data, attr_value[REF_BOUNDARY].string.str[0],
                  max_span_size);
     if (NULL != end) {
         *span_sizep = end - data + 1;
@@ -69,15 +69,15 @@ string_get_size_byte_array_multi_char_boundary(
     int64_t *span_sizep,
     int64_t *used_sizep,
     const char *data, int64_t max_span_size,
-    int *param_is_specified, expr_value_t *param_value)
+    int *attr_is_specified, expr_value_t *attr_value)
 {
     const char *end;
 
     end = memmem(data, max_span_size,
-                 param_value[REF_BOUNDARY].string.str,
-                 param_value[REF_BOUNDARY].string.len);
+                 attr_value[REF_BOUNDARY].string.str,
+                 attr_value[REF_BOUNDARY].string.len);
     if (NULL != end) {
-        *span_sizep = end - data + param_value[REF_BOUNDARY].string.len;
+        *span_sizep = end - data + attr_value[REF_BOUNDARY].string.len;
         *used_sizep = end - data;
     } else {
         *span_sizep = max_span_size;
@@ -92,7 +92,7 @@ string_read_byte_array_no_boundary(
     struct ast_node_hdl *rcall,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    int *param_is_specified, expr_value_t *param_value)
+    int *attr_is_specified, expr_value_t *attr_value)
 {
     read_value->type = EXPR_VALUE_TYPE_STRING;
     read_value->string.str = (char *)data;
@@ -105,12 +105,12 @@ string_read_byte_array_single_char_boundary(
     struct ast_node_hdl *rcall,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    int *param_is_specified, expr_value_t *param_value)
+    int *attr_is_specified, expr_value_t *attr_value)
 {
     read_value->type = EXPR_VALUE_TYPE_STRING;
     read_value->string.str = (char *)data;
     if (span_size >= 1
-        && (data[span_size - 1] == param_value[REF_BOUNDARY].string.str[0])) {
+        && (data[span_size - 1] == attr_value[REF_BOUNDARY].string.str[0])) {
         read_value->string.len = span_size - 1;
     } else {
         read_value->string.len = span_size;
@@ -123,11 +123,11 @@ string_read_byte_array_multi_char_boundary(
     struct ast_node_hdl *rcall,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    int *param_is_specified, expr_value_t *param_value)
+    int *attr_is_specified, expr_value_t *attr_value)
 {
     struct expr_value_string boundary;
 
-    boundary = param_value[REF_BOUNDARY].string;
+    boundary = attr_value[REF_BOUNDARY].string;
 
     read_value->type = EXPR_VALUE_TYPE_STRING;
     read_value->string.str = (char *)data;
@@ -147,7 +147,7 @@ string_write_byte_array(
     struct ast_node_hdl *rcall,
     const expr_value_t *write_value,
     char *data, size_t span_size,
-    int *param_is_specified, expr_value_t *param_value)
+    int *attr_is_specified, expr_value_t *attr_value)
 {
     return -1;
 }
@@ -155,44 +155,47 @@ string_write_byte_array(
 
 static int
 string_rcall_build(struct ast_node_hdl *rcall,
-                   const struct ast_node_hdl *param_values,
+                   const struct statement_list *attribute_list,
                    struct compile_ctx *ctx)
 {
+    struct named_expr *attr;
     struct expr_value_string boundary;
 
     // default read function, may be overriden next
     rcall->ndat->u.rexpr_interpreter.read_func =
         string_read_byte_array_no_boundary;
 
-    if (param_values[REF_BOUNDARY].ndat->u.rexpr.value_type_mask
-        != EXPR_VALUE_TYPE_UNSET) {
-        if (AST_NODE_TYPE_REXPR_NATIVE
-            == param_values[REF_BOUNDARY].ndat->type) {
-            boundary = param_values[REF_BOUNDARY].ndat
-                ->u.rexpr_native.value.string;
-            switch (boundary.len) {
-            case 0:
-                /* keep default byte array size */
-                break ;
-            case 1:
-                rcall->ndat->u.rexpr_interpreter.get_size_func =
-                    string_get_size_byte_array_single_char_boundary;
-                rcall->ndat->u.rexpr_interpreter.read_func =
-                    string_read_byte_array_single_char_boundary;
-                break ;
-            default: /* two or more characters boundary */
+    STATEMENT_FOREACH(named_expr, attr, attribute_list, list) {
+        if (0 == strcmp(attr->nstmt.name, "@boundary")) {
+            if (AST_NODE_TYPE_REXPR_NATIVE == attr->expr->ndat->type
+                && NULL == attr->nstmt.stmt.cond) {
+                boundary = attr->expr->ndat->u.rexpr_native.value.string;
+                switch (boundary.len) {
+                case 0:
+                    /* keep default byte array size */
+                    break ;
+                case 1:
+                    rcall->ndat->u.rexpr_interpreter.get_size_func =
+                        string_get_size_byte_array_single_char_boundary;
+                    rcall->ndat->u.rexpr_interpreter.read_func =
+                        string_read_byte_array_single_char_boundary;
+                    break ;
+                default: /* two or more characters boundary */
+                    rcall->ndat->u.rexpr_interpreter.get_size_func =
+                        string_get_size_byte_array_multi_char_boundary;
+                    rcall->ndat->u.rexpr_interpreter.read_func =
+                        string_read_byte_array_multi_char_boundary;
+                    break ;
+                }
+            } else {
+                /* dynamic boundary: use generic multi-char
+                 * implementation */
                 rcall->ndat->u.rexpr_interpreter.get_size_func =
                     string_get_size_byte_array_multi_char_boundary;
                 rcall->ndat->u.rexpr_interpreter.read_func =
                     string_read_byte_array_multi_char_boundary;
-                break ;
             }
-        } else {
-            /* dynamic boundary: use generic multi-char implementation */
-            rcall->ndat->u.rexpr_interpreter.get_size_func =
-                string_get_size_byte_array_multi_char_boundary;
-            rcall->ndat->u.rexpr_interpreter.read_func =
-                string_read_byte_array_multi_char_boundary;
+            break ;
         }
     }
     rcall->ndat->u.rexpr_interpreter.write_func = string_write_byte_array;
@@ -209,7 +212,7 @@ interpreter_declare_string(void)
                               EXPR_VALUE_TYPE_STRING,
                               string_rcall_build,
                               1,
-                              "boundary", REF_BOUNDARY,
+                              "@boundary", REF_BOUNDARY,
                               EXPR_VALUE_TYPE_STRING,
                               0);
     assert(0 == ret);

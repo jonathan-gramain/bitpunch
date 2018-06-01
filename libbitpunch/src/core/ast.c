@@ -37,12 +37,12 @@
 
 #include "api/bitpunch-structs.h"
 #include "core/ast.h"
-#include "core/interpreter.h"
 #include "core/expr.h"
 #include "core/browse.h"
 #include "core/browse_internal.h"
 #include "core/print.h"
 #include "core/parser.h"
+#include "interpreters/item.h"
 #include PATH_TO_PARSER_TAB_H
 
 //#define OUTPUT_DEP_GRAPH
@@ -114,9 +114,6 @@ compile_dpath_type(struct dpath_node *node,
                    struct compile_ctx *ctx);
 static int
 compile_dpath_span_size(struct dpath_node *node,
-                        struct compile_ctx *ctx);
-static int
-compile_node_post_check(struct ast_node_hdl *expr,
                         struct compile_ctx *ctx);
 static dep_resolver_tagset_t
 compile_field_cb(struct compile_ctx *ctx,
@@ -601,11 +598,12 @@ resolve_identifiers_identifier_as_interpreter(
 
     interpreter = interpreter_lookup(node->ndat->u.identifier);
     if (NULL != interpreter) {
-        struct statement_list empty_param_list;
+        static struct statement_list empty_attr_list =
+            TAILQ_HEAD_INITIALIZER(empty_attr_list);
 
-        TAILQ_INIT(&empty_param_list);
+        TAILQ_INIT(&empty_attr_list);
         if (-1 == interpreter_rcall_build(node, interpreter,
-                                          &empty_param_list)) {
+                                          &empty_attr_list)) {
             return -1;
         }
         return 0;
@@ -750,6 +748,7 @@ resolve_identifiers_block(struct ast_node_hdl *block,
                           enum resolve_identifiers_tag resolve_tags)
 {
     const char *filter_type;
+    const struct interpreter *interpreter;
 
     filter_type = block->ndat->u.block_def.filter_type;
     // XXX can it be NULL?
@@ -767,8 +766,6 @@ resolve_identifiers_block(struct ast_node_hdl *block,
         return -1;
     }
     if (BLOCK_TYPE_INTERPRETER == block->ndat->u.block_def.type) {
-        const struct interpreter *interpreter;
-
         interpreter = interpreter_lookup(filter_type);
         if (NULL == interpreter) {
             semantic_error(
@@ -779,10 +776,9 @@ resolve_identifiers_block(struct ast_node_hdl *block,
         }
         if (-1 == interpreter_rcall_build(
                 block, interpreter,
-                block->ndat->u.block_def.block_stmt_list.field_list)) {
+                block->ndat->u.block_def.block_stmt_list.attribute_list)) {
             return -1;
         }
-    } else {
     }
     return 0;
 }
@@ -1053,14 +1049,11 @@ resolve_identifiers_rexpr_interpreter(
     enum resolve_expect_mask expect_mask,
     enum resolve_identifiers_tag resolve_tags)
 {
-    const struct interpreter *interpreter;
-    int p_idx;
-    struct ast_node_hdl *param_node;
+    struct named_expr *attr;
 
-    interpreter = node->ndat->u.rexpr_interpreter.interpreter;
-    for (p_idx = 0; p_idx < interpreter->n_params; ++p_idx) {
-        param_node = INTERPRETER_RCALL_PARAM(node, p_idx);
-        if (-1 == resolve_identifiers(param_node, visible_refs,
+    STATEMENT_FOREACH(named_expr, attr,
+                      node->ndat->u.rexpr_interpreter.attribute_list, list) {
+        if (-1 == resolve_identifiers(attr->expr, visible_refs,
                                       RESOLVE_EXPECT_EXPRESSION,
                                       resolve_tags)) {
             return -1;
@@ -1786,17 +1779,70 @@ compile_stmt_lists(struct block_stmt_list *stmt_lists,
     if (!compile_continue(ctx)) {
         return -1;
     }
-    STATEMENT_FOREACH(named_expr, named_expr,
-                      stmt_lists->attribute_list, list) {
-        if (0 == strcmp(named_expr->nstmt.name, "@last")
-            && 0 == (EXPR_VALUE_TYPE_BOOLEAN
-                     & named_expr->expr->ndat->u.rexpr.value_type_mask)) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                           &named_expr->expr->loc,
-                           "expect a boolean expression for attribute "
-                           "\"@last\"");
-            return -1;
+    return 0;
+}
+
+static int
+compile_interpreter_attributes(struct ast_node_hdl *node,
+                               const struct interpreter *interpreter,
+                               struct statement_list *attribute_list,
+                               struct compile_ctx *ctx)
+{
+    struct named_expr *attr;
+    const struct interpreter_attr_def *attr_def;
+    int sem_error = FALSE;
+
+    STATEMENT_FOREACH(named_expr, attr, attribute_list, list) {
+        compile_expr(attr->expr, ctx, TRUE);
+    }
+    if (!compile_continue(ctx)) {
+        return -1;
+    }
+    STATEMENT_FOREACH(named_expr, attr, attribute_list, list) {
+        assert(ast_node_is_rexpr(attr->expr));
+        attr_def = interpreter_get_attr_def(interpreter, attr->nstmt.name);
+        assert(NULL != attr_def);
+        if (0 == (attr_def->value_type_mask
+                  & attr->expr->ndat->u.rexpr.value_type_mask)) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &attr->expr->loc,
+                "attribute \"%s\" passed to interpreter \"%s\" has "
+                "an incompatible value-type '%s', acceptable "
+                "value-types are '%s'",
+                attr_def->name, interpreter->name,
+                expr_value_type_str(
+                    attr->expr->ndat->u.rexpr.value_type_mask),
+                expr_value_type_str(attr_def->value_type_mask));
+            sem_error = TRUE;
+            continue ;
         }
+    }
+    if (sem_error) {
+        return -1;
+    }
+    if (-1 == interpreter->rcall_build_func(node, attribute_list, ctx)) {
+        return -1;
+    }
+    return 0;
+}
+
+static int
+compile_item(struct ast_node_hdl *item,
+             struct statement_list *attribute_list,
+             struct compile_ctx *ctx)
+{
+    struct interpreter *interpreter;
+
+    item->ndat->u.item.attribute_list = attribute_list;
+    interpreter = interpreter_lookup("item");
+    assert(NULL != interpreter);
+    if (-1 == interpreter_build_attrs(
+            item, interpreter, attribute_list)) {
+        return -1;
+    }
+    if (-1 == compile_interpreter_attributes(
+            item, interpreter, item->ndat->u.item.attribute_list, ctx)) {
+        return -1;
     }
     return 0;
 }
@@ -1808,6 +1854,11 @@ compile_block(struct ast_node_hdl *block,
 {
     if (-1 == compile_stmt_lists(&block->ndat->u.block_def.block_stmt_list,
                                  ctx)) {
+        return -1;
+    }
+    if (-1 == compile_item(
+            block,
+            block->ndat->u.block_def.block_stmt_list.attribute_list, ctx)) {
         return -1;
     }
     return 0;
@@ -2525,44 +2576,10 @@ static int
 compile_rexpr_interpreter(struct ast_node_hdl *expr,
                           struct compile_ctx *ctx)
 {
-    const struct interpreter *interpreter;
-    struct ast_node_hdl *param_valuep;
-    struct interpreter_param_def *param_def;
-    int sem_error = FALSE;
-
-    interpreter = expr->ndat->u.rexpr_interpreter.interpreter;
-    STAILQ_FOREACH(param_def, &interpreter->param_list, list) {
-        param_valuep = INTERPRETER_RCALL_PARAM(expr, param_def->ref_idx);
-        compile_expr(param_valuep, ctx, TRUE);
-    }
-    if (!compile_continue(ctx)) {
-        return -1;
-    }
-    STAILQ_FOREACH(param_def, &interpreter->param_list, list) {
-        param_valuep = INTERPRETER_RCALL_PARAM(expr, param_def->ref_idx);
-        if (AST_NODE_TYPE_NONE != param_valuep->ndat->type) {
-            assert(ast_node_is_rexpr(param_valuep));
-            if (0 == (param_def->value_type_mask
-                      & param_valuep->ndat->u.rexpr.value_type_mask)) {
-                semantic_error(
-                    SEMANTIC_LOGLEVEL_ERROR, &param_valuep->loc,
-                    "parameter \"%s\" passed to interpreter \"%s\" has "
-                    "an incompatible value-type '%s', acceptable "
-                    "value-types are '%s'",
-                    param_def->name, interpreter->name,
-                    expr_value_type_str(
-                        param_valuep->ndat->u.rexpr.value_type_mask),
-                    expr_value_type_str(param_def->value_type_mask));
-                sem_error = TRUE;
-                continue ;
-            }
-        }
-    }
-    if (sem_error) {
-        return -1;
-    }
-    if (-1 == interpreter->rcall_build_func(
-            expr, interpreter_rcall_get_params(expr), ctx)) {
+    if (-1 == compile_interpreter_attributes(
+            expr,
+            expr->ndat->u.rexpr_interpreter.interpreter,
+            expr->ndat->u.rexpr_interpreter.attribute_list, ctx)) {
         return -1;
     }
     // template flag may be removed when compiling OP_SET_FILTER
@@ -2912,10 +2929,6 @@ compile_node_type(struct ast_node_hdl *node,
             return -1;
         }
     } while (old_data != node->ndat);
-
-    if (-1 == compile_node_post_check(node, ctx)) {
-        return -1;
-    }
     return 0;
 }
 
@@ -2965,23 +2978,23 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
     STATEMENT_FOREACH(
         named_expr, attr,
         item->ndat->u.block_def.block_stmt_list.attribute_list, list) {
-        if (0 != (attr->expr->flags & ASTFLAG_IS_SPAN_EXPR)) {
-            if (-1 == compile_expr(attr->expr, ctx, TRUE)) {
-                return -1;
-            }
+        if (-1 == compile_expr(attr->expr, ctx, TRUE)) {
+            return -1;
+        }
+        if (0 == strcmp(attr->nstmt.name, "@minspan")) {
             if (NULL == attr->nstmt.stmt.cond) {
-                if (0 == strcmp(attr->nstmt.name, "@minspan")) {
-                    min_span_expr = attr->expr;
-                    dynamic_span = TRUE;
-                } else if (0 == strcmp(attr->nstmt.name, "@maxspan")) {
-                    max_span_expr = attr->expr;
-                    dynamic_span = TRUE;
-                } else {
-                    assert(0 == strcmp(attr->nstmt.name, "@span"));
-                    min_span_expr = attr->expr;
-                    max_span_expr = attr->expr;
-                }
-                break ;
+                min_span_expr = attr->expr;
+            }
+            dynamic_span = TRUE;
+        } else if (0 == strcmp(attr->nstmt.name, "@maxspan")) {
+            if (NULL == attr->nstmt.stmt.cond) {
+                max_span_expr = attr->expr;
+            }
+            dynamic_span = TRUE;
+        } else if (0 == strcmp(attr->nstmt.name, "@span")) {
+            if (NULL == attr->nstmt.stmt.cond) {
+                min_span_expr = attr->expr;
+                max_span_expr = attr->expr;
             } else {
                 dynamic_span = TRUE;
             }
@@ -3602,82 +3615,6 @@ compile_dpath_span_size(struct dpath_node *node, struct compile_ctx *ctx)
         return -1;
     }
     node->u.item = node->item->ndat->u.item;
-    return 0;
-}
-
-static int
-compile_node_post_check_span_expr(struct ast_node_hdl *span_expr,
-                                  struct compile_ctx *ctx)
-{
-    assert(ast_node_is_rexpr(span_expr));
-    if (span_expr->ndat->u.rexpr.value_type_mask != EXPR_VALUE_TYPE_INTEGER) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &span_expr->loc,
-            "span expression must be of integer type, not '%s'",
-            expr_value_type_str(span_expr->ndat->u.rexpr.value_type_mask));
-        return -1;
-    }
-    return 0;
-}
-
-static int
-compile_node_post_check_key_expr(struct ast_node_hdl *key_expr,
-                                 struct compile_ctx *ctx)
-{
-    assert(ast_node_is_rexpr(key_expr));
-    if (0 != (key_expr->ndat->u.rexpr.value_type_mask
-              & ~(EXPR_VALUE_TYPE_INTEGER | EXPR_VALUE_TYPE_STRING))) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &key_expr->loc,
-            "index expression must be of integer or string type, not '%s'",
-            expr_value_type_str(key_expr->ndat->u.rexpr.value_type_mask));
-        return -1;
-    }
-    return 0;
-}
-
-static int
-compile_node_post_check_match_expr(struct ast_node_hdl *match_expr,
-                                   struct compile_ctx *ctx)
-{
-    assert(ast_node_is_rexpr(match_expr));
-    if (match_expr->ndat->u.rexpr.value_type_mask
-        != EXPR_VALUE_TYPE_BOOLEAN) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &match_expr->loc,
-            "match expression must be of boolean type, not '%s'",
-            expr_value_type_str(match_expr->ndat->u.rexpr.value_type_mask));
-        return -1;
-    }
-    if (match_expr->ndat->type == AST_NODE_TYPE_REXPR_NATIVE) {
-        if (match_expr->ndat->u.rexpr_native.value.boolean) {
-            semantic_error(SEMANTIC_LOGLEVEL_WARNING, &match_expr->loc,
-                           "match expression always true");
-        } else {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &match_expr->loc,
-                           "match expression always false");
-            return -1;
-        }
-    }
-    return 0;
-}
-
-static int
-compile_node_post_check(struct ast_node_hdl *expr,
-                        struct compile_ctx *ctx)
-{
-    if (0 != (expr->flags & ASTFLAG_IS_SPAN_EXPR)
-        && -1 == compile_node_post_check_span_expr(expr, ctx)) {
-        return -1;
-    }
-    if (0 != (expr->flags & ASTFLAG_IS_KEY_EXPR)
-        && -1 == compile_node_post_check_key_expr(expr, ctx)) {
-        return -1;
-    }
-    if (0 != (expr->flags & ASTFLAG_IS_MATCH_EXPR)
-        && -1 == compile_node_post_check_match_expr(expr, ctx)) {
-        return -1;
-    }
     return 0;
 }
 
@@ -4582,23 +4519,23 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         break ;
     case AST_NODE_TYPE_REXPR_INTERPRETER: {
         const struct interpreter *interpreter;
-        struct interpreter_param_def *param_def;
-        struct ast_node_hdl *param;
-        int i;
+        const struct interpreter_attr_def *attr_def;
+        struct named_expr *attr;
 
         dump_ast_rexpr(node,out);
         interpreter = node->ndat->u.rexpr_interpreter.interpreter;
-        fprintf(out, " name: %s\n%*s\\_ interpreter params:\n",
+        fprintf(out, " name: %s\n%*s\\_ interpreter attrs:\n",
                 interpreter->name, (depth + 1) * INDENT_N_SPACES, "");
-        param_def = STAILQ_FIRST(&interpreter->param_list);
-        for (i = 0; i < node->ndat->u.rexpr_interpreter.interpreter->n_params;
-             ++i) {
-            param = INTERPRETER_RCALL_PARAM(node, i);
+        STATEMENT_FOREACH(
+            named_expr, attr, node->ndat->u.rexpr_interpreter.attribute_list,
+            list) {
+            attr_def = interpreter_get_attr_def(interpreter,
+                                                attr->nstmt.name);
+            assert(NULL != attr_def);
             fprintf(out, "%*s\\_ \"%s\" [%d]:\n",
                     (depth + 2) * INDENT_N_SPACES, "",
-                    param_def->name, i);
-            fdump_ast_recur(param, depth + 3, visible_refs, out);
-            param_def = STAILQ_NEXT(param_def, list);
+                    attr_def->name, attr_def->ref_idx);
+            fdump_ast_recur(attr->expr, depth + 3, visible_refs, out);
         }
         break ;
     }

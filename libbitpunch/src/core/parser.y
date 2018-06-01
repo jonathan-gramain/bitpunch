@@ -150,9 +150,6 @@
     extern const int SPAN_SIZE_UNDEF;
 
     enum ast_node_flag {
-        ASTFLAG_IS_SPAN_EXPR                = (1<<0),
-        ASTFLAG_IS_KEY_EXPR                 = (1<<1),
-        ASTFLAG_IS_MATCH_EXPR               = (1<<2),
         ASTFLAG_IS_ROOT_BLOCK               = (1<<3),
         ASTFLAG_IS_VALUE_TYPE               = (1<<4),
         ASTFLAG_IS_ANONYMOUS_MEMBER         = (1<<5),
@@ -199,6 +196,8 @@
     struct item_node {
         enum item_flag flags;
         int64_t min_span_size; /* minimum size */
+        struct interpreter *interpreter;
+        struct statement_list *attribute_list;
     };
 
     struct dpath_node {
@@ -377,12 +376,10 @@
             struct rexpr_interpreter {
                 struct rexpr_dpath rexpr_dpath; /* inherits */
                 const struct interpreter *interpreter;
+                struct statement_list *attribute_list;
                 interpreter_read_func_t read_func;
                 interpreter_write_func_t write_func;
                 interpreter_get_size_func_t get_size_func;
-                /* cannot declare the following array but that's how
-                 * it will be interpreted */
-                /* struct ast_node_hdl params[]; */
             } rexpr_interpreter;
             struct rexpr_filter {
                 struct rexpr_dpath rexpr_dpath; /* inherits */
@@ -1093,29 +1090,12 @@ block_stmt_list:
   | block_stmt_list attribute_stmt {
         $$ = $1;
         const char *attr_name;
-        struct ast_node_hdl *expr;
 
         attr_name = $attribute_stmt->nstmt.name;
-        expr = $attribute_stmt->expr;
         if (attr_name[0] != '@') {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR,
                            &$attribute_stmt->nstmt.stmt.loc,
                            "attribute names must start with symbol '@'");
-            YYERROR;
-        }
-        // FIXME these checks should be done by each filter backend
-        if (0 == strcmp(attr_name + 1, "span")
-            || 0 == strcmp(attr_name + 1, "minspan")
-            || 0 == strcmp(attr_name + 1, "maxspan")) {
-            expr->flags |= ASTFLAG_IS_SPAN_EXPR;
-        } else if (0 == strcmp(attr_name + 1, "key")) {
-            expr->flags |= ASTFLAG_IS_KEY_EXPR;
-        } else if (0 == strcmp(attr_name + 1, "last")) {
-            // no-op
-        } else {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                           &$attribute_stmt->nstmt.stmt.loc,
-                           "unsupported attribute '%s'", attr_name);
             YYERROR;
         }
         TAILQ_INSERT_TAIL($$.attribute_list,
@@ -1176,7 +1156,6 @@ match_stmt:
         $$ = new_safe(struct expr_stmt);
         $$->stmt.loc = @$;
         $$->expr = $expr;
-        $$->expr->flags |= ASTFLAG_IS_MATCH_EXPR;
     }
 
 %%

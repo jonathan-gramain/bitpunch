@@ -45,11 +45,11 @@
 struct interpreter interpreter_table[MAX_INTERPRETER_COUNT];
 int                interpreter_count = 0;
 
-#define MAX_INTERPRETER_PARAM_DEF_COUNT 1024
-#define INTERPRETER_MAX_PARAM_REF       256
+#define MAX_INTERPRETER_ATTR_DEF_COUNT 1024
+#define INTERPRETER_MAX_ATTR_REF       256
 
-struct interpreter_param_def interpreter_param_def_table[MAX_INTERPRETER_PARAM_DEF_COUNT];
-int                          interpreter_param_def_count = 0;
+struct interpreter_attr_def interpreter_attr_def_table[MAX_INTERPRETER_ATTR_DEF_COUNT];
+int                          interpreter_attr_def_count = 0;
 
 static struct interpreter *
 interpreter_new(void)
@@ -63,30 +63,30 @@ interpreter_new(void)
     return &interpreter_table[interpreter_count++];
 }
 
-static struct interpreter_param_def *
-interpreter_param_def_new(void)
+static struct interpreter_attr_def *
+interpreter_attr_def_new(void)
 {
-    if (interpreter_param_def_count == MAX_INTERPRETER_PARAM_DEF_COUNT) {
+    if (interpreter_attr_def_count == MAX_INTERPRETER_ATTR_DEF_COUNT) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, NULL,
-                       "Global interpreter param def limit reached (max %d)\n",
-                         MAX_INTERPRETER_PARAM_DEF_COUNT);
+                       "Global interpreter attr def limit reached (max %d)\n",
+                         MAX_INTERPRETER_ATTR_DEF_COUNT);
         return NULL;
     }
-    return &interpreter_param_def_table[interpreter_param_def_count++];
+    return &interpreter_attr_def_table[interpreter_attr_def_count++];
 }
 
 int
 interpreter_declare(const char *name,
                     enum expr_value_type value_type_mask,
                     interpreter_rcall_build_func_t rcall_build_func,
-                    int n_params,
-                    ... /* params: (name, index, type, flags) tuples */)
+                    int n_attrs,
+                    ... /* attrs: (name, index, type, flags) tuples */)
 {
     struct interpreter *interpreter;
-    int max_param_ref;
+    int max_attr_ref;
     va_list ap;
-    int n_params_remain;
-    struct interpreter_param_def *param_def;
+    int i;
+    struct interpreter_attr_def *attr_def;
 
     assert(NULL != rcall_build_func);
 
@@ -103,27 +103,26 @@ interpreter_declare(const char *name,
     interpreter->name = name;
     interpreter->value_type_mask = value_type_mask;
     interpreter->rcall_build_func = rcall_build_func;
-    interpreter->n_params = n_params;
-    max_param_ref = -1;
-    STAILQ_INIT(&interpreter->param_list);
-    va_start(ap, n_params);
-    for (n_params_remain = n_params;
-         n_params_remain > 0; --n_params_remain) {
-        param_def = interpreter_param_def_new();
-        if (NULL == param_def) {
+    interpreter->n_attrs = n_attrs;
+    max_attr_ref = -1;
+    STAILQ_INIT(&interpreter->attr_list);
+    va_start(ap, n_attrs);
+    for (i = 0; i < n_attrs; ++i) {
+        attr_def = interpreter_attr_def_new();
+        if (NULL == attr_def) {
             return -1;
         }
-        param_def->name = va_arg(ap, const char *);
-        param_def->ref_idx = va_arg(ap, int);
-        assert(param_def->ref_idx >= 0 &&
-               param_def->ref_idx <= INTERPRETER_MAX_PARAM_REF);
-        param_def->value_type_mask = va_arg(ap, enum ast_node_type);
-        param_def->flags = va_arg(ap, enum interpreter_param_flags);
-        STAILQ_INSERT_TAIL(&interpreter->param_list, param_def, list);
-        max_param_ref = MAX(max_param_ref, param_def->ref_idx);
+        attr_def->name = va_arg(ap, const char *);
+        attr_def->ref_idx = va_arg(ap, int);
+        assert(attr_def->ref_idx >= 0 &&
+               attr_def->ref_idx <= INTERPRETER_MAX_ATTR_REF);
+        attr_def->value_type_mask = va_arg(ap, enum ast_node_type);
+        attr_def->flags = va_arg(ap, enum interpreter_attr_flags);
+        STAILQ_INSERT_TAIL(&interpreter->attr_list, attr_def, list);
+        max_attr_ref = MAX(max_attr_ref, attr_def->ref_idx);
     }
     va_end(ap);
-    interpreter->max_param_ref = max_param_ref;
+    interpreter->max_attr_ref = max_attr_ref;
     return 0;
 }
 
@@ -140,6 +139,7 @@ interpreter_lookup(const char *name)
     return NULL;
 }
 
+void interpreter_declare_item(void);
 void interpreter_declare_binary_integer(void);
 void interpreter_declare_string(void);
 void interpreter_declare_varint(void);
@@ -150,6 +150,7 @@ void interpreter_declare_formatted_integer(void);
 void
 interpreter_declare_std(void)
 {
+    interpreter_declare_item();
     interpreter_declare_binary_integer();
     interpreter_declare_string();
     interpreter_declare_varint();
@@ -158,97 +159,81 @@ interpreter_declare_std(void)
     interpreter_declare_formatted_integer();
 }
 
-static int
-rcall_build_params(struct ast_node_hdl *node,
-                   const struct interpreter *interpreter,
-                   struct statement_list *param_list);
-
-
 int
 interpreter_rcall_build(struct ast_node_hdl *node,
                         const struct interpreter *interpreter,
-                        struct statement_list *param_list)
+                        struct statement_list *attribute_list)
 {
-    struct ast_node_data *rcall;
+    struct ast_node_data *ndat;
 
-    rcall = malloc0_safe(INTERPRETER_RCALL_BASE_SIZE
-                         + (interpreter->max_param_ref + 1)
-                         * sizeof (struct ast_node_hdl));
-    rcall->type = AST_NODE_TYPE_REXPR_INTERPRETER;
-    rcall->flags = (0 == (rcall->u.rexpr.value_type_mask &
-                          (EXPR_VALUE_TYPE_BYTES |
-                           EXPR_VALUE_TYPE_STRING)) ?
-                    ASTFLAG_IS_VALUE_TYPE : 0u);
-    rcall->u.rexpr.value_type_mask = interpreter->value_type_mask;
-    rcall->u.rexpr_interpreter.interpreter = interpreter;
-    rcall->u.rexpr_interpreter.get_size_func = NULL;
-    node->ndat = rcall;
-    if (-1 == rcall_build_params(node, interpreter, param_list)) {
-        free(rcall);
+    ndat = new_safe(struct ast_node_data);
+    ndat->type = AST_NODE_TYPE_REXPR_INTERPRETER;
+    ndat->flags = (0 == (ndat->u.rexpr.value_type_mask &
+                         (EXPR_VALUE_TYPE_BYTES |
+                          EXPR_VALUE_TYPE_STRING)) ?
+                   ASTFLAG_IS_VALUE_TYPE : 0u);
+    ndat->u.rexpr.value_type_mask = interpreter->value_type_mask;
+    ndat->u.rexpr_interpreter.interpreter = interpreter;
+    ndat->u.rexpr_interpreter.attribute_list = attribute_list;
+    ndat->u.rexpr_interpreter.get_size_func = NULL;
+    node->ndat = ndat;
+    if (-1 == interpreter_build_attrs(node, interpreter, attribute_list)) {
+        free(ndat);
         node->ndat = NULL;
         return -1;
     }
     return 0;
 }
 
-static int
-get_param_index(const struct interpreter *interpreter,
-                const char *param_name)
+const struct interpreter_attr_def *
+interpreter_get_attr_def(const struct interpreter *interpreter,
+                         const char *attr_name)
 {
-    struct interpreter_param_def *param_def;
+    struct interpreter_attr_def *attr_def;
 
-    STAILQ_FOREACH(param_def, &interpreter->param_list, list) {
-        if (0 == strcmp(param_def->name, param_name)) {
-            return param_def->ref_idx;
+    STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
+        if (0 == strcmp(attr_def->name, attr_name)) {
+            return attr_def;
         }
     }
-    return -1; /* not found */
+    return NULL; /* not found */
 }
 
-static int
-rcall_build_params(struct ast_node_hdl *node,
-                   const struct interpreter *interpreter,
-                   struct statement_list *param_list)
+int
+interpreter_build_attrs(struct ast_node_hdl *node,
+                        const struct interpreter *interpreter,
+                        struct statement_list *attribute_list)
 {
-    struct field *param;
-    struct ast_node_hdl *param_valuep;
-    int param_ref;
-    struct interpreter_param_def *param_def;
+    struct named_expr *attr;
+    int attr_ref;
+    const struct interpreter_attr_def *attr_def;
+    int *attr_is_defined;
     int sem_error = FALSE;
 
-    STATEMENT_FOREACH(field, param, param_list, list) {
-        param_ref = get_param_index(interpreter, param->nstmt.name);
-        if (-1 == param_ref) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &param->nstmt.stmt.loc,
-                           "no such parameter \"%s\" for interpreter \"%s\"",
-                           param->nstmt.name, interpreter->name);
+    attr_is_defined = new_n_safe(int, interpreter->max_attr_ref + 1);
+    STATEMENT_FOREACH(named_expr, attr, attribute_list, list) {
+        attr_def = interpreter_get_attr_def(interpreter, attr->nstmt.name);
+        if (NULL == attr_def) {
+            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &attr->nstmt.stmt.loc,
+                           "no such attribute \"%s\" for interpreter \"%s\"",
+                           attr->nstmt.name, interpreter->name);
             sem_error = TRUE;
             continue ;
         }
-        assert(param_ref >= 0 && param_ref <= interpreter->max_param_ref);
-        param_valuep = INTERPRETER_RCALL_PARAM(node, param_ref);
-        if (NULL != param_valuep->ndat) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &param->nstmt.stmt.loc,
-                           "duplicate parameter \"%s\"", param->nstmt.name);
+        attr_ref = attr_def->ref_idx;
+        assert(attr_ref >= 0 && attr_ref <= interpreter->max_attr_ref);
+        attr_is_defined[attr_ref] = TRUE;
+    }
+    STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
+        if (!attr_is_defined[attr_def->ref_idx]
+            && 0 != (INTERPRETER_ATTR_FLAG_MANDATORY & attr_def->flags)) {
+            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &node->loc,
+                           "missing mandatory attribute \"%s\"",
+                           attr_def->name);
             sem_error = TRUE;
-            continue ;
-        }
-        *param_valuep = *param->dpath.item;
-    }
-    STAILQ_FOREACH(param_def, &interpreter->param_list, list) {
-        param_valuep = INTERPRETER_RCALL_PARAM(node, param_def->ref_idx);
-        if (NULL == param_valuep->ndat) {
-            if (0 != (INTERPRETER_PARAM_FLAG_MANDATORY & param_def->flags)) {
-                semantic_error(SEMANTIC_LOGLEVEL_ERROR, &node->loc,
-                               "missing mandatory parameter \"%s\"",
-                               param_def->name);
-                sem_error = TRUE;
-                continue ;
-            }
-            param_valuep->ndat = new_safe(struct ast_node_data);
-            param_valuep->ndat->type = AST_NODE_TYPE_NONE;
         }
     }
+    free(attr_is_defined);
     if (sem_error) {
         return -1;
     }
@@ -256,67 +241,74 @@ rcall_build_params(struct ast_node_hdl *node,
 }
 
 bitpunch_status_t
-interpreter_rcall_evaluate_params(struct ast_node_hdl *expr,
-                                  struct box *scope,
-                                  int **param_is_specifiedp,
-                                  expr_value_t **param_valuep,
-                                  struct browse_state *bst)
+interpreter_rcall_evaluate_attrs(struct ast_node_hdl *expr,
+                                 struct box *scope,
+                                 int **attr_is_specifiedp,
+                                 expr_value_t **attr_valuep,
+                                 struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     const struct interpreter *interpreter;
-    int p_idx;
-    struct ast_node_hdl *param_node;
-    expr_value_t *param_value;
-    int *param_is_specified;
+    const struct interpreter_attr_def *attr_def;
+    int attr_idx;
+    struct named_expr *attr;
+    expr_value_t *attr_value;
+    int *attr_is_specified;
+    int cond_eval;
 
     interpreter = expr->ndat->u.rexpr_interpreter.interpreter;
 
-    param_value = new_n_safe(expr_value_t, interpreter->n_params);
-    param_is_specified = new_n_safe(int, interpreter->n_params);
+    attr_value = new_n_safe(expr_value_t, interpreter->n_attrs);
+    attr_is_specified = new_n_safe(int, interpreter->n_attrs);
 
-    for (p_idx = 0; p_idx < interpreter->n_params; ++p_idx) {
-        param_node = INTERPRETER_RCALL_PARAM(expr, p_idx);
-        if (AST_NODE_TYPE_NONE == param_node->ndat->type) {
+    STATEMENT_FOREACH(named_expr, attr,
+                      expr->ndat->u.rexpr_interpreter.attribute_list, list) {
+        // TODO optimize this lookup (e.g. store the index in the
+        // attribute list item)
+        attr_def = interpreter_get_attr_def(interpreter, attr->nstmt.name);
+        assert(NULL != attr_def);
+        attr_idx = attr_def->ref_idx;
+        if (attr_is_specified[attr_idx]) {
             continue ;
         }
-        param_is_specified[p_idx] = TRUE;
-        bt_ret = expr_evaluate_value_internal(param_node, scope,
-                                              &param_value[p_idx], bst);
-        if (BITPUNCH_OK != bt_ret) {
-            for (--p_idx; p_idx >= 0; --p_idx) {
-                if (AST_NODE_TYPE_NONE != param_node->ndat->type) {
-                    expr_value_destroy(param_value[p_idx]);
-                }
+        bt_ret = evaluate_conditional_internal(attr->nstmt.stmt.cond, scope,
+                                               &cond_eval, bst);
+        if (BITPUNCH_OK == bt_ret) {
+            if (cond_eval) {
+                attr_is_specified[attr_idx] = TRUE;
+                bt_ret = expr_evaluate_value_internal(
+                    attr->expr, scope, &attr_value[attr_idx], bst);
             }
-            free(param_value);
-            free(param_is_specified);
+        }
+        if (BITPUNCH_OK != bt_ret) {
+            for (attr_idx = 0; attr_idx < 0; --attr_idx) {
+                expr_value_destroy(attr_value[attr_idx]);
+            }
+            free(attr_value);
+            free(attr_is_specified);
             return bt_ret;
         }
     }
-    *param_valuep = param_value;
-    *param_is_specifiedp = param_is_specified;
+    *attr_valuep = attr_value;
+    *attr_is_specifiedp = attr_is_specified;
     return BITPUNCH_OK;
 }
 
 void
-interpreter_rcall_destroy_param_values(struct ast_node_hdl *expr,
-                                       int *param_is_specified,
-                                       expr_value_t *param_value)
+interpreter_rcall_destroy_attr_values(struct ast_node_hdl *expr,
+                                      int *attr_is_specified,
+                                      expr_value_t *attr_value)
 {
     const struct interpreter *interpreter;
-    int p_idx;
-    struct ast_node_hdl *param_node;
+    int attr_idx;
 
     interpreter = expr->ndat->u.rexpr_interpreter.interpreter;
-    if (NULL != param_value) {
-        for (p_idx = 0; p_idx < interpreter->n_params; ++p_idx) {
-            param_node = INTERPRETER_RCALL_PARAM(expr, p_idx);
-            if (AST_NODE_TYPE_NONE != param_node->ndat->type) {
-                expr_value_destroy(param_value[p_idx]);
-            }
+    if (NULL != attr_value) {
+        for (attr_idx = 0; attr_idx < interpreter->n_attrs; ++attr_idx) {
+            expr_value_destroy(attr_value[attr_idx]);
         }
-        free(param_value);
-        free(param_is_specified);
+        free(attr_value);
+        free(attr_is_specified);
     }
 }
 
@@ -329,23 +321,23 @@ interpreter_rcall_read_value(struct ast_node_hdl *expr,
                              struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    int *param_is_specified = NULL;
-    expr_value_t *param_value = NULL;
+    int *attr_is_specified = NULL;
+    expr_value_t *attr_value = NULL;
     int64_t span_size;
     int64_t used_size;
     expr_value_t value;
 
     value.type = EXPR_VALUE_TYPE_UNSET;
-    bt_ret = interpreter_rcall_evaluate_params(expr, scope,
-                                               &param_is_specified,
-                                               &param_value, bst);
+    bt_ret = interpreter_rcall_evaluate_attrs(expr, scope,
+                                              &attr_is_specified,
+                                              &attr_value, bst);
     if (BITPUNCH_OK == bt_ret) {
         if (NULL == expr->ndat->u.rexpr_interpreter.get_size_func) {
             span_size = item_size;
         } else if (-1 == expr->ndat->u.rexpr_interpreter.get_size_func(
                        expr,
                        &span_size, &used_size, item_data, item_size,
-                       param_is_specified, param_value)) {
+                       attr_is_specified, attr_value)) {
             bt_ret = BITPUNCH_DATA_ERROR;
         }
     }
@@ -354,7 +346,7 @@ interpreter_rcall_read_value(struct ast_node_hdl *expr,
         if (-1 == expr->ndat->u.rexpr_interpreter.read_func(
                 expr,
                 &value, item_data, span_size,
-                param_is_specified, param_value)) {
+                attr_is_specified, attr_value)) {
             bt_ret = BITPUNCH_DATA_ERROR;
         }
     }
@@ -363,7 +355,7 @@ interpreter_rcall_read_value(struct ast_node_hdl *expr,
     } else {
         expr_value_destroy(value);
     }
-    interpreter_rcall_destroy_param_values(expr, param_is_specified,
-                                           param_value);
+    interpreter_rcall_destroy_attr_values(expr, attr_is_specified,
+                                          attr_value);
     return bt_ret;
 }

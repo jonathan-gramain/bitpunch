@@ -5279,8 +5279,8 @@ box_compute_item_size_internal__byte_array_interpreter_size(
     struct browse_state *bst)
 {
     const char *item_data;
-    expr_value_t *param_value;
-    int *param_is_specified;
+    expr_value_t *attr_value;
+    int *attr_is_specified;
     int iret;
     int64_t span_size;
     int64_t used_size;
@@ -5323,54 +5323,54 @@ box_compute_item_size_internal__byte_array_interpreter_size(
     }
     if (span_filter == used_filter
         || NULL == used_sizep) {
-        bt_ret = interpreter_rcall_evaluate_params(
-            span_filter, box, &param_is_specified, &param_value, bst);
+        bt_ret = interpreter_rcall_evaluate_attrs(
+            span_filter, box, &attr_is_specified, &attr_value, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
         iret = span_filter->ndat->u.rexpr_interpreter.get_size_func(
             span_filter, &span_size, &used_size, item_data,
             max_slack_offset - item_offset,
-            param_is_specified, param_value);
-        interpreter_rcall_destroy_param_values(span_filter,
-                                               param_is_specified,
-                                               param_value);
+            attr_is_specified, attr_value);
+        interpreter_rcall_destroy_attr_values(span_filter,
+                                              attr_is_specified,
+                                              attr_value);
         if (-1 == iret) {
             return box_error(BITPUNCH_DATA_ERROR, box, span_filter, bst,
                              "interpreter couldn't return field's sizes");
         }
     } else {
         if (NULL != span_sizep) {
-            bt_ret = interpreter_rcall_evaluate_params(
-                span_filter, box, &param_is_specified, &param_value, bst);
+            bt_ret = interpreter_rcall_evaluate_attrs(
+                span_filter, box, &attr_is_specified, &attr_value, bst);
             if (BITPUNCH_OK != bt_ret) {
                 return bt_ret;
             }
             iret = span_filter->ndat->u.rexpr_interpreter.get_size_func(
                 span_filter, &span_size, &dummy_size, item_data,
                 max_slack_offset - item_offset,
-                param_is_specified, param_value);
-            interpreter_rcall_destroy_param_values(span_filter,
-                                                   param_is_specified,
-                                                   param_value);
+                attr_is_specified, attr_value);
+            interpreter_rcall_destroy_attr_values(span_filter,
+                                                  attr_is_specified,
+                                                  attr_value);
             if (-1 == iret) {
                 return box_error(
                     BITPUNCH_DATA_ERROR, box, span_filter, bst,
                     "interpreter couldn't return field's span size");
             }
         }
-        bt_ret = interpreter_rcall_evaluate_params(
-            used_filter, box, &param_is_specified, &param_value, bst);
+        bt_ret = interpreter_rcall_evaluate_attrs(
+            used_filter, box, &attr_is_specified, &attr_value, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
         iret = used_filter->ndat->u.rexpr_interpreter.get_size_func(
             used_filter, &dummy_size, &used_size, item_data,
             max_slack_offset - item_offset,
-            param_is_specified, param_value);
-        interpreter_rcall_destroy_param_values(used_filter,
-                                               param_is_specified,
-                                               param_value);
+            attr_is_specified, attr_value);
+        interpreter_rcall_destroy_attr_values(used_filter,
+                                              attr_is_specified,
+                                              attr_value);
         if (-1 == iret) {
             return box_error(BITPUNCH_DATA_ERROR, box, used_filter, bst,
                              "interpreter couldn't return field's used size");
