@@ -1095,29 +1095,12 @@ block_stmt_list:
   | block_stmt_list attribute_stmt {
         $$ = $1;
         const char *attr_name;
-        struct ast_node_hdl *expr;
 
         attr_name = $attribute_stmt->nstmt.name;
-        expr = $attribute_stmt->expr;
         if (attr_name[0] != '@') {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR,
                            &$attribute_stmt->nstmt.stmt.loc,
                            "attribute names must start with symbol '@'");
-            YYERROR;
-        }
-        // FIXME these checks should be done by each filter backend
-        if (0 == strcmp(attr_name + 1, "span")
-            || 0 == strcmp(attr_name + 1, "minspan")
-            || 0 == strcmp(attr_name + 1, "maxspan")) {
-            expr->flags |= ASTFLAG_IS_SPAN_EXPR;
-        } else if (0 == strcmp(attr_name + 1, "key")) {
-            expr->flags |= ASTFLAG_IS_KEY_EXPR;
-        } else if (0 == strcmp(attr_name + 1, "last")) {
-            // no-op
-        } else {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                           &$attribute_stmt->nstmt.stmt.loc,
-                           "unsupported attribute '%s'", attr_name);
             YYERROR;
         }
         TAILQ_INSERT_TAIL($$.attribute_list,
@@ -1178,7 +1161,6 @@ match_stmt:
         $$ = new_safe(struct expr_stmt);
         $$->stmt.loc = @$;
         $$->expr = $expr;
-        $$->expr->flags |= ASTFLAG_IS_MATCH_EXPR;
     }
 
 %%
