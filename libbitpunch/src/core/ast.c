@@ -773,14 +773,11 @@ resolve_identifiers_block(struct ast_node_hdl *block,
                 filter_type);
             return -1;
         }
-    } else {
-        interpreter = interpreter_lookup("item");
-        assert(NULL != interpreter);
-    }
-    if (-1 == interpreter_rcall_build(
-            block, interpreter,
-            block->ndat->u.block_def.block_stmt_list.attribute_list)) {
-        return -1;
+        if (-1 == interpreter_rcall_build(
+                block, interpreter,
+                block->ndat->u.block_def.block_stmt_list.attribute_list)) {
+            return -1;
+        }
     }
     return 0;
 }
@@ -1794,31 +1791,33 @@ compile_interpreter_attributes(struct ast_node_hdl *node,
                                struct attribute_set *attr_set,
                                struct compile_ctx *ctx)
 {
-    struct ast_node_hdl *attr_exprp;
+    struct named_expr *attr;
     struct interpreter_attr_def *attr_def;
     int sem_error = FALSE;
 
     STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
-        attr_exprp = attr_set->attrs[attr_def->ref_idx]->expr;
-        compile_expr(attr_exprp, ctx, TRUE);
+        attr = attr_set->attrs[attr_def->ref_idx];
+        if (NULL != attr) {
+            compile_expr(attr->expr, ctx, TRUE);
+        }
     }
     if (!compile_continue(ctx)) {
         return -1;
     }
     STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
-        attr_exprp = attr_set->attrs[attr_def->ref_idx]->expr;
-        if (AST_NODE_TYPE_NONE != attr_exprp->ndat->type) {
-            assert(ast_node_is_rexpr(attr_exprp));
+        attr = attr_set->attrs[attr_def->ref_idx];
+        if (NULL != attr) {
+            assert(ast_node_is_rexpr(attr->expr));
             if (0 == (attr_def->value_type_mask
-                      & attr_exprp->ndat->u.rexpr.value_type_mask)) {
+                      & attr->expr->ndat->u.rexpr.value_type_mask)) {
                 semantic_error(
-                    SEMANTIC_LOGLEVEL_ERROR, &attr_exprp->loc,
+                    SEMANTIC_LOGLEVEL_ERROR, &attr->expr->loc,
                     "attribute \"%s\" passed to interpreter \"%s\" has "
                     "an incompatible value-type '%s', acceptable "
                     "value-types are '%s'",
                     attr_def->name, interpreter->name,
                     expr_value_type_str(
-                        attr_exprp->ndat->u.rexpr.value_type_mask),
+                        attr->expr->ndat->u.rexpr.value_type_mask),
                     expr_value_type_str(attr_def->value_type_mask));
                 sem_error = TRUE;
                 continue ;
@@ -1839,17 +1838,17 @@ compile_item(struct ast_node_hdl *item,
              struct statement_list *attribute_list,
              struct compile_ctx *ctx)
 {
+    struct interpreter *interpreter;
+
+    interpreter = interpreter_lookup("item");
+    assert(NULL != interpreter);
     if (-1 == interpreter_build_attrs(
-            item,
-            item->ndat->u.item.interpreter,
-            attribute_list,
+            item, interpreter, attribute_list,
             &item->ndat->u.item.attr_set)) {
         return -1;
     }
     if (-1 == compile_interpreter_attributes(
-            item,
-            item->ndat->u.item.interpreter,
-            &item->ndat->u.item.attr_set, ctx)) {
+            item, interpreter, &item->ndat->u.item.attr_set, ctx)) {
         return -1;
     }
     return 0;
