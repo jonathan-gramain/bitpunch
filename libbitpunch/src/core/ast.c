@@ -1790,34 +1790,34 @@ compile_stmt_lists(struct block_stmt_list *stmt_lists,
 static int
 compile_interpreter_attributes(struct ast_node_hdl *node,
                                const struct interpreter *interpreter,
-                               struct ast_node_hdl *attributes,
+                               struct attribute_set *attr_set,
                                struct compile_ctx *ctx)
 {
-    struct ast_node_hdl *attr_valuep;
+    struct ast_node_hdl *attr_exprp;
     struct interpreter_attr_def *attr_def;
     int sem_error = FALSE;
 
     STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
-        attr_valuep = &attributes[attr_def->ref_idx];
-        compile_expr(attr_valuep, ctx, TRUE);
+        attr_exprp = attr_set->attrs[attr_def->ref_idx]->expr;
+        compile_expr(attr_exprp, ctx, TRUE);
     }
     if (!compile_continue(ctx)) {
         return -1;
     }
     STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
-        attr_valuep = &attributes[attr_def->ref_idx];
-        if (AST_NODE_TYPE_NONE != attr_valuep->ndat->type) {
-            assert(ast_node_is_rexpr(attr_valuep));
+        attr_exprp = attr_set->attrs[attr_def->ref_idx]->expr;
+        if (AST_NODE_TYPE_NONE != attr_exprp->ndat->type) {
+            assert(ast_node_is_rexpr(attr_exprp));
             if (0 == (attr_def->value_type_mask
-                      & attr_valuep->ndat->u.rexpr.value_type_mask)) {
+                      & attr_exprp->ndat->u.rexpr.value_type_mask)) {
                 semantic_error(
-                    SEMANTIC_LOGLEVEL_ERROR, &attr_valuep->loc,
+                    SEMANTIC_LOGLEVEL_ERROR, &attr_exprp->loc,
                     "attribute \"%s\" passed to interpreter \"%s\" has "
                     "an incompatible value-type '%s', acceptable "
                     "value-types are '%s'",
                     attr_def->name, interpreter->name,
                     expr_value_type_str(
-                        attr_valuep->ndat->u.rexpr.value_type_mask),
+                        attr_exprp->ndat->u.rexpr.value_type_mask),
                     expr_value_type_str(attr_def->value_type_mask));
                 sem_error = TRUE;
                 continue ;
@@ -1827,7 +1827,7 @@ compile_interpreter_attributes(struct ast_node_hdl *node,
     if (sem_error) {
         return -1;
     }
-    if (-1 == interpreter->rcall_build_func(node, attributes, ctx)) {
+    if (-1 == interpreter->rcall_build_func(node, attr_set, ctx)) {
         return -1;
     }
     return 0;
@@ -1842,13 +1842,13 @@ compile_item(struct ast_node_hdl *item,
             item,
             item->ndat->u.item.interpreter,
             attribute_list,
-            &item->ndat->u.item.attributes)) {
+            &item->ndat->u.item.attr_set)) {
         return -1;
     }
     if (-1 == compile_interpreter_attributes(
             item,
             item->ndat->u.item.interpreter,
-            item->ndat->u.item.attributes, ctx)) {
+            item->ndat->u.item.attr_set, ctx)) {
         return -1;
     }
     return 0;
@@ -2960,7 +2960,7 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
     int child_conditionally_fills_slack;
     struct field *first_trailer_field;
 
-    attributes = item->ndat->u.block_def.attributes;
+    attributes = item->ndat->u.item.attributes;
 
     /* - Compute the minimum span size from the sum (struct) or
        max (union) of fields' minimum span sizes. If size is
@@ -2985,22 +2985,19 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
 
     min_span_expr = NULL;
     max_span_expr = NULL;
-    if (AST_NODE_TYPE_NONE
-        != attributes[REF_ITEM_MINSPAN].ndat->u.rexpr.value_type) {
+    if (AST_NODE_TYPE_NONE != attributes[REF_ITEM_MINSPAN].ndat->type) {
         if (NULL == attr->nstmt.stmt.cond) {
             min_span_expr = attr->expr;
         }
         dynamic_span = TRUE;
     }
-    if (AST_NODE_TYPE_NONE
-        != attributes[REF_ITEM_MAXSPAN].ndat->u.rexpr.value_type) {
+    if (AST_NODE_TYPE_NONE != attributes[REF_ITEM_MAXSPAN].ndat->type) {
         if (NULL == attr->nstmt.stmt.cond) {
             max_span_expr = attr->expr;
         }
         dynamic_span = TRUE;
     }
-    if (AST_NODE_TYPE_NONE
-        != attributes[REF_ITEM_SPAN].ndat->u.rexpr.value_type) {
+    if (AST_NODE_TYPE_NONE != attributes[REF_ITEM_SPAN].ndat->type) {
         if (NULL == attr->nstmt.stmt.cond) {
             min_span_expr = attr->expr;
             max_span_expr = attr->expr;
@@ -3008,8 +3005,7 @@ compile_span_size_block(struct ast_node_hdl *item, struct compile_ctx *ctx)
             dynamic_span = TRUE;
         }
     }
-    if (AST_NODE_TYPE_NONE
-        != attributes[REF_ITEM_LAST].ndat->u.rexpr.value_type) {
+    if (AST_NODE_TYPE_NONE != attributes[REF_ITEM_LAST].ndat->type) {
         contains_last_attr = TRUE;
     }
     field_list = item->ndat->u.block_def.block_stmt_list.field_list;

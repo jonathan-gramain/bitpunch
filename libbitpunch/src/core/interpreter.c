@@ -178,7 +178,7 @@ interpreter_rcall_build(struct ast_node_hdl *node,
     node->ndat = ndat;
     if (-1 == interpreter_build_attrs(
             node, interpreter, attr_list,
-            &node->ndat->u.rexpr_interpreter.attributes)) {
+            &node->ndat->u.rexpr_interpreter.attr_set)) {
         free(ndat);
         node->ndat = NULL;
         return -1;
@@ -204,16 +204,16 @@ int
 interpreter_build_attrs(struct ast_node_hdl *node,
                         const struct interpreter *interpreter,
                         struct statement_list *attr_list,
-                        struct ast_node_hdl **attributesp)
+                        struct attribute_set *attr_setp)
 {
     struct named_expr *attr;
-    struct ast_node_hdl *attr_valuep;
     int attr_ref;
     struct interpreter_attr_def *attr_def;
     int sem_error = FALSE;
 
-    *attributesp = new_n_safe(struct ast_node_hdl,
-                              interpreter->max_attr_ref + 1);
+    memset(attr_setp, 0, sizeof (*attr_setp));
+    attr_setp->n_attrs = interpreter->max_attr_ref + 1;
+    attr_setp->attrs = new_n_safe(struct named_expr *, attr_setp->n_attrs);
     STATEMENT_FOREACH(named_expr, attr, attr_list, list) {
         attr_ref = get_attr_index(interpreter, attr->nstmt.name);
         if (-1 == attr_ref) {
@@ -224,27 +224,23 @@ interpreter_build_attrs(struct ast_node_hdl *node,
             continue ;
         }
         assert(attr_ref >= 0 && attr_ref <= interpreter->max_attr_ref);
-        attr_valuep = &(*attributesp)[attr_ref];
-        if (NULL != attr_valuep->ndat) {
+        if (NULL != attr_setp->attrs[attr_ref]) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR, &attr->nstmt.stmt.loc,
-                           "duplicate attribute \"@%s\"", attr->nstmt.name);
+                           "duplicate attribute \"%s\"", attr->nstmt.name);
             sem_error = TRUE;
             continue ;
         }
-        *attr_valuep = *attr->expr;
+        attr_setp->attrs[attr_ref] = attr;
     }
     STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
-        attr_valuep = &(*attributesp)[attr_def->ref_idx];
-        if (NULL == attr_valuep->ndat) {
+        if (NULL == attr_setp->attrs[attr_def->ref_idx]) {
             if (0 != (INTERPRETER_ATTR_FLAG_MANDATORY & attr_def->flags)) {
                 semantic_error(SEMANTIC_LOGLEVEL_ERROR, &node->loc,
-                               "missing mandatory attribute \"@%s\"",
+                               "missing mandatory attribute \"%s\"",
                                attr_def->name);
                 sem_error = TRUE;
                 continue ;
             }
-            attr_valuep->ndat = new_safe(struct ast_node_data);
-            attr_valuep->ndat->type = AST_NODE_TYPE_NONE;
         }
     }
     if (sem_error) {
@@ -263,7 +259,7 @@ interpreter_rcall_evaluate_attrs(struct ast_node_hdl *expr,
     bitpunch_status_t bt_ret;
     const struct interpreter *interpreter;
     int p_idx;
-    struct ast_node_hdl *attr_node;
+    struct named_expr *attr;
     expr_value_t *attr_value;
     int *attr_is_specified;
 
@@ -273,18 +269,17 @@ interpreter_rcall_evaluate_attrs(struct ast_node_hdl *expr,
     attr_is_specified = new_n_safe(int, interpreter->n_attrs);
 
     for (p_idx = 0; p_idx < interpreter->n_attrs; ++p_idx) {
-        attr_node = &expr->ndat->u.rexpr_interpreter.attributes[p_idx];
-        if (AST_NODE_TYPE_NONE == attr_node->ndat->type) {
+        attr = expr->ndat->u.rexpr_interpreter.attr_set.attrs[p_idx];
+        if (NULL == attr) {
+            attr_value[p_idx].type = EXPR_VALUE_TYPE_UNSET;
             continue ;
         }
         attr_is_specified[p_idx] = TRUE;
-        bt_ret = expr_evaluate_value_internal(attr_node, scope,
+        bt_ret = expr_evaluate_value_internal(attr->expr, scope,
                                               &attr_value[p_idx], bst);
         if (BITPUNCH_OK != bt_ret) {
             for (--p_idx; p_idx >= 0; --p_idx) {
-                if (AST_NODE_TYPE_NONE != attr_node->ndat->type) {
-                    expr_value_destroy(attr_value[p_idx]);
-                }
+                expr_value_destroy(attr_value[p_idx]);
             }
             free(attr_value);
             free(attr_is_specified);
@@ -303,15 +298,11 @@ interpreter_rcall_destroy_attr_values(struct ast_node_hdl *expr,
 {
     const struct interpreter *interpreter;
     int p_idx;
-    struct ast_node_hdl *attr_node;
 
     interpreter = expr->ndat->u.rexpr_interpreter.interpreter;
     if (NULL != attr_value) {
         for (p_idx = 0; p_idx < interpreter->n_attrs; ++p_idx) {
-            attr_node = &expr->ndat->u.rexpr_interpreter.attributes[p_idx];
-            if (AST_NODE_TYPE_NONE != attr_node->ndat->type) {
-                expr_value_destroy(attr_value[p_idx]);
-            }
+            expr_value_destroy(attr_value[p_idx]);
         }
         free(attr_value);
         free(attr_is_specified);

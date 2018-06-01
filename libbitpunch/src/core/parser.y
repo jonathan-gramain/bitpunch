@@ -183,6 +183,11 @@
         struct filter_backend b_filter;
     };
 
+    struct attribute_set {
+        int n_attrs;
+        struct named_expr **attrs;
+    };
+
     enum item_flag {
         ITEMFLAG_IS_SPAN_SIZE_DYNAMIC        = (1<<0),
         ITEMFLAG_IS_USED_SIZE_DYNAMIC        = (1<<1),
@@ -197,7 +202,7 @@
         enum item_flag flags;
         int64_t min_span_size; /* minimum size */
         struct interpreter *interpreter;
-        struct ast_node_hdl *attributes;
+        struct attribute_set attr_set;
     };
 
     struct dpath_node {
@@ -376,7 +381,7 @@
             struct rexpr_interpreter {
                 struct rexpr_dpath rexpr_dpath; /* inherits */
                 const struct interpreter *interpreter;
-                struct ast_node_hdl *attributes;
+                struct attribute_set attr_set;
                 interpreter_read_func_t read_func;
                 interpreter_write_func_t write_func;
                 interpreter_get_size_func_t get_size_func;

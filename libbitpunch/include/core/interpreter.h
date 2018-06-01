@@ -89,7 +89,7 @@ int
 interpreter_build_attrs(struct ast_node_hdl *node,
                         const struct interpreter *interpreter,
                         struct statement_list *attr_list,
-                        struct ast_node_hdl **attributesp);
+                        struct attribute_set *attr_setp);
 
 bitpunch_status_t
 interpreter_rcall_evaluate_attrs(struct ast_node_hdl *expr,
