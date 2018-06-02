@@ -2064,7 +2064,8 @@ expr_evaluate_value_polymorphic(struct ast_node_hdl *expr, struct box *scope,
         tracker_delete(tk);
         return bt_ret;
     }
-    case STATEMENT_TYPE_NAMED_EXPR: {
+    case STATEMENT_TYPE_NAMED_EXPR:
+    case STATEMENT_TYPE_ATTRIBUTE: {
         const struct named_expr *named_expr;
 
         named_expr = (struct named_expr *)nstmt;
@@ -2491,7 +2492,8 @@ expr_evaluate_dpath_polymorphic(struct ast_node_hdl *expr, struct box *scope,
         eval_dpathp->item.tk = tk;
         return BITPUNCH_OK;
     }
-    case STATEMENT_TYPE_NAMED_EXPR: {
+    case STATEMENT_TYPE_NAMED_EXPR:
+    case STATEMENT_TYPE_ATTRIBUTE: {
         const struct named_expr *named_expr;
 
         named_expr = (struct named_expr *)nstmt;

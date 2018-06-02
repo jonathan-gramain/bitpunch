@@ -586,6 +586,64 @@ def test_named_exprs_polymorphic_hydra(params_named_exprs_polymorphic_hydra):
         i += 1
 
 
+spec_file_named_exprs_polymorphic_attribute = """
+
+file {
+    encoded: byte <> integer { @signed = false; };
+    data: [] byte;
+    if (encoded == 0) {
+        let ?items = data <> [] Item;
+    } else {
+        let ?items = data <> [] byte <> base64 <> [] Item;
+    }
+
+    let Item = struct {
+        value: byte <> integer { @signed = false; };
+        @last = value == 0;
+    };
+}
+
+"""
+
+data_file_named_exprs_polymorphic_attribute_1 = """
+00
+01 02 03 04 05 00
+"""
+
+data_file_named_exprs_polymorphic_attribute_2 = """
+01
+"AQIDBAUA"
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_named_exprs_polymorphic_attribute,
+        'data': data_file_named_exprs_polymorphic_attribute_1,
+    }, {
+        'spec': spec_file_named_exprs_polymorphic_attribute,
+        'data': data_file_named_exprs_polymorphic_attribute_2,
+    }])
+def params_named_exprs_polymorphic_attribute(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_named_exprs_polymorphic_attribute(params_named_exprs_polymorphic_attribute):
+    params = params_named_exprs_polymorphic_attribute
+    dtree = params['dtree']
+
+    i = 1
+    assert len(dtree['?items']) == 6
+    for item in dtree['?items']:
+        if i == 6:
+            assert item.value == 0
+            assert dtree.eval_expr('?items[{0}].@last'.format(i - 1))
+        else:
+            assert item.value == i
+            assert not dtree.eval_expr('?items[{0}].@last'.format(i - 1))
+        i += 1
+
+
 spec_file_named_exprs_invalid_1 = """
 
 let u16 = [2] byte <> integer { @signed = false; @endian = 'little'; };
