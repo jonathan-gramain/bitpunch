@@ -141,7 +141,7 @@ ast_node_get_min_span_size(const struct ast_node_hdl *node);
 int
 ast_node_is_slack(const struct ast_node_hdl *node);
 struct ast_node_hdl *
-block_get_first_attribute(const struct ast_node_hdl *block,
+block_get_first_attribute(const struct ast_node_hdl *filter,
                           const char *attr_name);
 int
 ast_node_is_indexed(const struct ast_node_hdl *node);
@@ -171,7 +171,7 @@ dump_ast(struct ast_node_hdl *root);
 void
 fdump_ast(struct ast_node_hdl *root, FILE *stream);
 void
-dump_block(const struct ast_node_hdl *block, FILE *stream);
+dump_filter(const struct ast_node_hdl *filter, FILE *stream);
 void
 dump_ast_node_input_text(const struct ast_node_hdl *node,
                          struct bitpunch_schema_hdl *schema,

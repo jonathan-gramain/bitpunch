@@ -87,7 +87,7 @@ expr_evaluate_value_polymorphic(struct ast_node_hdl *expr, struct box *scope,
 // dpath evaluation
 static bitpunch_status_t
 expr_evaluate_dpath_anchor_common(struct ast_node_hdl *anchor_expr,
-                                  const struct ast_node_hdl *anchor_block,
+                                  const struct ast_node_hdl *anchor_filter,
                                   struct box *scope,
                                   expr_dpath_t *dpathp,
                                   struct browse_state *bst);
@@ -1642,7 +1642,7 @@ expr_evaluate_named_expr_internal(
     struct browse_state *bst)
 {
     struct ast_node_hdl *anchor_expr;
-    struct ast_node_hdl *anchor_block;
+    struct ast_node_hdl *anchor_filter;
     const struct named_expr *named_expr;
     bitpunch_status_t bt_ret;
     expr_dpath_t anchor_dpath;
@@ -1650,9 +1650,9 @@ expr_evaluate_named_expr_internal(
     struct box *member_scope;
 
     anchor_expr = expr->ndat->u.rexpr_member_common.anchor_expr;
-    anchor_block = expr->ndat->u.rexpr_member_common.anchor_block;
+    anchor_filter = expr->ndat->u.rexpr_member_common.anchor_filter;
     named_expr = expr->ndat->u.rexpr_named_expr.named_expr;
-    bt_ret = expr_evaluate_dpath_anchor_common(anchor_expr, anchor_block,
+    bt_ret = expr_evaluate_dpath_anchor_common(anchor_expr, anchor_filter,
                                                scope, &anchor_dpath, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
@@ -1724,7 +1724,7 @@ expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        if (AST_NODE_TYPE_BLOCK_DEF != expr_dpath_get_as_type(
+        if (AST_NODE_TYPE_FILTER_DEF != expr_dpath_get_as_type(
                 anchor_dpath)->ndat->type) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &anchor_expr->loc,
@@ -2128,7 +2128,7 @@ expr_evaluate_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
 
 static bitpunch_status_t
 expr_evaluate_dpath_anchor_common(struct ast_node_hdl *anchor_expr,
-                                  const struct ast_node_hdl *anchor_block,
+                                  const struct ast_node_hdl *anchor_filter,
                                   struct box *scope,
                                   expr_dpath_t *dpathp,
                                   struct browse_state *bst)
@@ -2143,7 +2143,7 @@ expr_evaluate_dpath_anchor_common(struct ast_node_hdl *anchor_expr,
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        if (AST_NODE_TYPE_BLOCK_DEF != expr_dpath_get_as_type(
+        if (AST_NODE_TYPE_FILTER_DEF != expr_dpath_get_as_type(
                 anchor_dpath)->ndat->type) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &anchor_expr->loc,
@@ -2159,7 +2159,7 @@ expr_evaluate_dpath_anchor_common(struct ast_node_hdl *anchor_expr,
      * from inner to outer scope */
     anchor_box = scope;
     while (dpath_node_get_as_type(&anchor_box->dpath)->ndat
-           != anchor_block->ndat) {
+           != anchor_filter->ndat) {
         anchor_box = anchor_box->parent_box;
         if (NULL == anchor_box) {
             // no dpath associated to anchor (i.e. anchor is a
@@ -2211,15 +2211,15 @@ expr_evaluate_dpath_field(struct ast_node_hdl *expr, struct box *scope,
                           struct browse_state *bst)
 {
     struct ast_node_hdl *anchor_expr;
-    struct ast_node_hdl *anchor_block;
+    struct ast_node_hdl *anchor_filter;
     bitpunch_status_t bt_ret;
     expr_dpath_t anchor_dpath;
     struct box *anchor_box;
     struct tracker *tk;
 
     anchor_expr = expr->ndat->u.rexpr_member_common.anchor_expr;
-    anchor_block = expr->ndat->u.rexpr_member_common.anchor_block;
-    bt_ret = expr_evaluate_dpath_anchor_common(anchor_expr, anchor_block,
+    anchor_filter = expr->ndat->u.rexpr_member_common.anchor_filter;
+    bt_ret = expr_evaluate_dpath_anchor_common(anchor_expr, anchor_filter,
                                                scope, &anchor_dpath, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;

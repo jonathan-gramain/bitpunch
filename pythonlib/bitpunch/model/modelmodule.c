@@ -1881,7 +1881,7 @@ DataContainer_box_to_python_object(struct DataTreeObject *dtree,
                                    struct box *box)
 {
     switch (dpath_node_get_as_type(&box->dpath)->ndat->type) {
-    case AST_NODE_TYPE_BLOCK_DEF:
+    case AST_NODE_TYPE_FILTER_DEF:
         return DataBlock_box_to_python_object(dtree, box);
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_ARRAY_SLICE:
@@ -1962,7 +1962,7 @@ static int
 Tracker_set_default_iter_mode(TrackerObject *self)
 {
     switch (self->tk->box->dpath.item->ndat->type) {
-    case AST_NODE_TYPE_BLOCK_DEF:
+    case AST_NODE_TYPE_FILTER_DEF:
         self->iter_mode = TRACKER_ITER_FIELD_NAMES;
         break ;
     case AST_NODE_TYPE_ARRAY:
@@ -3237,7 +3237,7 @@ box_to_shallow_PyObject(DataTreeObject *dtree, struct box *box)
 
     as_type = dpath_node_get_as_type(&box->dpath);
     switch (as_type->ndat->type) {
-    case AST_NODE_TYPE_BLOCK_DEF:
+    case AST_NODE_TYPE_FILTER_DEF:
         dcont = (DataContainerObject *)DataBlock_new(&DataBlockType,
                                                      NULL, NULL);
         if (NULL == dcont) {

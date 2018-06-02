@@ -120,7 +120,7 @@ dbg_tracker_check_track_path(const struct tracker *tk,
 {
     assert(NULL != tk->box->dpath.item);
     switch (tk->box->dpath.item->ndat->type) {
-    case AST_NODE_TYPE_BLOCK_DEF:
+    case AST_NODE_TYPE_FILTER_DEF:
         assert(TRACK_PATH_BLOCK == tk->cur.type);
         if (expect_is_set) {
             assert(NULL != tk->cur.u.block.field);

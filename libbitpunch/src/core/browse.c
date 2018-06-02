@@ -989,7 +989,7 @@ box_construct(struct box *o_box,
     }
     /* initialize internal state */
     switch (dpath->item->ndat->type) {
-    case AST_NODE_TYPE_BLOCK_DEF:
+    case AST_NODE_TYPE_FILTER_DEF:
         break ;
     case AST_NODE_TYPE_ARRAY:
         o_box->u.array_generic.n_items = -1;
@@ -1708,7 +1708,7 @@ box_get_scope_box(struct box *box)
 
     scope = box;
     while (NULL != scope
-           && AST_NODE_TYPE_BLOCK_DEF != scope->dpath.item->ndat->type) {
+           && AST_NODE_TYPE_FILTER_DEF != scope->dpath.item->ndat->type) {
         scope = scope->parent_box;
     }
     return scope;
@@ -1719,7 +1719,7 @@ box_free(struct box *box)
 {
     /* destroy internal state */
     switch (box->dpath.item->ndat->type) {
-    case AST_NODE_TYPE_BLOCK_DEF:
+    case AST_NODE_TYPE_FILTER_DEF:
         break ;
     case AST_NODE_TYPE_ARRAY:
         if (box_index_cache_exists(box)) {
@@ -2326,7 +2326,7 @@ static void
 tracker_reset_track_path(struct tracker *tk)
 {
     switch (tk->box->dpath.item->ndat->type) {
-    case AST_NODE_TYPE_BLOCK_DEF:
+    case AST_NODE_TYPE_FILTER_DEF:
         tk->cur = track_path_from_block_field(NULL);
         break ;
     case AST_NODE_TYPE_ARRAY:
@@ -2513,8 +2513,8 @@ static bitpunch_status_t
 tracker_set_end(struct tracker *tk, struct browse_state *bst)
 {
     DBG_TRACKER_DUMP(tk);
-    if (AST_NODE_TYPE_BLOCK_DEF == tk->box->dpath.item->ndat->type
-        && BLOCK_TYPE_UNION == tk->box->dpath.item->ndat->u.block_def.type) {
+    if (AST_NODE_TYPE_FILTER_DEF == tk->box->dpath.item->ndat->type
+        && BLOCK_TYPE_UNION == tk->box->dpath.item->ndat->u.filter_def.type) {
         /* union: no offset check */
     } else if (-1 != tk->item_offset
                && ((0 == (tk->flags & TRACKER_REVERSED)
@@ -3024,7 +3024,7 @@ box_get_end_path(struct box *box, struct track_path *end_pathp,
         end_pathp->type = TRACK_PATH_ARRAY;
         end_pathp->u.array.index = index_start + n_items;
         break ;
-    case AST_NODE_TYPE_BLOCK_DEF:
+    case AST_NODE_TYPE_FILTER_DEF:
         end_pathp->type = TRACK_PATH_BLOCK;
         end_pathp->u.block.field = NULL;
         break ;
@@ -3099,7 +3099,7 @@ tracker_compute_item_offset(struct tracker *tk,
     tk->flags |= TRACKER_NEED_ITEM_OFFSET;
     node = tk->box->dpath.item;
     switch (node->ndat->type) {
-    case AST_NODE_TYPE_BLOCK_DEF:
+    case AST_NODE_TYPE_FILTER_DEF:
         return tracker_goto_field_internal(tk, tk->cur.u.block.field,
                                            TRUE, bst);
     case AST_NODE_TYPE_ARRAY:
@@ -3515,8 +3515,8 @@ tracker_goto_end_offset(struct tracker *tk,
     DBG_TRACKER_DUMP(tk);
     node = tk->box->dpath.item;
     if (0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
-        if (AST_NODE_TYPE_BLOCK_DEF == node->ndat->type
-            && BLOCK_TYPE_UNION == node->ndat->u.block_def.type) {
+        if (AST_NODE_TYPE_FILTER_DEF == node->ndat->type
+            && BLOCK_TYPE_UNION == node->ndat->u.filter_def.type) {
             /* union: no offset change */
         } else {
             bitpunch_status_t bt_ret;
@@ -4384,10 +4384,10 @@ box_iter_statements(struct box *box,
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
     it.stmt_flags = stmt_flags;
-    if (AST_NODE_TYPE_BLOCK_DEF != box->dpath.item->ndat->type) {
+    if (AST_NODE_TYPE_FILTER_DEF != box->dpath.item->ndat->type) {
         return it;
     }
-    it.stmt_lists = &box->dpath.item->ndat->u.block_def.block_stmt_list;
+    it.stmt_lists = &box->dpath.item->ndat->u.filter_def.block_stmt_list;
     it.stmt_remaining = stmt_mask;
     box_iter_start_list_internal(&it);
     return it;
@@ -4420,10 +4420,10 @@ box_riter_statements(struct box *box,
     it.identifier = identifier;
     it.stmt_flags = stmt_flags;
     it.it_flags = STATEMENT_ITERATOR_FLAG_REVERSE;
-    if (AST_NODE_TYPE_BLOCK_DEF != box->dpath.item->ndat->type) {
+    if (AST_NODE_TYPE_FILTER_DEF != box->dpath.item->ndat->type) {
         return it;
     }
-    it.stmt_lists = &box->dpath.item->ndat->u.block_def.block_stmt_list;
+    it.stmt_lists = &box->dpath.item->ndat->u.filter_def.block_stmt_list;
     it.stmt_remaining = stmt_mask;
     box_riter_start_list_internal(&it);
     return it;
@@ -4546,10 +4546,10 @@ box_lookup_statement_in_anonymous_field_recur(
 
     field = (const struct field *)stmt;
     as_type = dpath_node_get_as_type(&field->dpath);
-    assert(AST_NODE_TYPE_BLOCK_DEF == as_type->ndat->type);
+    assert(AST_NODE_TYPE_FILTER_DEF == as_type->ndat->type);
     if (!identifier_is_visible_in_block_stmt_lists(
             STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD,
-            identifier, &as_type->ndat->u.block_def.block_stmt_list)) {
+            identifier, &as_type->ndat->u.filter_def.block_stmt_list)) {
         return BITPUNCH_NO_ITEM;
     }
 
@@ -4575,7 +4575,7 @@ box_lookup_statement_in_anonymous_field_recur(
         return bt_ret;
     }
     bt_ret = box_lookup_statement_recur(
-        scope, &as_type->ndat->u.block_def.block_stmt_list,
+        scope, &as_type->ndat->u.filter_def.block_stmt_list,
         stmt_mask, identifier, stmt_typep, stmtp, scopep, bst);
     box_delete(scope);
     return bt_ret;
@@ -4676,11 +4676,11 @@ box_lookup_statement_internal(struct box *box,
                               struct box **scopep,
                               struct browse_state *bst)
 {
-    if (AST_NODE_TYPE_BLOCK_DEF != box->dpath.item->ndat->type) {
+    if (AST_NODE_TYPE_FILTER_DEF != box->dpath.item->ndat->type) {
         return BITPUNCH_NO_ITEM;
     }
     return box_lookup_statement_recur(
-        box, &box->dpath.item->ndat->u.block_def.block_stmt_list,
+        box, &box->dpath.item->ndat->u.filter_def.block_stmt_list,
         stmt_mask, identifier, stmt_typep, stmtp, scopep, bst);
 }
 
@@ -5672,7 +5672,7 @@ box_compute_used_size__packed_dynamic_size(struct box *box,
     tk->flags |= (TRACKER_NEED_ITEM_OFFSET |
                   ((box->flags & BOX_RALIGN) ? TRACKER_REVERSED : 0u));
     // TODO remove special case?
-    if (AST_NODE_TYPE_BLOCK_DEF == box->dpath.item->ndat->type) {
+    if (AST_NODE_TYPE_FILTER_DEF == box->dpath.item->ndat->type) {
         bt_ret = tracker_goto_first_item_int__block(tk, TRUE, bst);
         while (BITPUNCH_OK == bt_ret) {
             bt_ret = tracker_goto_next_item_int__block(tk, TRUE, bst);
@@ -5813,7 +5813,7 @@ tracker_in_anonymous_block(struct tracker *tk)
     unfiltered_box = box_get_unfiltered_parent(tk->box);
     parent_box = unfiltered_box->parent_box;
     return (NULL != parent_box
-            && AST_NODE_TYPE_BLOCK_DEF == parent_box->dpath.item->ndat->type
+            && AST_NODE_TYPE_FILTER_DEF == parent_box->dpath.item->ndat->type
             && NULL != unfiltered_box->track_path.u.block.field
             && NULL == unfiltered_box->track_path.u.block.field->nstmt.name
             && 0 == (unfiltered_box->track_path.u.block.field
@@ -5880,7 +5880,7 @@ tracker_goto_next_item_int__block(struct tracker *tk, int flat,
     while (TRUE) {
         /* union: no offset change */
         if (0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)
-            && BLOCK_TYPE_STRUCT == tk->box->dpath.item->ndat->u.block_def.type) {
+            && BLOCK_TYPE_STRUCT == tk->box->dpath.item->ndat->u.filter_def.type) {
             int64_t item_size;
 
             bt_ret = tracker_get_item_size_internal(tk, &item_size, bst);
@@ -6907,7 +6907,7 @@ tracker_goto_next_key_match__array(struct tracker *tk,
     assert(AST_NODE_TYPE_ARRAY == tk->box->dpath.item->ndat->type);
     item_type = dpath_node_get_as_type(
         &tk->box->dpath.item->ndat->u.array.item_type);
-    if (AST_NODE_TYPE_BLOCK_DEF != item_type->ndat->type) {
+    if (AST_NODE_TYPE_FILTER_DEF != item_type->ndat->type) {
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, item_type, bst,
                              "only arrays which items are structures can "
                              "be accessed through named index");
@@ -7872,7 +7872,7 @@ browse_setup_backends__box__block(struct ast_node_hdl *item)
         b_box->compute_used_size = box_compute_used_size__static_size;
     } else if (0 != (item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
         b_box->compute_used_size = box_compute_used_size__as_max_span;
-    } else if (BLOCK_TYPE_STRUCT == item->ndat->u.block_def.type) {
+    } else if (BLOCK_TYPE_STRUCT == item->ndat->u.filter_def.type) {
         b_box->compute_used_size = box_compute_used_size__packed_dynamic_size;
     } else /* union */ {
         b_box->compute_used_size = box_compute_used_size__union_dynamic_size;
@@ -7893,7 +7893,7 @@ browse_setup_backends__box__block(struct ast_node_hdl *item)
                 box_compute_max_span_size__as_slack;
         }
     }
-    if (BLOCK_TYPE_STRUCT == item->ndat->u.block_def.type) {
+    if (BLOCK_TYPE_STRUCT == item->ndat->u.filter_def.type) {
         b_box->get_max_slack_offset = box_get_children_slack__struct;
     }
     b_box->get_n_items = box_get_n_items__block;
@@ -8231,7 +8231,7 @@ static int
 browse_setup_backends_node(struct ast_node_hdl *node)
 {
     switch (node->ndat->type) {
-    case AST_NODE_TYPE_BLOCK_DEF:
+    case AST_NODE_TYPE_FILTER_DEF:
         browse_setup_backends__box__block(node);
         browse_setup_backends__tracker__block(node);
         break ;
@@ -8291,14 +8291,14 @@ browse_setup_backends_stmt_list_generic(struct statement_list *stmt_list)
 }
 
 static int
-browse_setup_backends_recur_block(struct ast_node_hdl *block)
+browse_setup_backends_recur_block(struct ast_node_hdl *filter)
 {
     struct block_stmt_list *stmt_lists;
     struct field *field;
     struct named_expr *named_expr;
     struct expr_stmt *match;
 
-    stmt_lists = &block->ndat->u.block_def.block_stmt_list;
+    stmt_lists = &filter->ndat->u.filter_def.block_stmt_list;
     if (-1 == browse_setup_backends_stmt_list_generic(
             stmt_lists->named_expr_list)) {
         return -1;
@@ -8440,7 +8440,7 @@ browse_setup_backends_node_recur(struct ast_node_hdl *node)
     }
     node->flags |= ASTFLAG_BROWSE_SETUP_BACKENDS_IN_PROGRESS;
     switch (node->ndat->type) {
-    case AST_NODE_TYPE_BLOCK_DEF:
+    case AST_NODE_TYPE_FILTER_DEF:
         ret = browse_setup_backends_recur_block(node);
         break ;
     case AST_NODE_TYPE_ARRAY:
