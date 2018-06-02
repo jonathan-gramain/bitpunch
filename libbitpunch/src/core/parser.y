@@ -308,12 +308,6 @@
             int boolean;
             struct expr_value_string string;
             char *identifier;
-            const char *operator;
-            struct filter {
-                struct ast_node_hdl *filter_type;
-                struct param_list *param_list;
-                struct ast_node_hdl *target;
-            } filter;
             struct item_node item;
             struct container_node {
                 struct item_node item; /* inherits */

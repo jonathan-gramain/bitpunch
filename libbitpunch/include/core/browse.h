@@ -407,9 +407,6 @@ tracker_get_abs_dpath_alloc(const struct tracker *tk);
 int
 tracker_dump_abs_dpath(const struct tracker *tk, FILE *stream);
 
-bitpunch_status_t
-tracker_get_tracked_container_type(struct tracker *tk,
-                                   enum container_type *typep);
 
 bitpunch_status_t
 tracker_get_item_offset(struct tracker *tk, int64_t *item_offsetp,

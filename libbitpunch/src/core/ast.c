@@ -668,16 +668,10 @@ static int
 resolve_identifiers_field(
     struct field *field,
     const struct list_of_visible_refs *visible_refs,
-    int is_interpreter,
     enum resolve_identifiers_tag resolve_tags)
 {
-    if (is_interpreter) {
-        return resolve_identifiers(field->dpath.item, visible_refs,
-                                   RESOLVE_EXPECT_EXPRESSION, resolve_tags);
-    } else {
-        return resolve_identifiers_dpath_node(&field->dpath,
-                                              visible_refs, resolve_tags);
-    }
+    return resolve_identifiers_dpath_node(&field->dpath,
+                                          visible_refs, resolve_tags);
 }
 
 static int
@@ -724,10 +718,8 @@ resolve_identifiers_in_block_body(
         }
     }
     STATEMENT_FOREACH(field, field, stmt_lists->field_list, list) {
-        if (-1 == resolve_identifiers_field(
-                field, &visible_refs,
-                block->ndat->u.block_def.type == BLOCK_TYPE_INTERPRETER,
-                resolve_tags)) {
+        if (-1 == resolve_identifiers_field(field, &visible_refs,
+                                            resolve_tags)) {
             return -1;
         }
     }

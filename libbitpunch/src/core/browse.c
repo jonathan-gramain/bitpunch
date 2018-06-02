@@ -3986,25 +3986,6 @@ tracker_dump_abs_dpath(const struct tracker *tk, FILE *stream)
     return n_out;
 }
 
-bitpunch_status_t
-tracker_get_tracked_container_type(struct tracker *tk,
-                                   enum container_type *typep)
-{
-    DBG_TRACKER_DUMP(tk);
-    assert(NULL != typep);
-    switch (tk->box->dpath.item->ndat->type) {
-    case AST_NODE_TYPE_BLOCK_DEF:
-        *typep = CONTAINER_TYPE_BLOCK;
-        break ;
-    case AST_NODE_TYPE_ARRAY:
-        *typep = CONTAINER_TYPE_ARRAY;
-        break ;
-    default:
-        return BITPUNCH_NOT_CONTAINER;
-    }
-    return BITPUNCH_OK;
-}
-
 static bitpunch_status_t
 tracker_compute_item_size_internal(struct tracker *tk,
                                    int64_t *item_sizep,

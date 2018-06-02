@@ -36,11 +36,6 @@ struct tracker;
 struct box;
 typedef struct expr_value expr_value_t;
 
-enum container_type {
-    CONTAINER_TYPE_BLOCK = 1,
-    CONTAINER_TYPE_ARRAY = 2
-};
-
 struct track_path {
     enum track_path_type {
         TRACK_PATH_NOTYPE,
