@@ -743,15 +743,12 @@ resolve_identifiers_block(struct ast_node_hdl *block,
     const struct interpreter *interpreter;
 
     filter_type = block->ndat->u.block_def.filter_type;
-    // XXX can it be NULL?
-    if (NULL != filter_type) {
-        if (0 == strcmp(filter_type, "struct")) {
-            block->ndat->u.block_def.type = BLOCK_TYPE_STRUCT;
-        } else if (0 == strcmp(filter_type, "union")) {
-            block->ndat->u.block_def.type = BLOCK_TYPE_UNION;
-        } else {
-            block->ndat->u.block_def.type = BLOCK_TYPE_INTERPRETER;
-        }
+    if (0 == strcmp(filter_type, "struct")) {
+        block->ndat->u.block_def.type = BLOCK_TYPE_STRUCT;
+    } else if (0 == strcmp(filter_type, "union")) {
+        block->ndat->u.block_def.type = BLOCK_TYPE_UNION;
+    } else {
+        block->ndat->u.block_def.type = BLOCK_TYPE_INTERPRETER;
     }
     if (-1 == resolve_identifiers_in_block_body(block, visible_refs,
                                                 resolve_tags)) {

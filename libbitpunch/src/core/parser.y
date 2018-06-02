@@ -986,7 +986,7 @@ file_block: KW_FILE '{' block_stmt_list '}' {
         $$.root = new_safe(struct dpath_node);
         $$.root->item = ast_node_hdl_create(AST_NODE_TYPE_BLOCK_DEF, &@$);
         item = $$.root->item->ndat;
-        item->u.block_def.type = BLOCK_TYPE_STRUCT;
+        item->u.block_def.filter_type = "struct";
         if (TAILQ_EMPTY($block_stmt_list.field_list)) {
             semantic_error(SEMANTIC_LOGLEVEL_WARNING, &@$,
                            "file block has zero field");
