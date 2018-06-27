@@ -2513,33 +2513,6 @@ static bitpunch_status_t
 tracker_set_end(struct tracker *tk, struct browse_state *bst)
 {
     DBG_TRACKER_DUMP(tk);
-    if (AST_NODE_TYPE_FILTER_DEF == tk->box->dpath.item->ndat->type
-        && BLOCK_TYPE_UNION == tk->box->dpath.item->ndat->u.filter_def.type) {
-        /* union: no offset check */
-    } else if (-1 != tk->item_offset
-               && ((0 == (tk->flags & TRACKER_REVERSED)
-                    && -1 != tk->box->end_offset_min_span
-                    && tk->item_offset < tk->box->end_offset_min_span) ||
-                   (0 != (tk->flags & TRACKER_REVERSED)
-                    && -1 != tk->box->start_offset_min_span
-                    && tk->item_offset > tk->box->start_offset_min_span))) {
-        if (NULL != error_get_expected(BITPUNCH_OUT_OF_BOUNDS_ERROR, bst)) {
-            return BITPUNCH_OUT_OF_BOUNDS_ERROR;
-        }
-        return tracker_error(
-            BITPUNCH_OUT_OF_BOUNDS_ERROR, tk, NULL, bst,
-            "box used size is smaller than its minimum span size: "
-            "box used size is [%"PRIi64"..%"PRIi64"[, "
-            "box minimum span size is [%"PRIi64"..%"PRIi64"[",
-            0 == (tk->flags & TRACKER_REVERSED) ?
-            tk->box->start_offset_used : tk->item_offset,
-            0 == (tk->flags & TRACKER_REVERSED) ?
-            tk->item_offset : tk->box->end_offset_used,
-            0 == (tk->flags & TRACKER_REVERSED) ?
-            tk->box->start_offset_used : tk->box->start_offset_min_span,
-            0 == (tk->flags & TRACKER_REVERSED) ?
-            tk->box->end_offset_min_span : tk->box->end_offset_used);
-    }
     tracker_set_end_nocheck(tk);
     return BITPUNCH_OK;
 }
@@ -3510,24 +3483,16 @@ static bitpunch_status_t
 tracker_goto_end_offset(struct tracker *tk,
                         struct browse_state *bst)
 {
-    const struct ast_node_hdl *node;
-
     DBG_TRACKER_DUMP(tk);
-    node = tk->box->dpath.item;
     if (0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
-        if (AST_NODE_TYPE_FILTER_DEF == node->ndat->type
-            && BLOCK_TYPE_UNION == node->ndat->u.filter_def.type) {
-            /* union: no offset change */
-        } else {
-            bitpunch_status_t bt_ret;
+        bitpunch_status_t bt_ret;
 
-            bt_ret = box_compute_used_size(tk->box, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                return bt_ret;
-            }
-            tk->item_offset = 0 != (tk->flags & TRACKER_REVERSED) ?
-                tk->box->start_offset_used : tk->box->end_offset_used;
+        bt_ret = box_compute_used_size(tk->box, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
         }
+        tk->item_offset = 0 != (tk->flags & TRACKER_REVERSED) ?
+            tk->box->start_offset_used : tk->box->end_offset_used;
     }
     return BITPUNCH_OK;
 }
