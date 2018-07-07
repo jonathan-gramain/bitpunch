@@ -36,7 +36,7 @@
 #include <stdint.h>
 #include <endian.h>
 
-#include "core/interpreter.h"
+#include "core/filter.h"
 
 #define REF_SIGNED  0
 #define REF_ENDIAN  1

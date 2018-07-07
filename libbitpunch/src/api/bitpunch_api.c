@@ -49,7 +49,7 @@
 #include "api/bitpunch_api.h"
 #include "core/parser.h"
 #include "core/ast.h"
-#include "core/interpreter.h"
+#include "core/filter.h"
 #include "core/browse.h"
 
 #if defined DEBUG

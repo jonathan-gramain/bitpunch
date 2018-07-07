@@ -34,7 +34,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include "core/interpreter.h"
+#include "core/filter.h"
 
 #define REF_BASE        0
 #define REF_SIGNED      1

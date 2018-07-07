@@ -38,7 +38,7 @@
 #include "core/ast.h"
 #include "core/parser.h"
 #include PATH_TO_PARSER_TAB_H
-#include "core/interpreter.h"
+#include "core/filter.h"
 #include "core/browse_internal.h"
 #include "core/expr_internal.h"
 

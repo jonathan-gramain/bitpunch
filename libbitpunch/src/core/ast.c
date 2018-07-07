@@ -42,7 +42,7 @@
 #include "core/browse_internal.h"
 #include "core/print.h"
 #include "core/parser.h"
-#include "interpreters/item.h"
+#include "filters/item.h"
 #include PATH_TO_PARSER_TAB_H
 
 //#define OUTPUT_DEP_GRAPH

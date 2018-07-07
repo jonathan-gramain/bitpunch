@@ -29,43 +29,15 @@
  * DAMAGE.
  */
 
-#define _DEFAULT_SOURCE
-#define _GNU_SOURCE
-#include <sys/types.h>
-#include <string.h>
-#include <assert.h>
-#include <stdint.h>
-#include <endian.h>
+#ifndef __INTERPRETER_ITEM_H__
+#define __INTERPRETER_ITEM_H__
 
-#include "interpreters/item.h"
+#include "core/filter.h"
 
-static int
-item_rcall_build(struct ast_node_hdl *rcall,
-                 const struct statement_list *attribute_list,
-                 struct compile_ctx *ctx)
-{
-    return 0;
-}
+#define REF_ITEM_SPAN    0
+#define REF_ITEM_MINSPAN 1
+#define REF_ITEM_MAXSPAN 2
+#define REF_ITEM_KEY     3
+#define REF_ITEM_LAST    4
 
-void
-interpreter_declare_item(void)
-{
-    int ret;
-
-    ret = interpreter_declare("item",
-                              EXPR_VALUE_TYPE_UNSET,
-                              item_rcall_build,
-                              5,
-                              "@span", REF_ITEM_SPAN,
-                              EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@minspan", REF_ITEM_MINSPAN,
-                              EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@maxspan", REF_ITEM_MAXSPAN,
-                              EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@key", REF_ITEM_KEY,
-                              (EXPR_VALUE_TYPE_INTEGER |
-                               EXPR_VALUE_TYPE_STRING), 0,
-                              "@last", REF_ITEM_LAST,
-                              EXPR_VALUE_TYPE_BOOLEAN, 0);
-    assert(0 == ret);
-}
+#endif

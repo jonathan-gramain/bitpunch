@@ -36,7 +36,7 @@
 #include <stddef.h>
 #include <assert.h>
 
-#include "core/interpreter.h"
+#include "core/filter.h"
 #include "core/browse_internal.h"
 #include "core/expr_internal.h"
 

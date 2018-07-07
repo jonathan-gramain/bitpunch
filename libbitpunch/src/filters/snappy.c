@@ -32,71 +32,56 @@
 #define _DEFAULT_SOURCE
 #define _GNU_SOURCE
 #include <sys/types.h>
-#include <string.h>
 #include <assert.h>
-#include <stdint.h>
-#include <endian.h>
+#include <string.h>
+#include <snappy-c.h>
 
-#include "core/interpreter.h"
+#include "core/filter.h"
 
-static int
-varint_get_size(struct ast_node_hdl *rcall,
-                int64_t *span_sizep,
-                int64_t *used_sizep,
-                const char *data, int64_t max_span_size,
-                int *attr_is_specified, expr_value_t *attr_value)
-{
-    size_t bytepos;
-
-    // FIXME optimize
-    for (bytepos = 0; bytepos < max_span_size; ++bytepos) {
-        if (!(data[bytepos] & 0x80)) {
-            *span_sizep = bytepos + 1;
-            *used_sizep = bytepos + 1;
-            return 0;
-        }
-    }
-    // invalid varint
-    return -1;
-}
+#define UNCOMPRESSED_BUFFER_MAX_SIZE (1024 * 1024 * 1024)
 
 static int
-varint_read(struct ast_node_hdl *rcall,
+snappy_read(struct ast_node_hdl *rcall,
             expr_value_t *read_value,
             const char *data, size_t span_size,
             int *attr_is_specified, expr_value_t *attr_value)
 {
-    // FIXME optimize
-    const unsigned char *udata = (const unsigned char *)data;
-    size_t bytepos;
-    size_t cur_shift;
-    uint64_t rawvalue;
-    int64_t value;
+    snappy_status snappy_ret;
+    size_t uncompressed_length;
+    char *uncompressed;
 
-    // FIXME optimize
-    rawvalue = 0;
-    cur_shift = 0;
-    for (bytepos = 0; bytepos < span_size; ++bytepos) {
-        rawvalue |= ((uint64_t)udata[bytepos] & 0x7f) << cur_shift;
-        if (!(udata[bytepos] & 0x80)) {
-            break ;
-        }
-        cur_shift += 7;
-    }
-    if (bytepos == span_size) {
-        // invalid varint
+    snappy_ret = snappy_uncompressed_length(data, span_size,
+                                            &uncompressed_length);
+    if (SNAPPY_OK != snappy_ret) {
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
+                       "error from snappy_uncompressed_length() -> %d",
+                       snappy_ret);
         return -1;
     }
-    // zigzag encoding
-    //value = (rawvalue & 1) ? -((rawvalue + 1) / 2) : (rawvalue / 2);
-    value = rawvalue;
-    read_value->type = EXPR_VALUE_TYPE_INTEGER;
-    read_value->integer = value;
+    if (uncompressed_length > UNCOMPRESSED_BUFFER_MAX_SIZE) {
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
+                       "snappy uncompressed buffer too large "
+                       "(%zu bytes, max %d)",
+                       uncompressed_length, UNCOMPRESSED_BUFFER_MAX_SIZE);
+        return -1;
+    }
+    uncompressed = malloc_safe(uncompressed_length);
+    snappy_ret = snappy_uncompress(data, span_size,
+                                   uncompressed, &uncompressed_length);
+    if (SNAPPY_OK != snappy_ret) {
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
+                       "error from snappy_uncompress() -> %d",
+                       snappy_ret);
+        return -1;
+    }
+    read_value->type = EXPR_VALUE_TYPE_BYTES;
+    read_value->bytes.buf = uncompressed;
+    read_value->bytes.len = uncompressed_length;
     return 0;
 }
 
 static int
-varint_write(struct ast_node_hdl *rcall,
+snappy_write(struct ast_node_hdl *rcall,
              const expr_value_t *write_value,
              char *data, size_t span_size,
              int *attr_is_specified, expr_value_t *attr_value)
@@ -106,35 +91,23 @@ varint_write(struct ast_node_hdl *rcall,
 
 
 static int
-varint_rcall_build(struct ast_node_hdl *rcall,
+snappy_rcall_build(struct ast_node_hdl *rcall,
                    const struct statement_list *attribute_list,
                    struct compile_ctx *ctx)
 {
-#if 0
-    assert(NULL != data_source);
-
-    if (AST_NODE_TYPE_BYTE != data_source->ndat->type &&
-        AST_NODE_TYPE_BYTE_ARRAY != data_source->ndat->type) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
-            "varint interpreter expects a byte array");
-        return -1;
-    }
-#endif
-    rcall->ndat->u.rexpr_interpreter.get_size_func = varint_get_size;
-    rcall->ndat->u.rexpr_interpreter.read_func = varint_read;
-    rcall->ndat->u.rexpr_interpreter.write_func = varint_write;
+    rcall->ndat->u.rexpr_interpreter.read_func = snappy_read;
+    rcall->ndat->u.rexpr_interpreter.write_func = snappy_write;
     return 0;
 }
 
 void
-interpreter_declare_varint(void)
+interpreter_declare_snappy(void)
 {
     int ret;
 
-    ret = interpreter_declare("varint",
-                              EXPR_VALUE_TYPE_INTEGER,
-                              varint_rcall_build,
+    ret = interpreter_declare("snappy",
+                              EXPR_VALUE_TYPE_BYTES,
+                              snappy_rcall_build,
                               0);
     assert(0 == ret);
 }

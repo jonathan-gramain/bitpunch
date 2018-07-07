@@ -35,7 +35,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "core/interpreter.h"
+#include "core/filter.h"
 
 #define DECODED_BUFFER_MAX_SIZE (100*1024*1024)
 
