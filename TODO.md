@@ -259,3 +259,5 @@ correctly (b_filter is empty)
 - ability to compare reference to objects with equal/notequal operators
 
   - self == entries['abc']
+
+- add test for fix "do not recurse in anonymous fields to find attributes"

@@ -4615,16 +4615,19 @@ box_lookup_statement_recur(struct box *box,
             }
         }
     }
-    // recurse in anonymous struct/union fields
-    TAILQ_FOREACH(stmt, stmt_lists->field_list, list) {
-        nstmt = (struct named_statement *)stmt;
-        if (NULL == nstmt->name
-            && !(nstmt->stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
-            bt_ret = box_lookup_statement_in_anonymous_field_recur(
-                box, stmt_mask, identifier, nstmt,
-                stmt_typep, stmtp, scopep, bst);
-            if (BITPUNCH_NO_ITEM != bt_ret) {
-                return bt_ret;
+    // do not recurse anonymous fields to find attributes
+    if (identifier[0] != '@') {
+        // recurse in anonymous struct/union fields
+        TAILQ_FOREACH(stmt, stmt_lists->field_list, list) {
+            nstmt = (struct named_statement *)stmt;
+            if (NULL == nstmt->name
+                && !(nstmt->stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
+                bt_ret = box_lookup_statement_in_anonymous_field_recur(
+                    box, stmt_mask, identifier, nstmt,
+                    stmt_typep, stmtp, scopep, bst);
+                if (BITPUNCH_NO_ITEM != bt_ret) {
+                    return bt_ret;
+                }
             }
         }
     }
