@@ -305,25 +305,12 @@ binary_integer_read_generic(
 }
 
 static int
-binary_integer_write_generic(
-    struct ast_node_hdl *filter,
-    const expr_value_t *write_value,
-    char *data, size_t span_size,
-    int *attr_is_specified, expr_value_t *attr_value)
-{
-    // TODO
-    return -1;
-}
-
-static int
 binary_integer_filter_instance_build(struct ast_node_hdl *filter,
                            const struct statement_list *attribute_list,
                            struct compile_ctx *ctx)
 {
     filter->ndat->u.rexpr_filter.read_func =
         binary_integer_read_generic;
-    filter->ndat->u.rexpr_filter.write_func =
-        binary_integer_write_generic;
     return 0;
 }
 

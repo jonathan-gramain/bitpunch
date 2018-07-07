@@ -81,22 +81,11 @@ snappy_read(struct ast_node_hdl *filter,
 }
 
 static int
-snappy_write(struct ast_node_hdl *filter,
-             const expr_value_t *write_value,
-             char *data, size_t span_size,
-             int *attr_is_specified, expr_value_t *attr_value)
-{
-    return -1;
-}
-
-
-static int
 snappy_filter_instance_build(struct ast_node_hdl *filter,
                    const struct statement_list *attribute_list,
                    struct compile_ctx *ctx)
 {
     filter->ndat->u.rexpr_filter.read_func = snappy_read;
-    filter->ndat->u.rexpr_filter.write_func = snappy_write;
     return 0;
 }
 

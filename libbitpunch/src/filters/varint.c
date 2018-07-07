@@ -96,16 +96,6 @@ varint_read(struct ast_node_hdl *filter,
 }
 
 static int
-varint_write(struct ast_node_hdl *filter,
-             const expr_value_t *write_value,
-             char *data, size_t span_size,
-             int *attr_is_specified, expr_value_t *attr_value)
-{
-    return -1;
-}
-
-
-static int
 varint_filter_instance_build(struct ast_node_hdl *filter,
                    const struct statement_list *attribute_list,
                    struct compile_ctx *ctx)
@@ -123,7 +113,6 @@ varint_filter_instance_build(struct ast_node_hdl *filter,
 #endif
     filter->ndat->u.rexpr_filter.get_size_func = varint_get_size;
     filter->ndat->u.rexpr_filter.read_func = varint_read;
-    filter->ndat->u.rexpr_filter.write_func = varint_write;
     return 0;
 }
 

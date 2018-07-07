@@ -143,17 +143,6 @@ string_read_byte_array_multi_char_boundary(
 
 
 static int
-string_write_byte_array(
-    struct ast_node_hdl *filter,
-    const expr_value_t *write_value,
-    char *data, size_t span_size,
-    int *attr_is_specified, expr_value_t *attr_value)
-{
-    return -1;
-}
-
-
-static int
 string_filter_instance_build(struct ast_node_hdl *filter,
                    const struct statement_list *attribute_list,
                    struct compile_ctx *ctx)
@@ -198,7 +187,6 @@ string_filter_instance_build(struct ast_node_hdl *filter,
             break ;
         }
     }
-    filter->ndat->u.rexpr_filter.write_func = string_write_byte_array;
     return 0;
 }
 

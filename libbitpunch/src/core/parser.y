@@ -122,12 +122,6 @@
         const char *data, size_t used_size,
         int *param_is_specified, expr_value_t *param_value);
 
-    typedef int (*filter_write_func_t)(
-        struct ast_node_hdl *filter,
-        const expr_value_t *write_value,
-        char *data, size_t used_size,
-        int *param_is_specified, expr_value_t *param_value);
-
     typedef int (*filter_get_size_func_t)(
         struct ast_node_hdl *filter,
         int64_t *span_sizep,
@@ -372,7 +366,6 @@
                 const struct filter_class *filter_cls;
                 struct statement_list *attribute_list;
                 filter_read_func_t read_func;
-                filter_write_func_t write_func;
                 filter_get_size_func_t get_size_func;
             } rexpr_filter;
             struct rexpr_op_filter {

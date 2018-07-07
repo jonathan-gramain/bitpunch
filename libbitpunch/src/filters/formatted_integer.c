@@ -170,22 +170,11 @@ formatted_integer_read(struct ast_node_hdl *filter,
 }
 
 static int
-formatted_integer_write(struct ast_node_hdl *filter,
-                        const expr_value_t *write_value,
-                        char *data, size_t span_size,
-                        int *attr_is_specified, expr_value_t *attr_value)
-{
-    return -1;
-}
-
-
-static int
 formatted_integer_filter_instance_build(struct ast_node_hdl *filter,
                               const struct statement_list *attribute_list,
                               struct compile_ctx *ctx)
 {
     filter->ndat->u.rexpr_filter.read_func = formatted_integer_read;
-    filter->ndat->u.rexpr_filter.write_func = formatted_integer_write;
     return 0;
 }
 
