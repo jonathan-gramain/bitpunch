@@ -4,18 +4,6 @@
 
 ### Scriptable filters
 
-Filters are an extension or generalization of interpreters.
-
-Unlike current interpreters which are replacing the view of a raw byte
-array by a meaningful representation (most commonly char strings and
-integers), filters expose new byte arrays generated from existing byte
-arrays defined in raw binary contents, and allow to track the
-generated contents in turn using the bitpunch syntax just like raw
-byte arrays.
-
-They can typically be used for compression/decompression or
-encryption/decryption.
-
 Filters now can only be implemented as C code in the main library,
 they should be scriptable in the .bp file itself (e.g. with Python
 support in the first step).
@@ -134,9 +122,6 @@ Of course, the implementation can start with a limited set of
 supported BP schema features and reject those outside the implemented
 scope, then augmenting the supported range bit by bit.
 
-There is already some (unused) write-handling code in the interpreters
-now.
-
 ### BP file public repository
 
 A central repository to store and lookup specific format files may
@@ -244,10 +229,10 @@ This is NOT an organized or prioritized list.
         then in test: data.offsets.atX == 3
         assert model.get_location(foo) == data.offsets.atX
 
-- interpreter callbacks should be able to return tracker errors by
+- filter callbacks should be able to return tracker errors by
   themselves
 
-BUG: interpreters declared after 'key' statement are not initialized
+BUG: filters declared after 'key' statement are not initialized
 correctly (b_filter is empty)
 
 - instead of "file {}" syntax, let user choose the type of file with

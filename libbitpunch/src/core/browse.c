@@ -1554,7 +1554,7 @@ box_new_filter_box(struct box *parent_box,
     bitpunch_status_t bt_ret;
     struct dpath_node dpath;
 
-    assert(AST_NODE_TYPE_REXPR_INTERPRETER == filter->ndat->type);
+    assert(AST_NODE_TYPE_REXPR_FILTER == filter->ndat->type);
     dpath_node_reset(&dpath);
     dpath.item = AST_NODE_AS_BYTES;
     dpath.filter = filter;
@@ -1570,10 +1570,9 @@ box_new_filter_box(struct box *parent_box,
 }
 
 static bitpunch_status_t
-box_apply_filter_interpreter(struct box *box,
-                             struct browse_state *bst)
+box_apply_local_filter(struct box *box, struct browse_state *bst)
 {
-    const struct interpreter *interpreter;
+    const struct filter_class *filter_cls;
     const struct bitpunch_binary_file_hdl *parent_file_hdl;
     struct bitpunch_binary_file_hdl *filtered_data_hdl;
     const char *unfiltered_data;
@@ -1586,7 +1585,7 @@ box_apply_filter_interpreter(struct box *box,
 
     assert(NULL == box->file_hdl);
     assert(NULL != box->parent_box);
-    interpreter = box->dpath.filter->ndat->u.rexpr_interpreter.interpreter;
+    filter_cls = box->dpath.filter->ndat->u.rexpr_filter.filter_cls;
     parent_file_hdl = box->parent_box->file_hdl;
     if (0 == (box->flags & BOX_FILTER)) {
         box->file_hdl = parent_file_hdl;
@@ -1594,7 +1593,7 @@ box_apply_filter_interpreter(struct box *box,
         return BITPUNCH_OK;
     }
     if (!expr_value_type_mask_contains_dpath(
-            interpreter->value_type_mask)) {
+            filter_cls->value_type_mask)) {
         box->file_hdl = parent_file_hdl;
         box_inherit_parent_offsets(box, box->parent_box);
         boundary_offset = 0 != (box->flags & BOX_RALIGN) ?
@@ -1610,12 +1609,12 @@ box_apply_filter_interpreter(struct box *box,
     unfiltered_data = parent_file_hdl->bf_data
         + box->parent_box->start_offset_used;
     // FIXME check "box" is the right scope
-    bt_ret = interpreter_rcall_read_value(
+    bt_ret = filter_instance_read_value(
         box->dpath.filter, box, unfiltered_data, unfiltered_size,
         &filtered_value, bst);
     if (BITPUNCH_OK != bt_ret) {
         return box_error(bt_ret, box, box->dpath.filter, bst,
-                         "error reading interpreted value");
+                         "error reading value through filter");
     }
     if (!expr_value_type_mask_contains_dpath(filtered_value.type)) {
         // dynamic evaluation did not yield a dpath type
@@ -1677,8 +1676,8 @@ box_apply_filter_internal(struct box *box,
     }
     filter = box->dpath.filter;
     if (NULL != filter
-        && AST_NODE_TYPE_REXPR_INTERPRETER == filter->ndat->type) {
-        bt_ret = box_apply_filter_interpreter(box, bst);
+        && AST_NODE_TYPE_REXPR_FILTER == filter->ndat->type) {
+        bt_ret = box_apply_local_filter(box, bst);
     } else if (NULL == box->file_hdl) {
         assert(NULL != box->parent_box);
         box->file_hdl = box->parent_box->file_hdl;
@@ -4185,7 +4184,7 @@ tracker_read_item_value_direct_internal(struct tracker *tk,
         return bt_ret;
     }
     bt_ret = expr_evaluate_filter_type_internal(
-        tk->dpath->filter, tk->box, FILTER_KIND_INTERPRETER,
+        tk->dpath->filter, tk->box, FILTER_KIND_FILTER,
         &filter_type, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
@@ -5215,7 +5214,7 @@ tracker_compute_item_size__static_size(struct tracker *tk,
 }
 
 static bitpunch_status_t
-box_compute_item_size_internal__byte_array_interpreter_size(
+box_compute_item_size_internal__byte_array_filter_size(
     struct box *box,
     int64_t item_offset,
     struct ast_node_hdl *span_filter,
@@ -5237,10 +5236,10 @@ box_compute_item_size_internal__byte_array_interpreter_size(
     DBG_BOX_DUMP(box);
     assert(NULL == span_sizep || NULL != span_filter);
     assert(NULL == span_sizep
-           || NULL != span_filter->ndat->u.rexpr_interpreter.get_size_func);
+           || NULL != span_filter->ndat->u.rexpr_filter.get_size_func);
     assert(NULL == span_sizep || NULL != span_filter);
     assert(NULL == used_sizep
-           || NULL != used_filter->ndat->u.rexpr_interpreter.get_size_func);
+           || NULL != used_filter->ndat->u.rexpr_filter.get_size_func);
 
     bt_ret = box_apply_filter_internal(box, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -5269,57 +5268,57 @@ box_compute_item_size_internal__byte_array_interpreter_size(
     }
     if (span_filter == used_filter
         || NULL == used_sizep) {
-        bt_ret = interpreter_rcall_evaluate_attrs(
+        bt_ret = filter_instance_evaluate_attrs(
             span_filter, box, &attr_is_specified, &attr_value, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        iret = span_filter->ndat->u.rexpr_interpreter.get_size_func(
+        iret = span_filter->ndat->u.rexpr_filter.get_size_func(
             span_filter, &span_size, &used_size, item_data,
             max_slack_offset - item_offset,
             attr_is_specified, attr_value);
-        interpreter_rcall_destroy_attr_values(span_filter,
+        filter_instance_destroy_attr_values(span_filter,
                                               attr_is_specified,
                                               attr_value);
         if (-1 == iret) {
             return box_error(BITPUNCH_DATA_ERROR, box, span_filter, bst,
-                             "interpreter couldn't return field's sizes");
+                             "filter couldn't return field's sizes");
         }
     } else {
         if (NULL != span_sizep) {
-            bt_ret = interpreter_rcall_evaluate_attrs(
+            bt_ret = filter_instance_evaluate_attrs(
                 span_filter, box, &attr_is_specified, &attr_value, bst);
             if (BITPUNCH_OK != bt_ret) {
                 return bt_ret;
             }
-            iret = span_filter->ndat->u.rexpr_interpreter.get_size_func(
+            iret = span_filter->ndat->u.rexpr_filter.get_size_func(
                 span_filter, &span_size, &dummy_size, item_data,
                 max_slack_offset - item_offset,
                 attr_is_specified, attr_value);
-            interpreter_rcall_destroy_attr_values(span_filter,
+            filter_instance_destroy_attr_values(span_filter,
                                                   attr_is_specified,
                                                   attr_value);
             if (-1 == iret) {
                 return box_error(
                     BITPUNCH_DATA_ERROR, box, span_filter, bst,
-                    "interpreter couldn't return field's span size");
+                    "filter couldn't return field's span size");
             }
         }
-        bt_ret = interpreter_rcall_evaluate_attrs(
+        bt_ret = filter_instance_evaluate_attrs(
             used_filter, box, &attr_is_specified, &attr_value, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        iret = used_filter->ndat->u.rexpr_interpreter.get_size_func(
+        iret = used_filter->ndat->u.rexpr_filter.get_size_func(
             used_filter, &dummy_size, &used_size, item_data,
             max_slack_offset - item_offset,
             attr_is_specified, attr_value);
-        interpreter_rcall_destroy_attr_values(used_filter,
+        filter_instance_destroy_attr_values(used_filter,
                                               attr_is_specified,
                                               attr_value);
         if (-1 == iret) {
             return box_error(BITPUNCH_DATA_ERROR, box, used_filter, bst,
-                             "interpreter couldn't return field's used size");
+                             "filter couldn't return field's used size");
         }
     }
     if (NULL != span_sizep) {
@@ -5448,7 +5447,7 @@ box_compute_used_size__as_bytes(struct box *box,
     if (NULL != box->dpath.filter_defining_used_size) {
         int64_t used_size;
 
-        bt_ret = box_compute_item_size_internal__byte_array_interpreter_size(
+        bt_ret = box_compute_item_size_internal__byte_array_filter_size(
             box->parent_box, box_get_start_offset(box),
             NULL, box->dpath.filter_defining_used_size,
             NULL, &used_size, bst);
@@ -6408,7 +6407,7 @@ filter_read_value__bytes(struct ast_node_hdl *item_filter,
 }
 
 static bitpunch_status_t
-filter_read_value__interpreter(struct ast_node_hdl *item_filter,
+filter_read_value__filter(struct ast_node_hdl *item_filter,
                                struct box *scope,
                                int64_t item_offset,
                                int64_t item_size,
@@ -6425,26 +6424,26 @@ filter_read_value__interpreter(struct ast_node_hdl *item_filter,
                                         item_offset, item_size,
                                         valuep, bst);
     }
-    return interpreter_rcall_read_value(item_filter, scope,
+    return filter_instance_read_value(item_filter, scope,
                                         item_data, item_size,
                                         valuep, bst);
 }
 
 static bitpunch_status_t
-filter_read_value__filter(struct ast_node_hdl *filter,
-                          struct box *scope,
-                          int64_t item_offset,
-                          int64_t item_size,
-                          expr_value_t *valuep,
-                          struct browse_state *bst)
+filter_read_value__operator_filter(struct ast_node_hdl *filter,
+                                   struct box *scope,
+                                   int64_t item_offset,
+                                   int64_t item_size,
+                                   expr_value_t *valuep,
+                                   struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     struct ast_node_hdl *filter_expr;
     struct ast_node_hdl *filter_type;
 
-    filter_expr = filter->ndat->u.rexpr_filter.filter_expr;
+    filter_expr = filter->ndat->u.rexpr_op_filter.filter_expr;
     bt_ret = expr_evaluate_filter_type_internal(
-        filter_expr, scope, FILTER_KIND_INTERPRETER,
+        filter_expr, scope, FILTER_KIND_FILTER,
         &filter_type, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
@@ -7102,7 +7101,7 @@ tracker_compute_item_size__byte_array_slack(
         return bt_ret;
     }
     if (NULL != filter_defining_span_size) {
-        return box_compute_item_size_internal__byte_array_interpreter_size(
+        return box_compute_item_size_internal__byte_array_filter_size(
             tk->box, tk->item_offset,
             filter_defining_span_size, NULL,
             item_sizep, NULL, bst);
@@ -7140,7 +7139,7 @@ box_compute_used_size__byte_array_dynamic_size(struct box *box,
 
     DBG_BOX_DUMP(box);
     if (NULL != box->dpath.filter_defining_used_size) {
-        bt_ret = box_compute_item_size_internal__byte_array_interpreter_size(
+        bt_ret = box_compute_item_size_internal__byte_array_filter_size(
             box->parent_box, box_get_start_offset(box),
             NULL, box->dpath.filter_defining_used_size,
             NULL, &used_size, bst);
@@ -7194,7 +7193,7 @@ box_get_n_items__byte_array_non_slack(
         }
         if (NULL != box->dpath.filter_defining_used_size) {
             bt_ret =
-                box_compute_item_size_internal__byte_array_interpreter_size(
+                box_compute_item_size_internal__byte_array_filter_size(
                     box->parent_box, box_get_start_offset(box),
                     NULL, box->dpath.filter_defining_used_size,
                     NULL, &box->u.array_generic.n_items, bst);
@@ -7221,7 +7220,7 @@ box_get_n_items__byte_array_slack(struct box *box, int64_t *item_countp,
     if (-1 == box->u.array_generic.n_items) {
         if (NULL != box->dpath.filter_defining_used_size) {
             bt_ret =
-                box_compute_item_size_internal__byte_array_interpreter_size(
+                box_compute_item_size_internal__byte_array_filter_size(
                     box->parent_box, box_get_start_offset(box),
                     NULL, box->dpath.filter_defining_used_size,
                     NULL, &box->u.array_generic.n_items, bst);
@@ -7785,17 +7784,6 @@ static int
 browse_setup_backends_node_recur(struct ast_node_hdl *node);
 
 static void
-browse_setup_backends__filter__interpreter(struct ast_node_hdl *filter)
-{
-    struct filter_backend *b_filter = NULL;
-
-    b_filter = &filter->ndat->u.rexpr_dpath.b_filter;
-    memset(b_filter, 0, sizeof (*b_filter));
-
-    b_filter->read_value = filter_read_value__interpreter;
-}
-
-static void
 browse_setup_backends__filter__filter(struct ast_node_hdl *filter)
 {
     struct filter_backend *b_filter = NULL;
@@ -7804,6 +7792,17 @@ browse_setup_backends__filter__filter(struct ast_node_hdl *filter)
     memset(b_filter, 0, sizeof (*b_filter));
 
     b_filter->read_value = filter_read_value__filter;
+}
+
+static void
+browse_setup_backends__filter__operator_filter(struct ast_node_hdl *filter)
+{
+    struct filter_backend *b_filter = NULL;
+
+    b_filter = &filter->ndat->u.rexpr_dpath.b_filter;
+    memset(b_filter, 0, sizeof (*b_filter));
+
+    b_filter->read_value = filter_read_value__operator_filter;
 }
 
 static void
@@ -8224,16 +8223,16 @@ browse_setup_backends_node(struct ast_node_hdl *node)
         browse_setup_backends__box__as_bytes(node);
         browse_setup_backends__tracker__as_bytes(node);
         break ;
-    case AST_NODE_TYPE_REXPR_INTERPRETER:
-        browse_setup_backends__filter__interpreter(node);
+    case AST_NODE_TYPE_REXPR_FILTER:
+        browse_setup_backends__filter__filter(node);
         break ;
     case AST_NODE_TYPE_REXPR_ITEM:
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
         browse_setup_backends__filter__item(node);
         break ;
-    case AST_NODE_TYPE_REXPR_FILTER:
-        browse_setup_backends__filter__filter(node);
+    case AST_NODE_TYPE_REXPR_OP_FILTER:
+        browse_setup_backends__filter__operator_filter(node);
         break ;
     default:
         break ;
@@ -8415,14 +8414,14 @@ browse_setup_backends_node_recur(struct ast_node_hdl *node)
         ret = browse_setup_backends_node_recur(
             node->ndat->u.conditional.cond_expr);
         break ;
-    case AST_NODE_TYPE_REXPR_FILTER:
-        if (NULL != node->ndat->u.rexpr_filter.target) {
+    case AST_NODE_TYPE_REXPR_OP_FILTER:
+        if (NULL != node->ndat->u.rexpr_op_filter.target) {
             ret = browse_setup_backends_node_recur(
-                node->ndat->u.rexpr_filter.target);
+                node->ndat->u.rexpr_op_filter.target);
         }
         if (0 == ret) {
             ret = browse_setup_backends_node_recur(
-                node->ndat->u.rexpr_filter.filter_expr);
+                node->ndat->u.rexpr_op_filter.filter_expr);
         }
         break ;
     case AST_NODE_TYPE_REXPR_ITEM:

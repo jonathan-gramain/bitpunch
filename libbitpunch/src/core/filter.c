@@ -40,144 +40,144 @@
 #include "core/browse_internal.h"
 #include "core/expr_internal.h"
 
-#define MAX_INTERPRETER_COUNT           256
+#define MAX_FILTER_COUNT           256
 
-struct interpreter interpreter_table[MAX_INTERPRETER_COUNT];
-int                interpreter_count = 0;
+struct filter_class filter_class_table[MAX_FILTER_COUNT];
+int                 filter_class_count = 0;
 
-#define MAX_INTERPRETER_ATTR_DEF_COUNT 1024
-#define INTERPRETER_MAX_ATTR_REF       256
+#define MAX_FILTER_ATTR_DEF_COUNT 1024
+#define FILTER_MAX_ATTR_REF       256
 
-struct interpreter_attr_def interpreter_attr_def_table[MAX_INTERPRETER_ATTR_DEF_COUNT];
-int                          interpreter_attr_def_count = 0;
+struct filter_attr_def filter_attr_def_table[MAX_FILTER_ATTR_DEF_COUNT];
+int                    filter_attr_def_count = 0;
 
-static struct interpreter *
-interpreter_new(void)
+static struct filter_class *
+filter_class_new(void)
 {
-    if (interpreter_count == MAX_INTERPRETER_COUNT) {
+    if (filter_class_count == MAX_FILTER_COUNT) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, NULL,
-                       "Too many interpreters (max %d)\n",
-                         MAX_INTERPRETER_COUNT);
+                       "Too many filters (max %d)\n",
+                         MAX_FILTER_COUNT);
         return NULL;
     }
-    return &interpreter_table[interpreter_count++];
+    return &filter_class_table[filter_class_count++];
 }
 
-static struct interpreter_attr_def *
-interpreter_attr_def_new(void)
+static struct filter_attr_def *
+filter_attr_def_new(void)
 {
-    if (interpreter_attr_def_count == MAX_INTERPRETER_ATTR_DEF_COUNT) {
+    if (filter_attr_def_count == MAX_FILTER_ATTR_DEF_COUNT) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, NULL,
-                       "Global interpreter attr def limit reached (max %d)\n",
-                         MAX_INTERPRETER_ATTR_DEF_COUNT);
+                       "Global filter attribute definition limit reached "
+                       "(max %d)\n", MAX_FILTER_ATTR_DEF_COUNT);
         return NULL;
     }
-    return &interpreter_attr_def_table[interpreter_attr_def_count++];
+    return &filter_attr_def_table[filter_attr_def_count++];
 }
 
 int
-interpreter_declare(const char *name,
+filter_class_declare(const char *name,
                     enum expr_value_type value_type_mask,
-                    interpreter_rcall_build_func_t rcall_build_func,
+                    filter_instance_build_func_t filter_instance_build_func,
                     int n_attrs,
                     ... /* attrs: (name, index, type, flags) tuples */)
 {
-    struct interpreter *interpreter;
+    struct filter_class *filter_cls;
     int max_attr_ref;
     va_list ap;
     int i;
-    struct interpreter_attr_def *attr_def;
+    struct filter_attr_def *attr_def;
 
-    assert(NULL != rcall_build_func);
+    assert(NULL != filter_instance_build_func);
 
-    interpreter = interpreter_lookup(name);
-    if (NULL != interpreter) {
+    filter_cls = filter_class_lookup(name);
+    if (NULL != filter_cls) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, NULL,
-                       "duplicate interpreter '%s'\n", name);
+                       "duplicate filter '%s'\n", name);
         return -1;
     }
-    interpreter = interpreter_new();
-    if (NULL == interpreter) {
+    filter_cls = filter_class_new();
+    if (NULL == filter_cls) {
         return -1;
     }
-    interpreter->name = name;
-    interpreter->value_type_mask = value_type_mask;
-    interpreter->rcall_build_func = rcall_build_func;
-    interpreter->n_attrs = n_attrs;
+    filter_cls->name = name;
+    filter_cls->value_type_mask = value_type_mask;
+    filter_cls->filter_instance_build_func = filter_instance_build_func;
+    filter_cls->n_attrs = n_attrs;
     max_attr_ref = -1;
-    STAILQ_INIT(&interpreter->attr_list);
+    STAILQ_INIT(&filter_cls->attr_list);
     va_start(ap, n_attrs);
     for (i = 0; i < n_attrs; ++i) {
-        attr_def = interpreter_attr_def_new();
+        attr_def = filter_attr_def_new();
         if (NULL == attr_def) {
             return -1;
         }
         attr_def->name = va_arg(ap, const char *);
         attr_def->ref_idx = va_arg(ap, int);
         assert(attr_def->ref_idx >= 0 &&
-               attr_def->ref_idx <= INTERPRETER_MAX_ATTR_REF);
+               attr_def->ref_idx <= FILTER_MAX_ATTR_REF);
         attr_def->value_type_mask = va_arg(ap, enum ast_node_type);
-        attr_def->flags = va_arg(ap, enum interpreter_attr_flags);
-        STAILQ_INSERT_TAIL(&interpreter->attr_list, attr_def, list);
+        attr_def->flags = va_arg(ap, enum filter_attr_flags);
+        STAILQ_INSERT_TAIL(&filter_cls->attr_list, attr_def, list);
         max_attr_ref = MAX(max_attr_ref, attr_def->ref_idx);
     }
     va_end(ap);
-    interpreter->max_attr_ref = max_attr_ref;
+    filter_cls->max_attr_ref = max_attr_ref;
     return 0;
 }
 
-struct interpreter *
-interpreter_lookup(const char *name)
+struct filter_class *
+filter_class_lookup(const char *name)
 {
     int i;
 
-    for (i = 0; i < interpreter_count; ++i) {
-        if (0 == strcmp(interpreter_table[i].name, name)) {
-            return &interpreter_table[i];
+    for (i = 0; i < filter_class_count; ++i) {
+        if (0 == strcmp(filter_class_table[i].name, name)) {
+            return &filter_class_table[i];
         }
     }
     return NULL;
 }
 
-void interpreter_declare_item(void);
-void interpreter_declare_binary_integer(void);
-void interpreter_declare_string(void);
-void interpreter_declare_varint(void);
-void interpreter_declare_base64(void);
-void interpreter_declare_snappy(void);
-void interpreter_declare_formatted_integer(void);
+void filter_class_declare_item(void);
+void filter_class_declare_binary_integer(void);
+void filter_class_declare_string(void);
+void filter_class_declare_varint(void);
+void filter_class_declare_base64(void);
+void filter_class_declare_snappy(void);
+void filter_class_declare_formatted_integer(void);
 
 void
-interpreter_declare_std(void)
+filter_class_declare_std(void)
 {
-    interpreter_declare_item();
-    interpreter_declare_binary_integer();
-    interpreter_declare_string();
-    interpreter_declare_varint();
-    interpreter_declare_base64();
-    interpreter_declare_snappy();
-    interpreter_declare_formatted_integer();
+    filter_class_declare_item();
+    filter_class_declare_binary_integer();
+    filter_class_declare_string();
+    filter_class_declare_varint();
+    filter_class_declare_base64();
+    filter_class_declare_snappy();
+    filter_class_declare_formatted_integer();
 }
 
 int
-interpreter_rcall_build(struct ast_node_hdl *node,
-                        const struct interpreter *interpreter,
+filter_instance_build(struct ast_node_hdl *node,
+                        const struct filter_class *filter_cls,
                         struct statement_list *attribute_list)
 {
     struct ast_node_data *ndat;
 
     ndat = new_safe(struct ast_node_data);
-    ndat->type = AST_NODE_TYPE_REXPR_INTERPRETER;
+    ndat->type = AST_NODE_TYPE_REXPR_FILTER;
     ndat->flags = (0 == (ndat->u.rexpr.value_type_mask &
                          (EXPR_VALUE_TYPE_BYTES |
                           EXPR_VALUE_TYPE_STRING)) ?
                    ASTFLAG_IS_VALUE_TYPE : 0u);
-    ndat->u.rexpr.value_type_mask = interpreter->value_type_mask;
-    ndat->u.rexpr_interpreter.interpreter = interpreter;
-    ndat->u.rexpr_interpreter.attribute_list = attribute_list;
-    ndat->u.rexpr_interpreter.get_size_func = NULL;
+    ndat->u.rexpr.value_type_mask = filter_cls->value_type_mask;
+    ndat->u.rexpr_filter.filter_cls = filter_cls;
+    ndat->u.rexpr_filter.attribute_list = attribute_list;
+    ndat->u.rexpr_filter.get_size_func = NULL;
     node->ndat = ndat;
-    if (-1 == interpreter_build_attrs(node, interpreter, attribute_list)) {
+    if (-1 == filter_build_attrs(node, filter_cls, attribute_list)) {
         free(ndat);
         node->ndat = NULL;
         return -1;
@@ -185,13 +185,13 @@ interpreter_rcall_build(struct ast_node_hdl *node,
     return 0;
 }
 
-const struct interpreter_attr_def *
-interpreter_get_attr_def(const struct interpreter *interpreter,
+const struct filter_attr_def *
+filter_class_get_attr(const struct filter_class *filter_cls,
                          const char *attr_name)
 {
-    struct interpreter_attr_def *attr_def;
+    struct filter_attr_def *attr_def;
 
-    STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
+    STAILQ_FOREACH(attr_def, &filter_cls->attr_list, list) {
         if (0 == strcmp(attr_def->name, attr_name)) {
             return attr_def;
         }
@@ -200,33 +200,33 @@ interpreter_get_attr_def(const struct interpreter *interpreter,
 }
 
 int
-interpreter_build_attrs(struct ast_node_hdl *node,
-                        const struct interpreter *interpreter,
+filter_build_attrs(struct ast_node_hdl *node,
+                        const struct filter_class *filter_cls,
                         struct statement_list *attribute_list)
 {
     struct named_expr *attr;
     int attr_ref;
-    const struct interpreter_attr_def *attr_def;
+    const struct filter_attr_def *attr_def;
     int *attr_is_defined;
     int sem_error = FALSE;
 
-    attr_is_defined = new_n_safe(int, interpreter->max_attr_ref + 1);
+    attr_is_defined = new_n_safe(int, filter_cls->max_attr_ref + 1);
     STATEMENT_FOREACH(named_expr, attr, attribute_list, list) {
-        attr_def = interpreter_get_attr_def(interpreter, attr->nstmt.name);
+        attr_def = filter_class_get_attr(filter_cls, attr->nstmt.name);
         if (NULL == attr_def) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR, &attr->nstmt.stmt.loc,
-                           "no such attribute \"%s\" for interpreter \"%s\"",
-                           attr->nstmt.name, interpreter->name);
+                           "no such attribute \"%s\" for filter \"%s\"",
+                           attr->nstmt.name, filter_cls->name);
             sem_error = TRUE;
             continue ;
         }
         attr_ref = attr_def->ref_idx;
-        assert(attr_ref >= 0 && attr_ref <= interpreter->max_attr_ref);
+        assert(attr_ref >= 0 && attr_ref <= filter_cls->max_attr_ref);
         attr_is_defined[attr_ref] = TRUE;
     }
-    STAILQ_FOREACH(attr_def, &interpreter->attr_list, list) {
+    STAILQ_FOREACH(attr_def, &filter_cls->attr_list, list) {
         if (!attr_is_defined[attr_def->ref_idx]
-            && 0 != (INTERPRETER_ATTR_FLAG_MANDATORY & attr_def->flags)) {
+            && 0 != (FILTER_ATTR_FLAG_MANDATORY & attr_def->flags)) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR, &node->loc,
                            "missing mandatory attribute \"%s\"",
                            attr_def->name);
@@ -241,31 +241,31 @@ interpreter_build_attrs(struct ast_node_hdl *node,
 }
 
 bitpunch_status_t
-interpreter_rcall_evaluate_attrs(struct ast_node_hdl *expr,
+filter_instance_evaluate_attrs(struct ast_node_hdl *expr,
                                  struct box *scope,
                                  int **attr_is_specifiedp,
                                  expr_value_t **attr_valuep,
                                  struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    const struct interpreter *interpreter;
-    const struct interpreter_attr_def *attr_def;
+    const struct filter_class *filter_cls;
+    const struct filter_attr_def *attr_def;
     int attr_idx;
     struct named_expr *attr;
     expr_value_t *attr_value;
     int *attr_is_specified;
     int cond_eval;
 
-    interpreter = expr->ndat->u.rexpr_interpreter.interpreter;
+    filter_cls = expr->ndat->u.rexpr_filter.filter_cls;
 
-    attr_value = new_n_safe(expr_value_t, interpreter->n_attrs);
-    attr_is_specified = new_n_safe(int, interpreter->n_attrs);
+    attr_value = new_n_safe(expr_value_t, filter_cls->n_attrs);
+    attr_is_specified = new_n_safe(int, filter_cls->n_attrs);
 
     STATEMENT_FOREACH(named_expr, attr,
-                      expr->ndat->u.rexpr_interpreter.attribute_list, list) {
+                      expr->ndat->u.rexpr_filter.attribute_list, list) {
         // TODO optimize this lookup (e.g. store the index in the
         // attribute list item)
-        attr_def = interpreter_get_attr_def(interpreter, attr->nstmt.name);
+        attr_def = filter_class_get_attr(filter_cls, attr->nstmt.name);
         assert(NULL != attr_def);
         attr_idx = attr_def->ref_idx;
         if (attr_is_specified[attr_idx]) {
@@ -295,16 +295,16 @@ interpreter_rcall_evaluate_attrs(struct ast_node_hdl *expr,
 }
 
 void
-interpreter_rcall_destroy_attr_values(struct ast_node_hdl *expr,
-                                      int *attr_is_specified,
-                                      expr_value_t *attr_value)
+filter_instance_destroy_attr_values(struct ast_node_hdl *expr,
+                                    int *attr_is_specified,
+                                    expr_value_t *attr_value)
 {
-    const struct interpreter *interpreter;
+    const struct filter_class *filter_cls;
     int attr_idx;
 
-    interpreter = expr->ndat->u.rexpr_interpreter.interpreter;
+    filter_cls = expr->ndat->u.rexpr_filter.filter_cls;
     if (NULL != attr_value) {
-        for (attr_idx = 0; attr_idx < interpreter->n_attrs; ++attr_idx) {
+        for (attr_idx = 0; attr_idx < filter_cls->n_attrs; ++attr_idx) {
             expr_value_destroy(attr_value[attr_idx]);
         }
         free(attr_value);
@@ -313,12 +313,12 @@ interpreter_rcall_destroy_attr_values(struct ast_node_hdl *expr,
 }
 
 bitpunch_status_t
-interpreter_rcall_read_value(struct ast_node_hdl *expr,
-                             struct box *scope,
-                             const char *item_data,
-                             int64_t item_size,
-                             expr_value_t *valuep,
-                             struct browse_state *bst)
+filter_instance_read_value(struct ast_node_hdl *expr,
+                           struct box *scope,
+                           const char *item_data,
+                           int64_t item_size,
+                           expr_value_t *valuep,
+                           struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     int *attr_is_specified = NULL;
@@ -328,13 +328,13 @@ interpreter_rcall_read_value(struct ast_node_hdl *expr,
     expr_value_t value;
 
     value.type = EXPR_VALUE_TYPE_UNSET;
-    bt_ret = interpreter_rcall_evaluate_attrs(expr, scope,
-                                              &attr_is_specified,
-                                              &attr_value, bst);
+    bt_ret = filter_instance_evaluate_attrs(expr, scope,
+                                            &attr_is_specified,
+                                            &attr_value, bst);
     if (BITPUNCH_OK == bt_ret) {
-        if (NULL == expr->ndat->u.rexpr_interpreter.get_size_func) {
+        if (NULL == expr->ndat->u.rexpr_filter.get_size_func) {
             span_size = item_size;
-        } else if (-1 == expr->ndat->u.rexpr_interpreter.get_size_func(
+        } else if (-1 == expr->ndat->u.rexpr_filter.get_size_func(
                        expr,
                        &span_size, &used_size, item_data, item_size,
                        attr_is_specified, attr_value)) {
@@ -343,7 +343,7 @@ interpreter_rcall_read_value(struct ast_node_hdl *expr,
     }
     if (BITPUNCH_OK == bt_ret) {
         memset(&value, 0, sizeof(value));
-        if (-1 == expr->ndat->u.rexpr_interpreter.read_func(
+        if (-1 == expr->ndat->u.rexpr_filter.read_func(
                 expr,
                 &value, item_data, span_size,
                 attr_is_specified, attr_value)) {
@@ -355,7 +355,7 @@ interpreter_rcall_read_value(struct ast_node_hdl *expr,
     } else {
         expr_value_destroy(value);
     }
-    interpreter_rcall_destroy_attr_values(expr, attr_is_specified,
+    filter_instance_destroy_attr_values(expr, attr_is_specified,
                                           attr_value);
     return bt_ret;
 }

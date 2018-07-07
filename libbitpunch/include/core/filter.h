@@ -29,8 +29,8 @@
  * DAMAGE.
  */
 
-#ifndef __INTERPRETER_H__
-#define __INTERPRETER_H__
+#ifndef __FILTER_H__
+#define __FILTER_H__
 
 #include <stddef.h>
 
@@ -40,83 +40,77 @@
 
 #include PATH_TO_PARSER_TAB_H
 
-enum interpreter_attr_flags {
-    INTERPRETER_ATTR_FLAG_MANDATORY = 1,
+enum filter_attr_flags {
+    FILTER_ATTR_FLAG_MANDATORY = 1,
 };
 
-struct interpreter_attr_def {
-    STAILQ_ENTRY(interpreter_attr_def) list;
+struct filter_attr_def {
+    STAILQ_ENTRY(filter_attr_def) list;
     const char *name;
     int ref_idx;
     enum expr_value_type value_type_mask;
-    enum interpreter_attr_flags flags;
+    enum filter_attr_flags flags;
 };
 
 typedef int
-(*interpreter_rcall_build_func_t)(
-    struct ast_node_hdl *rcall,
+(*filter_instance_build_func_t)(
+    struct ast_node_hdl *filter,
     const struct statement_list *attribute_list,
     struct compile_ctx *ctx);
 
-struct interpreter {
+struct filter_class {
     const char *name;
     enum expr_value_type value_type_mask;
-    interpreter_rcall_build_func_t rcall_build_func;
+    filter_instance_build_func_t filter_instance_build_func;
     int n_attrs;
     int max_attr_ref;
-    STAILQ_HEAD(interpreter_attr_list, interpreter_attr_def) attr_list;
+    STAILQ_HEAD(filter_attr_list, filter_attr_def) attr_list;
 };
 
 int
-interpreter_declare(const char *name,
+filter_class_declare(const char *name,
                     enum expr_value_type value_type_mask,
-                    interpreter_rcall_build_func_t rcall_build_func,
+                    filter_instance_build_func_t filter_instance_build_func,
                     int n_attrs,
                     ... /* attrs: (name, ref_idx, type, flags) tuples */);
 
-struct interpreter *
-interpreter_lookup(const char *name);
+struct filter_class *
+filter_class_lookup(const char *name);
 
 void
-interpreter_declare_std(void);
+filter_class_declare_std(void);
 
-const struct interpreter_attr_def *
-interpreter_get_attr_def(const struct interpreter *interpreter,
+const struct filter_attr_def *
+filter_class_get_attr(const struct filter_class *filter_cls,
                          const char *attr_name);
 int
-interpreter_rcall_build(struct ast_node_hdl *node,
-                        const struct interpreter *interpreter,
+filter_instance_build(struct ast_node_hdl *node,
+                        const struct filter_class *filter_cls,
                         struct statement_list *attribute_list);
 
 int
-interpreter_build_attrs(struct ast_node_hdl *node,
-                        const struct interpreter *interpreter,
+filter_build_attrs(struct ast_node_hdl *node,
+                        const struct filter_class *filter_cls,
                         struct statement_list *attribute_list);
 
 bitpunch_status_t
-interpreter_rcall_evaluate_attrs(struct ast_node_hdl *expr,
+filter_instance_evaluate_attrs(struct ast_node_hdl *expr,
                                  struct box *scope,
                                  int **attr_is_specifiedp,
                                  expr_value_t **attr_valuep,
                                  struct browse_state *bst);
 
 void
-interpreter_rcall_destroy_attr_values(struct ast_node_hdl *expr,
+filter_instance_destroy_attr_values(struct ast_node_hdl *expr,
                                       int *attr_is_specified,
                                       expr_value_t *attr_value);
 
 bitpunch_status_t
-interpreter_rcall_read_value(struct ast_node_hdl *interpreter,
+filter_instance_read_value(struct ast_node_hdl *filter,
                              struct box *scope,
                              const char *item_data,
                              int64_t item_size,
                              expr_value_t *valuep,
                              struct browse_state *bst);
-
-/* following declarations match definitions in interpreter_*.c
- * files */
-
-void
-interpreter_declare_binary_integer(void);
 
 #endif

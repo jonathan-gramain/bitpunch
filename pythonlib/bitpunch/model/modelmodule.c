@@ -83,7 +83,7 @@ static int
 dpath_is_complex_type(const struct dpath_node *dpath)
 {
     return ast_node_is_origin_container(dpath_node_get_as_type(dpath))
-        && AST_NODE_TYPE_REXPR_INTERPRETER !=
+        && AST_NODE_TYPE_REXPR_FILTER !=
         ast_node_get_target_filter(dpath->filter)->ndat->type;
 }
 

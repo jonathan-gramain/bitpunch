@@ -48,7 +48,7 @@ enum statement_type;
 
 enum resolve_expect_mask {
     RESOLVE_EXPECT_TYPE             = (1u<<0),
-    RESOLVE_EXPECT_INTERPRETER      = (1u<<1),
+    RESOLVE_EXPECT_FILTER           = (1u<<1),
     RESOLVE_EXPECT_VALUE_EXPRESSION = (1u<<2),
     RESOLVE_EXPECT_DPATH_EXPRESSION = (1u<<3),
     RESOLVE_EXPECT_EXPRESSION = (RESOLVE_EXPECT_DPATH_EXPRESSION |

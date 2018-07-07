@@ -115,7 +115,7 @@ base64_decode(const char *encoded, size_t encoded_size,
 }
 
 static int
-base64_read(struct ast_node_hdl *rcall,
+base64_read(struct ast_node_hdl *filter,
             expr_value_t *read_value,
             const char *data, size_t span_size,
             int *attr_is_specified, expr_value_t *attr_value)
@@ -127,7 +127,7 @@ base64_read(struct ast_node_hdl *rcall,
     decoded_max_length = (span_size + 3) & ~0x3;
     if (decoded_max_length > DECODED_BUFFER_MAX_SIZE) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                       NULL != rcall ? &rcall->loc : NULL,
+                       NULL != filter ? &filter->loc : NULL,
                        "base64 decode buffer too large (%zu bytes, max %d)",
                        decoded_max_length, DECODED_BUFFER_MAX_SIZE);
         return -1;
@@ -137,7 +137,7 @@ base64_read(struct ast_node_hdl *rcall,
     if (-1 == decoded_length) {
         // TODO add precision regarding the error
         semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                       NULL != rcall ? &rcall->loc : NULL,
+                       NULL != filter ? &filter->loc : NULL,
                        "invalid base64 input");
         return -1;
     }
@@ -148,7 +148,7 @@ base64_read(struct ast_node_hdl *rcall,
 }
 
 static int
-base64_write(struct ast_node_hdl *rcall,
+base64_write(struct ast_node_hdl *filter,
              const expr_value_t *write_value,
              char *data, size_t span_size,
              int *attr_is_specified, expr_value_t *attr_value)
@@ -158,23 +158,23 @@ base64_write(struct ast_node_hdl *rcall,
 
 
 static int
-base64_rcall_build(struct ast_node_hdl *rcall,
+base64_filter_instance_build(struct ast_node_hdl *filter,
                    const struct statement_list *attribute_list,
                    struct compile_ctx *ctx)
 {
-    rcall->ndat->u.rexpr_interpreter.read_func = base64_read;
-    rcall->ndat->u.rexpr_interpreter.write_func = base64_write;
+    filter->ndat->u.rexpr_filter.read_func = base64_read;
+    filter->ndat->u.rexpr_filter.write_func = base64_write;
     return 0;
 }
 
 void
-interpreter_declare_base64(void)
+filter_class_declare_base64(void)
 {
     int ret;
 
-    ret = interpreter_declare("base64",
+    ret = filter_class_declare("base64",
                               EXPR_VALUE_TYPE_BYTES,
-                              base64_rcall_build,
+                              base64_filter_instance_build,
                               0);
     assert(0 == ret);
 }

@@ -40,7 +40,7 @@
 #include "core/filter.h"
 
 static int
-varint_get_size(struct ast_node_hdl *rcall,
+varint_get_size(struct ast_node_hdl *filter,
                 int64_t *span_sizep,
                 int64_t *used_sizep,
                 const char *data, int64_t max_span_size,
@@ -61,7 +61,7 @@ varint_get_size(struct ast_node_hdl *rcall,
 }
 
 static int
-varint_read(struct ast_node_hdl *rcall,
+varint_read(struct ast_node_hdl *filter,
             expr_value_t *read_value,
             const char *data, size_t span_size,
             int *attr_is_specified, expr_value_t *attr_value)
@@ -96,7 +96,7 @@ varint_read(struct ast_node_hdl *rcall,
 }
 
 static int
-varint_write(struct ast_node_hdl *rcall,
+varint_write(struct ast_node_hdl *filter,
              const expr_value_t *write_value,
              char *data, size_t span_size,
              int *attr_is_specified, expr_value_t *attr_value)
@@ -106,7 +106,7 @@ varint_write(struct ast_node_hdl *rcall,
 
 
 static int
-varint_rcall_build(struct ast_node_hdl *rcall,
+varint_filter_instance_build(struct ast_node_hdl *filter,
                    const struct statement_list *attribute_list,
                    struct compile_ctx *ctx)
 {
@@ -116,25 +116,25 @@ varint_rcall_build(struct ast_node_hdl *rcall,
     if (AST_NODE_TYPE_BYTE != data_source->ndat->type &&
         AST_NODE_TYPE_BYTE_ARRAY != data_source->ndat->type) {
         semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
-            "varint interpreter expects a byte array");
+            SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
+            "varint filter expects a byte array");
         return -1;
     }
 #endif
-    rcall->ndat->u.rexpr_interpreter.get_size_func = varint_get_size;
-    rcall->ndat->u.rexpr_interpreter.read_func = varint_read;
-    rcall->ndat->u.rexpr_interpreter.write_func = varint_write;
+    filter->ndat->u.rexpr_filter.get_size_func = varint_get_size;
+    filter->ndat->u.rexpr_filter.read_func = varint_read;
+    filter->ndat->u.rexpr_filter.write_func = varint_write;
     return 0;
 }
 
 void
-interpreter_declare_varint(void)
+filter_class_declare_varint(void)
 {
     int ret;
 
-    ret = interpreter_declare("varint",
+    ret = filter_class_declare("varint",
                               EXPR_VALUE_TYPE_INTEGER,
-                              varint_rcall_build,
+                              varint_filter_instance_build,
                               0);
     assert(0 == ret);
 }

@@ -40,7 +40,7 @@
 #include "filters/item.h"
 
 static int
-item_rcall_build(struct ast_node_hdl *rcall,
+item_filter_instance_build(struct ast_node_hdl *filter,
                  const struct statement_list *attribute_list,
                  struct compile_ctx *ctx)
 {
@@ -48,13 +48,13 @@ item_rcall_build(struct ast_node_hdl *rcall,
 }
 
 void
-interpreter_declare_item(void)
+filter_class_declare_item(void)
 {
     int ret;
 
-    ret = interpreter_declare("item",
+    ret = filter_class_declare("item",
                               EXPR_VALUE_TYPE_UNSET,
-                              item_rcall_build,
+                              item_filter_instance_build,
                               5,
                               "@span", REF_ITEM_SPAN,
                               EXPR_VALUE_TYPE_INTEGER, 0,

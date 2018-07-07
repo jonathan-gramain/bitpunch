@@ -109,7 +109,7 @@ GEN_ALL_RW_FUNCS
 
 
 static int
-binary_integer_rcall_build(struct ast_node_hdl *rcall,
+binary_integer_filter_instance_build(struct ast_node_hdl *filter,
                            const struct ast_node_hdl *data_source,
                            const struct ast_node_hdl *attr_values,
                            struct compile_ctx *ctx)
@@ -119,8 +119,8 @@ binary_integer_rcall_build(struct ast_node_hdl *rcall,
     int64_t size;
     int _signed;
     enum endian endian;
-    interpreter_read_func_t read_func;
-    interpreter_write_func_t write_func;
+    filter_read_func_t read_func;
+    filter_write_func_t write_func;
 
     assert(attr_values[REF_SIGNED].ndat->u.rexpr.value_type
            == EXPR_VALUE_TYPE_BOOLEAN);
@@ -143,8 +143,8 @@ binary_integer_rcall_build(struct ast_node_hdl *rcall,
         if (NULL == size_value
             || AST_NODE_TYPE_REXPR_NATIVE != size_value->ndat->type) {
             semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
-                "integer interpreter only supports fixed-sized "
+                SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
+                "integer filter only supports fixed-sized "
                 "byte arrays");
             return -1;
         }
@@ -158,8 +158,8 @@ binary_integer_rcall_build(struct ast_node_hdl *rcall,
 
     default:
         semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
-            "integer interpreter can only interpret byte or byte array "
+            SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
+            "integer filter can only interpret byte or byte array "
             "types, not %s",
             ast_node_type_str(data_source->ndat->type));
         return -1;
@@ -222,12 +222,12 @@ binary_integer_rcall_build(struct ast_node_hdl *rcall,
         SET_RW_FUNCS_1(64);
     default:
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &size_value->loc,
-                       "size %"PRIi64" not supported by integer interpreter",
+                       "size %"PRIi64" not supported by integer filter",
                        size);
         return -1;
     }
-    rcall->ndat->u.rexpr_interpreter.read_func = read_func;
-    rcall->ndat->u.rexpr_interpreter.write_func = write_func;
+    filter->ndat->u.rexpr_filter.read_func = read_func;
+    filter->ndat->u.rexpr_filter.write_func = write_func;
     return 0;
 }
 
@@ -235,7 +235,7 @@ binary_integer_rcall_build(struct ast_node_hdl *rcall,
 
 static int
 binary_integer_read_generic(
-    struct ast_node_hdl *rcall,
+    struct ast_node_hdl *filter,
     expr_value_t *read_value,
     const char *data, size_t span_size,
     int *attr_is_specified, expr_value_t *attr_value)
@@ -248,7 +248,7 @@ binary_integer_read_generic(
         endian = str2endian(attr_value[REF_ENDIAN].string);
         if (endian == ENDIAN_BAD) {
             semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
+                SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
                 "bad endian value \"%.*s\": "
                 "must be \"big\", \"little\" or \"native\"",
                 (int)attr_value[REF_ENDIAN].string.len,
@@ -296,8 +296,8 @@ binary_integer_read_generic(
         READ_BRANCH_1(32);
         READ_BRANCH_1(64);
     default:
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
-                       "size %"PRIi64" not supported by integer interpreter",
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
+                       "size %"PRIi64" not supported by integer filter",
                        span_size);
         return -1;
     }
@@ -306,7 +306,7 @@ binary_integer_read_generic(
 
 static int
 binary_integer_write_generic(
-    struct ast_node_hdl *rcall,
+    struct ast_node_hdl *filter,
     const expr_value_t *write_value,
     char *data, size_t span_size,
     int *attr_is_specified, expr_value_t *attr_value)
@@ -316,13 +316,13 @@ binary_integer_write_generic(
 }
 
 static int
-binary_integer_rcall_build(struct ast_node_hdl *rcall,
+binary_integer_filter_instance_build(struct ast_node_hdl *filter,
                            const struct statement_list *attribute_list,
                            struct compile_ctx *ctx)
 {
-    rcall->ndat->u.rexpr_interpreter.read_func =
+    filter->ndat->u.rexpr_filter.read_func =
         binary_integer_read_generic;
-    rcall->ndat->u.rexpr_interpreter.write_func =
+    filter->ndat->u.rexpr_filter.write_func =
         binary_integer_write_generic;
     return 0;
 }
@@ -330,17 +330,17 @@ binary_integer_rcall_build(struct ast_node_hdl *rcall,
 #endif // optimized code
 
 void
-interpreter_declare_binary_integer(void)
+filter_class_declare_binary_integer(void)
 {
     int ret;
 
-    ret = interpreter_declare("integer",
+    ret = filter_class_declare("integer",
                               EXPR_VALUE_TYPE_INTEGER,
-                              binary_integer_rcall_build,
+                              binary_integer_filter_instance_build,
                               2,
                               "@signed", REF_SIGNED,
                               EXPR_VALUE_TYPE_BOOLEAN,
-                              INTERPRETER_ATTR_FLAG_MANDATORY,
+                              FILTER_ATTR_FLAG_MANDATORY,
                               "@endian", REF_ENDIAN,
                               EXPR_VALUE_TYPE_STRING,
                               0);

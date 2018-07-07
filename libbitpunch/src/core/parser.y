@@ -116,20 +116,20 @@
         struct statement_list *match_list;
     };
 
-    typedef int (*interpreter_read_func_t)(
-        struct ast_node_hdl *rcall,
+    typedef int (*filter_read_func_t)(
+        struct ast_node_hdl *filter,
         expr_value_t *read_value,
         const char *data, size_t used_size,
         int *param_is_specified, expr_value_t *param_value);
 
-    typedef int (*interpreter_write_func_t)(
-        struct ast_node_hdl *rcall,
+    typedef int (*filter_write_func_t)(
+        struct ast_node_hdl *filter,
         const expr_value_t *write_value,
         char *data, size_t used_size,
         int *param_is_specified, expr_value_t *param_value);
 
-    typedef int (*interpreter_get_size_func_t)(
-        struct ast_node_hdl *rcall,
+    typedef int (*filter_get_size_func_t)(
+        struct ast_node_hdl *filter,
         int64_t *span_sizep,
         int64_t *used_sizep,
         const char *data, int64_t max_span_size,
@@ -170,7 +170,7 @@
     };
 
     enum ast_node_data_flag {
-        /** template interpreter */
+        /** template filter */
         ASTFLAG_DATA_TEMPLATE               = (1<<0),
     };
 
@@ -196,7 +196,7 @@
     struct item_node {
         enum item_flag flags;
         int64_t min_span_size; /* minimum size */
-        struct interpreter *interpreter;
+        struct filter_class *filter;
         struct statement_list *attribute_list;
     };
 
@@ -256,7 +256,7 @@
             AST_NODE_TYPE_OP_SUBSCRIPT,
             AST_NODE_TYPE_OP_SUBSCRIPT_SLICE,
             AST_NODE_TYPE_OP_MEMBER,
-            AST_NODE_TYPE_OP_SET_FILTER,
+            AST_NODE_TYPE_OP_FILTER,
             AST_NODE_TYPE_OP_FCALL,
             AST_NODE_TYPE_EXPR_FILE,
             AST_NODE_TYPE_EXPR_SELF,
@@ -287,8 +287,8 @@
             AST_NODE_TYPE_REXPR_OP_SIZEOF,
             AST_NODE_TYPE_REXPR_OP_ADDROF,
             AST_NODE_TYPE_REXPR_OP_ANCESTOR,
+            AST_NODE_TYPE_REXPR_OP_FILTER,
             AST_NODE_TYPE_REXPR_FILTER,
-            AST_NODE_TYPE_REXPR_INTERPRETER,
             AST_NODE_TYPE_REXPR_ITEM,
             AST_NODE_TYPE_REXPR_OP_MEMBER,
             AST_NODE_TYPE_REXPR_FIELD,
@@ -321,7 +321,7 @@
                     BLOCK_TYPE_UNDEF,
                     BLOCK_TYPE_STRUCT,
                     BLOCK_TYPE_UNION,
-                    BLOCK_TYPE_INTERPRETER,
+                    BLOCK_TYPE_FILTER,
                 } type;
                 struct block_stmt_list block_stmt_list;
             } filter_def;
@@ -367,19 +367,19 @@
             } file_attr;
             struct rexpr rexpr; /* base, not instanciable */
             struct rexpr_dpath rexpr_dpath; /* base, not instanciable */
-            struct rexpr_interpreter {
-                struct rexpr_dpath rexpr_dpath; /* inherits */
-                const struct interpreter *interpreter;
-                struct statement_list *attribute_list;
-                interpreter_read_func_t read_func;
-                interpreter_write_func_t write_func;
-                interpreter_get_size_func_t get_size_func;
-            } rexpr_interpreter;
             struct rexpr_filter {
+                struct rexpr_dpath rexpr_dpath; /* inherits */
+                const struct filter_class *filter_cls;
+                struct statement_list *attribute_list;
+                filter_read_func_t read_func;
+                filter_write_func_t write_func;
+                filter_get_size_func_t get_size_func;
+            } rexpr_filter;
+            struct rexpr_op_filter {
                 struct rexpr_dpath rexpr_dpath; /* inherits */
                 struct ast_node_hdl *filter_expr;
                 struct ast_node_hdl *target;
-            } rexpr_filter;
+            } rexpr_op_filter;
             struct rexpr_item {
                 struct rexpr_dpath rexpr_dpath; /* inherits */
                 struct ast_node_hdl *item_type;
@@ -847,7 +847,7 @@ expr:
         parser_location_make_span(&$$->loc, &@1, &@3);
     }
   | expr TOK_FILTER expr {
-        $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_SET_FILTER, $1, $3, &@2);
+        $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_FILTER, $1, $3, &@2);
     }
   | expr '[' opt_key_expr ']' %prec OP_SUBSCRIPT {
         $$ = ast_node_hdl_create(AST_NODE_TYPE_OP_SUBSCRIPT, NULL);
@@ -1309,10 +1309,10 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_REXPR_OP_DIV: return "operator 'divide'";
     case AST_NODE_TYPE_OP_MOD:
     case AST_NODE_TYPE_REXPR_OP_MOD: return "operator 'modulo'";
-    case AST_NODE_TYPE_OP_SET_FILTER: return "operator 'set filter'";
-    case AST_NODE_TYPE_REXPR_INTERPRETER: return "interpreter";
-    case AST_NODE_TYPE_REXPR_ITEM: return "item";
+    case AST_NODE_TYPE_OP_FILTER:
+    case AST_NODE_TYPE_REXPR_OP_FILTER: return "operator 'filter'";
     case AST_NODE_TYPE_REXPR_FILTER: return "filter";
+    case AST_NODE_TYPE_REXPR_ITEM: return "item";
     case AST_NODE_TYPE_OP_UPLUS:
     case AST_NODE_TYPE_REXPR_OP_UPLUS: return "unary 'plus'";
     case AST_NODE_TYPE_OP_UMINUS:
@@ -1349,7 +1349,7 @@ block_type_str(enum block_type type)
     case BLOCK_TYPE_UNDEF: return "undef";
     case BLOCK_TYPE_STRUCT: return "struct";
     case BLOCK_TYPE_UNION: return "union";
-    case BLOCK_TYPE_INTERPRETER: return "interpreter";
+    case BLOCK_TYPE_FILTER: return "filter";
     }
     return "!!bad block type!!";
 }

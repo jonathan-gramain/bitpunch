@@ -743,7 +743,7 @@ WARN_LOGFILE           =
 # spaces.
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = libbitpunch/src/api libbitpunch/src/core libbitpunch/src/interpreters libbitpunch/src/utils pythonlib/bitpunch pythonlib/bitpunch/model pythonlib/bitpunch_cli pythonlib/nestedcmd
+INPUT                  = libbitpunch/src/api libbitpunch/src/core libbitpunch/src/filters libbitpunch/src/utils pythonlib/bitpunch pythonlib/bitpunch/model pythonlib/bitpunch_cli pythonlib/nestedcmd
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses

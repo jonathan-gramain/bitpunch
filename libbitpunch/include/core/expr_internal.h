@@ -61,7 +61,7 @@ dpath_read_value_internal(expr_dpath_t dpath,
                           struct browse_state *bst);
 enum filter_kind {
     FILTER_KIND_ITEM,
-    FILTER_KIND_INTERPRETER,
+    FILTER_KIND_FILTER,
     FILTER_KIND_DEFINING_SPAN_SIZE,
     FILTER_KIND_DEFINING_USED_SIZE,
     FILTER_KIND_ANCESTOR,

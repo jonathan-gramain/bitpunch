@@ -7,7 +7,7 @@
   - The length expression between brackets can be specified or
     omitted: if specified it can be an arbitrary expression resolving
     to an integer, if omitted the number of items will be determined
-    by other means (interpreter-defined size, or available slack
+    by other means (filter-defined size, or available slack
     space)
 
   - Array items are accessed in expressions by appending the index to
@@ -46,8 +46,8 @@
     which can be used where a value is expected (it will then trigger
     a read in the data at the dpath location).
 
-- **interpreter**: code that reads a data region and transforms it
-    into a typed expression value. A typical interpreter is "integer":
+- **filter**: code that reads a data region and transforms it
+    into a typed expression value. A typical filter is "integer":
     it returns an actual integer number from a series of bytes and
     some configuration parameters (endianness and sign notably). The
     returned value can then be embedded into an expression that
@@ -59,7 +59,7 @@
 - **slack container**: container that has no predefined size: it takes
    as much space as possible from the slack space allocated from the
    parent. An array that has no set size (e.g. [] byte) and no
-   interpreter-defined size (like null-terminated strings) is a slack
+   filter-defined size (like null-terminated strings) is a slack
    container.
 
 - **slack space**: space allocated by a parent container to its children

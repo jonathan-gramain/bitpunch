@@ -41,7 +41,7 @@
 #define UNCOMPRESSED_BUFFER_MAX_SIZE (1024 * 1024 * 1024)
 
 static int
-snappy_read(struct ast_node_hdl *rcall,
+snappy_read(struct ast_node_hdl *filter,
             expr_value_t *read_value,
             const char *data, size_t span_size,
             int *attr_is_specified, expr_value_t *attr_value)
@@ -53,13 +53,13 @@ snappy_read(struct ast_node_hdl *rcall,
     snappy_ret = snappy_uncompressed_length(data, span_size,
                                             &uncompressed_length);
     if (SNAPPY_OK != snappy_ret) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
                        "error from snappy_uncompressed_length() -> %d",
                        snappy_ret);
         return -1;
     }
     if (uncompressed_length > UNCOMPRESSED_BUFFER_MAX_SIZE) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
                        "snappy uncompressed buffer too large "
                        "(%zu bytes, max %d)",
                        uncompressed_length, UNCOMPRESSED_BUFFER_MAX_SIZE);
@@ -69,7 +69,7 @@ snappy_read(struct ast_node_hdl *rcall,
     snappy_ret = snappy_uncompress(data, span_size,
                                    uncompressed, &uncompressed_length);
     if (SNAPPY_OK != snappy_ret) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &rcall->loc,
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
                        "error from snappy_uncompress() -> %d",
                        snappy_ret);
         return -1;
@@ -81,7 +81,7 @@ snappy_read(struct ast_node_hdl *rcall,
 }
 
 static int
-snappy_write(struct ast_node_hdl *rcall,
+snappy_write(struct ast_node_hdl *filter,
              const expr_value_t *write_value,
              char *data, size_t span_size,
              int *attr_is_specified, expr_value_t *attr_value)
@@ -91,23 +91,23 @@ snappy_write(struct ast_node_hdl *rcall,
 
 
 static int
-snappy_rcall_build(struct ast_node_hdl *rcall,
+snappy_filter_instance_build(struct ast_node_hdl *filter,
                    const struct statement_list *attribute_list,
                    struct compile_ctx *ctx)
 {
-    rcall->ndat->u.rexpr_interpreter.read_func = snappy_read;
-    rcall->ndat->u.rexpr_interpreter.write_func = snappy_write;
+    filter->ndat->u.rexpr_filter.read_func = snappy_read;
+    filter->ndat->u.rexpr_filter.write_func = snappy_write;
     return 0;
 }
 
 void
-interpreter_declare_snappy(void)
+filter_class_declare_snappy(void)
 {
     int ret;
 
-    ret = interpreter_declare("snappy",
+    ret = filter_class_declare("snappy",
                               EXPR_VALUE_TYPE_BYTES,
-                              snappy_rcall_build,
+                              snappy_filter_instance_build,
                               0);
     assert(0 == ret);
 }

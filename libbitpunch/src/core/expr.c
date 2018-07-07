@@ -147,11 +147,12 @@ expr_transform_dpath_item(struct ast_node_hdl *expr, struct box *scope,
                           struct dpath_transform *transformp,
                           struct browse_state *bst);
 static bitpunch_status_t
-expr_transform_dpath_filter(struct ast_node_hdl *expr, struct box *scope,
-                            struct dpath_transform *transformp,
-                            struct browse_state *bst);
+expr_transform_dpath_operator_filter(
+    struct ast_node_hdl *expr, struct box *scope,
+    struct dpath_transform *transformp,
+    struct browse_state *bst);
 static bitpunch_status_t
-expr_transform_dpath_interpreter(struct ast_node_hdl *expr,
+expr_transform_dpath_filter(struct ast_node_hdl *expr,
                                  struct box *scope,
                                  struct dpath_transform *transformp,
                                  struct browse_state *bst);
@@ -2519,10 +2520,11 @@ expr_transform_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
         return expr_transform_dpath_polymorphic(expr, scope, transformp, bst);
     case AST_NODE_TYPE_REXPR_ITEM:
         return expr_transform_dpath_item(expr, scope, transformp, bst);
+    case AST_NODE_TYPE_REXPR_OP_FILTER:
+        return expr_transform_dpath_operator_filter(expr, scope,
+                                                    transformp, bst);
     case AST_NODE_TYPE_REXPR_FILTER:
         return expr_transform_dpath_filter(expr, scope, transformp, bst);
-    case AST_NODE_TYPE_REXPR_INTERPRETER:
-        return expr_transform_dpath_interpreter(expr, scope, transformp, bst);
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
     case AST_NODE_TYPE_REXPR_FIELD:
@@ -2680,9 +2682,10 @@ expr_transform_dpath_item(struct ast_node_hdl *expr, struct box *scope,
 }
 
 static bitpunch_status_t
-expr_transform_dpath_filter(struct ast_node_hdl *expr, struct box *scope,
-                            struct dpath_transform *transformp,
-                            struct browse_state *bst)
+expr_transform_dpath_operator_filter(
+    struct ast_node_hdl *expr, struct box *scope,
+    struct dpath_transform *transformp,
+    struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     struct ast_node_hdl *target;
@@ -2692,8 +2695,8 @@ expr_transform_dpath_filter(struct ast_node_hdl *expr, struct box *scope,
     // thing is to apply operands in order (left then right) so that
     // chained filters are applied in order to the current dpath.
 
-    target = expr->ndat->u.rexpr_filter.target;
-    filter_expr = expr->ndat->u.rexpr_filter.filter_expr;
+    target = expr->ndat->u.rexpr_op_filter.target;
+    filter_expr = expr->ndat->u.rexpr_op_filter.filter_expr;
 
     bt_ret = expr_transform_dpath_internal(target, scope, transformp, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -2703,7 +2706,7 @@ expr_transform_dpath_filter(struct ast_node_hdl *expr, struct box *scope,
 }
 
 static bitpunch_status_t
-expr_transform_dpath_interpreter(struct ast_node_hdl *expr,
+expr_transform_dpath_filter(struct ast_node_hdl *expr,
                                  struct box *scope,
                                  struct dpath_transform *transformp,
                                  struct browse_state *bst)
@@ -2756,11 +2759,11 @@ expr_evaluate_filter_type_named_expr(struct ast_node_hdl *filter,
 }
 
 static bitpunch_status_t
-expr_evaluate_filter_type_filter(struct ast_node_hdl *filter,
-                                 struct box *scope,
-                                 enum filter_kind kind,
-                                 struct ast_node_hdl **filter_typep,
-                                 struct browse_state *bst)
+expr_evaluate_filter_type_op_filter(struct ast_node_hdl *filter,
+                                    struct box *scope,
+                                    enum filter_kind kind,
+                                    struct ast_node_hdl **filter_typep,
+                                    struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     struct ast_node_hdl *ordered_sub_filters[2];
@@ -2768,27 +2771,27 @@ expr_evaluate_filter_type_filter(struct ast_node_hdl *filter,
     switch (kind) {
     case FILTER_KIND_ITEM:
         return expr_evaluate_filter_type_internal(
-            filter->ndat->u.rexpr_filter.target, scope, kind,
+            filter->ndat->u.rexpr_op_filter.target, scope, kind,
             filter_typep, bst);
-    case FILTER_KIND_INTERPRETER:
+    case FILTER_KIND_FILTER:
         return expr_evaluate_filter_type_internal(
-            filter->ndat->u.rexpr_filter.filter_expr, scope, kind,
+            filter->ndat->u.rexpr_op_filter.filter_expr, scope, kind,
             filter_typep, bst);
     case FILTER_KIND_DEFINING_SPAN_SIZE:
         // check filters from closest to farthest from item
-        ordered_sub_filters[0] = filter->ndat->u.rexpr_filter.target;
-        ordered_sub_filters[1] = filter->ndat->u.rexpr_filter.filter_expr;
+        ordered_sub_filters[0] = filter->ndat->u.rexpr_op_filter.target;
+        ordered_sub_filters[1] = filter->ndat->u.rexpr_op_filter.filter_expr;
         break ;
     case FILTER_KIND_DEFINING_USED_SIZE:
         // check filters from farthest to closest to item
-        ordered_sub_filters[0] = filter->ndat->u.rexpr_filter.filter_expr;
-        ordered_sub_filters[1] = filter->ndat->u.rexpr_filter.target;
+        ordered_sub_filters[0] = filter->ndat->u.rexpr_op_filter.filter_expr;
+        ordered_sub_filters[1] = filter->ndat->u.rexpr_op_filter.target;
         break ;
     case FILTER_KIND_ANCESTOR:
         // skip filter to get ancestor, continue with the target
         return expr_evaluate_filter_type_internal(
-            filter->ndat->u.rexpr_filter.target, scope,
-            FILTER_KIND_INTERPRETER, filter_typep, bst);
+            filter->ndat->u.rexpr_op_filter.target, scope,
+            FILTER_KIND_FILTER, filter_typep, bst);
     default:
         assert(0);
     }
@@ -2813,7 +2816,7 @@ expr_evaluate_filter_type_item(struct ast_node_hdl *filter,
 {
     switch (kind) {
     case FILTER_KIND_ITEM:
-    case FILTER_KIND_INTERPRETER:
+    case FILTER_KIND_FILTER:
     case FILTER_KIND_ANCESTOR: // no ancestor filter, fall through to
                                // item filter
         *filter_typep = filter;
@@ -2828,14 +2831,14 @@ expr_evaluate_filter_type_item(struct ast_node_hdl *filter,
 }
 
 static bitpunch_status_t
-expr_evaluate_filter_type_interpreter(struct ast_node_hdl *filter,
-                                      struct box *scope,
-                                      enum filter_kind kind,
-                                      struct ast_node_hdl **filter_typep,
-                                      struct browse_state *bst)
+expr_evaluate_filter_type_filter(struct ast_node_hdl *filter,
+                                 struct box *scope,
+                                 enum filter_kind kind,
+                                 struct ast_node_hdl **filter_typep,
+                                 struct browse_state *bst)
 {
     switch (kind) {
-    case FILTER_KIND_INTERPRETER:
+    case FILTER_KIND_FILTER:
     case FILTER_KIND_ANCESTOR: // no ancestor filter, fall through to
                                // item filter
         *filter_typep = filter;
@@ -2843,7 +2846,7 @@ expr_evaluate_filter_type_interpreter(struct ast_node_hdl *filter,
     case FILTER_KIND_DEFINING_SPAN_SIZE:
     case FILTER_KIND_DEFINING_USED_SIZE:
         *filter_typep =
-            NULL != filter->ndat->u.rexpr_interpreter.get_size_func ?
+            NULL != filter->ndat->u.rexpr_filter.get_size_func ?
             filter : NULL;
         return BITPUNCH_OK;
     case FILTER_KIND_ITEM:
@@ -2863,15 +2866,15 @@ expr_evaluate_filter_type_internal(struct ast_node_hdl *filter,
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
         return expr_evaluate_filter_type_named_expr(filter, scope, kind,
                                                     filter_typep, bst);
-    case AST_NODE_TYPE_REXPR_FILTER:
-        return expr_evaluate_filter_type_filter(filter, scope, kind,
-                                                filter_typep, bst);
+    case AST_NODE_TYPE_REXPR_OP_FILTER:
+        return expr_evaluate_filter_type_op_filter(filter, scope, kind,
+                                                   filter_typep, bst);
     case AST_NODE_TYPE_REXPR_ITEM:
         return expr_evaluate_filter_type_item(filter, scope, kind,
                                               filter_typep, bst);
-    case AST_NODE_TYPE_REXPR_INTERPRETER:
-        return expr_evaluate_filter_type_interpreter(filter, scope, kind,
-                                                     filter_typep, bst);
+    case AST_NODE_TYPE_REXPR_FILTER:
+        return expr_evaluate_filter_type_filter(filter, scope, kind,
+                                                filter_typep, bst);
     default:
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
                        "cannot evaluate filter type on expression "

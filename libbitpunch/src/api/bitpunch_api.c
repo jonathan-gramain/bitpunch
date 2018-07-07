@@ -59,7 +59,7 @@ int tracker_debug_mode = 0;
 int
 bitpunch_init(void)
 {
-    interpreter_declare_std();
+    filter_class_declare_std();
     return 0;
 }
 

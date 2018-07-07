@@ -29,8 +29,8 @@
  * DAMAGE.
  */
 
-#ifndef __INTERPRETER_ITEM_H__
-#define __INTERPRETER_ITEM_H__
+#ifndef __FILTER_ITEM_H__
+#define __FILTER_ITEM_H__
 
 #include "core/filter.h"
 

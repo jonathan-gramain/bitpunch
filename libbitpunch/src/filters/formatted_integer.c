@@ -65,7 +65,7 @@ static const char lookup[256] = {
 };
 
 static int
-formatted_integer_read(struct ast_node_hdl *rcall,
+formatted_integer_read(struct ast_node_hdl *filter,
                        expr_value_t *read_value,
                        const char *data, size_t span_size,
                        int *attr_is_specified, expr_value_t *attr_value)
@@ -101,7 +101,7 @@ formatted_integer_read(struct ast_node_hdl *rcall,
             return 0;
         }
         semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                       NULL != rcall ? &rcall->loc : NULL,
+                       NULL != filter ? &filter->loc : NULL,
                        "invalid formatted integer input buffer: "
                        "empty buffer");
         return -1;
@@ -152,7 +152,7 @@ formatted_integer_read(struct ast_node_hdl *rcall,
         parsed_value += lookup_value;
         if (parsed_value < prev_parsed_value) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                           NULL != rcall ? &rcall->loc : NULL,
+                           NULL != filter ? &filter->loc : NULL,
                            "invalid formatted integer input buffer: "
                            "overflows a 64-bit signed integer value");
             return -1;
@@ -164,14 +164,14 @@ formatted_integer_read(struct ast_node_hdl *rcall,
 
   invalid:
     semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                   NULL != rcall ? &rcall->loc : NULL,
+                   NULL != filter ? &filter->loc : NULL,
                    "invalid formatted integer input buffer: "
                    "not a valid formatted integer");
     return -1;
 }
 
 static int
-formatted_integer_write(struct ast_node_hdl *rcall,
+formatted_integer_write(struct ast_node_hdl *filter,
                         const expr_value_t *write_value,
                         char *data, size_t span_size,
                         int *attr_is_specified, expr_value_t *attr_value)
@@ -181,23 +181,23 @@ formatted_integer_write(struct ast_node_hdl *rcall,
 
 
 static int
-formatted_integer_rcall_build(struct ast_node_hdl *rcall,
+formatted_integer_filter_instance_build(struct ast_node_hdl *filter,
                               const struct statement_list *attribute_list,
                               struct compile_ctx *ctx)
 {
-    rcall->ndat->u.rexpr_interpreter.read_func = formatted_integer_read;
-    rcall->ndat->u.rexpr_interpreter.write_func = formatted_integer_write;
+    filter->ndat->u.rexpr_filter.read_func = formatted_integer_read;
+    filter->ndat->u.rexpr_filter.write_func = formatted_integer_write;
     return 0;
 }
 
 void
-interpreter_declare_formatted_integer(void)
+filter_class_declare_formatted_integer(void)
 {
     int ret;
 
-    ret = interpreter_declare("formatted_integer",
+    ret = filter_class_declare("formatted_integer",
                               EXPR_VALUE_TYPE_INTEGER,
-                              formatted_integer_rcall_build,
+                              formatted_integer_filter_instance_build,
                               3,
                               "@base", REF_BASE,
                               EXPR_VALUE_TYPE_INTEGER, 0,
