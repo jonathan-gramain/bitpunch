@@ -1136,8 +1136,8 @@ DataContainer_eval_attr(DataContainerObject *self, const char *attr_str)
     struct tracker_error *tk_err = NULL;
     const struct ast_node_hdl *filter;
 
-    bt_ret = box_evaluate_attribute_dpath(self->box, attr_str,
-                                          &dpath_eval, &tk_err);
+    bt_ret = box_evaluate_attribute(self->box, attr_str,
+                                    &value_eval, &dpath_eval, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
         if (BITPUNCH_NO_ITEM == bt_ret) {
             PyErr_Format(PyExc_AttributeError,
@@ -1149,25 +1149,15 @@ DataContainer_eval_attr(DataContainerObject *self, const char *attr_str)
         return NULL;
     }
     if (EXPR_DPATH_TYPE_NONE == dpath_eval.type) {
-        bt_ret = box_evaluate_attribute_value(self->box, attr_str,
-                                              &value_eval, &tk_err);
-        if (BITPUNCH_OK != bt_ret) {
-            set_tracker_error(tk_err, bt_ret);
-            return NULL;
-        }
         return expr_value_to_PyObject(self->dtree, value_eval, FALSE);
     }
     // FIXME rework choice between dpath or value type
     filter = expr_dpath_get_target_filter(dpath_eval);
     if (EXPR_VALUE_TYPE_INTEGER != filter->ndat->u.rexpr.value_type_mask) {
+        expr_value_destroy(value_eval);
         return expr_dpath_to_PyObject(self->dtree, dpath_eval, FALSE);
     }
-    bt_ret = dpath_read_value(dpath_eval, &value_eval, &tk_err);
     expr_dpath_destroy(dpath_eval);
-    if (BITPUNCH_OK != bt_ret) {
-        set_tracker_error(tk_err, bt_ret);
-        return NULL;
-    }
     return expr_value_to_PyObject(self->dtree, value_eval, FALSE);
 }
 

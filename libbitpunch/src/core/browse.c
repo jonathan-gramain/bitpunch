@@ -4739,26 +4739,6 @@ box_lookup_member_internal(struct box *box, const char *name,
 }
 
 bitpunch_status_t
-box_evaluate_attribute_value_internal(struct box *box,
-                                      const char *attr_name,
-                                      expr_value_t *eval_valuep,
-                                      struct browse_state *bst)
-{
-    return box_evaluate_attribute_internal(box, attr_name,
-                                           eval_valuep, NULL, bst);
-}
-
-bitpunch_status_t
-box_evaluate_attribute_dpath_internal(struct box *box,
-                                      const char *attr_name,
-                                      expr_dpath_t *eval_dpathp,
-                                      struct browse_state *bst)
-{
-    return box_evaluate_attribute_internal(box, attr_name,
-                                           NULL, eval_dpathp, bst);
-}
-
-bitpunch_status_t
 box_evaluate_attribute_internal(struct box *box,
                                 const char *attr_name,
                                 expr_value_t *eval_valuep,
@@ -9007,36 +8987,6 @@ box_get_n_statements(struct box *box,
         &bst, errp);
 }
 
-
-bitpunch_status_t
-box_evaluate_attribute_value(struct box *box,
-                             const char *attr_name,
-                             expr_value_t *eval_valuep,
-                             struct tracker_error **errp)
-{
-    struct browse_state bst;
-
-    browse_state_init(&bst);
-    return transmit_error(
-        box_evaluate_attribute_value_internal(box, attr_name,
-                                              eval_valuep, &bst),
-        &bst, errp);
-}
-
-bitpunch_status_t
-box_evaluate_attribute_dpath(struct box *box,
-                             const char *attr_name,
-                             expr_dpath_t *eval_dpathp,
-                             struct tracker_error **errp)
-{
-    struct browse_state bst;
-
-    browse_state_init(&bst);
-    return transmit_error(
-        box_evaluate_attribute_dpath_internal(box, attr_name,
-                                              eval_dpathp, &bst),
-        &bst, errp);
-}
 
 bitpunch_status_t
 box_evaluate_attribute(struct box *box,

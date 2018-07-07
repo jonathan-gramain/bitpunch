@@ -123,15 +123,6 @@ box_lookup_member_internal(struct box *box, const char *name,
                            struct box **scopep,
                            struct browse_state *bst);
 bitpunch_status_t
-box_evaluate_attribute_dpath_internal(struct box *box,
-                                      const char *attr_name,
-                                      expr_dpath_t *eval_dpathp,
-                                      struct browse_state *bst);
-bitpunch_status_t
-box_evaluate_attribute_value_internal(struct box *box, const char *name,
-                                      expr_value_t *eval_valuep,
-                                      struct browse_state *bst);
-bitpunch_status_t
 box_evaluate_attribute_internal(struct box *box,
                                 const char *attr_name,
                                 expr_value_t *eval_valuep,
