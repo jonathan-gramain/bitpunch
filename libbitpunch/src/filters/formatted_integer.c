@@ -43,7 +43,7 @@
 #define PLUS_SIGN -2
 #define MINUS_SIGN -3
 
-/* lookup table indexed by ascii value of each base64-encoded char */
+/* lookup table indexed by ascii value of each character */
 static const char lookup[256] = {
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
@@ -153,7 +153,7 @@ formatted_integer_read(struct ast_node_hdl *filter,
         if (parsed_value < prev_parsed_value) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR,
                            NULL != filter ? &filter->loc : NULL,
-                           "invalid formatted integer input buffer: "
+                           "unsupported formatted integer in input buffer: "
                            "overflows a 64-bit signed integer value");
             return -1;
         }
@@ -165,8 +165,7 @@ formatted_integer_read(struct ast_node_hdl *filter,
   invalid:
     semantic_error(SEMANTIC_LOGLEVEL_ERROR,
                    NULL != filter ? &filter->loc : NULL,
-                   "invalid formatted integer input buffer: "
-                   "not a valid formatted integer");
+                   "invalid formatted integer in input buffer");
     return -1;
 }
 
