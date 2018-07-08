@@ -64,11 +64,13 @@ static const char lookup[256] = {
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 };
 
-static int
+static bitpunch_status_t
 formatted_integer_read(struct ast_node_hdl *filter,
+                       struct box *scope,
                        expr_value_t *read_value,
                        const char *data, size_t span_size,
-                       int *attr_is_specified, expr_value_t *attr_value)
+                       int *attr_is_specified, expr_value_t *attr_value,
+                       struct browse_state *bst)
 {
     int base;
     int64_t parsed_value;
@@ -98,13 +100,13 @@ formatted_integer_read(struct ast_node_hdl *filter,
         if (attr_is_specified[REF_EMPTY_VALUE]) {
             read_value->type = EXPR_VALUE_TYPE_INTEGER;
             read_value->integer = attr_value[REF_EMPTY_VALUE].integer;
-            return 0;
+            return BITPUNCH_OK;
         }
         semantic_error(SEMANTIC_LOGLEVEL_ERROR,
                        NULL != filter ? &filter->loc : NULL,
                        "invalid formatted integer input buffer: "
                        "empty buffer");
-        return -1;
+        return BITPUNCH_DATA_ERROR;
     }
     negative = FALSE;
     in = (const unsigned char *)data;
@@ -155,18 +157,18 @@ formatted_integer_read(struct ast_node_hdl *filter,
                            NULL != filter ? &filter->loc : NULL,
                            "unsupported formatted integer in input buffer: "
                            "overflows a 64-bit signed integer value");
-            return -1;
+            return BITPUNCH_DATA_ERROR;
         }
     }
     read_value->type = EXPR_VALUE_TYPE_INTEGER;
     read_value->integer = negative ? -parsed_value : parsed_value;
-    return 0;
+    return BITPUNCH_OK;
 
   invalid:
     semantic_error(SEMANTIC_LOGLEVEL_ERROR,
                    NULL != filter ? &filter->loc : NULL,
                    "invalid formatted integer in input buffer");
-    return -1;
+    return BITPUNCH_DATA_ERROR;
 }
 
 static int
@@ -211,7 +213,7 @@ formatted_integer_read_test(expr_value_t *resultp,
 {
     int attr_is_specified[3];
     expr_value_t attr_value[3];
-    int ret;
+    bitpunch_status_t bt_ret;
 
     attr_is_specified[REF_BASE] = base != -1;
     attr_is_specified[REF_EMPTY_VALUE] = empty_value != -1;
@@ -220,20 +222,21 @@ formatted_integer_read_test(expr_value_t *resultp,
     attr_value[REF_EMPTY_VALUE].integer = empty_value;
     attr_value[REF_SIGNED].boolean = _signed;
 
-    ret = formatted_integer_read(NULL, resultp,
-                                 buffer, strlen(buffer),
-                                 attr_is_specified, attr_value);
-    if (0 == ret) {
+    bt_ret = formatted_integer_read(NULL, NULL, resultp,
+                                    buffer, strlen(buffer),
+                                    attr_is_specified, attr_value, NULL);
+    if (BITPUNCH_OK == bt_ret) {
         ck_assert_int_eq(resultp->type, EXPR_VALUE_TYPE_INTEGER);
+        return 0;
     }
-    return ret;
+    ck_assert_int_eq(bt_ret, BITPUNCH_DATA_ERROR);
+    return -1;
 }
 
 START_TEST(test_formatted_integer)
 {
     int ret;
     expr_value_t result;
-
 
     ret = formatted_integer_read_test(&result, "42", -1, -1, -1);
     ck_assert_int_eq(ret, 0);

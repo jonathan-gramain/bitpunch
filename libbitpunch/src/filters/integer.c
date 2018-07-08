@@ -233,12 +233,14 @@ binary_integer_filter_instance_build(struct ast_node_hdl *filter,
 
 #else
 
-static int
+static bitpunch_status_t
 binary_integer_read_generic(
     struct ast_node_hdl *filter,
+    struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    int *attr_is_specified, expr_value_t *attr_value)
+    int *attr_is_specified, expr_value_t *attr_value,
+    struct browse_state *bst)
 {
     int _signed;
     enum endian endian;
@@ -253,7 +255,7 @@ binary_integer_read_generic(
                 "must be \"big\", \"little\" or \"native\"",
                 (int)attr_value[REF_ENDIAN].string.len,
                 attr_value[REF_ENDIAN].string.str);
-            return -1;
+            return BITPUNCH_INVALID_PARAM;
         }
     } else {
         endian = ENDIAN_DEFAULT;
@@ -299,9 +301,9 @@ binary_integer_read_generic(
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
                        "size %"PRIi64" not supported by integer filter",
                        span_size);
-        return -1;
+        return BITPUNCH_NOT_IMPLEMENTED;
     }
-    return 0;
+    return BITPUNCH_OK;
 }
 
 static int

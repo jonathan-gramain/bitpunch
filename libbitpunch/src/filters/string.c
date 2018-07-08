@@ -41,18 +41,35 @@
 
 #define REF_BOUNDARY  0
 
-static int
+bitpunch_status_t
+box_evaluate_member_internal(struct box *box, const char *name,
+                             expr_value_t *eval_valuep,
+                             expr_dpath_t *eval_dpathp,
+                             struct browse_state *bst);
+
+static bitpunch_status_t
 string_get_size_byte_array_single_char_boundary(
     struct ast_node_hdl *filter,
+    struct box *scope,
     int64_t *span_sizep,
     int64_t *used_sizep,
     const char *data, int64_t max_span_size,
-    int *attr_is_specified, expr_value_t *attr_value)
+    int *attr_is_specified, expr_value_t *attr_value,
+    struct browse_state *bst)
 {
+    //bitpunch_status_t bt_ret;
+    //expr_value_t boundary_value;
     const char *end;
 
+    /* bt_ret = box_evaluate_member_internal( */
+    /*     scope, "@boundary", &boundary_value, NULL, bst); */
+    /* if (BITPUNCH_OK != bt_ret) { */
+    /*     return bt_ret; */
+    /* } */
+    /* end = memchr(data, boundary_value.string.str[0], max_span_size); */
     end = memchr(data, attr_value[REF_BOUNDARY].string.str[0],
                  max_span_size);
+    //expr_value_destroy(boundary_value);
     if (NULL != end) {
         *span_sizep = end - data + 1;
         *used_sizep = end - data;
@@ -60,16 +77,18 @@ string_get_size_byte_array_single_char_boundary(
         *span_sizep = max_span_size;
         *used_sizep = max_span_size;
     }
-    return 0;
+    return BITPUNCH_OK;
 }
 
-static int
+static bitpunch_status_t
 string_get_size_byte_array_multi_char_boundary(
     struct ast_node_hdl *filter,
+    struct box *scope,
     int64_t *span_sizep,
     int64_t *used_sizep,
     const char *data, int64_t max_span_size,
-    int *attr_is_specified, expr_value_t *attr_value)
+    int *attr_is_specified, expr_value_t *attr_value,
+    struct browse_state *bst)
 {
     const char *end;
 
@@ -83,29 +102,33 @@ string_get_size_byte_array_multi_char_boundary(
         *span_sizep = max_span_size;
         *used_sizep = max_span_size;
     }
-    return 0;
+    return BITPUNCH_OK;
 }
 
 
-static int
+static bitpunch_status_t
 string_read_byte_array_no_boundary(
     struct ast_node_hdl *filter,
+    struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    int *attr_is_specified, expr_value_t *attr_value)
+    int *attr_is_specified, expr_value_t *attr_value,
+    struct browse_state *bst)
 {
     read_value->type = EXPR_VALUE_TYPE_STRING;
     read_value->string.str = (char *)data;
     read_value->string.len = span_size;
-    return 0;
+    return BITPUNCH_OK;
 }
 
-static int
+static bitpunch_status_t
 string_read_byte_array_single_char_boundary(
     struct ast_node_hdl *filter,
+    struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    int *attr_is_specified, expr_value_t *attr_value)
+    int *attr_is_specified, expr_value_t *attr_value,
+    struct browse_state *bst)
 {
     read_value->type = EXPR_VALUE_TYPE_STRING;
     read_value->string.str = (char *)data;
@@ -115,15 +138,17 @@ string_read_byte_array_single_char_boundary(
     } else {
         read_value->string.len = span_size;
     }
-    return 0;
+    return BITPUNCH_OK;
 }
 
-static int
+static bitpunch_status_t
 string_read_byte_array_multi_char_boundary(
     struct ast_node_hdl *filter,
+    struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    int *attr_is_specified, expr_value_t *attr_value)
+    int *attr_is_specified, expr_value_t *attr_value,
+    struct browse_state *bst)
 {
     struct expr_value_string boundary;
 
@@ -138,7 +163,7 @@ string_read_byte_array_multi_char_boundary(
     } else {
         read_value->string.len = span_size;
     }
-    return 0;
+    return BITPUNCH_OK;
 }
 
 

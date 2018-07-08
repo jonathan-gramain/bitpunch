@@ -39,12 +39,14 @@
 
 #include "core/filter.h"
 
-static int
+static bitpunch_status_t
 varint_get_size(struct ast_node_hdl *filter,
+                struct box *scope,
                 int64_t *span_sizep,
                 int64_t *used_sizep,
                 const char *data, int64_t max_span_size,
-                int *attr_is_specified, expr_value_t *attr_value)
+                int *attr_is_specified, expr_value_t *attr_value,
+                struct browse_state *bst)
 {
     size_t bytepos;
 
@@ -53,18 +55,20 @@ varint_get_size(struct ast_node_hdl *filter,
         if (!(data[bytepos] & 0x80)) {
             *span_sizep = bytepos + 1;
             *used_sizep = bytepos + 1;
-            return 0;
+            return BITPUNCH_OK;
         }
     }
     // invalid varint
-    return -1;
+    return BITPUNCH_DATA_ERROR;
 }
 
-static int
+static bitpunch_status_t
 varint_read(struct ast_node_hdl *filter,
+            struct box *scope,
             expr_value_t *read_value,
             const char *data, size_t span_size,
-            int *attr_is_specified, expr_value_t *attr_value)
+            int *attr_is_specified, expr_value_t *attr_value,
+            struct browse_state *bst)
 {
     // FIXME optimize
     const unsigned char *udata = (const unsigned char *)data;
@@ -85,14 +89,14 @@ varint_read(struct ast_node_hdl *filter,
     }
     if (bytepos == span_size) {
         // invalid varint
-        return -1;
+        return BITPUNCH_DATA_ERROR;
     }
     // zigzag encoding
     //value = (rawvalue & 1) ? -((rawvalue + 1) / 2) : (rawvalue / 2);
     value = rawvalue;
     read_value->type = EXPR_VALUE_TYPE_INTEGER;
     read_value->integer = value;
-    return 0;
+    return BITPUNCH_OK;
 }
 
 static int

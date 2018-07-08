@@ -171,6 +171,8 @@ fdump_ast(struct ast_node_hdl *root, FILE *stream);
 void
 dump_filter(const struct ast_node_hdl *filter, FILE *stream);
 void
+dump_composite(const struct ast_node_hdl *filter, FILE *stream);
+void
 dump_ast_node_input_text(const struct ast_node_hdl *node,
                          struct bitpunch_schema_hdl *schema,
                          FILE *stream);

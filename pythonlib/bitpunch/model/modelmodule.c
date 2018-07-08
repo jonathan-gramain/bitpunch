@@ -1136,8 +1136,8 @@ DataContainer_eval_attr(DataContainerObject *self, const char *attr_str)
     struct tracker_error *tk_err = NULL;
     const struct ast_node_hdl *filter;
 
-    bt_ret = box_evaluate_attribute(self->box, attr_str,
-                                    &value_eval, &dpath_eval, &tk_err);
+    bt_ret = box_evaluate_member(self->box, attr_str,
+                                 &value_eval, &dpath_eval, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
         if (BITPUNCH_NO_ITEM == bt_ret) {
             PyErr_Format(PyExc_AttributeError,
@@ -1871,7 +1871,7 @@ DataContainer_box_to_python_object(struct DataTreeObject *dtree,
                                    struct box *box)
 {
     switch (dpath_node_get_as_type(&box->dpath)->ndat->type) {
-    case AST_NODE_TYPE_FILTER_DEF:
+    case AST_NODE_TYPE_COMPOSITE:
         return DataBlock_box_to_python_object(dtree, box);
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_ARRAY_SLICE:
@@ -1952,7 +1952,7 @@ static int
 Tracker_set_default_iter_mode(TrackerObject *self)
 {
     switch (self->tk->box->dpath.item->ndat->type) {
-    case AST_NODE_TYPE_FILTER_DEF:
+    case AST_NODE_TYPE_COMPOSITE:
         self->iter_mode = TRACKER_ITER_FIELD_NAMES;
         break ;
     case AST_NODE_TYPE_ARRAY:
@@ -3227,7 +3227,7 @@ box_to_shallow_PyObject(DataTreeObject *dtree, struct box *box)
 
     as_type = dpath_node_get_as_type(&box->dpath);
     switch (as_type->ndat->type) {
-    case AST_NODE_TYPE_FILTER_DEF:
+    case AST_NODE_TYPE_COMPOSITE:
         dcont = (DataContainerObject *)DataBlock_new(&DataBlockType,
                                                      NULL, NULL);
         if (NULL == dcont) {

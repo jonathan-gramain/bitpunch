@@ -122,9 +122,11 @@ struct ast_node_data shared_ast_node_data_as_bytes_filter = {
     .type = AST_NODE_TYPE_REXPR_ITEM,
     .u = {
         .rexpr_item = {
-            .rexpr_dpath = {
-                .rexpr = {
-                    .value_type_mask = EXPR_VALUE_TYPE_BYTES,
+            .rexpr_filter = {
+                .item = {
+                    .rexpr = {
+                        .value_type_mask = EXPR_VALUE_TYPE_BYTES,
+                    },
                 },
             },
             .item_type = &shared_ast_node_byte_slice,
@@ -139,9 +141,11 @@ struct ast_node_data shared_ast_node_data_raw_byte_filter = {
     .type = AST_NODE_TYPE_REXPR_ITEM,
     .u = {
         .rexpr_item = {
-            .rexpr_dpath = {
-                .rexpr = {
-                    .value_type_mask = EXPR_VALUE_TYPE_BYTES,
+            .rexpr_filter = {
+                .item = {
+                    .rexpr = {
+                        .value_type_mask = EXPR_VALUE_TYPE_BYTES,
+                    },
                 },
             },
             .item_type = &shared_ast_node_byte,
@@ -171,12 +175,12 @@ struct dpath_node shared_dpath_node_as_bytes = {
 
 
 static struct track_path
-track_path_from_block_field(const struct field *field)
+track_path_from_composite_field(const struct field *field)
 {
     struct track_path ret;
 
     memset(&ret, 0, sizeof (ret));
-    ret.type = TRACK_PATH_BLOCK;
+    ret.type = TRACK_PATH_COMPOSITE;
     ret.u.block.field = field;
     if (NULL != field) {
         if (0 != (field->nstmt.stmt.stmt_flags & FIELD_FLAG_HEADER)) {
@@ -343,11 +347,11 @@ tracker_goto_nth_item_with_key_internal(struct tracker *tk,
                                         struct browse_state *bst);
 
 static bitpunch_status_t
-tracker_goto_first_item_int__block(struct tracker *tk, int flat,
-                                   struct browse_state *bst);
+tracker_goto_first_item_int__composite(struct tracker *tk, int flat,
+                                       struct browse_state *bst);
 static bitpunch_status_t
-tracker_goto_next_item_int__block(struct tracker *tk, int flat,
-                                  struct browse_state *bst);
+tracker_goto_next_item_int__composite(struct tracker *tk, int flat,
+                                      struct browse_state *bst);
 
 
 void
@@ -959,16 +963,16 @@ box_construct(struct box *o_box,
     }
     o_box->dpath = *dpath;
     o_box->flags = box_flags;
-    o_box->start_offset_parent = -1; /* unknown */
-    o_box->start_offset_slack = -1; /* unknown */
-    o_box->start_offset_max_span = -1; /* unknown */
-    o_box->start_offset_used = -1; /* unknown */
-    o_box->start_offset_min_span = -1; /* unknown */
-    o_box->end_offset_parent = -1; /* unknown */
-    o_box->end_offset_slack = -1; /* unknown */
-    o_box->end_offset_max_span = -1; /* unknown */
-    o_box->end_offset_used = -1; /* unknown */
-    o_box->end_offset_min_span = -1; /* unknown */
+    o_box->start_offset_parent = -1; /* -1 <=> unknown */
+    o_box->start_offset_slack = -1;
+    o_box->start_offset_max_span = -1;
+    o_box->start_offset_used = -1;
+    o_box->start_offset_min_span = -1;
+    o_box->end_offset_parent = -1;
+    o_box->end_offset_slack = -1;
+    o_box->end_offset_max_span = -1;
+    o_box->end_offset_used = -1;
+    o_box->end_offset_min_span = -1;
     if (NULL != parent_box) {
         assert(parent_box != o_box);
         o_box->parent_box = parent_box;
@@ -989,7 +993,7 @@ box_construct(struct box *o_box,
     }
     /* initialize internal state */
     switch (dpath->item->ndat->type) {
-    case AST_NODE_TYPE_FILTER_DEF:
+    case AST_NODE_TYPE_COMPOSITE:
         break ;
     case AST_NODE_TYPE_ARRAY:
         o_box->u.array_generic.n_items = -1;
@@ -1685,7 +1689,7 @@ box_get_scope_box(struct box *box)
 
     scope = box;
     while (NULL != scope
-           && AST_NODE_TYPE_FILTER_DEF != scope->dpath.item->ndat->type) {
+           && AST_NODE_TYPE_COMPOSITE != scope->dpath.item->ndat->type) {
         scope = scope->parent_box;
     }
     return scope;
@@ -1696,7 +1700,7 @@ box_free(struct box *box)
 {
     /* destroy internal state */
     switch (box->dpath.item->ndat->type) {
-    case AST_NODE_TYPE_FILTER_DEF:
+    case AST_NODE_TYPE_COMPOSITE:
         break ;
     case AST_NODE_TYPE_ARRAY:
         if (box_index_cache_exists(box)) {
@@ -2145,7 +2149,7 @@ tracker_lookup_current_twin_index(struct tracker *tk,
     do {
         bt_ret = tracker_goto_next_item_internal(xtk, bst);
         if (BITPUNCH_OK == bt_ret) {
-            bt_ret = node->ndat->u.container.b_tk.goto_next_key_match(
+            bt_ret = node->ndat->u.rexpr_filter.b_tk.goto_next_key_match(
                 xtk, item_key, TRACK_PATH_NONE, bst);
             if (BITPUNCH_OK == bt_ret
                 && (-1 == in_slice_path.u.array.index
@@ -2246,7 +2250,7 @@ tracker_goto_next_key_match_in_mark(struct tracker *tk,
     search_boundary = track_path_from_array_index(
         box_array_get_mark_start_index(tk->box, mark + 1));
 
-    return tk->box->dpath.item->ndat->u.container.b_tk.goto_next_key_match(
+    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_next_key_match(
         tk, key, search_boundary, bst);
 }
 
@@ -2303,8 +2307,8 @@ static void
 tracker_reset_track_path(struct tracker *tk)
 {
     switch (tk->box->dpath.item->ndat->type) {
-    case AST_NODE_TYPE_FILTER_DEF:
-        tk->cur = track_path_from_block_field(NULL);
+    case AST_NODE_TYPE_COMPOSITE:
+        tk->cur = track_path_from_composite_field(NULL);
         break ;
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_ARRAY_SLICE:
@@ -2665,7 +2669,7 @@ box_compute_min_span_size(struct box *box,
         /* nothing to do */
         return BITPUNCH_OK;
     }
-    return box->dpath.item->ndat->u.container.b_box.compute_min_span_size(
+    return box->dpath.item->ndat->u.rexpr_filter.b_box.compute_min_span_size(
         box, bst);
 }
 
@@ -2723,7 +2727,7 @@ box_compute_used_size(struct box *box,
         }
         if (call_backend) {
             bt_ret =
-                box->dpath.item->ndat->u.container.b_box.compute_used_size(
+                box->dpath.item->ndat->u.rexpr_filter.b_box.compute_used_size(
                     box, bst);
         }
     }
@@ -2778,7 +2782,7 @@ box_compute_max_span_size(struct box *box,
         return BITPUNCH_OK;
     }
     box->flags |= COMPUTING_SPAN_SIZE;
-    bt_ret = box->dpath.item->ndat->u.container.b_box.compute_max_span_size(box, bst);
+    bt_ret = box->dpath.item->ndat->u.rexpr_filter.b_box.compute_max_span_size(box, bst);
     box->flags &= ~COMPUTING_SPAN_SIZE;
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_box_context(
@@ -2806,7 +2810,7 @@ box_compute_slack_size(struct box *box,
         /* nothing to do */
         return BITPUNCH_OK;
     }
-    bt_ret = box->dpath.item->ndat->u.container.b_box.compute_slack_size(
+    bt_ret = box->dpath.item->ndat->u.rexpr_filter.b_box.compute_slack_size(
         box, bst);
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_box_context(
@@ -2829,8 +2833,8 @@ box_get_children_slack(struct box *box,
         box->flags |= COMPUTING_MAX_SLACK_OFFSET;
         flag_set = TRUE;
     }
-    if (NULL != box->dpath.item->ndat->u.container.b_box.get_max_slack_offset) {
-        bt_ret = box->dpath.item->ndat->u.container.b_box.get_max_slack_offset(
+    if (NULL != box->dpath.item->ndat->u.rexpr_filter.b_box.get_max_slack_offset) {
+        bt_ret = box->dpath.item->ndat->u.rexpr_filter.b_box.get_max_slack_offset(
             box, get_left_offset, max_slack_offsetp, bst);
     } else {
         bt_ret = box_compute_max_span_size(box, bst);
@@ -2858,7 +2862,7 @@ box_get_n_items_internal(struct box *box, int64_t *n_itemsp,
 {
     bitpunch_status_t bt_ret;
 
-    bt_ret = box->dpath.item->ndat->u.container.b_box.get_n_items(
+    bt_ret = box->dpath.item->ndat->u.rexpr_filter.b_box.get_n_items(
         box, n_itemsp, bst);
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_box_context(
@@ -2873,7 +2877,7 @@ box_read_value_internal(struct box *box,
                         struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    struct filter_backend *b_filter = NULL;
+    struct item_backend *b_item = NULL;
 
     bt_ret = box_apply_filter_internal(box, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -2881,8 +2885,8 @@ box_read_value_internal(struct box *box,
     }
     bt_ret = box_compute_used_size(box, bst);
     if (BITPUNCH_OK == bt_ret) {
-        b_filter = &box->dpath.filter->ndat->u.rexpr_dpath.b_filter;
-        bt_ret = b_filter->read_value(
+        b_item = &box->dpath.filter->ndat->u.rexpr_filter.b_item;
+        bt_ret = b_item->read_value(
             box->dpath.filter, box,
             box->start_offset_used,
             box->end_offset_used - box->start_offset_used,
@@ -2974,8 +2978,8 @@ box_get_end_path(struct box *box, struct track_path *end_pathp,
         end_pathp->type = TRACK_PATH_ARRAY;
         end_pathp->u.array.index = index_start + n_items;
         break ;
-    case AST_NODE_TYPE_FILTER_DEF:
-        end_pathp->type = TRACK_PATH_BLOCK;
+    case AST_NODE_TYPE_COMPOSITE:
+        end_pathp->type = TRACK_PATH_COMPOSITE;
         end_pathp->u.block.field = NULL;
         break ;
     default:
@@ -3049,7 +3053,7 @@ tracker_compute_item_offset(struct tracker *tk,
     tk->flags |= TRACKER_NEED_ITEM_OFFSET;
     node = tk->box->dpath.item;
     switch (node->ndat->type) {
-    case AST_NODE_TYPE_FILTER_DEF:
+    case AST_NODE_TYPE_COMPOSITE:
         return tracker_goto_field_internal(tk, tk->cur.u.block.field,
                                            TRUE, bst);
     case AST_NODE_TYPE_ARRAY:
@@ -3189,7 +3193,7 @@ static void
 tracker_set_dpath_from_cur_internal(struct tracker *tk)
 {
     switch (tk->cur.type) {
-    case TRACK_PATH_BLOCK:
+    case TRACK_PATH_COMPOSITE:
         tk->dpath = (NULL != tk->cur.u.block.field ?
                      &tk->cur.u.block.field->dpath : NULL);
         break ;
@@ -3213,7 +3217,7 @@ tracker_goto_first_item_internal(struct tracker *tk,
     DBG_TRACKER_DUMP(tk);
     tracker_set_dangling(tk);
     tk->item_offset = -1;
-    bt_ret = tk->box->dpath.item->ndat->u.container.b_tk.goto_first_item(tk, bst);
+    bt_ret = tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_first_item(tk, bst);
     switch (bt_ret) {
     case BITPUNCH_NO_ITEM:
         tk->flags |= TRACKER_AT_END;
@@ -3245,7 +3249,7 @@ tracker_goto_next_item_internal(struct tracker *tk,
     if (NULL == tk->dpath) {
         return tracker_goto_first_item_internal(tk, bst);
     }
-    return tk->box->dpath.item->ndat->u.container.b_tk.goto_next_item(tk, bst);
+    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_next_item(tk, bst);
 }
 
 
@@ -3257,7 +3261,7 @@ tracker_goto_nth_item_internal(struct tracker *tk, int64_t index,
     if (index < 0) {
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
-    return tk->box->dpath.item->ndat->u.container.b_tk.goto_nth_item(tk, index, bst);
+    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_nth_item(tk, index, bst);
 }
 
 static bitpunch_status_t
@@ -3270,7 +3274,7 @@ tracker_goto_nth_position_internal(struct tracker *tk, int64_t index,
     if (index < 0) {
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
-    bt_ret = tk->box->dpath.item->ndat->u.container.b_tk.goto_nth_item(tk, index, bst);
+    bt_ret = tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_nth_item(tk, index, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
         int64_t n_items;
 
@@ -3292,10 +3296,10 @@ tracker_goto_named_item_internal(struct tracker *tk, const char *name,
                                  struct browse_state *bst)
 {
     DBG_TRACKER_DUMP(tk);
-    if (NULL == tk->box->dpath.item->ndat->u.container.b_tk.goto_named_item) {
+    if (NULL == tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_named_item) {
         return tracker_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst, NULL);
     }
-    return tk->box->dpath.item->ndat->u.container.b_tk.goto_named_item(tk, name, bst);
+    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_named_item(tk, name, bst);
 }
 
 
@@ -3317,7 +3321,7 @@ tracker_goto_next_item_with_key_internal(struct tracker *tk,
     if (NULL == tk->dpath) {
         return tracker_goto_nth_item_with_key_internal(tk, item_key, 0, bst);
     }
-    return tk->box->dpath.item->ndat->u.container.b_tk.goto_next_item_with_key(
+    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_next_item_with_key(
         tk, item_key, bst);
 }
 
@@ -3333,13 +3337,13 @@ tracker_goto_nth_item_with_key_internal(struct tracker *tk,
                              "parameter \"nth_twin\" must be >= 0 (is %d)",
                              nth_twin);
     }
-    return tk->box->dpath.item->ndat->u.container.b_tk.goto_nth_item_with_key(
+    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_nth_item_with_key(
         tk, item_key, nth_twin, bst);
 }
 
 
 static void
-tracker_set_field_internal__block(struct tracker *tk,
+tracker_set_field_internal__composite(struct tracker *tk,
                                   const struct field *field,
                                   struct browse_state *bst)
 {
@@ -3347,7 +3351,7 @@ tracker_set_field_internal__block(struct tracker *tk,
            field->nstmt.name);
     DBG_TRACKER_DUMP(tk);
     tracker_set_dangling_internal(tk);
-    tk->cur = track_path_from_block_field(field);
+    tk->cur = track_path_from_composite_field(field);
     tk->dpath = &field->dpath;
     DBG_TRACKER_CHECK_STATE(tk);
 }
@@ -3365,7 +3369,7 @@ tracker_goto_field_internal(struct tracker *tk,
     assert(flat || NULL != to_field->nstmt.name);
 
     if (flat && 0 == (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
-        tracker_set_field_internal__block(tk, to_field, bst);
+        tracker_set_field_internal__composite(tk, to_field, bst);
         return BITPUNCH_OK;
     }
     if (0 != (tk->box->flags & BOX_RALIGN)) {
@@ -3384,9 +3388,9 @@ tracker_goto_field_internal(struct tracker *tk,
     if (reverse_direction) {
         tk->flags ^= TRACKER_REVERSED;
     }
-    bt_ret = tracker_goto_first_item_int__block(tk, flat, bst);
+    bt_ret = tracker_goto_first_item_int__composite(tk, flat, bst);
     while (BITPUNCH_OK == bt_ret && tk->cur.u.block.field != to_field) {
-        bt_ret = tracker_goto_next_item_int__block(tk, flat, bst);
+        bt_ret = tracker_goto_next_item_int__composite(tk, flat, bst);
     }
     if (reverse_direction && BITPUNCH_OK == bt_ret) {
         bt_ret = tracker_reverse_direction_internal(tk, bst);
@@ -3741,7 +3745,7 @@ track_path_elem_dump_to_buf(struct track_path tp, int dump_separator,
     switch (tp.type) {
     case TRACK_PATH_NOTYPE:
         return snprintf(dpath_expr_buf, buf_size, "(as)");
-    case TRACK_PATH_BLOCK:
+    case TRACK_PATH_COMPOSITE:
         if (NULL == tp.u.block.field) {
             return snprintf(dpath_expr_buf, buf_size, ".<NOFIELD>");
         }
@@ -3777,7 +3781,7 @@ track_path_elem_dump(struct track_path tp, int dump_separator,
     switch (tp.type) {
     case TRACK_PATH_NOTYPE:
         return fprintf(stream, "(as)");
-    case TRACK_PATH_BLOCK:
+    case TRACK_PATH_COMPOSITE:
         if (NULL == tp.u.block.field) {
             return fprintf(stream, ".<NOFIELD>");
         }
@@ -3943,7 +3947,7 @@ tracker_compute_item_size_internal(struct tracker *tk,
             return bt_ret;
         }
     }
-    return tk->dpath->item->ndat->u.container.b_tk.compute_item_size(
+    return tk->dpath->item->ndat->u.rexpr_filter.b_tk.compute_item_size(
         tk, item_sizep, bst);
 }
 
@@ -4043,7 +4047,7 @@ tracker_get_item_key_internal(struct tracker *tk,
     if (NULL == tk->dpath) {
         return BITPUNCH_NO_ITEM;
     }
-    return tk->box->dpath.item->ndat->u.container.b_tk.get_item_key(
+    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.get_item_key(
         tk, keyp, NULL, bst);
 }
 
@@ -4057,7 +4061,7 @@ tracker_get_item_key_multi_internal(struct tracker *tk,
     if (NULL == tk->dpath) {
         return BITPUNCH_NO_ITEM;
     }
-    return tk->box->dpath.item->ndat->u.container.b_tk.get_item_key(
+    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.get_item_key(
         tk, keyp, nth_twinp, bst);
 }
 
@@ -4167,7 +4171,7 @@ tracker_read_item_value_direct_internal(struct tracker *tk,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    bt_ret = filter_type->ndat->u.rexpr_dpath.b_filter.read_value(
+    bt_ret = filter_type->ndat->u.rexpr_filter.b_item.read_value(
         filter_type, tk->box, item_offset, item_size, valuep, bst);
     if (BITPUNCH_OK == bt_ret && NULL != valuep) {
         expr_value_attach_box(valuep, tk->box);
@@ -4326,10 +4330,10 @@ box_iter_statements(struct box *box,
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
     it.stmt_flags = stmt_flags;
-    if (AST_NODE_TYPE_FILTER_DEF != box->dpath.item->ndat->type) {
+    if (AST_NODE_TYPE_COMPOSITE != box->dpath.item->ndat->type) {
         return it;
     }
-    it.stmt_lists = &box->dpath.item->ndat->u.filter_def.block_stmt_list;
+    it.stmt_lists = &box->dpath.item->ndat->u.rexpr_filter.filter_def->block_stmt_list;
     it.stmt_remaining = stmt_mask;
     box_iter_start_list_internal(&it);
     return it;
@@ -4362,10 +4366,10 @@ box_riter_statements(struct box *box,
     it.identifier = identifier;
     it.stmt_flags = stmt_flags;
     it.it_flags = STATEMENT_ITERATOR_FLAG_REVERSE;
-    if (AST_NODE_TYPE_FILTER_DEF != box->dpath.item->ndat->type) {
+    if (AST_NODE_TYPE_COMPOSITE != box->dpath.item->ndat->type) {
         return it;
     }
-    it.stmt_lists = &box->dpath.item->ndat->u.filter_def.block_stmt_list;
+    it.stmt_lists = &box->dpath.item->ndat->u.rexpr_filter.filter_def->block_stmt_list;
     it.stmt_remaining = stmt_mask;
     box_riter_start_list_internal(&it);
     return it;
@@ -4488,10 +4492,10 @@ box_lookup_statement_in_anonymous_field_recur(
 
     field = (const struct field *)stmt;
     as_type = dpath_node_get_as_type(&field->dpath);
-    assert(AST_NODE_TYPE_FILTER_DEF == as_type->ndat->type);
+    assert(AST_NODE_TYPE_COMPOSITE == as_type->ndat->type);
     if (!identifier_is_visible_in_block_stmt_lists(
             STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD,
-            identifier, &as_type->ndat->u.filter_def.block_stmt_list)) {
+            identifier, &as_type->ndat->u.rexpr_filter.filter_def->block_stmt_list)) {
         return BITPUNCH_NO_ITEM;
     }
 
@@ -4517,7 +4521,7 @@ box_lookup_statement_in_anonymous_field_recur(
         return bt_ret;
     }
     bt_ret = box_lookup_statement_recur(
-        scope, &as_type->ndat->u.filter_def.block_stmt_list,
+        scope, &as_type->ndat->u.rexpr_filter.filter_def->block_stmt_list,
         stmt_mask, identifier, stmt_typep, stmtp, scopep, bst);
     box_delete(scope);
     return bt_ret;
@@ -4621,11 +4625,11 @@ box_lookup_statement_internal(struct box *box,
                               struct box **scopep,
                               struct browse_state *bst)
 {
-    if (AST_NODE_TYPE_FILTER_DEF != box->dpath.item->ndat->type) {
+    if (AST_NODE_TYPE_COMPOSITE != box->dpath.item->ndat->type) {
         return BITPUNCH_NO_ITEM;
     }
     return box_lookup_statement_recur(
-        box, &box->dpath.item->ndat->u.filter_def.block_stmt_list,
+        box, &box->dpath.item->ndat->u.rexpr_filter.filter_def->block_stmt_list,
         stmt_mask, identifier, stmt_typep, stmtp, scopep, bst);
 }
 
@@ -4720,18 +4724,17 @@ box_lookup_member_internal(struct box *box, const char *name,
 }
 
 bitpunch_status_t
-box_evaluate_attribute_internal(struct box *box,
-                                const char *attr_name,
-                                expr_value_t *eval_valuep,
-                                expr_dpath_t *eval_dpathp,
-                                struct browse_state *bst)
+box_evaluate_member_internal(struct box *box, const char *name,
+                             expr_value_t *eval_valuep,
+                             expr_dpath_t *eval_dpathp,
+                             struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     enum statement_type stmt_type;
     const struct named_statement *named_stmt;
     struct box *scope;
 
-    bt_ret = box_lookup_member_internal(box, attr_name,
+    bt_ret = box_lookup_member_internal(box, name,
                                         &stmt_type, &named_stmt, &scope,
                                         bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -5171,32 +5174,88 @@ tracker_compute_item_size__static_size(struct tracker *tk,
 }
 
 static bitpunch_status_t
-box_compute_item_size_internal__byte_array_filter_size(
+tracker_compute_item_size__filter_span_size(
+    struct tracker *tk,
+    struct ast_node_hdl *span_filter,
+    int64_t *span_sizep,
+    struct browse_state *bst)
+{
+    const char *item_data;
+    expr_value_t *attr_value;
+    int *attr_is_specified;
+    int64_t span_size;
+    int64_t used_size;
+    bitpunch_status_t bt_ret;
+    int64_t max_slack_offset;
+
+    DBG_TRACKER_DUMP(tk);
+    assert(NULL != span_filter);
+    assert(NULL != span_filter->ndat->u.rexpr_filter.get_size_func);
+
+    bt_ret = box_apply_filter_internal(tk->box, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    item_data = tk->box->file_hdl->bf_data + tk->item_offset;
+
+    if ((tk->box->flags & (COMPUTING_SPAN_SIZE |
+                       COMPUTING_MAX_SLACK_OFFSET))) {
+        if (0 != (tk->box->flags & BOX_RALIGN)) {
+            max_slack_offset = box_get_known_start_offset_mask(
+                tk->box, (BOX_START_OFFSET_MAX_SPAN |
+                      BOX_START_OFFSET_SLACK |
+                      BOX_START_OFFSET_PARENT));
+        } else {
+            max_slack_offset = box_get_known_end_offset_mask(
+                tk->box, (BOX_END_OFFSET_MAX_SPAN |
+                      BOX_END_OFFSET_SLACK |
+                      BOX_END_OFFSET_PARENT));
+        }
+    } else {
+        bt_ret = box_get_children_slack(tk->box, FALSE, &max_slack_offset, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
+    }
+    bt_ret = filter_instance_evaluate_attrs(
+        span_filter, tk->box, &attr_is_specified, &attr_value, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    bt_ret = span_filter->ndat->u.rexpr_filter.get_size_func(
+        span_filter, tk->box, &span_size, &used_size, item_data,
+        max_slack_offset - tk->item_offset,
+        attr_is_specified, attr_value, bst);
+    filter_instance_destroy_attr_values(span_filter,
+                                        attr_is_specified,
+                                        attr_value);
+    if (BITPUNCH_OK != bt_ret) {
+        return tracker_error(bt_ret, tk, span_filter, bst,
+                             "filter couldn't return field's sizes");
+    }
+    *span_sizep = span_size;
+    return BITPUNCH_OK;
+}
+
+static bitpunch_status_t
+box_compute_item_used_size_internal__byte_array_filter_size(
     struct box *box,
     int64_t item_offset,
-    struct ast_node_hdl *span_filter,
     struct ast_node_hdl *used_filter,
-    int64_t *span_sizep,
     int64_t *used_sizep,
     struct browse_state *bst)
 {
     const char *item_data;
     expr_value_t *attr_value;
     int *attr_is_specified;
-    int iret;
-    int64_t span_size;
     int64_t used_size;
     int64_t dummy_size;
     bitpunch_status_t bt_ret;
     int64_t max_slack_offset;
 
     DBG_BOX_DUMP(box);
-    assert(NULL == span_sizep || NULL != span_filter);
-    assert(NULL == span_sizep
-           || NULL != span_filter->ndat->u.rexpr_filter.get_size_func);
-    assert(NULL == span_sizep || NULL != span_filter);
-    assert(NULL == used_sizep
-           || NULL != used_filter->ndat->u.rexpr_filter.get_size_func);
+    assert(NULL != used_filter);
+    assert(NULL != used_filter->ndat->u.rexpr_filter.get_size_func);
 
     bt_ret = box_apply_filter_internal(box, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -5223,67 +5282,23 @@ box_compute_item_size_internal__byte_array_filter_size(
             return bt_ret;
         }
     }
-    if (span_filter == used_filter
-        || NULL == used_sizep) {
-        bt_ret = filter_instance_evaluate_attrs(
-            span_filter, box, &attr_is_specified, &attr_value, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        iret = span_filter->ndat->u.rexpr_filter.get_size_func(
-            span_filter, &span_size, &used_size, item_data,
-            max_slack_offset - item_offset,
-            attr_is_specified, attr_value);
-        filter_instance_destroy_attr_values(span_filter,
-                                              attr_is_specified,
-                                              attr_value);
-        if (-1 == iret) {
-            return box_error(BITPUNCH_DATA_ERROR, box, span_filter, bst,
-                             "filter couldn't return field's sizes");
-        }
-    } else {
-        if (NULL != span_sizep) {
-            bt_ret = filter_instance_evaluate_attrs(
-                span_filter, box, &attr_is_specified, &attr_value, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                return bt_ret;
-            }
-            iret = span_filter->ndat->u.rexpr_filter.get_size_func(
-                span_filter, &span_size, &dummy_size, item_data,
-                max_slack_offset - item_offset,
-                attr_is_specified, attr_value);
-            filter_instance_destroy_attr_values(span_filter,
-                                                  attr_is_specified,
-                                                  attr_value);
-            if (-1 == iret) {
-                return box_error(
-                    BITPUNCH_DATA_ERROR, box, span_filter, bst,
-                    "filter couldn't return field's span size");
-            }
-        }
-        bt_ret = filter_instance_evaluate_attrs(
-            used_filter, box, &attr_is_specified, &attr_value, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        iret = used_filter->ndat->u.rexpr_filter.get_size_func(
-            used_filter, &dummy_size, &used_size, item_data,
-            max_slack_offset - item_offset,
-            attr_is_specified, attr_value);
-        filter_instance_destroy_attr_values(used_filter,
-                                              attr_is_specified,
-                                              attr_value);
-        if (-1 == iret) {
-            return box_error(BITPUNCH_DATA_ERROR, box, used_filter, bst,
-                             "filter couldn't return field's used size");
-        }
+    bt_ret = filter_instance_evaluate_attrs(
+        used_filter, box, &attr_is_specified, &attr_value, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
     }
-    if (NULL != span_sizep) {
-        *span_sizep = span_size;
+    bt_ret = used_filter->ndat->u.rexpr_filter.get_size_func(
+        used_filter, box, &dummy_size, &used_size, item_data,
+        max_slack_offset - item_offset,
+        attr_is_specified, attr_value, bst);
+    filter_instance_destroy_attr_values(used_filter,
+                                        attr_is_specified,
+                                        attr_value);
+    if (BITPUNCH_OK != bt_ret) {
+        return box_error(bt_ret, box, used_filter, bst,
+                         "filter couldn't return field's used size");
     }
-    if (NULL != used_sizep) {
-        *used_sizep = used_size;
-    }
+    *used_sizep = used_size;
     return BITPUNCH_OK;
 }
 
@@ -5404,10 +5419,9 @@ box_compute_used_size__as_bytes(struct box *box,
     if (NULL != box->dpath.filter_defining_used_size) {
         int64_t used_size;
 
-        bt_ret = box_compute_item_size_internal__byte_array_filter_size(
+        bt_ret = box_compute_item_used_size_internal__byte_array_filter_size(
             box->parent_box, box_get_start_offset(box),
-            NULL, box->dpath.filter_defining_used_size,
-            NULL, &used_size, bst);
+            box->dpath.filter_defining_used_size, &used_size, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
@@ -5451,24 +5465,12 @@ static bitpunch_status_t
 box_compute_slack_size__as_bytes(struct box *box,
                                  struct browse_state *bst)
 {
-    bitpunch_status_t bt_ret;
-    int64_t file_size;
-
     DBG_BOX_DUMP(box);
     if (0 != (box->flags & BOX_DATA_FILTER)) {
         return box_compute_slack_size__from_file_hdl(box, bst);
     } else {
         return box_compute_slack_size__from_parent(box, bst);
     }
-    if (NULL == box->file_hdl) {
-        assert(0 == (box->flags & BOX_FILTER_APPLIED));
-        bt_ret = box_apply_filter_internal(box, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-    }
-    file_size = (int64_t)box->file_hdl->bf_data_length;
-    return box_set_end_offset(box, file_size, BOX_END_OFFSET_SLACK, bst);
 }
 
 static bitpunch_status_t
@@ -5593,10 +5595,10 @@ box_compute_used_size__packed_dynamic_size(struct box *box,
     tk->flags |= (TRACKER_NEED_ITEM_OFFSET |
                   ((box->flags & BOX_RALIGN) ? TRACKER_REVERSED : 0u));
     // TODO remove special case?
-    if (AST_NODE_TYPE_FILTER_DEF == box->dpath.item->ndat->type) {
-        bt_ret = tracker_goto_first_item_int__block(tk, TRUE, bst);
+    if (AST_NODE_TYPE_COMPOSITE == box->dpath.item->ndat->type) {
+        bt_ret = tracker_goto_first_item_int__composite(tk, TRUE, bst);
         while (BITPUNCH_OK == bt_ret) {
-            bt_ret = tracker_goto_next_item_int__block(tk, TRUE, bst);
+            bt_ret = tracker_goto_next_item_int__composite(tk, TRUE, bst);
         }
     } else {
         bt_ret = tracker_goto_first_item_internal(tk, bst);
@@ -5630,14 +5632,14 @@ box_compute_used_size__union_dynamic_size(struct box *box,
     DBG_BOX_DUMP(box);
     tk = tracker_new(box);
     max_subitem_size = 0;
-    bt_ret = tracker_goto_first_item_int__block(tk, TRUE, bst);
+    bt_ret = tracker_goto_first_item_int__composite(tk, TRUE, bst);
     while (BITPUNCH_OK == bt_ret) {
         bt_ret = tracker_get_item_size_internal(tk, &subitem_size, bst);
         if (BITPUNCH_OK != bt_ret) {
             break ;
         }
         max_subitem_size = MAX(max_subitem_size, subitem_size);
-        bt_ret = tracker_goto_next_item_int__block(tk, TRUE, bst);
+        bt_ret = tracker_goto_next_item_int__composite(tk, TRUE, bst);
     }
     if (BITPUNCH_NO_ITEM == bt_ret) {
         bt_ret = box_set_used_size(box, max_subitem_size, bst);
@@ -5647,7 +5649,7 @@ box_compute_used_size__union_dynamic_size(struct box *box,
 }
 
 static bitpunch_status_t
-box_get_n_items__block(struct box *box, int64_t *item_countp,
+box_get_n_items__composite(struct box *box, int64_t *item_countp,
                        struct browse_state *bst)
 {
     DBG_BOX_DUMP(box);
@@ -5656,7 +5658,7 @@ box_get_n_items__block(struct box *box, int64_t *item_countp,
 }
 
 static bitpunch_status_t
-tracker_get_item_key__block(struct tracker *tk,
+tracker_get_item_key__composite(struct tracker *tk,
                             expr_value_t *keyp,
                             int *nth_twinp,
                             struct browse_state *bst)
@@ -5678,7 +5680,7 @@ tracker_get_item_key__block(struct tracker *tk,
 
 
 static bitpunch_status_t
-tracker_goto_item_int__block(struct tracker *tk,
+tracker_goto_item_int__composite(struct tracker *tk,
                              const struct field *field, int flat,
                              struct browse_state *bst)
 {
@@ -5691,13 +5693,13 @@ tracker_goto_item_int__block(struct tracker *tk,
     if (flat
         || NULL != field->nstmt.name
         || 0 != (field->nstmt.stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
-        tracker_set_field_internal__block(tk, field, bst);
+        tracker_set_field_internal__composite(tk, field, bst);
         return BITPUNCH_OK;
     }
     // recurse into anonymous struct's fields
     xtk = tracker_dup(tk);
     do {
-        tracker_set_field_internal__block(xtk, field, bst);
+        tracker_set_field_internal__composite(xtk, field, bst);
         bt_ret = tracker_enter_item_internal(xtk, bst);
         if (BITPUNCH_OK != bt_ret) {
             tracker_delete(xtk);
@@ -5721,12 +5723,12 @@ tracker_goto_item_int__block(struct tracker *tk,
              && 0 == (field->nstmt.stmt.stmt_flags & FIELD_FLAG_HIDDEN));
     tracker_set(tk, xtk);
     tracker_delete(xtk);
-    tracker_set_field_internal__block(tk, field, bst);
+    tracker_set_field_internal__composite(tk, field, bst);
     return BITPUNCH_OK;
 }
 
 static int
-tracker_in_anonymous_block(struct tracker *tk)
+tracker_in_anonymous_composite(struct tracker *tk)
 {
     struct box *unfiltered_box;
     struct box *parent_box;
@@ -5734,7 +5736,7 @@ tracker_in_anonymous_block(struct tracker *tk)
     unfiltered_box = box_get_unfiltered_parent(tk->box);
     parent_box = unfiltered_box->parent_box;
     return (NULL != parent_box
-            && AST_NODE_TYPE_FILTER_DEF == parent_box->dpath.item->ndat->type
+            && AST_NODE_TYPE_COMPOSITE == parent_box->dpath.item->ndat->type
             && NULL != unfiltered_box->track_path.u.block.field
             && NULL == unfiltered_box->track_path.u.block.field->nstmt.name
             && 0 == (unfiltered_box->track_path.u.block.field
@@ -5742,7 +5744,7 @@ tracker_in_anonymous_block(struct tracker *tk)
 }
 
 static bitpunch_status_t
-tracker_goto_first_item_int__block(struct tracker *tk, int flat,
+tracker_goto_first_item_int__composite(struct tracker *tk, int flat,
                                    struct browse_state *bst)
 {
     struct statement_iterator stit;
@@ -5752,7 +5754,7 @@ tracker_goto_first_item_int__block(struct tracker *tk, int flat,
     DBG_TRACKER_DUMP(tk);
     if (!flat && NULL != tk->cur.u.block.field) {
         // return to base, non-anonymous level
-        while (tracker_in_anonymous_block(tk)) {
+        while (tracker_in_anonymous_composite(tk)) {
             bt_ret = tracker_return_internal(tk, bst);
             assert(BITPUNCH_OK == bt_ret);
         }
@@ -5781,13 +5783,13 @@ tracker_goto_first_item_int__block(struct tracker *tk, int flat,
             return bt_ret;
         }
     }
-    return tracker_goto_item_int__block(tk, (const struct field *)stmt,
+    return tracker_goto_item_int__composite(tk, (const struct field *)stmt,
                                         flat, bst);
 }
 
 
 static bitpunch_status_t
-tracker_goto_next_item_int__block(struct tracker *tk, int flat,
+tracker_goto_next_item_int__composite(struct tracker *tk, int flat,
                                   struct browse_state *bst)
 {
     struct statement_iterator stit;
@@ -5801,7 +5803,8 @@ tracker_goto_next_item_int__block(struct tracker *tk, int flat,
     while (TRUE) {
         /* union: no offset change */
         if (0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)
-            && BLOCK_TYPE_STRUCT == tk->box->dpath.item->ndat->u.filter_def.type) {
+            && COMPOSITE_TYPE_STRUCT ==
+            tk->box->dpath.item->ndat->u.composite.type) {
             int64_t item_size;
 
             bt_ret = tracker_get_item_size_internal(tk, &item_size, bst);
@@ -5832,7 +5835,7 @@ tracker_goto_next_item_int__block(struct tracker *tk, int flat,
         if (BITPUNCH_NO_ITEM != bt_ret) {
             break ;
         }
-        if (!flat && tracker_in_anonymous_block(tk)) {
+        if (!flat && tracker_in_anonymous_composite(tk)) {
             // return from anonymous struct's field list
             bt_ret = tracker_return_internal(tk, bst);
             assert(BITPUNCH_OK == bt_ret);
@@ -5847,29 +5850,29 @@ tracker_goto_next_item_int__block(struct tracker *tk, int flat,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    return tracker_goto_item_int__block(tk, (const struct field *)stmt,
+    return tracker_goto_item_int__composite(tk, (const struct field *)stmt,
                                         flat, bst);
 }
 
 static bitpunch_status_t
-tracker_goto_first_item__block(struct tracker *tk,
+tracker_goto_first_item__composite(struct tracker *tk,
                                struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
 
     DBG_TRACKER_DUMP(tk);
-    bt_ret = tracker_goto_first_item_int__block(tk, FALSE, bst);
+    bt_ret = tracker_goto_first_item_int__composite(tk, FALSE, bst);
     // skip hidden fields
     while (BITPUNCH_OK == bt_ret
            && 0 != (tk->cur.u.block.field->nstmt.stmt.stmt_flags
                     & FIELD_FLAG_HIDDEN)) {
-        bt_ret = tracker_goto_next_item_int__block(tk, FALSE, bst);
+        bt_ret = tracker_goto_next_item_int__composite(tk, FALSE, bst);
     }
     return bt_ret;
 }
 
 static bitpunch_status_t
-tracker_goto_next_item__block(struct tracker *tk,
+tracker_goto_next_item__composite(struct tracker *tk,
                               struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
@@ -5877,7 +5880,7 @@ tracker_goto_next_item__block(struct tracker *tk,
     DBG_TRACKER_DUMP(tk);
     // skip hidden fields
     do {
-        bt_ret = tracker_goto_next_item_int__block(tk, FALSE, bst);
+        bt_ret = tracker_goto_next_item_int__composite(tk, FALSE, bst);
     } while (BITPUNCH_OK == bt_ret
              && 0 != (tk->cur.u.block.field->nstmt.stmt.stmt_flags
                       & FIELD_FLAG_HIDDEN));
@@ -5885,7 +5888,7 @@ tracker_goto_next_item__block(struct tracker *tk,
 }
 
 static bitpunch_status_t
-tracker_goto_nth_item__block(struct tracker *tk, int64_t index,
+tracker_goto_nth_item__composite(struct tracker *tk, int64_t index,
                              struct browse_state *bst)
 {
     struct tracker *xtk;
@@ -5894,7 +5897,7 @@ tracker_goto_nth_item__block(struct tracker *tk, int64_t index,
 
     DBG_TRACKER_DUMP(tk);
     xtk = tracker_dup(tk);
-    bt_ret = tracker_goto_first_item__block(xtk, bst);
+    bt_ret = tracker_goto_first_item__composite(xtk, bst);
     cur_idx = 0;
     while (TRUE) {
         if (BITPUNCH_OK != bt_ret) {
@@ -5905,7 +5908,7 @@ tracker_goto_nth_item__block(struct tracker *tk, int64_t index,
             break ;
         }
         ++cur_idx;
-        bt_ret = tracker_goto_next_item__block(xtk, bst);
+        bt_ret = tracker_goto_next_item__composite(xtk, bst);
     }
     tracker_set(tk, xtk);
     tracker_delete(xtk);
@@ -5914,25 +5917,25 @@ tracker_goto_nth_item__block(struct tracker *tk, int64_t index,
 }
 
 static bitpunch_status_t
-tracker_goto_named_item__block(struct tracker *tk, const char *name,
+tracker_goto_named_item__composite(struct tracker *tk, const char *name,
                                struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
 
     DBG_TRACKER_DUMP(tk);
-    bt_ret = tracker_goto_first_item_int__block(tk, FALSE, bst);
+    bt_ret = tracker_goto_first_item_int__composite(tk, FALSE, bst);
     while (BITPUNCH_OK == bt_ret) {
         if (NULL != tk->cur.u.block.field->nstmt.name
             && 0 == strcmp(tk->cur.u.block.field->nstmt.name, name)) {
             return BITPUNCH_OK;
         }
-        bt_ret = tracker_goto_next_item_int__block(tk, FALSE, bst);
+        bt_ret = tracker_goto_next_item_int__composite(tk, FALSE, bst);
     }
     return bt_ret;
 }
 
 static bitpunch_status_t
-tracker_goto_next_key_match__block(struct tracker *tk,
+tracker_goto_next_key_match__composite(struct tracker *tk,
                                    expr_value_t index,
                                    struct track_path search_boundary,
                                    struct browse_state *bst)
@@ -6035,7 +6038,7 @@ box_get_children_slack__struct(struct box *box,
         // encountered)
         tk->flags |= TRACKER_REVERSED;
     }
-    bt_ret = tracker_goto_first_item_int__block(tk, TRUE, bst);
+    bt_ret = tracker_goto_first_item_int__composite(tk, TRUE, bst);
     while (BITPUNCH_OK == bt_ret) {
         field = tk->cur.u.block.field;
         if (get_left_offset) {
@@ -6047,7 +6050,7 @@ box_get_children_slack__struct(struct box *box,
                 break ;
             }
         }
-        bt_ret = tracker_goto_next_item_int__block(tk, TRUE, bst);
+        bt_ret = tracker_goto_next_item_int__composite(tk, TRUE, bst);
     }
     if (BITPUNCH_OK == bt_ret) {
         *max_slack_offsetp = tk->item_offset;
@@ -6375,7 +6378,8 @@ filter_read_value__filter(struct ast_node_hdl *item_filter,
 
     item_data = scope->file_hdl->bf_data + item_offset;
     // if box filter is a data filter, getting the value is simply
-    // returning the box data bytes as-is
+    // returning the box data bytes as-is since they come from the
+    // filter output
     if (0 != (scope->flags & BOX_DATA_FILTER)) {
         return filter_read_value__bytes(item_filter, scope,
                                         item_offset, item_size,
@@ -6405,7 +6409,7 @@ filter_read_value__operator_filter(struct ast_node_hdl *filter,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    return filter_type->ndat->u.rexpr_dpath.b_filter.read_value(
+    return filter_type->ndat->u.rexpr_filter.b_item.read_value(
         filter_type, scope, item_offset, item_size, valuep, bst);
 }
 
@@ -6828,7 +6832,7 @@ tracker_goto_next_key_match__array(struct tracker *tk,
     assert(AST_NODE_TYPE_ARRAY == tk->box->dpath.item->ndat->type);
     item_type = dpath_node_get_as_type(
         &tk->box->dpath.item->ndat->u.array.item_type);
-    if (AST_NODE_TYPE_FILTER_DEF != item_type->ndat->type) {
+    if (AST_NODE_TYPE_COMPOSITE != item_type->ndat->type) {
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, item_type, bst,
                              "only arrays which items are structures can "
                              "be accessed through named index");
@@ -6900,7 +6904,7 @@ tracker_goto_next_item_with_key__indexed_array_internal(
             } else {
                 end_path = TRACK_PATH_NONE;
             }
-            bt_ret = node->ndat->u.container.b_tk.goto_next_key_match(
+            bt_ret = node->ndat->u.rexpr_filter.b_tk.goto_next_key_match(
                 xtk, item_key, end_path, bst);
         }
         if (BITPUNCH_OK == bt_ret) {
@@ -6974,7 +6978,7 @@ tracker_goto_nth_item_with_key__indexed_array_internal(
         do {
             bt_ret = tracker_goto_next_item_internal(xtk, bst);
             if (BITPUNCH_OK == bt_ret) {
-                bt_ret = node->ndat->u.container.b_tk.goto_next_key_match(
+                bt_ret = node->ndat->u.rexpr_filter.b_tk.goto_next_key_match(
                     xtk, item_key, end_path, bst);
             }
             if (xtk->cur.u.array.index >= from_index) {
@@ -7058,10 +7062,8 @@ tracker_compute_item_size__byte_array_slack(
         return bt_ret;
     }
     if (NULL != filter_defining_span_size) {
-        return box_compute_item_size_internal__byte_array_filter_size(
-            tk->box, tk->item_offset,
-            filter_defining_span_size, NULL,
-            item_sizep, NULL, bst);
+        return tracker_compute_item_size__filter_span_size(
+            tk, filter_defining_span_size, item_sizep, bst);
     }
     DBG_TRACKER_DUMP(tk);
     if ((tk->box->flags & COMPUTING_MAX_SLACK_OFFSET)) {
@@ -7096,10 +7098,9 @@ box_compute_used_size__byte_array_dynamic_size(struct box *box,
 
     DBG_BOX_DUMP(box);
     if (NULL != box->dpath.filter_defining_used_size) {
-        bt_ret = box_compute_item_size_internal__byte_array_filter_size(
+        bt_ret = box_compute_item_used_size_internal__byte_array_filter_size(
             box->parent_box, box_get_start_offset(box),
-            NULL, box->dpath.filter_defining_used_size,
-            NULL, &used_size, bst);
+            box->dpath.filter_defining_used_size, &used_size, bst);
     } else {
         bt_ret = box_get_n_items_internal(box, &used_size, bst);
     }
@@ -7148,18 +7149,7 @@ box_get_n_items__byte_array_non_slack(
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        if (NULL != box->dpath.filter_defining_used_size) {
-            bt_ret =
-                box_compute_item_size_internal__byte_array_filter_size(
-                    box->parent_box, box_get_start_offset(box),
-                    NULL, box->dpath.filter_defining_used_size,
-                    NULL, &box->u.array_generic.n_items, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                return bt_ret;
-            }
-        } else {
-            box->u.array_generic.n_items = size.integer;
-        }
+        box->u.array_generic.n_items = size.integer;
     }
     if (NULL != item_countp) {
         *item_countp = box->u.array_generic.n_items;
@@ -7175,25 +7165,17 @@ box_get_n_items__byte_array_slack(struct box *box, int64_t *item_countp,
 
     DBG_BOX_DUMP(box);
     if (-1 == box->u.array_generic.n_items) {
-        if (NULL != box->dpath.filter_defining_used_size) {
-            bt_ret =
-                box_compute_item_size_internal__byte_array_filter_size(
-                    box->parent_box, box_get_start_offset(box),
-                    NULL, box->dpath.filter_defining_used_size,
-                    NULL, &box->u.array_generic.n_items, bst);
-        } else {
-            bt_ret = box_compute_slack_size(box, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                return bt_ret;
-            }
-            assert(-1 != box->end_offset_slack);
-            /* deduce size from the available slack space */
-            box->u.array_generic.n_items =
-                box->end_offset_slack - box->start_offset_used;
-            /* now is a good time to set the used size as well */
-            bt_ret = box_set_used_size(box, box->u.array_generic.n_items,
-                                       bst);
+        bt_ret = box_compute_slack_size(box, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
         }
+        assert(-1 != box->end_offset_slack);
+        /* deduce size from the available slack space */
+        box->u.array_generic.n_items =
+            box->end_offset_slack - box->start_offset_used;
+        /* now is a good time to set the used size as well */
+        bt_ret = box_set_used_size(box, box->u.array_generic.n_items,
+                                   bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
@@ -7411,7 +7393,7 @@ box_compute_used_size__array_slice(struct box *box,
         /* Default implementation of dynamic sized arrays works by
          * tracking contents, which has a custom implementation for
          * array slices. */
-        bt_ret = array_node->ndat->u.container.b_box.compute_used_size(box, bst);
+        bt_ret = array_node->ndat->u.rexpr_filter.b_box.compute_used_size(box, bst);
     }
     return bt_ret;
 }
@@ -7483,7 +7465,7 @@ tracker_goto_first_item__array_slice(struct tracker *tk,
     if (-1 == index) {
         index = 0;
     }
-    bt_ret = array_box->dpath.item->ndat->u.container.b_tk.goto_nth_item(tk, index, bst);
+    bt_ret = array_box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_nth_item(tk, index, bst);
     tk->box = slice_box;
     return bt_ret;
 }
@@ -7521,7 +7503,7 @@ tracker_goto_next_item__array_slice(struct tracker *tk,
     }
     array_box = box_array_slice_get_ancestor_array(slice_box);
     tk->box = array_box;
-    bt_ret = array_box->dpath.item->ndat->u.container.b_tk.goto_next_item(tk, bst);
+    bt_ret = array_box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_next_item(tk, bst);
     tk->box = slice_box;
     return bt_ret;
 }
@@ -7548,7 +7530,7 @@ tracker_goto_nth_item__array_slice(struct tracker *tk, int64_t index,
     }
     array_box = box_array_slice_get_ancestor_array(slice_box);
     tk->box = array_box;
-    bt_ret = array_box->dpath.item->ndat->u.container.b_tk.goto_nth_item(
+    bt_ret = array_box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_nth_item(
         tk, index_start + index, bst);
     tk->box = slice_box;
     return bt_ret;
@@ -7598,7 +7580,7 @@ tracker_goto_next_item_with_key__array_slice(struct tracker *tk,
         bt_ret = tracker_goto_next_item_with_key__indexed_array_internal(
             tk, item_key, end_index, bst);
     } else {
-        bt_ret = array_box->dpath.item->ndat->u.container.b_tk.goto_next_item_with_key(
+        bt_ret = array_box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_next_item_with_key(
             tk, item_key, bst);
         if (BITPUNCH_OK == bt_ret && tk->cur.u.array.index == end_index) {
             bt_ret = tracker_set_end(tk, bst);
@@ -7639,7 +7621,7 @@ tracker_goto_nth_item_with_key__array_slice(
     } else {
         /* this call shall return an error since the function we're in
          * expects the underlying array to be indexed. */
-        bt_ret = array_box->dpath.item->ndat->u.container.b_tk.goto_nth_item_with_key(
+        bt_ret = array_box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_nth_item_with_key(
             tk, item_key, nth_twin, bst);
     }
     tk->box = slice_box;
@@ -7743,43 +7725,43 @@ browse_setup_backends_node_recur(struct ast_node_hdl *node);
 static void
 browse_setup_backends__filter__filter(struct ast_node_hdl *filter)
 {
-    struct filter_backend *b_filter = NULL;
+    struct item_backend *b_item = NULL;
 
-    b_filter = &filter->ndat->u.rexpr_dpath.b_filter;
-    memset(b_filter, 0, sizeof (*b_filter));
+    b_item = &filter->ndat->u.rexpr_filter.b_item;
+    memset(b_item, 0, sizeof (*b_item));
 
-    b_filter->read_value = filter_read_value__filter;
+    b_item->read_value = filter_read_value__filter;
 }
 
 static void
 browse_setup_backends__filter__operator_filter(struct ast_node_hdl *filter)
 {
-    struct filter_backend *b_filter = NULL;
+    struct item_backend *b_item = NULL;
 
-    b_filter = &filter->ndat->u.rexpr_dpath.b_filter;
-    memset(b_filter, 0, sizeof (*b_filter));
+    b_item = &filter->ndat->u.rexpr_filter.b_item;
+    memset(b_item, 0, sizeof (*b_item));
 
-    b_filter->read_value = filter_read_value__operator_filter;
+    b_item->read_value = filter_read_value__operator_filter;
 }
 
 static void
 browse_setup_backends__filter__item(struct ast_node_hdl *filter)
 {
-    struct filter_backend *b_filter = NULL;
+    struct item_backend *b_item = NULL;
 
-    b_filter = &filter->ndat->u.rexpr_dpath.b_filter;
-    memset(b_filter, 0, sizeof (*b_filter));
+    b_item = &filter->ndat->u.rexpr_filter.b_item;
+    memset(b_item, 0, sizeof (*b_item));
 
-    b_filter->read_value = filter_read_value__bytes;
+    b_item->read_value = filter_read_value__bytes;
 }
 
 
 static void
-browse_setup_backends__box__block(struct ast_node_hdl *item)
+browse_setup_backends__box__composite(struct ast_node_hdl *item)
 {
     struct box_backend *b_box = NULL;
 
-    b_box = &item->ndat->u.container.b_box;
+    b_box = &item->ndat->u.rexpr_filter.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
     if (0 != (item->flags & ASTFLAG_IS_ROOT_BLOCK)) {
@@ -7793,7 +7775,7 @@ browse_setup_backends__box__block(struct ast_node_hdl *item)
         b_box->compute_used_size = box_compute_used_size__static_size;
     } else if (0 != (item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
         b_box->compute_used_size = box_compute_used_size__as_max_span;
-    } else if (BLOCK_TYPE_STRUCT == item->ndat->u.filter_def.type) {
+    } else if (COMPOSITE_TYPE_STRUCT == item->ndat->u.composite.type) {
         b_box->compute_used_size = box_compute_used_size__packed_dynamic_size;
     } else /* union */ {
         b_box->compute_used_size = box_compute_used_size__union_dynamic_size;
@@ -7814,31 +7796,31 @@ browse_setup_backends__box__block(struct ast_node_hdl *item)
                 box_compute_max_span_size__as_slack;
         }
     }
-    if (BLOCK_TYPE_STRUCT == item->ndat->u.filter_def.type) {
+    if (COMPOSITE_TYPE_STRUCT == item->ndat->u.composite.type) {
         b_box->get_max_slack_offset = box_get_children_slack__struct;
     }
-    b_box->get_n_items = box_get_n_items__block;
+    b_box->get_n_items = box_get_n_items__composite;
 }
 
 static void
-browse_setup_backends__tracker__block(struct ast_node_hdl *item)
+browse_setup_backends__tracker__composite(struct ast_node_hdl *item)
 {
     struct tracker_backend *b_tk = NULL;
 
-    b_tk = &item->ndat->u.container.b_tk;
+    b_tk = &item->ndat->u.rexpr_filter.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
-    b_tk->get_item_key = tracker_get_item_key__block;
+    b_tk->get_item_key = tracker_get_item_key__composite;
     if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
         b_tk->compute_item_size = tracker_compute_item_size__static_size;
     } else {
         b_tk->compute_item_size = tracker_compute_item_size__item_box;
     }
-    b_tk->goto_first_item = tracker_goto_first_item__block;
-    b_tk->goto_next_item = tracker_goto_next_item__block;
-    b_tk->goto_nth_item = tracker_goto_nth_item__block;
-    b_tk->goto_named_item = tracker_goto_named_item__block;
-    b_tk->goto_next_key_match = tracker_goto_next_key_match__block;
+    b_tk->goto_first_item = tracker_goto_first_item__composite;
+    b_tk->goto_next_item = tracker_goto_next_item__composite;
+    b_tk->goto_nth_item = tracker_goto_nth_item__composite;
+    b_tk->goto_named_item = tracker_goto_named_item__composite;
+    b_tk->goto_next_key_match = tracker_goto_next_key_match__composite;
     b_tk->goto_next_item_with_key =
         tracker_goto_next_item_with_key__default;
     b_tk->goto_nth_item_with_key =
@@ -7851,7 +7833,7 @@ browse_setup_backends__box__array(struct ast_node_hdl *item)
     struct box_backend *b_box = NULL;
     const struct ast_node_hdl *item_type;
 
-    b_box = &item->ndat->u.container.b_box;
+    b_box = &item->ndat->u.rexpr_filter.b_box;
     memset(b_box, 0, sizeof (*b_box));
     item_type = item->ndat->u.array.item_type.item;
 
@@ -7896,7 +7878,7 @@ browse_setup_backends__tracker__array(struct ast_node_hdl *item)
     struct tracker_backend *b_tk = NULL;
     const struct ast_node_hdl *item_type;
 
-    b_tk = &item->ndat->u.container.b_tk;
+    b_tk = &item->ndat->u.rexpr_filter.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
     item_type = item->ndat->u.array.item_type.item;
 
@@ -7951,7 +7933,7 @@ browse_setup_backends__tracker__byte(struct ast_node_hdl *item)
 {
     struct tracker_backend *b_tk = NULL;
 
-    b_tk = &item->ndat->u.container.b_tk;
+    b_tk = &item->ndat->u.rexpr_filter.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
     b_tk->compute_item_size = tracker_compute_item_size__byte;
@@ -7963,7 +7945,7 @@ browse_setup_backends__box__byte_array(struct ast_node_hdl *item)
 {
     struct box_backend *b_box = NULL;
 
-    b_box = &item->ndat->u.container.b_box;
+    b_box = &item->ndat->u.rexpr_filter.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
     if (0 != (item->ndat->u.item.flags & ITEMFLAG_USES_SLACK)) {
@@ -7997,7 +7979,7 @@ browse_setup_backends__box__byte(struct ast_node_hdl *item)
 {
     struct box_backend *b_box = NULL;
 
-    b_box = &item->ndat->u.container.b_box;
+    b_box = &item->ndat->u.rexpr_filter.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
     b_box->compute_slack_size = box_compute_slack_size__from_parent;
@@ -8012,7 +7994,7 @@ browse_setup_backends__tracker__byte_array(struct ast_node_hdl *item)
 {
     struct tracker_backend *b_tk = NULL;
 
-    b_tk = &item->ndat->u.container.b_tk;
+    b_tk = &item->ndat->u.rexpr_filter.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
     b_tk->get_item_key = tracker_get_item_key__array_generic;
@@ -8044,7 +8026,7 @@ browse_setup_backends__box__array_slice(struct ast_node_hdl *item)
 {
     struct box_backend *b_box = NULL;
 
-    b_box = &item->ndat->u.container.b_box;
+    b_box = &item->ndat->u.rexpr_filter.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
     b_box->compute_slack_size = box_compute_slack_size__from_parent;
@@ -8060,7 +8042,7 @@ browse_setup_backends__tracker__array_slice(struct ast_node_hdl *item)
 {
     struct tracker_backend *b_tk = NULL;
 
-    b_tk = &item->ndat->u.container.b_tk;
+    b_tk = &item->ndat->u.rexpr_filter.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
     b_tk->get_item_key = tracker_get_item_key__array_slice;
@@ -8082,7 +8064,7 @@ browse_setup_backends__box__byte_slice(struct ast_node_hdl *item)
 {
     struct box_backend *b_box = NULL;
 
-    b_box = &item->ndat->u.container.b_box;
+    b_box = &item->ndat->u.rexpr_filter.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
     b_box->compute_slack_size = box_compute_slack_size__from_parent;
@@ -8097,7 +8079,7 @@ browse_setup_backends__tracker__byte_slice(struct ast_node_hdl *item)
 {
     struct tracker_backend *b_tk = NULL;
 
-    b_tk = &item->ndat->u.container.b_tk;
+    b_tk = &item->ndat->u.rexpr_filter.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
     b_tk->get_item_key = tracker_get_item_key__byte_slice;
@@ -8119,7 +8101,7 @@ browse_setup_backends__box__as_bytes(struct ast_node_hdl *item)
 {
     struct box_backend *b_box = NULL;
 
-    b_box = &item->ndat->u.container.b_box;
+    b_box = &item->ndat->u.rexpr_filter.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
     b_box->compute_slack_size = box_compute_slack_size__as_bytes;
@@ -8134,7 +8116,7 @@ browse_setup_backends__tracker__as_bytes(struct ast_node_hdl *item)
 {
     struct tracker_backend *b_tk = NULL;
 
-    b_tk = &item->ndat->u.container.b_tk;
+    b_tk = &item->ndat->u.rexpr_filter.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
     b_tk->get_item_key = tracker_get_item_key__array_generic;
@@ -8152,9 +8134,9 @@ static int
 browse_setup_backends_node(struct ast_node_hdl *node)
 {
     switch (node->ndat->type) {
-    case AST_NODE_TYPE_FILTER_DEF:
-        browse_setup_backends__box__block(node);
-        browse_setup_backends__tracker__block(node);
+    case AST_NODE_TYPE_COMPOSITE:
+        browse_setup_backends__box__composite(node);
+        browse_setup_backends__tracker__composite(node);
         break ;
     case AST_NODE_TYPE_ARRAY:
         browse_setup_backends__box__array(node);
@@ -8212,14 +8194,14 @@ browse_setup_backends_stmt_list_generic(struct statement_list *stmt_list)
 }
 
 static int
-browse_setup_backends_recur_block(struct ast_node_hdl *filter)
+browse_setup_backends_recur_composite(struct ast_node_hdl *filter)
 {
     struct block_stmt_list *stmt_lists;
     struct field *field;
     struct named_expr *named_expr;
     struct expr_stmt *match;
 
-    stmt_lists = &filter->ndat->u.filter_def.block_stmt_list;
+    stmt_lists = &filter->ndat->u.rexpr_filter.filter_def->block_stmt_list;
     if (-1 == browse_setup_backends_stmt_list_generic(
             stmt_lists->named_expr_list)) {
         return -1;
@@ -8361,8 +8343,8 @@ browse_setup_backends_node_recur(struct ast_node_hdl *node)
     }
     node->flags |= ASTFLAG_BROWSE_SETUP_BACKENDS_IN_PROGRESS;
     switch (node->ndat->type) {
-    case AST_NODE_TYPE_FILTER_DEF:
-        ret = browse_setup_backends_recur_block(node);
+    case AST_NODE_TYPE_COMPOSITE:
+        ret = browse_setup_backends_recur_composite(node);
         break ;
     case AST_NODE_TYPE_ARRAY:
         ret = browse_setup_backends_dpath(&node->ndat->u.array.item_type);
@@ -8966,19 +8948,19 @@ box_get_n_statements(struct box *box,
 
 
 bitpunch_status_t
-box_evaluate_attribute(struct box *box,
-                       const char *attr_name,
-                       expr_value_t *eval_valuep,
-                       expr_dpath_t *eval_dpathp,
-                       struct tracker_error **errp)
+box_evaluate_member(struct box *box,
+                    const char *attr_name,
+                    expr_value_t *eval_valuep,
+                    expr_dpath_t *eval_dpathp,
+                    struct tracker_error **errp)
 {
     struct browse_state bst;
 
     browse_state_init(&bst);
     return transmit_error(
-        box_evaluate_attribute_internal(box, attr_name,
-                                        eval_valuep, eval_dpathp,
-                                        &bst),
+        box_evaluate_member_internal(box, attr_name,
+                                     eval_valuep, eval_dpathp,
+                                     &bst),
         &bst, errp);
 }
 

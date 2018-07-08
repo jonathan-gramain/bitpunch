@@ -39,7 +39,7 @@ typedef struct expr_value expr_value_t;
 struct track_path {
     enum track_path_type {
         TRACK_PATH_NOTYPE,
-        TRACK_PATH_BLOCK,
+        TRACK_PATH_COMPOSITE,
         TRACK_PATH_ARRAY,
         TRACK_PATH_ARRAY_SLICE,
     } type;
@@ -75,7 +75,7 @@ track_path_eq(struct track_path p1, struct track_path p2)
     switch (p1.type) {
     case TRACK_PATH_NOTYPE:
         return TRUE;
-    case TRACK_PATH_BLOCK:
+    case TRACK_PATH_COMPOSITE:
         return p1.u.block.field == p2.u.block.field;
     case TRACK_PATH_ARRAY:
         return p1.u.array.index == p2.u.array.index;
@@ -93,7 +93,7 @@ struct browse_state {
 };
 
 
-struct filter_backend {
+struct item_backend {
     bitpunch_status_t (*read_value)(struct ast_node_hdl *item_filter,
                                     struct box *scope,
                                     int64_t item_offset,

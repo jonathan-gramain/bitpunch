@@ -161,7 +161,7 @@ expr_transform_dpath_filter(struct ast_node_hdl *expr,
 struct expr_evalop_match_item {
     enum ast_node_type    op_type;
     int                   n_opd;       /*!< number of operands */
-    enum expr_value_type        opd_types[2]; /*!< type of operands */
+    enum expr_value_type  opd_types[2]; /*!< type of operands */
     struct expr_evaluator evaluator;
 };
 
@@ -1713,12 +1713,12 @@ expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        if (AST_NODE_TYPE_FILTER_DEF != expr_dpath_get_as_type(
+        if (AST_NODE_TYPE_COMPOSITE != expr_dpath_get_as_type(
                 anchor_dpath)->ndat->type) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &anchor_expr->loc,
                 "left-side of member operator does not evaluate to a "
-                "block type");
+                "composite type");
             expr_dpath_destroy(anchor_dpath);
             return BITPUNCH_DATA_ERROR;
         }
@@ -2129,12 +2129,12 @@ expr_evaluate_dpath_anchor_common(struct ast_node_hdl *anchor_expr,
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        if (AST_NODE_TYPE_FILTER_DEF != expr_dpath_get_as_type(
+        if (AST_NODE_TYPE_COMPOSITE != expr_dpath_get_as_type(
                 anchor_dpath)->ndat->type) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &anchor_expr->loc,
                 "left-side of member operator does not evaluate to a "
-                "block type");
+                "composite type");
             expr_dpath_destroy(anchor_dpath);
             return BITPUNCH_DATA_ERROR;
         }
@@ -2691,9 +2691,9 @@ expr_transform_dpath_operator_filter(
 
 static bitpunch_status_t
 expr_transform_dpath_filter(struct ast_node_hdl *expr,
-                                 struct box *scope,
-                                 struct dpath_transform *transformp,
-                                 struct browse_state *bst)
+                            struct box *scope,
+                            struct dpath_transform *transformp,
+                            struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     struct box *target_box;

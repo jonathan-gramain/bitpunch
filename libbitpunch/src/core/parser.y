@@ -116,18 +116,22 @@
         struct statement_list *match_list;
     };
 
-    typedef int (*filter_read_func_t)(
+    typedef bitpunch_status_t (*filter_read_func_t)(
         struct ast_node_hdl *filter,
+        struct box *scope,
         expr_value_t *read_value,
-        const char *data, size_t used_size,
-        int *param_is_specified, expr_value_t *param_value);
+        const char *data, size_t span_size,
+        int *param_is_specified, expr_value_t *param_value,
+        struct browse_state *bst);
 
-    typedef int (*filter_get_size_func_t)(
+    typedef bitpunch_status_t (*filter_get_size_func_t)(
         struct ast_node_hdl *filter,
+        struct box *scope,
         int64_t *span_sizep,
         int64_t *used_sizep,
         const char *data, int64_t max_span_size,
-        int *param_is_specified, expr_value_t *param_value);
+        int *param_is_specified, expr_value_t *param_value,
+        struct browse_state *bst);
 
     typedef expr_value_t
         (*expr_evalop_fn_t)(expr_value_t operands[]);
@@ -172,11 +176,6 @@
         enum expr_value_type value_type_mask;
     };
 
-    struct rexpr_dpath {
-        struct rexpr rexpr; /* inherits */
-        struct filter_backend b_filter;
-    };
-
     enum item_flag {
         ITEMFLAG_IS_SPAN_SIZE_DYNAMIC        = (1<<0),
         ITEMFLAG_IS_USED_SIZE_DYNAMIC        = (1<<1),
@@ -188,10 +187,9 @@
     };
 
     struct item_node {
+        struct rexpr rexpr; /* inherits */
         enum item_flag flags;
         int64_t min_span_size; /* minimum size */
-        struct filter_class *filter;
-        struct statement_list *attribute_list;
     };
 
     struct dpath_node {
@@ -215,6 +213,7 @@
             AST_NODE_TYPE_STRING,
             AST_NODE_TYPE_IDENTIFIER,
             AST_NODE_TYPE_FILTER_DEF,
+            AST_NODE_TYPE_COMPOSITE,
             AST_NODE_TYPE_ARRAY,
             AST_NODE_TYPE_BYTE,
             AST_NODE_TYPE_BYTE_ARRAY,
@@ -303,31 +302,10 @@
             struct expr_value_string string;
             char *identifier;
             struct item_node item;
-            struct container_node {
-                struct item_node item; /* inherits */
-                struct box_backend b_box;
-                struct tracker_backend b_tk;
-            } container;
             struct filter_def {
-                struct container_node container; /* inherits */
                 const char *filter_type;
-                enum block_type {
-                    BLOCK_TYPE_UNDEF,
-                    BLOCK_TYPE_STRUCT,
-                    BLOCK_TYPE_UNION,
-                    BLOCK_TYPE_FILTER,
-                } type;
                 struct block_stmt_list block_stmt_list;
             } filter_def;
-            struct array {
-                struct container_node container; /* inherits */
-                struct dpath_node item_type;
-                struct ast_node_hdl *item_count;
-            } array;
-            struct byte_array {
-                struct container_node container; /* inherits */
-                struct ast_node_hdl *size;
-            } byte_array;
             struct conditional {
                 struct ast_node_hdl *cond_expr;
                 struct ast_node_hdl *outer_cond;
@@ -360,21 +338,40 @@
                 struct ast_node_hdl *attr_name;
             } file_attr;
             struct rexpr rexpr; /* base, not instanciable */
-            struct rexpr_dpath rexpr_dpath; /* base, not instanciable */
             struct rexpr_filter {
-                struct rexpr_dpath rexpr_dpath; /* inherits */
+                struct item_node item; /* inherits */
+                struct filter_def *filter_def;
                 const struct filter_class *filter_cls;
-                struct statement_list *attribute_list;
+                struct item_backend b_item;
+                struct box_backend b_box;
+                struct tracker_backend b_tk;
                 filter_read_func_t read_func;
                 filter_get_size_func_t get_size_func;
             } rexpr_filter;
+            struct composite {
+                struct rexpr_filter rexpr_filter; /* inherits */
+                enum composite_type {
+                    COMPOSITE_TYPE_UNDEF,
+                    COMPOSITE_TYPE_STRUCT,
+                    COMPOSITE_TYPE_UNION,
+                } type;
+            } composite;
+            struct array {
+                struct rexpr_filter rexpr_filter; /* inherits */
+                struct dpath_node item_type;
+                struct ast_node_hdl *item_count;
+            } array;
+            struct byte_array {
+                struct rexpr_filter rexpr_filter; /* inherits */
+                struct ast_node_hdl *size;
+            } byte_array;
             struct rexpr_op_filter {
-                struct rexpr_dpath rexpr_dpath; /* inherits */
+                struct rexpr_filter rexpr_filter; /* inherits */
                 struct ast_node_hdl *filter_expr;
                 struct ast_node_hdl *target;
             } rexpr_op_filter;
             struct rexpr_item {
-                struct rexpr_dpath rexpr_dpath; /* inherits */
+                struct rexpr_filter rexpr_filter; /* inherits */
                 struct ast_node_hdl *item_type;
             } rexpr_item;
             struct rexpr_file {
@@ -539,7 +536,7 @@
                         const char *fmt, ...)
         __attribute__((format(printf,3,4)));
     const char *ast_node_type_str(enum ast_node_type type);
-    const char *block_type_str(enum block_type type);
+    const char *composite_type_str(enum composite_type type);
     struct ast_node_hdl *ast_node_hdl_new(void);
 }
 
@@ -639,7 +636,7 @@
     int64_t integer;
     int boolean;
     char *ident;
-    enum block_type block_type;
+    enum composite_type composite_type;
     struct expr_value_string literal;
     struct ast_node_hdl *ast_node_hdl;
     struct field *field;
@@ -688,7 +685,7 @@
 %right OP_ARRAY_DECL
 %left  OP_BRACKETS
 
-%type <ast_node_hdl> g_integer g_boolean g_identifier g_literal block filter_def expr opt_expr twin_index opt_twin_index
+%type <ast_node_hdl> g_integer g_boolean g_identifier g_literal filter_block expr opt_expr twin_index opt_twin_index
 %type <file_block> file_block
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
 %type <statement_list> func_params func_param_nonempty_list
@@ -759,7 +756,7 @@ expr:
   | KW_SELF {
         $$ = ast_node_hdl_create(AST_NODE_TYPE_EXPR_SELF, &@KW_SELF);
     }
-  | filter_def
+  | filter_block
   | '+' expr %prec OP_ARITH_UNARY_OP {
         $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_UPLUS, $2, NULL, &@1);
     }
@@ -957,9 +954,9 @@ schema:
         }
         /* ignore fields outside file{} */
         TAILQ_INIT($1.field_list);
-        if (-1 == merge_block_stmt_list(&$file_block.root->item
-                                        ->ndat->u.filter_def.block_stmt_list,
-                                        &$1)) {
+        if (-1 == merge_block_stmt_list(
+                &$file_block.root->item->ndat->u.filter_def.block_stmt_list,
+                &$1)) {
             YYERROR;
         }
         memcpy(out_param, &$file_block, sizeof($file_block));
@@ -985,25 +982,16 @@ file_block: KW_FILE '{' block_stmt_list '}' {
                            "file block has zero field");
         }
         item->u.filter_def.block_stmt_list = $block_stmt_list;
-        item->u.item.min_span_size = SPAN_SIZE_UNDEF;
         $$.root->item->flags = ASTFLAG_IS_ROOT_BLOCK;
         $$.root->filter = NULL;
     }
 
-filter_def:
-    IDENTIFIER block {
-        $$ = $block;
-        $$->loc = @IDENTIFIER;
-        $$->ndat->u.filter_def.type = BLOCK_TYPE_UNDEF;
-        $$->ndat->u.filter_def.filter_type = $IDENTIFIER;
-    }
-
-block:
-    '{' block_stmt_list '}' {
+filter_block:
+    IDENTIFIER '{' block_stmt_list '}' {
         $$ = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, &@$);
-        $$->ndat->u.filter_def.type = BLOCK_TYPE_UNDEF;
+        $$->loc = @IDENTIFIER;
+        $$->ndat->u.filter_def.filter_type = $IDENTIFIER;
         $$->ndat->u.filter_def.block_stmt_list = $block_stmt_list;
-        $$->ndat->u.item.min_span_size = SPAN_SIZE_UNDEF;
     }
 
 if_block:
@@ -1250,6 +1238,7 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_STRING: return "string";
     case AST_NODE_TYPE_IDENTIFIER: return "identifier";
     case AST_NODE_TYPE_FILTER_DEF: return "filter def";
+    case AST_NODE_TYPE_COMPOSITE: return "composite";
     case AST_NODE_TYPE_ARRAY: return "array";
     case AST_NODE_TYPE_BYTE: return "byte";
     case AST_NODE_TYPE_BYTE_ARRAY: return "byte array";
@@ -1336,13 +1325,12 @@ ast_node_type_str(enum ast_node_type type)
 }
 
 const char *
-block_type_str(enum block_type type)
+composite_type_str(enum composite_type type)
 {
     switch (type) {
-    case BLOCK_TYPE_UNDEF: return "undef";
-    case BLOCK_TYPE_STRUCT: return "struct";
-    case BLOCK_TYPE_UNION: return "union";
-    case BLOCK_TYPE_FILTER: return "filter";
+    case COMPOSITE_TYPE_UNDEF: return "undef";
+    case COMPOSITE_TYPE_STRUCT: return "struct";
+    case COMPOSITE_TYPE_UNION: return "union";
     }
     return "!!bad block type!!";
 }

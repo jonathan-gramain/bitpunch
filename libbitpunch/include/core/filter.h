@@ -85,8 +85,8 @@ filter_class_get_attr(const struct filter_class *filter_cls,
                          const char *attr_name);
 int
 filter_instance_build(struct ast_node_hdl *node,
-                        const struct filter_class *filter_cls,
-                        struct statement_list *attribute_list);
+                      const struct filter_class *filter_cls,
+                      struct filter_def *filter_def);
 
 int
 filter_build_attrs(struct ast_node_hdl *node,

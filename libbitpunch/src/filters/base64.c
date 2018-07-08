@@ -114,11 +114,13 @@ base64_decode(const char *encoded, size_t encoded_size,
     return (char *)out - decoded;
 }
 
-static int
+static bitpunch_status_t
 base64_read(struct ast_node_hdl *filter,
+            struct box *scope,
             expr_value_t *read_value,
             const char *data, size_t span_size,
-            int *attr_is_specified, expr_value_t *attr_value)
+            int *attr_is_specified, expr_value_t *attr_value,
+            struct browse_state *bst)
 {
     size_t decoded_max_length;
     int64_t decoded_length;
@@ -130,7 +132,7 @@ base64_read(struct ast_node_hdl *filter,
                        NULL != filter ? &filter->loc : NULL,
                        "base64 decode buffer too large (%zu bytes, max %d)",
                        decoded_max_length, DECODED_BUFFER_MAX_SIZE);
-        return -1;
+        return BITPUNCH_DATA_ERROR;
     }
     decoded = malloc_safe(decoded_max_length);
     decoded_length = base64_decode(data, span_size, decoded);
@@ -139,12 +141,12 @@ base64_read(struct ast_node_hdl *filter,
         semantic_error(SEMANTIC_LOGLEVEL_ERROR,
                        NULL != filter ? &filter->loc : NULL,
                        "invalid base64 input");
-        return -1;
+        return BITPUNCH_DATA_ERROR;
     }
     read_value->type = EXPR_VALUE_TYPE_BYTES;
     read_value->bytes.buf = decoded;
     read_value->bytes.len = decoded_length;
-    return 0;
+    return BITPUNCH_OK;
 }
 
 static int
@@ -213,23 +215,23 @@ START_TEST(test_base64)
     int i;
     expr_value_t decoded;
     const struct testcase *tcase;
-    int ret;
+    bitpunch_status_t bt_ret;
 
     for (i = 0; i < N_ELEM(testcases); ++i)
         {
             tcase = &testcases[i];
-            ret = base64_read(NULL, &decoded,
-                              tcase->encoded, tcase->encoded_length,
-                              NULL, NULL);
+            bt_ret = base64_read(NULL, NULL, &decoded,
+                                 tcase->encoded, tcase->encoded_length,
+                                 NULL, NULL, NULL);
             if (tcase->decoded_length != -1) {
-                ck_assert(ret != -1);
+                ck_assert(BITPUNCH_OK == bt_ret);
                 ck_assert(decoded.bytes.len == tcase->decoded_length);
                 ck_assert(0 == memcmp(decoded.bytes.buf,
                                       tcase->decoded, decoded.bytes.len));
                 //expr_value_destroy(EXPR_VALUE_TYPE_BYTES, &decoded);
                 free((char *)decoded.bytes.buf);
             } else {
-                ck_assert(ret == -1);
+                ck_assert(BITPUNCH_DATA_ERROR == bt_ret);
             }
         }
 }

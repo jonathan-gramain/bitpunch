@@ -137,8 +137,8 @@ struct box {
         BOX_FILTER_APPLIED         = (1u<<6),
     } flags;
     union {
-        struct box_block {
-        } block;
+        struct box_composite {
+        } composite;
         struct box_array_generic {
             int64_t n_items;
         } array_generic;
@@ -549,11 +549,11 @@ box_evaluate_attribute_dpath(struct box *box,
                              expr_dpath_t *eval_dpathp,
                              struct tracker_error **errp);
 bitpunch_status_t
-box_evaluate_attribute(struct box *box,
-                       const char *attr_name,
-                       expr_value_t *eval_valuep,
-                       expr_dpath_t *eval_dpathp,
-                       struct tracker_error **errp);
+box_evaluate_member(struct box *box,
+                    const char *attr_name,
+                    expr_value_t *eval_valuep,
+                    expr_dpath_t *eval_dpathp,
+                    struct tracker_error **errp);
 bitpunch_status_t
 box_iter_attributes_next(struct box *box, tattr_iterator *it,
                          const struct named_expr **named_exprp,

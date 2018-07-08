@@ -161,8 +161,8 @@ filter_class_declare_std(void)
 
 int
 filter_instance_build(struct ast_node_hdl *node,
-                        const struct filter_class *filter_cls,
-                        struct statement_list *attribute_list)
+                      const struct filter_class *filter_cls,
+                      struct filter_def *filter_def)
 {
     struct ast_node_data *ndat;
 
@@ -174,10 +174,11 @@ filter_instance_build(struct ast_node_hdl *node,
                    ASTFLAG_IS_VALUE_TYPE : 0u);
     ndat->u.rexpr.value_type_mask = filter_cls->value_type_mask;
     ndat->u.rexpr_filter.filter_cls = filter_cls;
-    ndat->u.rexpr_filter.attribute_list = attribute_list;
-    ndat->u.rexpr_filter.get_size_func = NULL;
+    ndat->u.rexpr_filter.filter_def = filter_def;
     node->ndat = ndat;
-    if (-1 == filter_build_attrs(node, filter_cls, attribute_list)) {
+    if (-1 == filter_build_attrs(
+            node, filter_cls,
+            filter_def->block_stmt_list.attribute_list)) {
         free(ndat);
         node->ndat = NULL;
         return -1;
@@ -240,6 +241,8 @@ filter_build_attrs(struct ast_node_hdl *node,
     return 0;
 }
 
+
+
 bitpunch_status_t
 filter_instance_evaluate_attrs(struct ast_node_hdl *expr,
                                  struct box *scope,
@@ -261,8 +264,10 @@ filter_instance_evaluate_attrs(struct ast_node_hdl *expr,
     attr_value = new_n_safe(expr_value_t, filter_cls->n_attrs);
     attr_is_specified = new_n_safe(int, filter_cls->n_attrs);
 
-    STATEMENT_FOREACH(named_expr, attr,
-                      expr->ndat->u.rexpr_filter.attribute_list, list) {
+    STATEMENT_FOREACH(
+        named_expr, attr,
+        expr->ndat->u.rexpr_filter.filter_def->block_stmt_list.attribute_list,
+        list) {
         // TODO optimize this lookup (e.g. store the index in the
         // attribute list item)
         attr_def = filter_class_get_attr(filter_cls, attr->nstmt.name);
@@ -334,21 +339,19 @@ filter_instance_read_value(struct ast_node_hdl *expr,
     if (BITPUNCH_OK == bt_ret) {
         if (NULL == expr->ndat->u.rexpr_filter.get_size_func) {
             span_size = item_size;
-        } else if (-1 == expr->ndat->u.rexpr_filter.get_size_func(
-                       expr,
-                       &span_size, &used_size, item_data, item_size,
-                       attr_is_specified, attr_value)) {
-            bt_ret = BITPUNCH_DATA_ERROR;
+        } else {
+            bt_ret = expr->ndat->u.rexpr_filter.get_size_func(
+                expr, scope,
+                &span_size, &used_size, item_data, item_size,
+                attr_is_specified, attr_value, bst);
         }
     }
     if (BITPUNCH_OK == bt_ret) {
         memset(&value, 0, sizeof(value));
-        if (-1 == expr->ndat->u.rexpr_filter.read_func(
-                expr,
-                &value, item_data, span_size,
-                attr_is_specified, attr_value)) {
-            bt_ret = BITPUNCH_DATA_ERROR;
-        }
+        bt_ret = expr->ndat->u.rexpr_filter.read_func(
+            expr, scope,
+            &value, item_data, span_size,
+            attr_is_specified, attr_value, bst);
     }
     if (BITPUNCH_OK == bt_ret && NULL != valuep) {
         *valuep = value;

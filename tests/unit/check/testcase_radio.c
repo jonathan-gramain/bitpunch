@@ -207,8 +207,8 @@ static void check_codename_entry(struct radio_source_info *info,
     ck_assert_ptr_ne(tk2, NULL);
     bt_ret = tracker_enter_item(tk2, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-    bt_ret = box_evaluate_attribute(tk2->box, "codename",
-                                    &value, NULL, NULL);
+    bt_ret = box_evaluate_member(tk2->box, "codename",
+                                 &value, NULL, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     check_codename_value(info, value, code_idx);
     expr_value_destroy(value);
