@@ -3,6 +3,7 @@ import re
 import os
 
 from bitpunch import model
+from bitpunch_cli import CLI
 
 def to_bytes(bin_repr):
     res = bytearray()
@@ -36,6 +37,12 @@ def make_testcase(param):
     data = to_bytes(param['data'])
     param['dtree'] = model.DataTree(data, param['spec'])
     param['data'] = data
+
+    if 'BITPUNCH_TEST_ENABLE_CLI' in os.environ:
+        cli = CLI()
+        cli.attach_data_tree(param['dtree'])
+        cli.cmdloop()
+
     return param
 
 def load_test_dat(test_file, dat_file):

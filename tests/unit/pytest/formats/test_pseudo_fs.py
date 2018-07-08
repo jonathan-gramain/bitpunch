@@ -3,7 +3,6 @@
 import pytest
 
 from bitpunch import model
-from bitpunch_cli import CLI
 import conftest
 
 
@@ -221,7 +220,3 @@ def test_pseudo_fs(params_pseudo_fs):
     # cannot do sizeof() on non-dpath if not type
     with pytest.raises(ValueError):
         dtree.eval_expr('sizeof(Entry.?data)')
-
-    #cli = CLI()
-    #cli.attach_data_tree(dtree)
-    #cli.cmdloop()
