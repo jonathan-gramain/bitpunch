@@ -4753,10 +4753,6 @@ box_evaluate_attribute_internal(struct box *box,
     const struct named_statement *named_stmt;
     struct box *scope;
 
-    bt_ret = box_apply_filter_internal(box, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
     bt_ret = box_lookup_member_internal(box, attr_name,
                                         &stmt_type, &named_stmt, &scope,
                                         bst);
