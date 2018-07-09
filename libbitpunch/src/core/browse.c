@@ -1523,28 +1523,6 @@ create_data_hdl_from_buffer(
 }
 
 struct box *
-box_new_filter_box_plain(struct box *parent_box,
-                         struct ast_node_hdl *filter,
-                         struct browse_state *bst)
-{
-    struct box *box;
-    bitpunch_status_t bt_ret;
-    struct dpath_node dpath;
-
-    dpath_node_reset(&dpath);
-    dpath.item = AST_NODE_AS_BYTES;
-    dpath.filter = filter;
-    box = new_safe(struct box);
-    bt_ret = box_construct(box, parent_box, &dpath, -1, BOX_FILTER, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        box_delete_non_null(box);
-        return NULL;
-    }
-    box->file_hdl = NULL; // filter not applied yet
-    return box;
-}
-
-struct box *
 box_new_filter_box(struct box *parent_box,
                    struct ast_node_hdl *filter,
                    struct ast_node_hdl *filter_defining_used_size,

@@ -3719,25 +3719,6 @@ ast_node_get_target_item(struct ast_node_hdl *node)
 }
 
 struct ast_node_hdl *
-ast_node_get_target_type(struct ast_node_hdl *node)
-{
-    if (NULL == node || ast_node_is_item(node)) {
-        return node;
-    }
-    switch (node->ndat->type) {
-    case AST_NODE_TYPE_REXPR_NAMED_EXPR:
-        return ast_node_get_target_type(
-            node->ndat->u.rexpr_named_expr.named_expr->expr);
-    case AST_NODE_TYPE_REXPR_OP_FILTER:
-        return ast_node_get_target_type(node->ndat->u.rexpr_op_filter.target);
-    case AST_NODE_TYPE_REXPR_ITEM:
-        return node->ndat->u.rexpr_item.item_type;
-    default:
-        return NULL;
-    }
-}
-
-struct ast_node_hdl *
 ast_node_get_target_filter(struct ast_node_hdl *node)
 {
     if (NULL == node) {

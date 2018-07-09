@@ -111,8 +111,6 @@ ast_node_is_rexpr(const struct ast_node_hdl *node);
 struct ast_node_hdl *
 ast_node_get_target_item(struct ast_node_hdl *node);
 struct ast_node_hdl *
-ast_node_get_target_type(struct ast_node_hdl *node);
-struct ast_node_hdl *
 ast_node_get_target_filter(struct ast_node_hdl *node);
 struct ast_node_hdl *
 ast_node_get_named_expr_target(struct ast_node_hdl *node);
