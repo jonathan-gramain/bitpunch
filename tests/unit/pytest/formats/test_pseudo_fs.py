@@ -19,7 +19,7 @@ file {
     hdr:     Header;
     contents: [] byte;
 
-    let ?raw_catalog = bytes(file)[hdr.catalog_location..];
+    let ?raw_catalog = (file <> bytes)[hdr.catalog_location..];
     let ?catalog = ?raw_catalog <> [hdr.nb_catalog_entries] Entry;
 }
 
@@ -33,8 +33,8 @@ let Entry = struct {
     entry_size:     u16;
     entry_type:     [4] byte <> string { @boundary = ' '; };
 
-    let ?data = bytes(file)[entry_location ..
-                            entry_location + entry_size];
+    let ?data = (file <> bytes)[entry_location ..
+                                entry_location + entry_size];
     if (entry_type == 'file') {
         let ?file = ?data <> File;
         let ?props = ?file;
@@ -51,8 +51,8 @@ let Entry = struct {
         filename:        [] byte <> string;
 
         let ?dir = ?catalog[dir_entry_index].?data <> Dir;
-        let ?filedata = bytes(file)[filedata_offset ..
-                                    filedata_offset + filesize];
+        let ?filedata = (file <> bytes)[filedata_offset ..
+                                        filedata_offset + filesize];
     };
 
     let Dir = struct {

@@ -68,12 +68,6 @@ box_new_from_expr_value(expr_value_t value,
                         struct browse_state *bst);
 
 struct box *
-box_new_bytes_box_from_item(struct tracker *tk,
-                            struct browse_state *bst);
-struct box *
-box_new_bytes_box_from_box(struct box *box,
-                           struct browse_state *bst);
-struct box *
 box_new_as_box(struct box *parent_box,
                struct dpath_node *as_dpath,
                struct browse_state *bst);

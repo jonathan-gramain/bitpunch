@@ -141,6 +141,7 @@ filter_class_lookup(const char *name)
 
 void filter_class_declare_item(void);
 void filter_class_declare_binary_integer(void);
+void filter_class_declare_bytes(void);
 void filter_class_declare_string(void);
 void filter_class_declare_varint(void);
 void filter_class_declare_base64(void);
@@ -152,6 +153,7 @@ filter_class_declare_std(void)
 {
     filter_class_declare_item();
     filter_class_declare_binary_integer();
+    filter_class_declare_bytes();
     filter_class_declare_string();
     filter_class_declare_varint();
     filter_class_declare_base64();

@@ -31,11 +31,8 @@
 
 #define _DEFAULT_SOURCE
 #define _GNU_SOURCE
-#include <sys/types.h>
 #include <string.h>
 #include <assert.h>
-#include <stdint.h>
-#include <endian.h>
 
 #include "core/filter.h"
 

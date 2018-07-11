@@ -877,53 +877,6 @@ expr_lookup_evaluator(enum ast_node_type op_type,
 
 
 
-
-static bitpunch_status_t
-expr_eval_builtin_bytes(struct ast_node_hdl *object,
-                        struct statement_list *params,
-                        int n_params,
-                        struct box *scope,
-                        expr_dpath_t *eval_dpathp,
-                        struct browse_state *bst)
-{
-    struct ast_node_hdl *expr;
-    bitpunch_status_t bt_ret;
-    expr_dpath_t dpath_eval;
-    struct box *bytes_box;
-
-    expr = ((struct named_expr *)TAILQ_FIRST(params))->expr;
-    if (0 != (expr->flags & ASTFLAG_IS_VALUE_TYPE)) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                       "cannot evaluate 'bytes' on value-type expression");
-        return BITPUNCH_INVALID_PARAM;
-    }
-    bt_ret = expr_evaluate_dpath_internal(expr, scope,
-                                          &dpath_eval, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    switch (dpath_eval.type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        bytes_box = box_new_bytes_box_from_item(dpath_eval.item.tk, bst);
-        tracker_delete(dpath_eval.item.tk);
-        break ;
-    case EXPR_DPATH_TYPE_CONTAINER:
-        bytes_box = box_new_bytes_box_from_box(dpath_eval.container.box,
-                                               bst);
-        box_delete(dpath_eval.container.box);
-        break ;
-    default:
-        assert(0);
-    }
-    if (NULL == bytes_box) {
-        // FIXME transmit code from above functions
-        return BITPUNCH_DATA_ERROR;
-    }
-    eval_dpathp->type = EXPR_DPATH_TYPE_CONTAINER;
-    eval_dpathp->container.box = bytes_box;
-    return BITPUNCH_OK;
-}
-
 static bitpunch_status_t
 expr_eval_builtin_index(struct ast_node_hdl *object,
                         struct statement_list *params,
@@ -1056,13 +1009,6 @@ expr_eval_builtin_len(struct ast_node_hdl *object,
 /* this array must be alphabetically ordered by builtin name */
 static const struct expr_builtin_fn
 expr_builtin_fns[] = {
-    {
-        .builtin_name = "bytes",
-        .res_value_type_mask = EXPR_VALUE_TYPE_BYTES,
-        .eval_dpath_fn = expr_eval_builtin_bytes,
-        .min_n_params = 1,
-        .max_n_params = 1,
-    },
     {
         .builtin_name = "index",
         .res_value_type_mask = EXPR_VALUE_TYPE_INTEGER,

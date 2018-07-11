@@ -365,7 +365,7 @@ file {
     let b_as_int = (b <> Int);
 
     let ?a_as_struct = a <> AsStruct;
-    let ?b_as_struct = bytes(b)[..] <> [] byte <> AsStruct;
+    let ?b_as_struct = (b <> bytes)[..] <> [] byte <> AsStruct;
 
     if (a_as_int == 1) {
         let ?nb_as_struct = ?a_as_struct;

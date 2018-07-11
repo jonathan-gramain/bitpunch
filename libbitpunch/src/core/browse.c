@@ -1439,45 +1439,6 @@ box_new_from_expr_value(expr_value_t value,
 }
 
 struct box *
-box_new_bytes_box_from_item(struct tracker *tk, struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    struct box *filtered_box;
-    int64_t box_size;
-    struct box *box;
-
-    if (NULL == tk->dpath) {
-        return NULL;
-    }
-    bt_ret = tracker_get_filtered_item_box_internal(tk, &filtered_box, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return NULL;
-    }
-    bt_ret = box_get_used_size(filtered_box, &box_size, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        box_delete_non_null(filtered_box);
-        return NULL;
-    }
-    box = box_new_bytes_box_internal(filtered_box,
-                                     box_get_start_offset(filtered_box),
-                                     box_size, bst);
-    box_delete_non_null(filtered_box);
-    return box;
-}
-
-struct box *
-box_new_bytes_box_from_box(struct box *box, struct browse_state *bst)
-{
-    int64_t box_size;
-
-    if (BITPUNCH_OK != box_compute_used_size(box, bst)) {
-        return NULL;
-    }
-    box_size = box->end_offset_used - box->start_offset_used;
-    return box_new_bytes_box_internal(box, box->start_offset_used, box_size, bst);
-}
-
-struct box *
 box_new_as_box(struct box *parent_box,
                struct dpath_node *as_dpath,
                struct browse_state *bst)

@@ -200,7 +200,7 @@ file {
 let u8 = byte <> integer { @signed = false; };
 
 file {
-    let ?data = bytes(file);
+    let ?data = (file <> bytes);
     let ?data_slice1 = ?data[10..20];
 }
 
@@ -208,7 +208,7 @@ file {
 let u8 = byte <> integer { @signed = false; };
 
 file {
-    let ?data = bytes(file)[..];
+    let ?data = (file <> bytes)[..];
     let ?data_slice1 = ?data[10..20];
 }
 
@@ -216,7 +216,7 @@ file {
 let u8 = byte <> integer { @signed = false; };
 
 file {
-    let ?data = bytes(file)[..] <> Foo;
+    let ?data = (file <> bytes)[..] <> Foo;
     let ?data_slice1 = ?data;
 }
 
@@ -231,7 +231,7 @@ file {
     foo_offset: u8;
     nb_foo:     u8;
     foo_size:   u8;
-    let ?data = bytes(file)[foo_offset..] <> [nb_foo] Foo;
+    let ?data = (file <> bytes)[foo_offset..] <> [nb_foo] Foo;
     let ?data_slice = ?data[2..3];
 }
 
@@ -246,7 +246,7 @@ file {
     foo_offset: byte;
     nb_foo:     byte;
     foo_size:   byte;
-    let ?data = bytes(file)[foo_offset <> u8..] <> [nb_foo <> u8] Foo;
+    let ?data = (file <> bytes)[foo_offset <> u8..] <> [nb_foo <> u8] Foo;
     let ?data_slice = ?data[2..3];
 }
 
