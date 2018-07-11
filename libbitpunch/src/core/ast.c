@@ -2284,7 +2284,6 @@ compile_expr_operator_subscript_slice(struct ast_node_hdl *node,
                                       enum resolve_expect_mask expect_mask)
 {
     struct ast_node_hdl *anchor_expr;
-    struct ast_node_hdl *anchor_item;
     struct ast_node_data *compiled_type;
     struct subscript_index *slice_start;
     struct subscript_index *slice_end;
@@ -2299,26 +2298,13 @@ compile_expr_operator_subscript_slice(struct ast_node_hdl *node,
     if (-1 == compile_expr(anchor_expr, ctx, TRUE)) {
         return -1;
     }
-    anchor_item = ast_node_get_as_type(anchor_expr);
-    if (NULL != anchor_item) {
-        if (! ast_node_is_subscriptable_container(anchor_item)) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &node->loc,
-                "invalid use of subscript operator on non-subscriptable "
-                "path of type '%s'",
-                ast_node_type_str(anchor_item->ndat->type));
-            return -1;
-        }
-        value_type_mask = expr_value_type_mask_from_node(anchor_item);
-    } else {
-        if (0 != (anchor_expr->flags & ASTFLAG_IS_VALUE_TYPE)) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &node->loc,
-                "invalid use of subscript operator on value-type expression");
-            return -1;
-        }
-        value_type_mask = anchor_expr->ndat->u.rexpr.value_type_mask;
+    if (0 != (anchor_expr->flags & ASTFLAG_IS_VALUE_TYPE)) {
+        semantic_error(
+            SEMANTIC_LOGLEVEL_ERROR, &node->loc,
+            "invalid use of subscript operator on value-type expression");
+        return -1;
     }
+    value_type_mask = anchor_expr->ndat->u.rexpr.value_type_mask;
     if (-1 == compile_subscript_index(node, slice_start, ctx) ||
         -1 == compile_subscript_index(node, slice_end, ctx)) {
         return -1;
