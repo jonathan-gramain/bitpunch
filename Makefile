@@ -102,4 +102,6 @@ $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.l.c: $(LBITPUNCH_SRCDIR)/%.l $(BUILD_DIR)/$(L
 $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.tab.c $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.tab.h: $(LBITPUNCH_SRCDIR)/%.y | $$(@D)/.dir
 	bison --defines=$(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/$*.tab.h -o $(BUILD_DIR)/$(LBITPUNCH_TMPDIR)/$*.tab.c $<
 
+ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS_ALL)
+endif
