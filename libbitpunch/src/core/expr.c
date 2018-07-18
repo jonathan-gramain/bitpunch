@@ -1166,18 +1166,6 @@ expr_find_next_builtin(const char *name,
     return NULL; /* last builtin reached */
 }
 
-void
-expr_dpath_destroy_item(expr_dpath_t dpath)
-{
-    tracker_delete(dpath.item.tk);
-}
-
-void
-expr_dpath_destroy_container(expr_dpath_t dpath)
-{
-    box_delete(dpath.container.box);
-}
-
 bitpunch_status_t
 expr_dpath_to_tracker(expr_dpath_t dpath,
                       struct tracker **tkp, struct browse_state *bst)
@@ -1540,10 +1528,10 @@ expr_dpath_destroy(expr_dpath_t dpath)
 {
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        expr_dpath_destroy_item(dpath);
+        tracker_delete(dpath.item.tk);
         break ;
     case EXPR_DPATH_TYPE_CONTAINER:
-        expr_dpath_destroy_container(dpath);
+        box_delete(dpath.container.box);
         break ;
     default:
         break ;
@@ -1963,23 +1951,19 @@ expr_evaluate_value_addrof(struct ast_node_hdl *expr, struct box *scope,
     case EXPR_DPATH_TYPE_ITEM:
         bt_ret = tracker_get_item_offset_internal(dpath_eval.item.tk,
                                                   &item_offset, bst);
-        expr_dpath_destroy_item(dpath_eval);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
         break ;
     case EXPR_DPATH_TYPE_CONTAINER:
         bt_ret = box_apply_filter_internal(dpath_eval.container.box, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
         item_offset = dpath_eval.container.box->start_offset_used;
-        assert(-1 != item_offset);
-        expr_dpath_destroy_container(dpath_eval);
         break ;
     default:
         assert(0);
     }
+    expr_dpath_destroy(dpath_eval);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    assert(-1 != item_offset);
     eval_valuep->type = EXPR_VALUE_TYPE_INTEGER;
     eval_valuep->integer = item_offset;
     return BITPUNCH_OK;

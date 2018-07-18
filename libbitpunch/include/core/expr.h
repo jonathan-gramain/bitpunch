@@ -119,10 +119,6 @@ const char *
 expr_find_next_builtin(const char *name,
                        const struct ast_node_hdl *object);
 
-void
-expr_dpath_destroy_item(expr_dpath_t dpath);
-void
-expr_dpath_destroy_container(expr_dpath_t dpath);
 bitpunch_status_t
 expr_dpath_to_tracker(expr_dpath_t dpath,
                       struct tracker **tkp, struct browse_state *bst);
