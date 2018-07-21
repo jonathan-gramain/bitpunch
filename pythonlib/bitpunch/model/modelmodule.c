@@ -1304,24 +1304,15 @@ static Py_ssize_t
 DataArray_mp_length(PyObject *_d_arr)
 {
     DataArrayObject *d_arr = (DataArrayObject *)_d_arr;
-    struct tracker *tk;
     bitpunch_status_t bt_ret;
     int64_t item_count;
     struct tracker_error *tk_err = NULL;
 
-    tk = track_box_contents(d_arr->container.box, &tk_err);
-    if (NULL == tk) {
-        assert(NULL != tk_err);
-        set_tracker_error(tk_err, tk_err->bt_ret);
-        return -1;
-    }
-    bt_ret = tracker_get_n_items(tk, &item_count, &tk_err);
+    bt_ret = box_get_n_items(d_arr->container.box, &item_count, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
         set_tracker_error(tk_err, bt_ret);
-        tracker_delete(tk);
         return -1;
     }
-    tracker_delete(tk);
     return (Py_ssize_t)item_count;
 }
 
