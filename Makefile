@@ -53,7 +53,7 @@ all: $(LBITPUNCH) $(CHECK_BITPUNCH) pythonlib
 clean:
 	rm -rf $(BUILD_DIR)
 
-check: $(CHECK_BITPUNCH)
+check: $(CHECK_BITPUNCH) pythonlib
 	$(CHECK_BITPUNCH)
 	./tests/run_pytests.sh
 
