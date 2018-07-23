@@ -36,6 +36,7 @@
 #include "api/bitpunch_api.h"
 #include "core/browse_internal.h"
 #include "core/expr_internal.h"
+#include "core/filter.h"
 #include "core/print.h"
 
 #define MAX_KEY_LENGTH 4096
@@ -44,7 +45,7 @@ static PyObject *BitpunchExc_NoItemError;
 static PyObject *BitpunchExc_DataError;
 static PyObject *BitpunchExc_OutOfBoundsError;
 
-struct DataContainerObject;
+struct DataItemObject;
 struct DataTreeObject;
 struct TrackerObject;
 
@@ -52,27 +53,17 @@ static int
 expr_value_from_PyObject(PyObject *py_expr,
                          expr_value_t *exprp);
 static PyObject *
-expr_value_to_PyObject(struct DataTreeObject *dtree,
-                       expr_value_t value_eval,
-                       int require_dpath);
+expr_value_and_dpath_to_PyObject(struct DataTreeObject *dtree,
+                                 expr_value_t value, expr_dpath_t dpath);
 static PyObject *
-expr_dpath_to_PyObject(struct DataTreeObject *dtree,
-                       expr_dpath_t dpath_eval,
-                       int require_dpath);
+expr_value_to_native_PyObject(struct DataTreeObject *dtree,
+                              expr_value_t value_eval);
 static PyObject *
-eval_expr_as_python_object(struct DataContainerObject *cont,
-                           const char *expr, int require_dpath);
+eval_expr_as_python_object(struct DataItemObject *cont, const char *expr);
 
 static PyObject *
-tracker_item_to_deep_PyObject(struct DataTreeObject *dtree,
-                              struct tracker *tk);
-static PyObject *
 tracker_item_to_shallow_PyObject(struct DataTreeObject *dtree,
-                                 struct tracker *tk,
-                                 int require_dpath);
-static PyObject *
-box_to_shallow_PyObject(struct DataTreeObject *dtree,
-                        struct box *box);
+                                 struct tracker *tk);
 
 static int
 tk_goto_item_by_key(struct tracker *tk, PyObject *index,
@@ -316,16 +307,16 @@ set_tracker_error(struct tracker_error *err,
 
 
 static PyObject *
-DataBlock_box_to_python_object(struct DataTreeObject *dtree,
-                               struct box *box);
+tracker_item_to_deep_PyObject(struct DataTreeObject *dtree, struct tracker *tk);
 
 static PyObject *
-DataArray_box_to_python_object(struct DataTreeObject *dtree,
-                               struct box *box);
+box_to_deep_PyObject(struct DataTreeObject *dtree, struct box *box);
 
-static struct TrackerObject *
-Tracker_new_from_DataContainer(PyTypeObject *subtype,
-                               struct DataContainerObject *dcont);
+static PyObject *
+box_to_deep_PyDict(struct DataTreeObject *dtree, struct box *box);
+
+static PyObject *
+box_to_deep_PyList(struct DataTreeObject *dtree, struct box *box);
 
 
 /*
@@ -347,34 +338,34 @@ static PyMethodDef FormatSpec_methods[] = {
 
 static PyTypeObject FormatSpecType = {
     PyObject_HEAD_INIT(NULL)
-    0,                         /*ob_size*/
-    "bitpunch.FormatSpec",      /*tp_name*/
-    sizeof(FormatSpecObject),  /*tp_basicsize*/
-    0,                         /*tp_itemsize*/
-    0,                         /*tp_dealloc*/
-    0,                         /*tp_print*/
-    0,                         /*tp_getattr*/
-    0,                         /*tp_setattr*/
-    0,                         /*tp_compare*/
-    0,                         /*tp_repr*/
-    0,                         /*tp_as_number*/
-    0,                         /*tp_as_sequence*/
-    0,                         /*tp_as_mapping*/
-    0,                         /*tp_hash */
-    0,                         /*tp_call*/
-    0,                         /*tp_str*/
-    0,                         /*tp_getattro*/
-    0,                         /*tp_setattro*/
-    0,                         /*tp_as_buffer*/
+    0,                         /* ob_size */
+    "bitpunch.FormatSpec",     /* tp_name */
+    sizeof(FormatSpecObject),  /* tp_basicsize */
+    0,                         /* tp_itemsize */
+    0,                         /* tp_dealloc */
+    0,                         /* tp_print */
+    0,                         /* tp_getattr */
+    0,                         /* tp_setattr */
+    0,                         /* tp_compare */
+    0,                         /* tp_repr */
+    0,                         /* tp_as_number */
+    0,                         /* tp_as_sequence */
+    0,                         /* tp_as_mapping */
+    0,                         /* tp_hash */
+    0,                         /* tp_call */
+    0,                         /* tp_str */
+    0,                         /* tp_getattro */
+    0,                         /* tp_setattro */
+    0,                         /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT |
-    Py_TPFLAGS_BASETYPE,       /*tp_flags*/
+    Py_TPFLAGS_BASETYPE,       /* tp_flags */
     FormatSpec__doc__,         /* tp_doc */
     0,                         /* tp_traverse */
     0,                         /* tp_clear */
-    0,		               /* tp_richcompare */
-    0,		               /* tp_weaklistoffset */
-    0,		               /* tp_iter */
-    0,		               /* tp_iternext */
+    0,                         /* tp_richcompare */
+    0,                         /* tp_weaklistoffset */
+    0,                         /* tp_iter */
+    0,                         /* tp_iternext */
     FormatSpec_methods,        /* tp_methods */
     0,                         /* tp_members */
     0,                         /* tp_getset */
@@ -559,46 +550,46 @@ static PyMethodDef IndexKey_methods[] = {
 
 static PyTypeObject IndexKeyType = {
     PyObject_HEAD_INIT(NULL)
-    0,                           /*ob_size*/
-    "bitpunch.IndexKey",          /*tp_name*/
-    sizeof(IndexKeyObject),      /*tp_basicsize*/
-    0,                           /*tp_itemsize*/
-    0,                           /*tp_dealloc*/
-    0,                           /*tp_print*/
-    0,                           /*tp_getattr*/
-    0,                           /*tp_setattr*/
-    0,                           /*tp_compare*/
-    0,                           /*tp_repr*/
-    0,                           /*tp_as_number*/
-    0,                           /*tp_as_sequence*/
-    0,                           /*tp_as_mapping*/
-    0,                           /*tp_hash */
-    0,                           /*tp_call*/
-    0,                           /*tp_str*/
-    0,                           /*tp_getattro*/
-    0,                           /*tp_setattro*/
-    0,                           /*tp_as_buffer*/
+    0,                           /* ob_size */
+    "bitpunch.IndexKey",         /* tp_name */
+    sizeof(IndexKeyObject),      /* tp_basicsize */
+    0,                           /* tp_itemsize */
+    0,                           /* tp_dealloc */
+    0,                           /* tp_print */
+    0,                           /* tp_getattr */
+    0,                           /* tp_setattr */
+    0,                           /* tp_compare */
+    0,                           /* tp_repr */
+    0,                           /* tp_as_number */
+    0,                           /* tp_as_sequence */
+    0,                           /* tp_as_mapping */
+    0,                           /* tp_hash */
+    0,                           /* tp_call */
+    0,                           /* tp_str */
+    0,                           /* tp_getattro */
+    0,                           /* tp_setattro */
+    0,                           /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT |
     Py_TPFLAGS_BASETYPE |
-    Py_TPFLAGS_HAVE_RICHCOMPARE, /*tp_flags*/
-    IndexKey__doc__,           /* tp_doc */
-    0,                         /* tp_traverse */
-    0,                         /* tp_clear */
-    0,		               /* tp_richcompare */
-    0,		               /* tp_weaklistoffset */
-    0,		               /* tp_iter */
-    0,		               /* tp_iternext */
-    IndexKey_methods,          /* tp_methods */
-    0,                         /* tp_members */
-    0,                         /* tp_getset */
-    0,                         /* tp_base */
-    0,                         /* tp_dict */
-    0,                         /* tp_descr_get */
-    0,                         /* tp_descr_set */
-    0,                         /* tp_dictoffset */
-    0,                         /* tp_init */
-    0,                         /* tp_alloc */
-    0,                         /* tp_new */
+    Py_TPFLAGS_HAVE_RICHCOMPARE, /* tp_flags */
+    IndexKey__doc__,             /* tp_doc */
+    0,                           /* tp_traverse */
+    0,                           /* tp_clear */
+    0,                           /* tp_richcompare */
+    0,                           /* tp_weaklistoffset */
+    0,                           /* tp_iter */
+    0,                           /* tp_iternext */
+    IndexKey_methods,            /* tp_methods */
+    0,                           /* tp_members */
+    0,                           /* tp_getset */
+    0,                           /* tp_base */
+    0,                           /* tp_dict */
+    0,                           /* tp_descr_get */
+    0,                           /* tp_descr_set */
+    0,                           /* tp_dictoffset */
+    0,                           /* tp_init */
+    0,                           /* tp_alloc */
+    0,                           /* tp_new */
 };
 
 static PyObject *
@@ -772,223 +763,940 @@ IndexKeyType_setup(void)
 }
 
 /*
- * DataContainer
+ * DataItem
  */
 
-PyDoc_STRVAR(DataContainer__doc__,
-             "Represents a data container representing a section "
-             "of the binary contents");
+PyDoc_STRVAR(DataItem__doc__,
+             "Represents a data item as a section in the binary contents");
 
-typedef struct DataContainerObject {
+typedef struct DataItemObject {
     PyObject_HEAD
     struct DataTreeObject *dtree;
-    struct box *box;
-} DataContainerObject;
+    expr_value_t value;
+    expr_dpath_t dpath;
+} DataItemObject;
 
-
-static PyObject *
-DataContainer_box_to_python_object(struct DataTreeObject *dtree,
-                                   struct box *box);
 
 static int
-DataContainer_bf_getbuffer(DataContainerObject *exporter,
-                           Py_buffer *view, int flags);
+DataItem_bf_getbuffer(DataItemObject *exporter,
+                      Py_buffer *view, int flags);
 
 
-static PyBufferProcs DataContainerAsBuffer = {
-    .bf_getbuffer = (getbufferproc)DataContainer_bf_getbuffer,
+static PyBufferProcs DataItem_as_buffer = {
+    .bf_getbuffer = (getbufferproc)DataItem_bf_getbuffer,
 };
 
 static PyObject *
-DataContainer_iter_keys(DataContainerObject *self);
+DataItem_nb_int(DataItemObject *self);
+
+#define X_NB_FUNCS_UNARY                        \
+    X(nb_negative)                              \
+    X(nb_positive)                              \
+    X(nb_absolute)                              \
+    X(nb_invert)                                \
+    X(nb_long)                                  \
+    X(nb_float)                                 \
+    X(nb_oct)                                   \
+    X(nb_hex)                                   \
+    X(nb_index)                                 \
+
+
+#define X_NB_FUNCS_BINARY                       \
+    X(nb_add)                                   \
+    X(nb_subtract)                              \
+    X(nb_multiply)                              \
+    X(nb_divide)                                \
+    X(nb_remainder)                             \
+    X(nb_divmod)                                \
+    X(nb_lshift)                                \
+    X(nb_rshift)                                \
+    X(nb_and)                                   \
+    X(nb_xor)                                   \
+    X(nb_or)                                    \
+    X(nb_inplace_add)                           \
+    X(nb_inplace_subtract)                      \
+    X(nb_inplace_multiply)                      \
+    X(nb_inplace_divide)                        \
+    X(nb_inplace_remainder)                     \
+    X(nb_inplace_lshift)                        \
+    X(nb_inplace_rshift)                        \
+    X(nb_inplace_and)                           \
+    X(nb_inplace_xor)                           \
+    X(nb_inplace_or)                            \
+    X(nb_floor_divide)                          \
+    X(nb_true_divide)                           \
+    X(nb_inplace_floor_divide)                  \
+    X(nb_inplace_true_divide)                   \
+
+
+#define X_NB_FUNCS_TERNARY                      \
+    X(nb_power)                                 \
+    X(nb_inplace_power)                         \
+
+
+enum PyNumberMethods_op {
+#define X(FUNC) OP_##FUNC,
+    X_NB_FUNCS_UNARY
+    X_NB_FUNCS_BINARY
+    X_NB_FUNCS_TERNARY
+#undef X
+};
+
 
 static PyObject *
-DataContainer_iter_items(DataContainerObject *self);
+DataItem_nb_unary_op(enum PyNumberMethods_op op, PyObject *opd);
+static PyObject *
+DataItem_nb_binary_op(enum PyNumberMethods_op op,
+                      PyObject *opd1, PyObject *opd2);
+static PyObject *
+DataItem_nb_ternary_op(enum PyNumberMethods_op op,
+                       PyObject *opd1, PyObject *opd2, PyObject *opd3);
+
+#define X(FUNC) static PyObject *DataItem_##FUNC(PyObject *opd)         \
+    {                                                                   \
+        return DataItem_nb_unary_op(OP_##FUNC, opd);                    \
+    }
+    X_NB_FUNCS_UNARY
+#undef X
+#define X(FUNC) static PyObject *DataItem_##FUNC(PyObject *opd1,        \
+                                                 PyObject *opd2)        \
+    {                                                                   \
+        return DataItem_nb_binary_op(OP_##FUNC, opd1, opd2);            \
+    }
+    X_NB_FUNCS_BINARY
+#undef X
+#define X(FUNC) static PyObject *DataItem_##FUNC(PyObject *opd1,        \
+                                                 PyObject *opd2,        \
+                                                 PyObject *opd3)        \
+    {                                                                   \
+        return DataItem_nb_ternary_op(OP_##FUNC, opd1, opd2, opd3);     \
+    }
+    X_NB_FUNCS_TERNARY
+#undef X
+
+static int DataItem_nb_nonzero(PyObject *self);
+
+static int DataItem_nb_coerce(PyObject **self, PyObject **opd);
+
+static PyNumberMethods DataItem_as_number = {
+#define X(FUNC) .FUNC = DataItem_##FUNC,
+    X_NB_FUNCS_UNARY
+#undef X
+#define X(FUNC) .FUNC = DataItem_##FUNC,
+    X_NB_FUNCS_BINARY
+#undef X
+#define X(FUNC) .FUNC = DataItem_##FUNC,
+    X_NB_FUNCS_TERNARY
+#undef X
+    .nb_int = (unaryfunc)DataItem_nb_int,
+    .nb_nonzero = DataItem_nb_nonzero,
+    .nb_coerce = DataItem_nb_coerce,
+};
+
+static size_t PyNumberMethods_func_offsets[] = {
+#define X(FUNC) [OP_##FUNC] = offsetof(PyNumberMethods, FUNC),
+    X_NB_FUNCS_UNARY
+    X_NB_FUNCS_BINARY
+    X_NB_FUNCS_TERNARY
+#undef X
+};
+
+static void *
+PyNumberMethods_lookup_func(PyNumberMethods *methods,
+                            enum PyNumberMethods_op op)
+{
+    assert(op >= 0 && op < N_ELEM(PyNumberMethods_func_offsets));
+    return *(void **)((char *)methods + PyNumberMethods_func_offsets[op]);
+}
+
+static int
+DataItem_convert_dpath_to_box(DataItemObject *self)
+{
+    bitpunch_status_t bt_ret;
+    expr_dpath_t box_dpath;
+    struct tracker_error *tk_err = NULL;
+
+    if (EXPR_DPATH_TYPE_CONTAINER == self->dpath.type) {
+        return 0;
+    }
+    bt_ret = expr_dpath_to_dpath(self->dpath,
+                                 EXPR_DPATH_TYPE_CONTAINER, &box_dpath,
+                                 &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
+        return -1;
+    }
+    expr_dpath_destroy(self->dpath);
+    self->dpath = box_dpath;
+    return 0;
+}
+
+static int
+DataItem_apply_dpath_filters(DataItemObject *self)
+{
+    bitpunch_status_t bt_ret;
+    expr_dpath_t filtered_dpath;
+    struct tracker_error *tk_err = NULL;
+
+    if (EXPR_DPATH_TYPE_ITEM == self->dpath.type) {
+        bt_ret = tracker_get_filtered_dpath(self->dpath.item.tk,
+                                            &filtered_dpath, &tk_err);
+        if (BITPUNCH_OK != bt_ret) {
+            set_tracker_error(tk_err, bt_ret);
+            return -1;
+        }
+        expr_dpath_destroy(self->dpath);
+        self->dpath = filtered_dpath;
+    }
+    return 0;
+}
 
 static PyObject *
-DataContainer_eval_expr(DataContainerObject *cont,
-                        PyObject *args, PyObject *kwds);
+DataItem_iter(DataItemObject *self);
 
 static PyObject *
-DataContainer_get_size(DataContainerObject *self, PyObject *args);
+DataItem_iter_keys(DataItemObject *self);
 
 static PyObject *
-DataContainer_get_offset(DataContainerObject *self, PyObject *args);
+DataItem_iter_items(DataItemObject *self);
 
 static PyObject *
-DataContainer_get_location(DataContainerObject *self, PyObject *args);
+DataItem_eval_expr(DataItemObject *cont, PyObject *args, PyObject *kwds);
 
 static PyObject *
-DataContainer___unicode__(DataContainerObject *self, PyObject *args);
+DataItem_get_size(DataItemObject *self, PyObject *args);
 
-static PyMethodDef DataContainer_methods[] = {
-    { "iter_keys", (PyCFunction)DataContainer_iter_keys, METH_NOARGS,
+static PyObject *
+DataItem_get_offset(DataItemObject *self, PyObject *args);
+
+static PyObject *
+DataItem_get_location(DataItemObject *self, PyObject *args);
+
+static PyObject *
+DataItem_get_filter_type(DataItemObject *self);
+
+static PyObject *
+DataItem___unicode__(DataItemObject *self, PyObject *args);
+
+static PyMethodDef DataItem_methods[] = {
+    { "iter_keys", (PyCFunction)DataItem_iter_keys, METH_NOARGS,
       "get an iterator over the array keys"
     },
-    { "iter_items", (PyCFunction)DataContainer_iter_items, METH_NOARGS,
+    { "iter_items", (PyCFunction)DataItem_iter_items, METH_NOARGS,
       "get an iterator over the array items as (key, value) tuples"
     },
-    { "eval_expr", (PyCFunction)DataContainer_eval_expr,
+    { "eval_expr", (PyCFunction)DataItem_eval_expr,
       METH_VARARGS | METH_KEYWORDS,
-      "evaluate a bitpunch expression in the object's scope"
+      "evaluate a bitpunch expression in the item's scope"
       "\n"
       "keyword arguments:\n"
       "tracker -- if True, return a Tracker object pointing\n"
       "to the original object location in place of native Python types "
       "(default is False)"
     },
-    { "get_size", (PyCFunction)DataContainer_get_size, METH_NOARGS,
-      "get the spanned size of the container in the file or "
+    { "get_size", (PyCFunction)DataItem_get_size, METH_NOARGS,
+      "get the spanned size of the item in the file or "
       "filtered byte contents"
     },
-    { "get_offset", (PyCFunction)DataContainer_get_offset, METH_NOARGS,
-      "get the absolute byte offset of the container from the beginning "
+    { "get_offset", (PyCFunction)DataItem_get_offset, METH_NOARGS,
+      "get the absolute byte offset of the item from the beginning "
       "of the file or filtered byte contents"
     },
     { "get_location",
-      (PyCFunction)DataContainer_get_location, METH_NOARGS,
-      "get a tuple of the absolute byte offset of the container from "
+      (PyCFunction)DataItem_get_location, METH_NOARGS,
+      "get a tuple of the absolute byte offset of the item from "
       "the beginning of the file or filtered byte contents, and the "
-      "byte size of the container"
+      "byte size of the item"
+    },
+    { "get_filter_type",
+      (PyCFunction)DataItem_get_filter_type, METH_NOARGS,
+      "get the DataItem's type of filter ('composite', 'array', "
+      "'integer' etc.)"
     },
     { "__unicode__",
-      (PyCFunction)DataContainer___unicode__, METH_NOARGS,
+      (PyCFunction)DataItem___unicode__, METH_NOARGS,
       "convert to unicode string"
     },
     { NULL, NULL, 0, NULL }
 };
 
-static PyTypeObject DataContainerType = {
+static Py_ssize_t
+DataItem_mp_length(DataItemObject *self)
+{
+    bitpunch_status_t bt_ret;
+    int64_t item_count;
+    struct tracker_error *tk_err = NULL;
+
+    if (-1 == DataItem_convert_dpath_to_box(self)) {
+        return -1;
+    }
+    bt_ret = box_get_n_items(self->dpath.container.box, &item_count, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
+        return -1;
+    }
+    return (Py_ssize_t)item_count;
+}
+
+static PyObject *
+DataItem_get_item(DataItemObject *self, PyObject *attr_name,
+                  int getattr);
+
+static PyObject *
+DataItem_get_keyed_item(DataItemObject *self, PyObject *key,
+                        int getattr);
+
+static PyObject *
+DataItem_get_slice(DataItemObject *self, PyObject *key);
+
+static PyObject *
+DataItem_getattro(DataItemObject *self, PyObject *attr_name)
+{
+    return DataItem_get_item(self, attr_name, TRUE);
+}
+
+static PyObject *
+DataItem_mp_subscript(DataItemObject *self, PyObject *key)
+{
+    if (PySlice_Check(key)) {
+        return DataItem_get_slice(self, key);
+    } else {
+        return DataItem_get_item(self, key, FALSE);
+    }
+}
+
+static PyMappingMethods DataItem_as_mapping = {
+    .mp_length = (lenfunc)DataItem_mp_length,
+    .mp_subscript = (binaryfunc)DataItem_mp_subscript,
+    .mp_ass_subscript = NULL
+};
+
+static PyTypeObject DataItemType = {
     PyObject_HEAD_INIT(NULL)
-    0,                           /*ob_size*/
-    "bitpunch.DataContainer",     /*tp_name*/
-    sizeof(DataContainerObject), /*tp_basicsize*/
-    0,                           /*tp_itemsize*/
-    0,                           /*tp_dealloc*/
-    0,                           /*tp_print*/
-    0,                           /*tp_getattr*/
-    0,                           /*tp_setattr*/
-    0,                           /*tp_compare*/
-    0,                           /*tp_repr*/
-    0,                           /*tp_as_number*/
-    0,                           /*tp_as_sequence*/
-    0,                           /*tp_as_mapping*/
-    0,                           /*tp_hash */
-    0,                           /*tp_call*/
-    0,                           /*tp_str*/
-    0,                           /*tp_getattro*/
-    0,                           /*tp_setattro*/
-    &DataContainerAsBuffer,      /*tp_as_buffer*/
+    0,                           /* ob_size */
+    "bitpunch.DataItem",         /* tp_name */
+    sizeof(DataItemObject),      /* tp_basicsize */
+    0,                           /* tp_itemsize */
+    0,                           /* tp_dealloc */
+    0,                           /* tp_print */
+    0,                           /* tp_getattr */
+    0,                           /* tp_setattr */
+    0,                           /* tp_compare */
+    0,                           /* tp_repr */
+    &DataItem_as_number,         /* tp_as_number */
+    0,                           /* tp_as_sequence */
+    &DataItem_as_mapping,        /* tp_as_mapping */
+    0,                           /* tp_hash */
+    0,                           /* tp_call */
+    0,                           /* tp_str */
+    0,                           /* tp_getattro */
+    0,                           /* tp_setattro */
+    &DataItem_as_buffer,         /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT |
     Py_TPFLAGS_BASETYPE |
-    Py_TPFLAGS_HAVE_NEWBUFFER,   /*tp_flags*/
-    DataContainer__doc__,      /* tp_doc */
-    0,                         /* tp_traverse */
-    0,                         /* tp_clear */
-    0,		               /* tp_richcompare */
-    0,		               /* tp_weaklistoffset */
-    0,		               /* tp_iter */
-    0,		               /* tp_iternext */
-    DataContainer_methods,     /* tp_methods */
-    0,                         /* tp_members */
-    0,                         /* tp_getset */
-    0,                         /* tp_base */
-    0,                         /* tp_dict */
-    0,                         /* tp_descr_get */
-    0,                         /* tp_descr_set */
-    0,                         /* tp_dictoffset */
-    0,                         /* tp_init */
-    0,                         /* tp_alloc */
-    0,                         /* tp_new */
+    Py_TPFLAGS_HAVE_NEWBUFFER |
+    Py_TPFLAGS_HAVE_RICHCOMPARE |
+    Py_TPFLAGS_CHECKTYPES,       /* tp_flags */
+    DataItem__doc__,             /* tp_doc */
+    0,                           /* tp_traverse */
+    0,                           /* tp_clear */
+    0,                           /* tp_richcompare */
+    0,                           /* tp_weaklistoffset */
+    0,                           /* tp_iter */
+    0,                           /* tp_iternext */
+    DataItem_methods,            /* tp_methods */
+    0,                           /* tp_members */
+    0,                           /* tp_getset */
+    0,                           /* tp_base */
+    0,                           /* tp_dict */
+    0,                           /* tp_descr_get */
+    0,                           /* tp_descr_set */
+    0,                           /* tp_dictoffset */
+    0,                           /* tp_init */
+    0,                           /* tp_alloc */
+    0,                           /* tp_new */
 };
 
 static PyObject *
-DataContainer_new(PyTypeObject *subtype,
-                  PyObject *args, PyObject *kwds)
+DataItem_new(PyTypeObject *subtype,
+             PyObject *args, PyObject *kwds)
 {
-    DataContainerObject *self;
+    DataItemObject *self;
 
-    self = (DataContainerObject *)subtype->tp_alloc(subtype, 0);
+    self = (DataItemObject *)subtype->tp_alloc(subtype, 0);
     if (NULL == self) {
         return NULL;
     }
-    self->box = NULL;
+    self->dpath = expr_dpath_none();
+    return (PyObject *)self;
+}
+
+static PyObject *
+DataItem_new_from_tracker(struct DataTreeObject *dtree, struct tracker *tk)
+{
+    DataItemObject *self;
+
+    self = (DataItemObject *)DataItem_new(&DataItemType, NULL, NULL);
+    if (NULL == self) {
+        return NULL;
+    }
+    self->dtree = dtree;
+    Py_INCREF(self->dtree);
+    self->dpath = expr_dpath_as_item(tracker_dup(tk));
+    return (PyObject *)self;
+}
+
+static PyObject *
+DataItem_new_from_box(struct DataTreeObject *dtree, struct box *box)
+{
+    DataItemObject *self;
+
+    self = (DataItemObject *)DataItem_new(&DataItemType, NULL, NULL);
+    if (NULL == self) {
+        return NULL;
+    }
+    self->dtree = dtree;
+    Py_INCREF(self->dtree);
+    self->dpath = expr_dpath_as_container(box);
+    box_acquire(box);
     return (PyObject *)self;
 }
 
 static int
-DataContainer_clear(DataContainerObject *self)
+DataItem_clear(DataItemObject *self)
 {
-    if (NULL != self->box) {
-        box_delete(self->box);
-        self->box = NULL;
-    }
+    expr_dpath_destroy(self->dpath);
+    self->dpath = expr_dpath_none();
     Py_CLEAR(self->dtree);
     return 0;
 }
 
 static void
-DataContainer_dealloc(DataContainerObject *self)
+DataItem_dealloc(DataItemObject *self)
 {
-    DataContainer_clear(self);
+    DataItem_clear(self);
     Py_TYPE(self)->tp_free(self);
 }
 
 static void
-DataContainer_construct(struct DataContainerObject *dcont,
-                        struct DataTreeObject *dtree, struct box *box)
+DataItem_construct(DataItemObject *self, struct DataTreeObject *dtree)
 {
-    dcont->box = box;
-    box_acquire(box);
-
-    dcont->dtree = dtree;
+    self->dtree = dtree;
     Py_INCREF(dtree);
 }
 
 static PyObject *
-DataContainer_make_python_object(DataContainerObject *obj)
+DataItem_make_python_object(DataItemObject *obj)
 {
-    return DataContainer_box_to_python_object(obj->dtree, obj->box);
+    switch (obj->dpath.type) {
+    case EXPR_DPATH_TYPE_CONTAINER:
+        return box_to_deep_PyObject(obj->dtree, obj->dpath.container.box);
+    case EXPR_DPATH_TYPE_ITEM:
+        return tracker_item_to_deep_PyObject(obj->dtree, obj->dpath.item.tk);
+    default:
+        Py_INCREF(obj);
+        return (PyObject *)obj;
+    }
 }
 
 static PyObject *
-DataContainer_str(DataContainerObject *self);
-
+DataItem_get_value(DataItemObject *self);
 
 static PyObject *
-DataContainer_iter(struct DataContainerObject *self);
+DataItem_str(DataItemObject *self);
+
+static PyObject *
+DataItem_richcompare(DataItemObject *self, PyObject *b, int op)
+{
+    PyObject *conv_self = NULL;
+    PyObject *conv_b = NULL;
+    PyObject *comp = NULL;
+
+    conv_self = DataItem_get_value(self);
+    if (NULL == conv_self) {
+        return NULL;
+    }
+    if (PyObject_IsInstance((PyObject *)b,
+                            (PyObject *)&DataItemType)) {
+        conv_b = (PyObject *)DataItem_get_value((DataItemObject *)b);
+    } else {
+        conv_b = b;
+        Py_INCREF(conv_b);
+    }
+    if (NULL != conv_self && NULL != conv_b) {
+        comp = PyObject_RichCompare(conv_self, conv_b, op);
+    }
+    Py_XDECREF(conv_self);
+    Py_XDECREF(conv_b);
+    return comp;
+}
+
 
 static int
-DataContainerType_setup(void)
+DataItemType_setup(void)
 {
-    DataContainerType.ob_type = &PyType_Type;
-    DataContainerType.tp_new = DataContainer_new;
-    DataContainerType.tp_clear = (inquiry)DataContainer_clear;
-    DataContainerType.tp_dealloc = (destructor)DataContainer_dealloc;
-    DataContainerType.tp_str = (reprfunc)DataContainer_str;
-    DataContainerType.tp_iter = (getiterfunc)DataContainer_iter;
+    DataItemType.ob_type = &PyType_Type;
+    DataItemType.tp_new = DataItem_new;
+    DataItemType.tp_clear = (inquiry)DataItem_clear;
+    DataItemType.tp_dealloc = (destructor)DataItem_dealloc;
+    DataItemType.tp_str = (reprfunc)DataItem_str;
+    DataItemType.tp_getattro = (getattrofunc)DataItem_getattro;
+    DataItemType.tp_richcompare = (richcmpfunc)DataItem_richcompare;
+    DataItemType.tp_iter = (getiterfunc)DataItem_iter;
 
-    if (PyType_Ready(&DataContainerType) < 0) {
+    if (PyType_Ready(&DataItemType) < 0) {
         return -1;
     }
     return 0;
 }
 
-/*
- * DataBlock
- */
+static PyObject *
+DataItem_eval_expr(DataItemObject *item, PyObject *args, PyObject *kwds)
+{
+    static char *kwlist[] = { "expr", NULL };
+    const char *expr;
 
-PyDoc_STRVAR(DataBlock__doc__,
-             "Represents a structured block");
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|i", kwlist,
+                                     &expr)) {
+        return NULL;
+    }
+    return eval_expr_as_python_object(item, expr);
+}
 
-typedef struct DataBlockObject {
-    DataContainerObject container;
-} DataBlockObject;
+static PyObject *
+DataItem_get_size(DataItemObject *self, PyObject *args)
+{
+    // TODO merge with Tracker_get_size()
+    int64_t start_offset;
+    int64_t end_offset;
+    int64_t item_size;
+    bitpunch_status_t bt_ret;
+    struct tracker_error *tk_err = NULL;
+
+    if (-1 == DataItem_apply_dpath_filters(self)) {
+        return NULL;
+    }
+    switch (self->dpath.type) {
+    case EXPR_DPATH_TYPE_CONTAINER:
+        bt_ret = box_compute_end_offset(self->dpath.container.box,
+                                        BOX_END_OFFSET_USED,
+                                        &end_offset, &tk_err);
+        if (BITPUNCH_OK != bt_ret) {
+            set_tracker_error(tk_err, bt_ret);
+            return NULL;
+        }
+        start_offset = box_get_start_offset(self->dpath.container.box);
+        assert(end_offset >= start_offset);
+        item_size = end_offset - start_offset;
+        break ;
+    case EXPR_DPATH_TYPE_ITEM:
+        bt_ret = tracker_get_item_size(self->dpath.item.tk,
+                                       &item_size, &tk_err);
+        if (BITPUNCH_OK != bt_ret) {
+            set_tracker_error(tk_err, bt_ret);
+            return NULL;
+        }
+        break ;
+    default:
+        assert(0);
+    }
+    return PyInt_FromLong(item_size);
+}
+
+static PyObject *
+DataItem_get_offset(DataItemObject *self, PyObject *args)
+{
+    // TODO merge with Tracker_get_offset()
+    int64_t item_offset;
+    bitpunch_status_t bt_ret;
+    struct tracker_error *tk_err = NULL;
+
+    if (-1 == DataItem_apply_dpath_filters(self)) {
+        return NULL;
+    }
+    switch (self->dpath.type) {
+    case EXPR_DPATH_TYPE_CONTAINER:
+        bt_ret = box_compute_end_offset(self->dpath.container.box,
+                                        BOX_END_OFFSET_USED, NULL, &tk_err);
+        if (BITPUNCH_OK != bt_ret) {
+            set_tracker_error(tk_err, bt_ret);
+            return NULL;
+        }
+        item_offset = box_get_start_offset(self->dpath.container.box);
+        break ;
+    case EXPR_DPATH_TYPE_ITEM:
+        bt_ret = tracker_get_item_offset(self->dpath.item.tk,
+                                         &item_offset, &tk_err);
+        if (BITPUNCH_OK != bt_ret) {
+            set_tracker_error(tk_err, bt_ret);
+            return NULL;
+        }
+        break ;
+    default:
+        assert(0);
+    }
+    return PyInt_FromLong(item_offset);
+}
+
+static PyObject *
+DataItem_get_location(DataItemObject *self, PyObject *args)
+{
+    // TODO merge with Tracker_get_location()
+    bitpunch_status_t bt_ret;
+    int64_t end_offset;
+    int64_t item_offset;
+    int64_t item_size;
+    struct tracker_error *tk_err = NULL;
+
+    if (-1 == DataItem_apply_dpath_filters(self)) {
+        return NULL;
+    }
+    switch (self->dpath.type) {
+    case EXPR_DPATH_TYPE_CONTAINER:
+        bt_ret = box_compute_end_offset(self->dpath.container.box,
+                                        BOX_END_OFFSET_USED,
+                                        &end_offset, &tk_err);
+        if (BITPUNCH_OK != bt_ret) {
+            set_tracker_error(tk_err, bt_ret);
+            return NULL;
+        }
+        item_offset = box_get_start_offset(self->dpath.container.box);
+        assert(item_offset >= 0);
+        assert(end_offset >= item_offset);
+        item_size = end_offset - item_offset;
+        break ;
+    case EXPR_DPATH_TYPE_ITEM:
+        bt_ret = tracker_get_item_location(self->dpath.item.tk,
+                                           &item_offset, &item_size, &tk_err);
+        if (BITPUNCH_OK != bt_ret) {
+            set_tracker_error(tk_err, bt_ret);
+            return NULL;
+        }
+        break ;
+    default:
+        assert(0);
+    }
+    return Py_BuildValue("ii", item_offset, item_size);
+}
+
+static int
+DataItem_read_value(DataItemObject *self)
+{
+    bitpunch_status_t bt_ret;
+    struct tracker_error *tk_err = NULL;
+
+    switch (self->dpath.type) {
+    case EXPR_DPATH_TYPE_CONTAINER:
+        bt_ret = box_read_value(self->dpath.container.box,
+                                &self->value, &tk_err);
+        break ;
+    case EXPR_DPATH_TYPE_ITEM:
+        bt_ret = tracker_read_item_value(self->dpath.item.tk,
+                                         &self->value, &tk_err);
+        break ;
+    default:
+        assert(0);
+    }
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
+        return -1;
+    }
+    return 0;
+}
+
+static PyObject *
+DataItem_get_value(DataItemObject *self)
+{
+    if (EXPR_VALUE_TYPE_UNSET == self->value.type
+        && -1 == DataItem_read_value(self)) {
+        return NULL;
+    }
+    return expr_value_to_native_PyObject(self->dtree, self->value);
+}
+
+static PyObject *
+DataItem_str(DataItemObject *self)
+{
+    PyObject *conv = NULL;
+    PyObject *str = NULL;
+
+    conv = DataItem_get_value(self);
+    if (NULL == conv) {
+        return NULL;
+    }
+    if (EXPR_VALUE_TYPE_BYTES == self->value.type ||
+        EXPR_VALUE_TYPE_STRING == self->value.type) {
+        return conv;
+    }
+    str = PyObject_Str(conv);
+    Py_DECREF(conv);
+    return str;
+}
+
+static PyObject *
+DataItem___unicode__(DataItemObject *self, PyObject *args)
+{
+    // TODO
+    // NOTE unicode support should be in expr_value_to_PyObject
+    return PyUnicode_Decode("no unicode support!", 19, "latin_1", NULL);
+#if 0
+    struct box *box;
+    bitpunch_status_t bt_ret;
+    expr_value_t value;
+    struct tracker_error *tk_err = NULL;
+
+    box = self->box;
+    bt_ret = box_read_value(box, &value, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
+        return NULL;
+    }
+    assert(EXPR_VALUE_TYPE_BYTES == value.type);
+    // FIXME: use proper encoding configured in string() filter when
+    // this is implemented
+    return PyUnicode_Decode(value.bytes.buf, (Py_ssize_t)value.bytes.len,
+                            "latin_1", NULL);
+#endif
+}
+
+static const char *
+DataItem_get_filter_type_str(DataItemObject *self)
+{
+    const struct ast_node_hdl *filter;
+    const struct ast_node_hdl *item;
+
+    filter = expr_dpath_get_target_filter(self->dpath);
+    if (AST_NODE_TYPE_REXPR_FILTER == filter->ndat->type) {
+        return filter->ndat->u.rexpr_filter.filter_cls->name;
+    }
+    item = expr_dpath_get_as_type(self->dpath);
+    switch (item->ndat->type) {
+    case AST_NODE_TYPE_COMPOSITE:
+        return "composite";
+    case AST_NODE_TYPE_ARRAY:
+        return "array";
+    default:
+        return "<unknown filter type>";
+    }
+}
+
+static PyObject *
+DataItem_get_filter_type(DataItemObject *self)
+{
+    return PyString_FromString(DataItem_get_filter_type_str(self));
+}
+
+static PyObject *
+DataItem_nb_int(DataItemObject *self)
+{
+    PyObject *conv = NULL;
+    PyObject *integer = NULL;
+
+    conv = DataItem_get_value(self);
+    if (NULL == conv) {
+        return NULL;
+    }
+    if (EXPR_VALUE_TYPE_INTEGER == self->value.type) {
+        return conv;
+    }
+    if (NULL != conv->ob_type->tp_as_number &&
+        NULL != conv->ob_type->tp_as_number->nb_int) {
+        integer = conv->ob_type->tp_as_number->nb_int(conv);
+    } else {
+        PyErr_SetString(PyExc_TypeError,
+                        "cannot convert item to integer");
+    }
+    Py_DECREF(conv);
+    return integer;
+}
+
+static int DataItem_nb_nonzero(PyObject *self)
+{
+    return TRUE;
+}
+
+static int DataItem_nb_coerce(PyObject **self, PyObject **opd)
+{
+    // TODO
+    return 0;
+}
+
+static PyObject *
+DataItem_nb_unary_op(enum PyNumberMethods_op op, PyObject *opd)
+{
+    PyObject *conv_opd = NULL;
+    PyObject *res = NULL;
+    unaryfunc func = NULL;
+
+    if (PyObject_IsInstance((PyObject *)opd,
+                            (PyObject *)&DataItemType)) {
+        conv_opd = DataItem_get_value((DataItemObject *)opd);
+    } else {
+        conv_opd = opd;
+        Py_INCREF(conv_opd);
+    }
+    if (NULL != conv_opd) {
+        if (NULL != conv_opd->ob_type->tp_as_number) {
+            func = PyNumberMethods_lookup_func(
+                conv_opd->ob_type->tp_as_number, op);
+        }
+        if (NULL != func) {
+            res = func(conv_opd);
+        } else {
+            PyErr_SetString(PyExc_TypeError, "no method to apply operation");
+        }
+    }
+    Py_XDECREF(conv_opd);
+    return res;
+}
+
+static PyObject *
+DataItem_nb_binary_op(enum PyNumberMethods_op op,
+                      PyObject *opd1, PyObject *opd2)
+{
+    PyObject *conv_opd1 = NULL;
+    PyObject *conv_opd2 = NULL;
+    PyObject *res = NULL;
+    binaryfunc func = NULL;
+
+    if (PyObject_IsInstance((PyObject *)opd1,
+                            (PyObject *)&DataItemType)) {
+        conv_opd1 = DataItem_get_value((DataItemObject *)opd1);
+    } else {
+        conv_opd1 = opd1;
+        Py_INCREF(conv_opd1);
+    }
+    if (PyObject_IsInstance((PyObject *)opd2,
+                            (PyObject *)&DataItemType)) {
+        conv_opd2 = DataItem_get_value((DataItemObject *)opd2);
+    } else {
+        conv_opd2 = opd2;
+        Py_INCREF(conv_opd2);
+    }
+    if (NULL != conv_opd1 && NULL != conv_opd2) {
+        if (NULL != conv_opd1->ob_type->tp_as_number) {
+            func = PyNumberMethods_lookup_func(
+                conv_opd1->ob_type->tp_as_number, op);
+        }
+        if (NULL != func) {
+            res = func(conv_opd1, conv_opd2);
+        } else {
+            PyErr_SetString(PyExc_TypeError, "no method to apply operation");
+        }
+    }
+    Py_XDECREF(conv_opd1);
+    Py_XDECREF(conv_opd2);
+    return res;
+}
+
+static PyObject *
+DataItem_nb_ternary_op(enum PyNumberMethods_op op,
+                       PyObject *opd1, PyObject *opd2, PyObject *opd3)
+{
+    PyObject *conv_opd1 = NULL;
+    PyObject *conv_opd2 = NULL;
+    PyObject *conv_opd3 = NULL;
+    PyObject *res = NULL;
+    ternaryfunc func = NULL;
+
+    if (PyObject_IsInstance((PyObject *)opd1,
+                            (PyObject *)&DataItemType)) {
+        conv_opd1 = DataItem_get_value((DataItemObject *)opd1);
+    } else {
+        conv_opd1 = opd1;
+        Py_INCREF(conv_opd1);
+    }
+    if (PyObject_IsInstance((PyObject *)opd2,
+                            (PyObject *)&DataItemType)) {
+        conv_opd2 = (PyObject *)DataItem_get_value((DataItemObject *)opd2);
+    } else {
+        conv_opd2 = opd2;
+        Py_INCREF(conv_opd2);
+    }
+    if (PyObject_IsInstance((PyObject *)opd3,
+                            (PyObject *)&DataItemType)) {
+        conv_opd3 = (PyObject *)DataItem_get_value((DataItemObject *)opd3);
+    } else {
+        conv_opd3 = opd3;
+        Py_INCREF(conv_opd3);
+    }
+    if (NULL != conv_opd1 && NULL != conv_opd2 && NULL != conv_opd3) {
+        if (NULL != conv_opd1->ob_type->tp_as_number) {
+            func = PyNumberMethods_lookup_func(
+                conv_opd1->ob_type->tp_as_number, op);
+        }
+        if (NULL != func) {
+            res = func(conv_opd1, conv_opd2, conv_opd3);
+        } else {
+            PyErr_SetString(PyExc_TypeError, "no method to apply operation");
+        }
+    }
+    Py_XDECREF(conv_opd1);
+    Py_XDECREF(conv_opd2);
+    Py_XDECREF(conv_opd3);
+    return res;
+}
+
+static int
+DataItem_bf_getbuffer(DataItemObject *exporter,
+                      Py_buffer *view, int flags)
+{
+    // TODO merge with Tracker_bf_getbuffer()
+    struct tracker *tk;
+    struct box *box;
+    int64_t end_offset;
+    int64_t data_offset;
+    int64_t data_size;
+    bitpunch_status_t bt_ret;
+    const char *buf;
+    int64_t len;
+    struct tracker_error *tk_err = NULL;
+
+    switch (exporter->dpath.type) {
+    case EXPR_DPATH_TYPE_CONTAINER:
+        box = exporter->dpath.container.box;
+        bt_ret = box_compute_end_offset(box, BOX_END_OFFSET_USED, &end_offset,
+                                        &tk_err);
+        if (BITPUNCH_OK == bt_ret) {
+            data_offset = box_get_start_offset(box);
+            data_size = end_offset - data_offset;
+        }
+        break ;
+    case EXPR_DPATH_TYPE_ITEM:
+        tk = exporter->dpath.item.tk;
+        // TODO consider using tracker_read_item_raw()
+        bt_ret = tracker_get_item_location(tk, &data_offset, &data_size,
+                                           &tk_err);
+        box = tk->box;
+        break ;
+    default:
+        assert(0);
+    }
+    if (BITPUNCH_OK != bt_ret) {
+        PyObject *errobj;
+
+        if (NULL != tk_err) {
+            errobj = tracker_error_get_info_as_PyObject(tk_err);
+        } else {
+            Py_INCREF(Py_None);
+            errobj = Py_None;
+        }
+        PyErr_SetObject(PyExc_BufferError, errobj);
+        Py_DECREF(errobj);
+        tracker_error_destroy(tk_err);
+        view->obj = NULL;
+        return -1;
+    }
+    buf = box->file_hdl->bf_data + data_offset;
+    len = data_size;
+    return PyBuffer_FillInfo(view, (PyObject *)exporter,
+                             (void *)buf, (Py_ssize_t)len,
+                             TRUE /* read-only */, flags);
+}
 
 
 static PyObject *
-DataBlock_box_to_python_object(struct DataTreeObject *dtree,
-                               struct box *box)
+box_to_deep_PyDict(struct DataTreeObject *dtree, struct box *box)
 {
     PyObject *dict;
     struct tracker *tk;
@@ -1014,7 +1722,7 @@ DataBlock_box_to_python_object(struct DataTreeObject *dtree,
         if (BITPUNCH_OK != bt_ret) {
             goto tk_error;
         }
-        py_key = expr_value_to_PyObject(dtree, value_eval, FALSE);
+        py_key = expr_value_to_native_PyObject(dtree, value_eval);
         if (NULL == py_key) {
             goto error;
         }
@@ -1043,7 +1751,7 @@ DataBlock_box_to_python_object(struct DataTreeObject *dtree,
 }
 
 static PyObject *
-DataContainer_get_dict(DataContainerObject *self, const char *attr_str)
+box_get_attributes_dict(struct box *box)
 {
     PyObject *dict;
     struct tracker *tk;
@@ -1059,7 +1767,7 @@ DataContainer_get_dict(DataContainerObject *self, const char *attr_str)
     if (NULL == dict) {
         return NULL;
     }
-    tk = track_box_contents(self->box, &tk_err);
+    tk = track_box_contents(box, &tk_err);
     if (NULL == tk) {
         assert(NULL != tk_err);
         set_tracker_error(tk_err, tk_err->bt_ret);
@@ -1069,12 +1777,16 @@ DataContainer_get_dict(DataContainerObject *self, const char *attr_str)
     bt_ret = tracker_goto_next_item(tk, NULL);
     while (BITPUNCH_OK == bt_ret) {
         bt_ret = tracker_get_item_key(tk, &key_value, NULL);
-        if (BITPUNCH_OK != bt_ret
-            || key_value.type != EXPR_VALUE_TYPE_STRING) {
+        if (BITPUNCH_OK != bt_ret) {
+            break ;
+        }
+        if (key_value.type != EXPR_VALUE_TYPE_STRING) {
+            expr_value_destroy(key_value);
             break ;
         }
         py_key = PyString_FromStringAndSize(key_value.string.str,
                                             key_value.string.len);
+        expr_value_destroy(key_value);
         if (NULL != py_key) {
             PyDict_SetItem(dict, py_key, Py_None);
             Py_DECREF(py_key);
@@ -1082,8 +1794,8 @@ DataContainer_get_dict(DataContainerObject *self, const char *attr_str)
         bt_ret = tracker_goto_next_item(tk, NULL);
     }
     tracker_delete(tk);
-    attr_iter = box_iter_attributes(self->box);
-    bt_ret = box_iter_attributes_next(self->box, &attr_iter,
+    attr_iter = box_iter_attributes(box);
+    bt_ret = box_iter_attributes_next(box, &attr_iter,
                                       &named_expr, NULL);
     while (BITPUNCH_OK == bt_ret) {
         py_key = PyString_FromString(named_expr->nstmt.name);
@@ -1091,7 +1803,7 @@ DataContainer_get_dict(DataContainerObject *self, const char *attr_str)
             PyDict_SetItem(dict, py_key, Py_None);
             Py_DECREF(py_key);
         }
-        bt_ret = box_iter_attributes_next(self->box, &attr_iter,
+        bt_ret = box_iter_attributes_next(box, &attr_iter,
                                           &named_expr, NULL);
     }
     return dict;
@@ -1099,48 +1811,23 @@ DataContainer_get_dict(DataContainerObject *self, const char *attr_str)
 
 
 static PyObject *
-DataContainer_get_named_item(DataContainerObject *self,
-                             const char *attr_str)
+DataItem_eval_attr(DataItemObject *self, const char *attr_str,
+                   int getattr)
 {
-    struct tracker *tk;
     bitpunch_status_t bt_ret;
-    PyObject *res = NULL;
+    expr_value_t attr_value;
+    expr_dpath_t attr_dpath;
     struct tracker_error *tk_err = NULL;
 
-    tk = track_box_contents(self->box, &tk_err);
-    if (NULL == tk) {
-        assert(NULL != tk_err);
-        set_tracker_error(tk_err, tk_err->bt_ret);
+    if (-1 == DataItem_convert_dpath_to_box(self)) {
         return NULL;
     }
-    bt_ret = tracker_goto_named_item(tk, attr_str, &tk_err);
-    if (BITPUNCH_NO_ITEM == bt_ret) {
-        return PyErr_Format(PyExc_AttributeError,
-                            "no such key: %s", attr_str);
-    }
-    if (BITPUNCH_OK == bt_ret) {
-        res = tracker_item_to_shallow_PyObject(self->dtree, tk, FALSE);
-    } else {
-        set_tracker_error(tk_err, bt_ret);
-    }
-    tracker_delete(tk);
-    return res;
-}
-
-static PyObject *
-DataContainer_eval_attr(DataContainerObject *self, const char *attr_str)
-{
-    bitpunch_status_t bt_ret;
-    expr_value_t value_eval;
-    expr_dpath_t dpath_eval;
-    struct tracker_error *tk_err = NULL;
-    const struct ast_node_hdl *filter;
-
-    bt_ret = box_evaluate_member(self->box, attr_str,
-                                 &value_eval, &dpath_eval, &tk_err);
+    bt_ret = box_evaluate_member(self->dpath.container.box, attr_str,
+                                 &attr_value, &attr_dpath, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
         if (BITPUNCH_NO_ITEM == bt_ret) {
-            PyErr_Format(PyExc_AttributeError,
+            PyErr_Format(getattr ?
+                         PyExc_AttributeError : PyExc_IndexError,
                          "no such named expression or field: %s",
                          attr_str);
         } else {
@@ -1148,179 +1835,52 @@ DataContainer_eval_attr(DataContainerObject *self, const char *attr_str)
         }
         return NULL;
     }
-    if (EXPR_DPATH_TYPE_NONE == dpath_eval.type) {
-        return expr_value_to_PyObject(self->dtree, value_eval, FALSE);
-    }
-    // FIXME rework choice between dpath or value type
-    filter = expr_dpath_get_target_filter(dpath_eval);
-    if (EXPR_VALUE_TYPE_INTEGER != filter->ndat->u.rexpr.value_type_mask) {
-        expr_value_destroy(value_eval);
-        return expr_dpath_to_PyObject(self->dtree, dpath_eval, FALSE);
-    }
-    expr_dpath_destroy(dpath_eval);
-    return expr_value_to_PyObject(self->dtree, value_eval, FALSE);
+    return expr_value_and_dpath_to_PyObject(self->dtree,
+                                            attr_value, attr_dpath);
 }
 
 static PyObject *
-DataBlock_getattr_base(DataBlockObject *self, PyObject *attr_name,
-                       int lookup_methods)
+DataItem_get_item(DataItemObject *self, PyObject *attr_name,
+                  int getattr)
 {
     PyObject *attr;
     const char *attr_str;
 
-    if (!PyString_Check(attr_name)) {
-        return PyErr_Format(PyExc_TypeError,
-                            "attribute must be a string type");
-    }
-    attr_str = PyString_AS_STRING(attr_name);
-    if (0 == strcmp(attr_str, "__dict__")) {
-        return DataContainer_get_dict(&self->container, attr_str);
-    }
-    if (lookup_methods) {
-        attr = PyObject_GenericGetAttr((PyObject *)self, attr_name);
+    if (PyString_Check(attr_name)) {
+        attr_str = PyString_AS_STRING(attr_name);
+        if (getattr) {
+            if (0 == strcmp(attr_str, "__dict__")) {
+                if (-1 == DataItem_convert_dpath_to_box(self)) {
+                    return NULL;
+                }
+                return box_get_attributes_dict(self->dpath.container.box);
+            }
+            attr = PyObject_GenericGetAttr((PyObject *)self, attr_name);
+            if (NULL != attr) {
+                return attr;
+            }
+            if (!PyErr_ExceptionMatches(
+                    getattr ? PyExc_AttributeError : PyExc_IndexError)) {
+                return NULL;
+            }
+            PyErr_Clear();
+        }
+        attr = DataItem_eval_attr(self, attr_str, getattr);
         if (NULL != attr) {
             return attr;
         }
-        PyErr_Clear();
+        if (!PyErr_ExceptionMatches(
+                getattr ? PyExc_AttributeError : PyExc_IndexError)) {
+            return NULL;
+        }
     }
-    return DataContainer_eval_attr(&self->container, attr_str);
-}
-
-static PyObject *
-DataBlock_getattro(DataBlockObject *self, PyObject *attr_name)
-{
-    return DataBlock_getattr_base(self, attr_name, TRUE);
-}
-
-static PyObject *
-DataBlock_mp_subscript(PyObject *_d_blk, PyObject *key)
-{
-    DataBlockObject *d_blk = (DataBlockObject *)_d_blk;
-
-    return DataBlock_getattr_base(d_blk, key, FALSE);
-}
-
-static PyMappingMethods DataBlock_as_mapping = {
-    .mp_length = NULL,
-    .mp_subscript = DataBlock_mp_subscript,
-    .mp_ass_subscript = NULL
-};
-
-
-static PyTypeObject DataBlockType = {
-    PyObject_HEAD_INIT(NULL)
-    0,                         /*ob_size*/
-    "bitpunch.DataBlock",       /*tp_name*/
-    sizeof(DataBlockObject),   /*tp_basicsize*/
-    0,                         /*tp_itemsize*/
-    0,                         /*tp_dealloc*/
-    0,                         /*tp_print*/
-    0,                         /*tp_getattr*/
-    0,                         /*tp_setattr*/
-    0,                         /*tp_compare*/
-    0,                         /*tp_repr*/
-    0,                         /*tp_as_number*/
-    0,                         /*tp_as_sequence*/
-    &DataBlock_as_mapping,     /*tp_as_mapping*/
-    0,                         /*tp_hash */
-    0,                         /*tp_call*/
-    0,                         /*tp_str*/
-    0,                         /*tp_getattro*/
-    0,                         /*tp_setattro*/
-    0,                         /*tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT |
-    Py_TPFLAGS_BASETYPE,       /*tp_flags*/
-    DataBlock__doc__,          /* tp_doc */
-    0,                         /* tp_traverse */
-    0,                         /* tp_clear */
-    0,		               /* tp_richcompare */
-    0,		               /* tp_weaklistoffset */
-    0,		               /* tp_iter */
-    0,		               /* tp_iternext */
-    0,                         /* tp_methods */
-    0,                         /* tp_members */
-    0,                         /* tp_getset */
-    &DataContainerType,        /* tp_base */
-    0,                         /* tp_dict */
-    0,                         /* tp_descr_get */
-    0,                         /* tp_descr_set */
-    0,                         /* tp_dictoffset */
-    0,                         /* tp_init */
-    0,                         /* tp_alloc */
-    0,                         /* tp_new */
-};
-
-static PyObject *
-DataBlock_new(PyTypeObject *subtype,
-              PyObject *args, PyObject *kwds)
-{
-    DataBlockObject *self;
-
-    self = (DataBlockObject *)
-        DataContainer_new(subtype, args, kwds);
-    if (NULL == self) {
-        return NULL;
-    }
-    return (PyObject *)self;
-}
-
-static void
-DataBlock_dealloc(DataBlockObject *self)
-{
-    DataContainer_clear(&self->container);
-    Py_TYPE(self)->tp_free(self);
-}
-
-
-static int
-DataBlockType_setup(void)
-{
-    DataBlockType.ob_type = &PyType_Type;
-    DataBlockType.tp_new = DataBlock_new;
-    DataBlockType.tp_clear = (inquiry)DataContainer_clear;
-    DataBlockType.tp_dealloc = (destructor)DataBlock_dealloc;
-    DataBlockType.tp_getattro = (getattrofunc)DataBlock_getattro;
-
-    if (PyType_Ready(&DataBlockType) < 0) {
-        return -1;
-    }
-    return 0;
-}
-
-/*
- * DataArray
- */
-
-PyDoc_STRVAR(DataArray__doc__,
-             "Represents a structured data container representing a "
-             "section of the binary contents");
-
-typedef struct DataArrayObject {
-    struct DataContainerObject container;
-} DataArrayObject;
-
-
-static Py_ssize_t
-DataArray_mp_length(PyObject *_d_arr)
-{
-    DataArrayObject *d_arr = (DataArrayObject *)_d_arr;
-    bitpunch_status_t bt_ret;
-    int64_t item_count;
-    struct tracker_error *tk_err = NULL;
-
-    bt_ret = box_get_n_items(d_arr->container.box, &item_count, &tk_err);
-    if (BITPUNCH_OK != bt_ret) {
-        set_tracker_error(tk_err, bt_ret);
-        return -1;
-    }
-    return (Py_ssize_t)item_count;
+    return DataItem_get_keyed_item(self, attr_name, getattr);
 }
 
 static struct tracker *
-DataArray_mp_subscript_get_tk_at_index(DataArrayObject *d_arr,
-                                       PyObject *key,
-                                       expr_value_t *keyp,
-                                       int *all_twinsp)
+DataItem_get_tracker_at_key(
+    DataItemObject *self, PyObject *key, int getattr,
+    expr_value_t *keyp, int *all_twinsp)
 {
     struct tracker *tk;
     PyObject *key_obj;
@@ -1331,7 +1891,10 @@ DataArray_mp_subscript_get_tk_at_index(DataArrayObject *d_arr,
     } else {
         key_obj = key;
     }
-    tk = track_box_contents(d_arr->container.box, &tk_err);
+    if (-1 == DataItem_convert_dpath_to_box(self)) {
+        return NULL;
+    }
+    tk = track_box_contents(self->dpath.container.box, &tk_err);
     if (NULL == tk) {
         assert(NULL != tk_err);
         set_tracker_error(tk_err, tk_err->bt_ret);
@@ -1345,8 +1908,9 @@ DataArray_mp_subscript_get_tk_at_index(DataArrayObject *d_arr,
             PyErr_Clear();
             repr_key = PyObject_Repr(key);
             if (NULL != repr_key) {
-                PyErr_Format(PyExc_IndexError,
-                             "no such index: %s",
+                PyErr_Format(getattr ?
+                             PyExc_AttributeError : PyExc_IndexError,
+                             "no item with key: %s",
                              PyString_AS_STRING(repr_key));
                 Py_DECREF(repr_key);
             }
@@ -1357,15 +1921,15 @@ DataArray_mp_subscript_get_tk_at_index(DataArrayObject *d_arr,
 }
 
 static PyObject *
-DataArray_mp_subscript_key(DataArrayObject *d_arr, PyObject *key)
+DataItem_get_keyed_item(DataItemObject *self, PyObject *key,
+                        int getattr)
 {
     PyObject *res = NULL;
     struct tracker *tk;
     expr_value_t tk_key;
     int all_twins;
 
-    tk = DataArray_mp_subscript_get_tk_at_index(d_arr, key,
-                                                &tk_key, &all_twins);
+    tk = DataItem_get_tracker_at_key(self, key, getattr, &tk_key, &all_twins);
     if (NULL == tk) {
         return NULL;
     }
@@ -1375,17 +1939,18 @@ DataArray_mp_subscript_key(DataArrayObject *d_arr, PyObject *key)
         res = PyList_New(0);
         if (NULL == res) {
             tracker_delete(tk);
+            expr_value_destroy(tk_key);
             return NULL;
         }
         while (TRUE) {
             bitpunch_status_t bt_ret;
             struct tracker_error *tk_err = NULL;
 
-            item = tracker_item_to_shallow_PyObject(d_arr->container.dtree,
-                                                    tk, FALSE);
+            item = tracker_item_to_shallow_PyObject(self->dtree, tk);
             if (NULL == item) {
                 Py_DECREF(res);
                 tracker_delete(tk);
+                expr_value_destroy(tk_key);
                 return NULL;
             }
             if (Py_None == item) {
@@ -1395,6 +1960,7 @@ DataArray_mp_subscript_key(DataArrayObject *d_arr, PyObject *key)
             if (-1 == PyList_Append(res, item)) {
                 Py_DECREF(res);
                 tracker_delete(tk);
+                expr_value_destroy(tk_key);
                 return NULL;
             }
             bt_ret = tracker_goto_next_item_with_key(tk, tk_key, &tk_err);
@@ -1405,19 +1971,20 @@ DataArray_mp_subscript_key(DataArrayObject *d_arr, PyObject *key)
                 Py_DECREF(res);
                 set_tracker_error(tk_err, bt_ret);
                 tracker_delete(tk);
+                expr_value_destroy(tk_key);
                 return NULL;
             }
         }
     } else {
-        res = tracker_item_to_shallow_PyObject(d_arr->container.dtree, tk,
-                                               FALSE);
+        res = tracker_item_to_shallow_PyObject(self->dtree, tk);
     }
     tracker_delete(tk);
+    expr_value_destroy(tk_key);
     return res;
 }
 
 static PyObject *
-DataArray_mp_subscript_slice(DataArrayObject *d_arr, PyObject *key)
+DataItem_get_slice(DataItemObject *self, PyObject *key)
 {
     PyObject *res = NULL;
     int64_t item_count;
@@ -1432,7 +1999,10 @@ DataArray_mp_subscript_slice(DataArrayObject *d_arr, PyObject *key)
     struct browse_state bst;
     struct tracker_error *tk_err = NULL;
 
-    bt_ret = box_get_n_items(d_arr->container.box, &item_count, &tk_err);
+    if (-1 == DataItem_convert_dpath_to_box(self)) {
+        return NULL;
+    }
+    bt_ret = box_get_n_items(self->dpath.container.box, &item_count, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
         set_tracker_error(tk_err, bt_ret);
         return NULL;
@@ -1449,7 +2019,7 @@ DataArray_mp_subscript_slice(DataArrayObject *d_arr, PyObject *key)
         // case, keep the same behavior instead of returning an error.
         slice_stop = slice_start;
     }
-    tk_start = track_box_contents(d_arr->container.box, &tk_err);
+    tk_start = track_box_contents(self->dpath.container.box, &tk_err);
     if (NULL == tk_start) {
         assert(NULL != tk_err);
         set_tracker_error(tk_err, tk_err->bt_ret);
@@ -1460,7 +2030,7 @@ DataArray_mp_subscript_slice(DataArrayObject *d_arr, PyObject *key)
         set_tracker_error(tk_err, bt_ret);
         goto end;
     }
-    tk_end = track_box_contents(d_arr->container.box, &tk_err);
+    tk_end = track_box_contents(self->dpath.container.box, &tk_err);
     if (NULL == tk_end) {
         assert(NULL != tk_err);
         set_tracker_error(tk_err, tk_err->bt_ret);
@@ -1482,7 +2052,7 @@ DataArray_mp_subscript_slice(DataArrayObject *d_arr, PyObject *key)
         set_tracker_error(bst.last_error, bt_ret);
         goto end;
     }
-    res = box_to_shallow_PyObject(d_arr->container.dtree, slice_box);
+    res = DataItem_new_from_box(self->dtree, slice_box);
     box_delete(slice_box);
   end:
     tracker_delete(tk_start);
@@ -1491,50 +2061,7 @@ DataArray_mp_subscript_slice(DataArrayObject *d_arr, PyObject *key)
 }
 
 static PyObject *
-DataArray_mp_subscript(PyObject *_d_arr, PyObject *key)
-{
-    DataArrayObject *d_arr = (DataArrayObject *)_d_arr;
-
-    if (PySlice_Check(key)) {
-        return DataArray_mp_subscript_slice(d_arr, key);
-    } else {
-        return DataArray_mp_subscript_key(d_arr, key);
-    }
-}
-
-static PyMappingMethods DataArray_as_mapping = {
-    .mp_length = DataArray_mp_length,
-    .mp_subscript = DataArray_mp_subscript,
-    .mp_ass_subscript = NULL
-};
-
-static PyObject *
-DataArray_getattro(DataBlockObject *self, PyObject *attr_name)
-{
-    PyObject *attr;
-    const char *attr_str;
-
-    attr_str = PyString_AS_STRING(attr_name);
-    if (0 == strcmp(attr_str, "__dict__")) {
-        return DataContainer_get_dict(&self->container, attr_str);
-    }
-    attr = PyObject_GenericGetAttr((PyObject *)self, attr_name);
-    if (NULL != attr) {
-        return attr;
-    }
-    if (!PyErr_ExceptionMatches(PyExc_AttributeError)) {
-        return NULL;
-    }
-    if (!box_contains_indexed_items(self->container.box)) {
-        return NULL;
-    }
-    PyErr_Clear();
-    return DataContainer_get_named_item(&self->container, attr_str);
-}
-
-static PyObject *
-DataArray_box_to_python_object(struct DataTreeObject *dtree,
-                               struct box *box)
+box_to_deep_PyList(struct DataTreeObject *dtree, struct box *box)
 {
     PyObject *list = NULL;
     struct tracker *tk;
@@ -1556,7 +2083,7 @@ DataArray_box_to_python_object(struct DataTreeObject *dtree,
     }
     list = PyList_New(item_count);
     if (NULL == list) {
-        return NULL;
+        goto error;
     }
     index = 0;
     bt_ret = tracker_goto_next_item(tk, &tk_err);
@@ -1584,94 +2111,21 @@ DataArray_box_to_python_object(struct DataTreeObject *dtree,
 }
 
 static PyObject *
-DataArray_bytes_box_to_python_object(struct DataTreeObject *dtree,
-                                     struct box *box);
-
-
-static PyMethodDef DataArray_methods[] = {
-
-    { NULL, NULL, 0, NULL }
-};
-
-static PyTypeObject DataArrayType = {
-    PyObject_HEAD_INIT(NULL)
-    0,                           /*ob_size*/
-    "bitpunch.DataArray",         /*tp_name*/
-    sizeof(DataArrayObject),     /*tp_basicsize*/
-    0,                           /*tp_itemsize*/
-    0,                           /*tp_dealloc*/
-    0,                           /*tp_print*/
-    0,                           /*tp_getattr*/
-    0,                           /*tp_setattr*/
-    0,                           /*tp_compare*/
-    0,                           /*tp_repr*/
-    0,                           /*tp_as_number*/
-    0,                           /*tp_as_sequence*/
-    &DataArray_as_mapping,       /*tp_as_mapping*/
-    0,                           /*tp_hash */
-    0,                           /*tp_call*/
-    0,                           /*tp_str*/
-    0,                           /*tp_getattro*/
-    0,                           /*tp_setattro*/
-    0,                           /*tp_as_buffer*/
-    Py_TPFLAGS_DEFAULT |
-    Py_TPFLAGS_BASETYPE,         /*tp_flags*/
-    DataArray__doc__,          /* tp_doc */
-    0,                         /* tp_traverse */
-    0,                         /* tp_clear */
-    0,		               /* tp_richcompare */
-    0,		               /* tp_weaklistoffset */
-    0,		               /* tp_iter */
-    0,		               /* tp_iternext */
-    DataArray_methods,         /* tp_methods */
-    0,                         /* tp_members */
-    0,                         /* tp_getset */
-    &DataContainerType,        /* tp_base */
-    0,                         /* tp_dict */
-    0,                         /* tp_descr_get */
-    0,                         /* tp_descr_set */
-    0,                         /* tp_dictoffset */
-    0,                         /* tp_init */
-    0,                         /* tp_alloc */
-    0,                         /* tp_new */
-};
-
-static PyObject *
-DataArray_new(PyTypeObject *subtype,
-              PyObject *args, PyObject *kwds)
+box_to_PyString(struct DataTreeObject *dtree, struct box *box)
 {
-    DataArrayObject *self;
+    bitpunch_status_t bt_ret;
+    expr_value_t value_eval;
+    struct tracker_error *tk_err = NULL;
 
-    self = (DataArrayObject *)
-        DataContainer_new(subtype, args, kwds);
-    if (NULL == self) {
+    assert(ast_node_is_item(box->dpath.item));
+
+    bt_ret = box_read_value(box, &value_eval, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
         return NULL;
     }
-    return (PyObject *)self;
+    return expr_value_to_native_PyObject(dtree, value_eval);
 }
-
-static void
-DataArray_dealloc(DataArrayObject *self)
-{
-    DataContainer_clear(&self->container);
-    Py_TYPE(self)->tp_free(self);
-}
-
-static int
-DataArrayType_setup(void)
-{
-    DataArrayType.ob_type = &PyType_Type;
-    DataArrayType.tp_new = DataArray_new;
-    DataArrayType.tp_clear = (inquiry)DataContainer_clear;
-    DataArrayType.tp_dealloc = (destructor)DataArray_dealloc;
-    DataArrayType.tp_getattro = (getattrofunc)DataArray_getattro;
-
-    if (PyType_Ready(&DataArrayType) < 0) {
-        return -1;
-    }
-    return 0;
-}
-
 
 /*
  * DataTree
@@ -1681,45 +2135,45 @@ PyDoc_STRVAR(DataTree__doc__,
              "Represents the data tree of flat binary contents");
 
 typedef struct DataTreeObject {
-    DataBlockObject block;
+    DataItemObject item;
     FormatSpecObject *fmt;
     struct bitpunch_binary_file_hdl *binary_file;
 } DataTreeObject;
 
 static PyTypeObject DataTreeType = {
     PyObject_HEAD_INIT(NULL)
-    0,                         /*ob_size*/
-    "bitpunch.DataTree",        /*tp_name*/
-    sizeof(DataTreeObject),    /*tp_basicsize*/
-    0,                         /*tp_itemsize*/
-    0,                         /*tp_dealloc*/
-    0,                         /*tp_print*/
-    0,                         /*tp_getattr*/
-    0,                         /*tp_setattr*/
-    0,                         /*tp_compare*/
-    0,                         /*tp_repr*/
-    0,                         /*tp_as_number*/
-    0,                         /*tp_as_sequence*/
-    0,                         /*tp_as_mapping*/
-    0,                         /*tp_hash */
-    0,                         /*tp_call*/
-    0,                         /*tp_str*/
-    0,                         /*tp_getattro*/
-    0,                         /*tp_setattro*/
-    0,                         /*tp_as_buffer*/
+    0,                         /* ob_size */
+    "bitpunch.DataTree",       /* tp_name */
+    sizeof(DataTreeObject),    /* tp_basicsize */
+    0,                         /* tp_itemsize */
+    0,                         /* tp_dealloc */
+    0,                         /* tp_print */
+    0,                         /* tp_getattr */
+    0,                         /* tp_setattr */
+    0,                         /* tp_compare */
+    0,                         /* tp_repr */
+    0,                         /* tp_as_number */
+    0,                         /* tp_as_sequence */
+    0,                         /* tp_as_mapping */
+    0,                         /* tp_hash */
+    0,                         /* tp_call */
+    0,                         /* tp_str */
+    0,                         /* tp_getattro */
+    0,                         /* tp_setattro */
+    0,                         /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT |
-    Py_TPFLAGS_BASETYPE,       /*tp_flags*/
+    Py_TPFLAGS_BASETYPE,       /* tp_flags */
     DataTree__doc__,           /* tp_doc */
     0,                         /* tp_traverse */
     0,                         /* tp_clear */
-    0,		               /* tp_richcompare */
-    0,		               /* tp_weaklistoffset */
-    0,		               /* tp_iter */
-    0,		               /* tp_iternext */
+    0,                         /* tp_richcompare */
+    0,                         /* tp_weaklistoffset */
+    0,                         /* tp_iter */
+    0,                         /* tp_iternext */
     0,                         /* tp_methods */
     0,                         /* tp_members */
     0,                         /* tp_getset */
-    &DataBlockType,            /* tp_base */
+    &DataItemType,             /* tp_base */
     0,                         /* tp_dict */
     0,                         /* tp_descr_get */
     0,                         /* tp_descr_set */
@@ -1795,7 +2249,7 @@ DataTree_new(PyTypeObject *subtype,
         return NULL;
     }
 
-    self = (DataTreeObject *)DataContainer_new(subtype, NULL, NULL);
+    self = (DataTreeObject *)DataItem_new(subtype, NULL, NULL);
     if (NULL == self) {
         (void) bitpunch_close_binary_file(binary_file);
         return NULL;
@@ -1807,14 +2261,9 @@ DataTree_new(PyTypeObject *subtype,
         (void) bitpunch_close_binary_file(binary_file);
         return NULL;
     }
-    self->block.container.dtree = self;
-    Py_INCREF(self->block.container.dtree);
-
-    self->block.container.box = container_box;
-    box_acquire(container_box);
-
+    DataItem_construct(&self->item, self);
+    self->item.dpath = expr_dpath_as_container(container_box);
     self->binary_file = binary_file;
-
     self->fmt = fmt;
 
     return (PyObject *)self;
@@ -1825,7 +2274,7 @@ DataTree_clear(DataTreeObject *self)
 {
     PyObject *tmp;
 
-    DataContainer_clear(&self->block.container);
+    DataItem_clear(&self->item);
 
     if (NULL != self->binary_file) {
         bitpunch_free_binary_file(self->binary_file);
@@ -1858,20 +2307,55 @@ DataTreeType_setup(void)
 }
 
 static PyObject *
-DataContainer_box_to_python_object(struct DataTreeObject *dtree,
-                                   struct box *box)
+tracker_item_to_deep_PyObject(DataTreeObject *dtree, struct tracker *tk)
+{
+    PyObject *res = NULL;
+    bitpunch_status_t bt_ret;
+    expr_value_t value_eval;
+    int complex_type;
+    struct box *filtered_box;
+    struct tracker_error *tk_err = NULL;
+
+    if (NULL == tk->dpath) {
+        Py_INCREF(Py_None);
+        return Py_None;
+    }
+    complex_type = dpath_is_complex_type(tk->dpath);
+    if (complex_type) {
+        bt_ret = tracker_get_filtered_item_box(tk, &filtered_box, &tk_err);
+        if (BITPUNCH_OK == bt_ret) {
+            res = box_to_deep_PyObject(dtree, filtered_box);
+            box_delete(filtered_box);
+        } else {
+            set_tracker_error(tk_err, bt_ret);
+        }
+    } else {
+        bt_ret = tracker_read_item_value(tk, &value_eval, &tk_err);
+        if (BITPUNCH_OK != bt_ret) {
+            set_tracker_error(tk_err, bt_ret);
+            return NULL;
+        }
+        // TODO: may be interesting to return DataItem items instead
+        // of native values
+        res = expr_value_to_native_PyObject(dtree, value_eval);
+    }
+    return res;
+}
+
+static PyObject *
+box_to_deep_PyObject(struct DataTreeObject *dtree, struct box *box)
 {
     switch (dpath_node_get_as_type(&box->dpath)->ndat->type) {
     case AST_NODE_TYPE_COMPOSITE:
-        return DataBlock_box_to_python_object(dtree, box);
+        return box_to_deep_PyDict(dtree, box);
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_ARRAY_SLICE:
-        return DataArray_box_to_python_object(dtree, box);
+        return box_to_deep_PyList(dtree, box);
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_AS_BYTES:
-        return DataArray_bytes_box_to_python_object(dtree, box);
+        return box_to_PyString(dtree, box);
     default:
         PyErr_Format(PyExc_ValueError,
                      "Cannot convert container type '%s' to python object",
@@ -1879,26 +2363,6 @@ DataContainer_box_to_python_object(struct DataTreeObject *dtree,
         return NULL;
     }
     /*NOT REACHED*/
-}
-
-static PyObject *
-DataArray_bytes_box_to_python_object(
-    struct DataTreeObject *dtree, struct box *box)
-{
-    PyObject *res = NULL;
-    bitpunch_status_t bt_ret;
-    expr_value_t value_eval;
-    struct tracker_error *tk_err = NULL;
-
-    assert(ast_node_is_item(box->dpath.item));
-
-    bt_ret = box_read_value(box, &value_eval, &tk_err);
-    if (BITPUNCH_OK != bt_ret) {
-        set_tracker_error(tk_err, bt_ret);
-        return NULL;
-    }
-    res = expr_value_to_PyObject(dtree, value_eval, FALSE);
-    return res;
 }
 
 
@@ -1980,12 +2444,12 @@ Tracker_rewind(TrackerObject *self)
 static PyObject *
 Tracker_goto_end(TrackerObject *self)
 {
-    bitpunch_status_t ret;
+    bitpunch_status_t bt_ret;
     struct tracker_error *tk_err = NULL;
 
-    ret = tracker_goto_end(self->tk, &tk_err);
-    if (BITPUNCH_OK != ret) {
-        set_tracker_error(tk_err, ret);
+    bt_ret = tracker_goto_end(self->tk, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
         return NULL;
     }
     Py_INCREF((PyObject *)self);
@@ -1995,12 +2459,12 @@ Tracker_goto_end(TrackerObject *self)
 static PyObject *
 Tracker_goto_next_item(TrackerObject *self)
 {
-    bitpunch_status_t ret;
+    bitpunch_status_t bt_ret;
     struct tracker_error *tk_err = NULL;
 
-    ret = tracker_goto_next_item(self->tk, &tk_err);
-    if (BITPUNCH_OK != ret) {
-        set_tracker_error(tk_err, ret);
+    bt_ret = tracker_goto_next_item(self->tk, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
         return NULL;
     }
     Py_INCREF((PyObject *)self);
@@ -2010,16 +2474,16 @@ Tracker_goto_next_item(TrackerObject *self)
 static PyObject *
 Tracker_goto_nth_item(TrackerObject *self, PyObject *args)
 {
-    bitpunch_status_t ret;
+    bitpunch_status_t bt_ret;
     int64_t n;
     struct tracker_error *tk_err = NULL;
 
     if (!PyArg_ParseTuple(args, "l", &n)) {
         return NULL;
     }
-    ret = tracker_goto_nth_item(self->tk, n, &tk_err);
-    if (BITPUNCH_OK != ret) {
-        set_tracker_error(tk_err, ret);
+    bt_ret = tracker_goto_nth_item(self->tk, n, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
         return NULL;
     }
     Py_INCREF((PyObject *)self);
@@ -2029,16 +2493,16 @@ Tracker_goto_nth_item(TrackerObject *self, PyObject *args)
 static PyObject *
 Tracker_goto_named_item(TrackerObject *self, PyObject *args)
 {
-    bitpunch_status_t ret;
+    bitpunch_status_t bt_ret;
     const char *name;
     struct tracker_error *tk_err = NULL;
 
     if (!PyArg_ParseTuple(args, "s", &name)) {
         return NULL;
     }
-    ret = tracker_goto_named_item(self->tk, name, &tk_err);
-    if (BITPUNCH_OK != ret) {
-        set_tracker_error(tk_err, ret);
+    bt_ret = tracker_goto_named_item(self->tk, name, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
         return NULL;
     }
     Py_INCREF((PyObject *)self);
@@ -2050,7 +2514,7 @@ tk_goto_item_by_key(struct tracker *tk, PyObject *index,
                     expr_value_t *keyp,
                     int *all_twinsp)
 {
-    bitpunch_status_t ret;
+    bitpunch_status_t bt_ret;
     PyObject *index_value;
     int64_t twin_index;
     int all_twins;
@@ -2111,6 +2575,7 @@ tk_goto_item_by_key(struct tracker *tk, PyObject *index,
             PyErr_Format(PyExc_TypeError,
                          "requested indexed access by index tuple on "
                          "non-indexed array");
+            expr_value_destroy(key);
             return -1;
         }
         if (key.type != key_expected_type) {
@@ -2118,19 +2583,23 @@ tk_goto_item_by_key(struct tracker *tk, PyObject *index,
                          "key of type '%s' does not match index type '%s'",
                          expr_value_type_str(key.type),
                          expr_value_type_str(key_expected_type));
+            expr_value_destroy(key);
             return -1;
         }
-        ret = tracker_goto_nth_item_with_key(tk, key, twin_index, &tk_err);
+        bt_ret = tracker_goto_nth_item_with_key(tk, key, twin_index, &tk_err);
     } else {
-        if (key.type != EXPR_VALUE_TYPE_INTEGER) {
-            PyErr_SetString(PyExc_TypeError,
-                            "key of non-indexed array must be an integer");
-            return -1;
+        switch (key.type) {
+        case EXPR_VALUE_TYPE_INTEGER:
+            bt_ret = tracker_goto_nth_item(tk, key.integer, &tk_err);
+            break ;
+        default:
+            bt_ret = tracker_goto_first_item_with_key(tk, key, &tk_err);
+            break ;
         }
-        ret = tracker_goto_nth_item(tk, key.integer, &tk_err);
     }
-    if (BITPUNCH_OK != ret) {
-        set_tracker_error(tk_err, ret);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
+        expr_value_destroy(key);
         return -1;
     }
     if (NULL != keyp) {
@@ -2156,12 +2625,12 @@ Tracker_goto_item_by_key(TrackerObject *self, PyObject *index)
 static PyObject *
 Tracker_enter_item(TrackerObject *self)
 {
-    bitpunch_status_t ret;
+    bitpunch_status_t bt_ret;
     struct tracker_error *tk_err = NULL;
 
-    ret = tracker_enter_item(self->tk, &tk_err);
-    if (BITPUNCH_OK != ret) {
-        set_tracker_error(tk_err, ret);
+    bt_ret = tracker_enter_item(self->tk, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
         return NULL;
     }
     if (-1 == Tracker_set_default_iter_mode(self)) {
@@ -2174,12 +2643,12 @@ Tracker_enter_item(TrackerObject *self)
 static PyObject *
 Tracker_leave_container(TrackerObject *self)
 {
-    bitpunch_status_t ret;
+    bitpunch_status_t bt_ret;
     struct tracker_error *tk_err = NULL;
 
-    ret = tracker_return(self->tk, &tk_err);
-    if (BITPUNCH_OK != ret) {
-        set_tracker_error(tk_err, ret);
+    bt_ret = tracker_return(self->tk, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
         return NULL;
     }
     if (-1 == Tracker_set_default_iter_mode(self)) {
@@ -2196,13 +2665,13 @@ Tracker_leave_container(TrackerObject *self)
 static PyObject *
 Tracker_get_n_items(TrackerObject *self)
 {
-    bitpunch_status_t ret;
+    bitpunch_status_t bt_ret;
     int64_t n_items;
     struct tracker_error *tk_err = NULL;
 
-    ret = tracker_get_n_items(self->tk, &n_items, &tk_err);
-    if (BITPUNCH_OK != ret) {
-        set_tracker_error(tk_err, ret);
+    bt_ret = tracker_get_n_items(self->tk, &n_items, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
         return NULL;
     }
     return Py_BuildValue("l", n_items);
@@ -2228,7 +2697,7 @@ Tracker_get_item_key(TrackerObject *self)
         set_tracker_error(tk_err, bt_ret);
         return NULL;
     }
-    py_key_value = expr_value_to_PyObject(self->dtree, key, FALSE);
+    py_key_value = expr_value_to_native_PyObject(self->dtree, key);
     if (NULL == py_key_value) {
         return NULL;
     }
@@ -2283,15 +2752,15 @@ Tracker_get_offset(TrackerObject *self)
 static PyObject *
 Tracker_get_location(TrackerObject *self)
 {
-    bitpunch_status_t ret;
+    bitpunch_status_t bt_ret;
     int64_t item_offset;
     int64_t item_size;
     struct tracker_error *tk_err = NULL;
 
-    ret = tracker_get_item_location(self->tk, &item_offset, &item_size,
-                                    &tk_err);
-    if (BITPUNCH_OK != ret) {
-        set_tracker_error(tk_err, ret);
+    bt_ret = tracker_get_item_location(self->tk, &item_offset, &item_size,
+                                       &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
         return NULL;
     }
     return Py_BuildValue("ii", item_offset, item_size);
@@ -2300,17 +2769,17 @@ Tracker_get_location(TrackerObject *self)
 static PyObject *
 Tracker_read_item_raw(TrackerObject *self)
 {
-    bitpunch_status_t ret;
+    bitpunch_status_t bt_ret;
     const char *item_contents;
     int64_t item_size;
     Py_buffer view;
     PyObject *memview;
     struct tracker_error *tk_err = NULL;
 
-    ret = tracker_read_item_raw(self->tk, &item_contents, &item_size,
-                                &tk_err);
-    if (BITPUNCH_OK != ret) {
-        set_tracker_error(tk_err, ret);
+    bt_ret = tracker_read_item_raw(self->tk, &item_contents, &item_size,
+                                   &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
         return NULL;
     }
     if (-1 == PyBuffer_FillInfo(&view, NULL,
@@ -2325,7 +2794,7 @@ Tracker_read_item_raw(TrackerObject *self)
 static PyObject *
 Tracker_read_item_value(TrackerObject *self)
 {
-    return tracker_item_to_shallow_PyObject(self->dtree, self->tk, FALSE);
+    return tracker_item_to_shallow_PyObject(self->dtree, self->tk);
 }
 
 static PyMethodDef Tracker_methods[] = {
@@ -2433,7 +2902,7 @@ static PyMethodDef Tracker_methods[] = {
 
     { "read_item_value",
       (PyCFunction)Tracker_read_item_value, METH_NOARGS,
-      "get the target item's value, either as a DataContainer object for "
+      "get the target item's value, either as a DataItem object for "
       "structured types (blocks and arrays) or as native Python types"
     },
 
@@ -2458,41 +2927,41 @@ Tracker_bf_getbuffer(TrackerObject *exporter,
                      Py_buffer *view, int flags);
 
 
-static PyBufferProcs TrackerAsBuffer = {
+static PyBufferProcs Tracker_as_buffer = {
     .bf_getbuffer = (getbufferproc)Tracker_bf_getbuffer,
 };
 
 static PyTypeObject TrackerType = {
     PyObject_HEAD_INIT(NULL)
-    0,                         /*ob_size*/
-    "bitpunch.Tracker",         /*tp_name*/
-    sizeof(TrackerObject),     /*tp_basicsize*/
-    0,                         /*tp_itemsize*/
-    0,                         /*tp_dealloc*/
-    0,                         /*tp_print*/
-    0,                         /*tp_getattr*/
-    0,                         /*tp_setattr*/
-    0,                         /*tp_compare*/
-    0,                         /*tp_repr*/
-    0,                         /*tp_as_number*/
-    0,                         /*tp_as_sequence*/
-    0,                         /*tp_as_mapping*/
-    0,                         /*tp_hash */
-    0,                         /*tp_call*/
-    0,                         /*tp_str*/
-    0,                         /*tp_getattro*/
-    0,                         /*tp_setattro*/
-    &TrackerAsBuffer,          /*tp_as_buffer*/
+    0,                         /* ob_size */
+    "bitpunch.Tracker",        /* tp_name */
+    sizeof(TrackerObject),     /* tp_basicsize */
+    0,                         /* tp_itemsize */
+    0,                         /* tp_dealloc */
+    0,                         /* tp_print */
+    0,                         /* tp_getattr */
+    0,                         /* tp_setattr */
+    0,                         /* tp_compare */
+    0,                         /* tp_repr */
+    0,                         /* tp_as_number */
+    0,                         /* tp_as_sequence */
+    0,                         /* tp_as_mapping */
+    0,                         /* tp_hash */
+    0,                         /* tp_call */
+    0,                         /* tp_str */
+    0,                         /* tp_getattro */
+    0,                         /* tp_setattro */
+    &Tracker_as_buffer,        /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT |
     Py_TPFLAGS_BASETYPE |
-    Py_TPFLAGS_HAVE_NEWBUFFER, /*tp_flags*/
+    Py_TPFLAGS_HAVE_NEWBUFFER, /* tp_flags */
     Tracker__doc__,            /* tp_doc */
     0,                         /* tp_traverse */
     0,                         /* tp_clear */
-    0,		               /* tp_richcompare */
-    0,		               /* tp_weaklistoffset */
-    0,		               /* tp_iter */
-    0,		               /* tp_iternext */
+    0,                         /* tp_richcompare */
+    0,                         /* tp_weaklistoffset */
+    0,                         /* tp_iter */
+    0,                         /* tp_iternext */
     Tracker_methods,           /* tp_methods */
     Tracker_members,           /* tp_members */
     0,                         /* tp_getset */
@@ -2508,22 +2977,21 @@ static PyTypeObject TrackerType = {
 
 
 static TrackerObject *
-Tracker_new_from_DataContainer(PyTypeObject *subtype,
-                               DataContainerObject *dcont)
+Tracker_new_from_DataItem(PyTypeObject *subtype, DataItemObject *item)
 {
     TrackerObject *self;
+    bitpunch_status_t bt_ret;
     struct tracker_error *tk_err = NULL;
 
     self = (TrackerObject *)subtype->tp_alloc(subtype, 0);
     if (NULL == self) {
         return NULL;
     }
-    self->dtree = dcont->dtree;
+    self->dtree = item->dtree;
     Py_INCREF(self->dtree);
-    self->tk = track_box_contents(dcont->box, &tk_err);
-    if (NULL == self->tk) {
-        assert(NULL != tk_err);
-        set_tracker_error(tk_err, tk_err->bt_ret);
+    bt_ret = track_dpath_contents(item->dpath, &self->tk, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
         subtype->tp_free(self);
         return NULL;
     }
@@ -2569,9 +3037,8 @@ Tracker_new(PyTypeObject *subtype,
                                      &arg, &iter_mode)) {
         return NULL;
     }
-    if (PyObject_TypeCheck(arg, &DataContainerType)) {
-        self = Tracker_new_from_DataContainer(subtype,
-                                              (DataContainerObject *)arg);
+    if (PyObject_TypeCheck(arg, &DataItemType)) {
+        self = Tracker_new_from_DataItem(subtype, (DataItemObject *)arg);
         if (NULL == self) {
             return NULL;
         }
@@ -2582,7 +3049,7 @@ Tracker_new(PyTypeObject *subtype,
         }
     } else {
         PyErr_SetString(PyExc_TypeError,
-                        "The argument must be a bitpunch.DataContainer "
+                        "The argument must be a bitpunch.DataItem "
                         "or bitpunch.Tracker object");
         return NULL;
     }
@@ -2719,6 +3186,7 @@ Tracker_bf_getbuffer(TrackerObject *exporter,
     struct tracker_error *tk_err = NULL;
 
     tk = exporter->tk;
+    // TODO consider using tracker_read_item_raw()
     bt_ret = tracker_get_item_location(tk, &item_offset, &item_size,
                                        &tk_err);
     if (BITPUNCH_OK == bt_ret) {
@@ -2777,11 +3245,11 @@ TrackerType_setup(void)
 
 
 static PyObject *
-DataContainer_iter_keys(DataContainerObject *self)
+DataItem_iter_keys(DataItemObject *self)
 {
     TrackerObject *tracker;
 
-    tracker = Tracker_new_from_DataContainer(&TrackerType, self);
+    tracker = Tracker_new_from_DataItem(&TrackerType, self);
     if (NULL != tracker) {
         tracker->iter_mode = TRACKER_ITER_FIELD_NAMES;
     }
@@ -2789,11 +3257,11 @@ DataContainer_iter_keys(DataContainerObject *self)
 }
 
 static PyObject *
-DataContainer_iter_items(DataContainerObject *self)
+DataItem_iter_items(DataItemObject *self)
 {
     TrackerObject *tracker;
 
-    tracker = Tracker_new_from_DataContainer(&TrackerType, self);
+    tracker = Tracker_new_from_DataItem(&TrackerType, self);
     if (NULL != tracker) {
         tracker->iter_mode = TRACKER_ITER_FIELD_KEYVALUE_TUPLES;
     }
@@ -2801,159 +3269,12 @@ DataContainer_iter_items(DataContainerObject *self)
 }
 
 static PyObject *
-DataContainer_eval_expr(DataContainerObject *cont,
-                        PyObject *args, PyObject *kwds)
-{
-    static char *kwlist[] = { "expr", "require_dpath", NULL };
-    const char *expr;
-    int require_dpath = FALSE;
-
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|i", kwlist,
-                                     &expr, &require_dpath)) {
-        return NULL;
-    }
-    return eval_expr_as_python_object(cont, expr, require_dpath);
-}
-
-static PyObject *
-DataContainer_get_size(DataContainerObject *self, PyObject *args)
-{
-    int64_t start_offset;
-    int64_t item_size;
-    bitpunch_status_t bt_ret;
-    struct tracker_error *tk_err = NULL;
-    int64_t end_offset;
-
-    bt_ret = box_compute_end_offset(self->box, BOX_END_OFFSET_USED,
-                                    &end_offset, &tk_err);
-    if (BITPUNCH_OK != bt_ret) {
-        set_tracker_error(tk_err, bt_ret);
-        return NULL;
-    }
-    start_offset = box_get_start_offset(self->box);
-    assert(end_offset >= start_offset);
-    item_size = end_offset - start_offset;
-    return PyInt_FromLong(item_size);
-}
-
-static PyObject *
-DataContainer_get_offset(DataContainerObject *self, PyObject *args)
-{
-    int64_t item_offset;
-
-    item_offset = box_get_start_offset(self->box);
-    return PyInt_FromLong(item_offset);
-}
-
-static PyObject *
-DataContainer_get_location(DataContainerObject *self, PyObject *args)
-{
-    int64_t item_offset;
-    int64_t item_size;
-    bitpunch_status_t bt_ret;
-    struct tracker_error *tk_err = NULL;
-    int64_t end_offset;
-
-    bt_ret = box_compute_end_offset(self->box, BOX_END_OFFSET_USED,
-                                    &end_offset, &tk_err);
-    if (BITPUNCH_OK != bt_ret) {
-        set_tracker_error(tk_err, bt_ret);
-        return NULL;
-    }
-    assert(end_offset >= box_get_start_offset(self->box));
-    item_offset = box_get_start_offset(self->box);
-    item_size = end_offset - item_offset;
-
-    return Py_BuildValue("ii", item_offset, item_size);
-}
-
-static PyObject *
-DataContainer_str(DataContainerObject *self)
-{
-    bitpunch_status_t bt_ret;
-    expr_value_t value;
-    PyObject *res = NULL;
-    struct tracker_error *tk_err = NULL;
-
-    bt_ret = box_read_value(self->box, &value, &tk_err);
-    if (BITPUNCH_OK != bt_ret) {
-        set_tracker_error(tk_err, bt_ret);
-        return NULL;
-    }
-    assert(EXPR_VALUE_TYPE_BYTES == value.type);
-    res = PyString_FromStringAndSize(value.bytes.buf,
-                                     (Py_ssize_t)value.bytes.len);
-    expr_value_destroy(value);
-    return res;
-}
-
-static PyObject *
-DataContainer___unicode__(DataContainerObject *self, PyObject *args)
-{
-    struct box *box;
-    bitpunch_status_t bt_ret;
-    expr_value_t value;
-    struct tracker_error *tk_err = NULL;
-
-    box = self->box;
-    bt_ret = box_read_value(box, &value, &tk_err);
-    if (BITPUNCH_OK != bt_ret) {
-        set_tracker_error(tk_err, bt_ret);
-        return NULL;
-    }
-    assert(EXPR_VALUE_TYPE_BYTES == value.type);
-    // FIXME: use proper encoding configured in string() filter when
-    // this is implemented
-    return PyUnicode_Decode(value.bytes.buf, (Py_ssize_t)value.bytes.len,
-                            "latin_1", NULL);
-}
-
-static PyObject *
-DataContainer_iter(DataContainerObject *self)
+DataItem_iter(DataItemObject *self)
 {
     TrackerObject *iter;
 
-    iter = Tracker_new_from_DataContainer(&TrackerType, self);
+    iter = Tracker_new_from_DataItem(&TrackerType, self);
     return (PyObject *)iter;
-}
-
-static int
-DataContainer_bf_getbuffer(DataContainerObject *exporter,
-                           Py_buffer *view, int flags)
-{
-    struct box *box;
-    int64_t end_offset;
-    bitpunch_status_t bt_ret;
-    const char *buf;
-    int64_t len;
-    struct tracker_error *tk_err = NULL;
-
-    box = exporter->box;
-    bt_ret = box_compute_end_offset(box, BOX_END_OFFSET_USED, &end_offset,
-                                    &tk_err);
-    if (BITPUNCH_OK == bt_ret) {
-        bt_ret = box_apply_filter(box, &tk_err);
-    }
-    if (BITPUNCH_OK != bt_ret) {
-        PyObject *errmsg;
-
-        if (NULL != tk_err) {
-            errmsg = PyString_FromString(tk_err->error_buf);
-        } else {
-            Py_INCREF(Py_None);
-            errmsg = Py_None;
-        }
-        PyErr_SetObject(PyExc_BufferError, errmsg);
-        Py_DECREF(errmsg);
-        view->obj = NULL;
-        tracker_error_destroy(tk_err);
-        return -1;
-    }
-    buf = box->file_hdl->bf_data + box_get_start_offset(box);
-    len = end_offset - box_get_start_offset(box);
-    return PyBuffer_FillInfo(view, (PyObject *)exporter,
-                             (void *)buf, (Py_ssize_t)len,
-                             TRUE /* read-only */, flags);
 }
 
 
@@ -2962,23 +3283,18 @@ expr_value_from_PyObject(PyObject *py_expr,
                          expr_value_t *exprp)
 {
     if (PyInt_Check(py_expr)) {
-        exprp->type = EXPR_VALUE_TYPE_INTEGER;
-        exprp->integer = PyInt_AS_LONG(py_expr);
+        *exprp = expr_value_as_integer(PyInt_AS_LONG(py_expr));
     } else if (PyBool_Check(py_expr)) {
-        exprp->type = EXPR_VALUE_TYPE_BOOLEAN;
-        exprp->boolean = (py_expr == Py_True);
+        *exprp = expr_value_as_boolean(py_expr == Py_True);
     } else if (PyString_Check(py_expr)) {
         char *str;
         Py_ssize_t length;
 
-        exprp->type = EXPR_VALUE_TYPE_STRING;
         PyString_AsStringAndSize(py_expr, &str, &length);
-        exprp->string.str = str;
-        exprp->string.len = length;
+        *exprp = expr_value_as_string_len(str, length);
     } else if (PyByteArray_Check(py_expr)) {
-        exprp->type = EXPR_VALUE_TYPE_BYTES;
-        exprp->bytes.buf = PyByteArray_AS_STRING(py_expr);
-        exprp->bytes.len = PyByteArray_GET_SIZE(py_expr);
+        *exprp = expr_value_as_bytes(PyByteArray_AS_STRING(py_expr),
+                                     PyByteArray_GET_SIZE(py_expr));
     } else {
         PyErr_Format(PyExc_TypeError,
                      "unsupported expression type '%s'",
@@ -2988,108 +3304,69 @@ expr_value_from_PyObject(PyObject *py_expr,
     return 0;
 }
 
-static PyObject *
-expr_value_to_shallow_PyObject(DataTreeObject *dtree,
-                               expr_value_t value_eval)
-{
-    struct browse_state bst;
-    struct box *box;
-    bitpunch_status_t bt_ret;
-    PyObject *res = NULL;
-
-    browse_state_init(&bst);
-    box = box_new_from_expr_value(value_eval, &bst);
-    if (NULL == box) {
-        if (NULL != bst.last_error) {
-            bt_ret = bst.last_error->bt_ret;
-        } else {
-            bt_ret = BITPUNCH_DATA_ERROR;
-        }
-        set_tracker_error(bst.last_error, bt_ret);
-        return NULL;
-    }
-    res = box_to_shallow_PyObject(dtree, box);
-    box_delete(box);
-    return res;
-}
-
 /**
- * @brief convert an expression into a python object
+ * @brief convert an expression into a native-typed python object
  *
  * @note this function call always destroys @ref value_eval
  */
 static PyObject *
-expr_value_to_PyObject(DataTreeObject *dtree,
-                       expr_value_t value_eval,
-                       int require_dpath)
+expr_value_to_native_PyObject(DataTreeObject *dtree,
+                              expr_value_t value_eval)
 {
     PyObject *res = NULL;
 
     switch (value_eval.type) {
     case EXPR_VALUE_TYPE_INTEGER:
         res = Py_BuildValue("l", value_eval.integer);
-        goto end;
+        break ;
     case EXPR_VALUE_TYPE_BOOLEAN:
         res = PyBool_FromLong(value_eval.boolean);
-        goto end;
+        break ;
     case EXPR_VALUE_TYPE_STRING:
-        if (require_dpath) {
-            res = expr_value_to_shallow_PyObject(dtree, value_eval);
-        } else {
-            res = PyString_FromStringAndSize(
-                value_eval.string.str,
-                (Py_ssize_t)value_eval.string.len);
-        }
-        goto end;
+        res = PyString_FromStringAndSize(value_eval.string.str,
+                                         (Py_ssize_t)value_eval.string.len);
+        break ;
     case EXPR_VALUE_TYPE_BYTES:
-        if (require_dpath) {
-            res = expr_value_to_shallow_PyObject(dtree, value_eval);
-        } else {
-            res = PyString_FromStringAndSize(
-                value_eval.bytes.buf,
-                (Py_ssize_t)value_eval.bytes.len);
-        }
-        goto end;
+        res = PyString_FromStringAndSize(value_eval.bytes.buf,
+                                         (Py_ssize_t)value_eval.bytes.len);
+        break ;
     default:
         PyErr_Format(PyExc_ValueError,
                      "unsupported expression type '%d'",
                      (int)value_eval.type);
-        goto end;
+        break ;
     }
-  end:
     expr_value_destroy(value_eval);
     return res;
 }
 
 /**
- * @brief convert a dpath expression into a python object
+ * @brief convert an expression into a DataItem if expression refers
+ * to a data source item, or a native-typed python object otherwise
  *
- * @note this function call always destroys @ref dpath_eval
+ * @note this function call always destroys @ref value and @ref dpath
  */
 static PyObject *
-expr_dpath_to_PyObject(DataTreeObject *dtree,
-                       expr_dpath_t dpath_eval, int require_dpath)
+expr_value_and_dpath_to_PyObject(DataTreeObject *dtree,
+                                 expr_value_t value, expr_dpath_t dpath)
 {
-    PyObject *res = NULL;
+    DataItemObject *item;
 
-    switch (dpath_eval.type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        res = tracker_item_to_shallow_PyObject(dtree, dpath_eval.item.tk,
-                                               require_dpath);
-        break ;
-    case EXPR_DPATH_TYPE_CONTAINER:
-        res = box_to_shallow_PyObject(dtree, dpath_eval.container.box);
-        break ;
-    default:
-        assert(0);
+    if (EXPR_DPATH_TYPE_NONE == dpath.type) {
+        return expr_value_to_native_PyObject(dtree, value);
     }
-    expr_dpath_destroy(dpath_eval);
-    return res;
+    item = (DataItemObject *)DataItem_new(&DataItemType, NULL, NULL);
+    if (NULL == item) {
+        return NULL;
+    }
+    DataItem_construct(item, dtree);
+    item->value = value;
+    item->dpath = dpath;
+    return (PyObject *)item;
 }
 
 static PyObject *
-eval_expr_as_python_object(DataContainerObject *cont,
-                           const char *expr, int require_dpath)
+eval_expr_as_python_object(DataItemObject *item, const char *expr)
 {
     DataTreeObject *dtree;
     struct bitpunch_schema_hdl *schema;
@@ -3098,14 +3375,16 @@ eval_expr_as_python_object(DataContainerObject *cont,
     int ret;
     expr_value_t expr_value;
     expr_dpath_t expr_dpath;
-    PyObject *res = NULL;
     struct tracker_error *tk_err = NULL;
 
-    if (NULL != cont) {
-        dtree = cont->dtree;
+    if (NULL != item) {
+        if (-1 == DataItem_convert_dpath_to_box(item)) {
+            return NULL;
+        }
+        dtree = item->dtree;
         schema = dtree->fmt->schema;
         binary_file = dtree->binary_file;
-        scope = cont->box;
+        scope = item->dpath.container.box;
     } else {
         dtree = NULL;
         schema = NULL;
@@ -3114,8 +3393,7 @@ eval_expr_as_python_object(DataContainerObject *cont,
     }
 
     ret = bitpunch_eval_expr(schema, binary_file, expr, scope,
-                             &expr_value, &expr_dpath,
-                             &tk_err);
+                             &expr_value, &expr_dpath, &tk_err);
     if (-1 == ret) {
         if (NULL != tk_err) {
             set_tracker_error(tk_err, tk_err->bt_ret);
@@ -3125,129 +3403,18 @@ eval_expr_as_python_object(DataContainerObject *cont,
         }
         return NULL;
     }
-    // FIXME rework choice between dpath or value type
-    if (EXPR_DPATH_TYPE_NONE != expr_dpath.type
-        && (require_dpath || EXPR_VALUE_TYPE_INTEGER != expr_value.type)) {
-        res = expr_dpath_to_PyObject(dtree, expr_dpath, require_dpath);
-        expr_value_destroy(expr_value);
-    } else {
-        assert(EXPR_VALUE_TYPE_UNSET != expr_value.type);
-        expr_dpath_destroy(expr_dpath);
-        res = expr_value_to_PyObject(dtree, expr_value, require_dpath);
-    }
-    return res;
-}
-
-static PyObject *
-tracker_item_to_deep_PyObject(DataTreeObject *dtree,
-                              struct tracker *tk)
-{
-    PyObject *res = NULL;
-    bitpunch_status_t bt_ret;
-    expr_value_t value_eval;
-    int complex_type;
-    struct box *filtered_box;
-    struct tracker_error *tk_err = NULL;
-
-    if (NULL == tk->dpath) {
-        Py_INCREF(Py_None);
-        return Py_None;
-    }
-    complex_type = dpath_is_complex_type(tk->dpath);
-    if (complex_type) {
-        bt_ret = tracker_get_filtered_item_box(tk, &filtered_box, &tk_err);
-        if (BITPUNCH_OK == bt_ret) {
-            res = DataContainer_box_to_python_object(dtree, filtered_box);
-            box_delete(filtered_box);
-        } else {
-            set_tracker_error(tk_err, bt_ret);
-        }
-    } else {
-        bt_ret = tracker_read_item_value(tk, &value_eval, &tk_err);
-        if (BITPUNCH_OK != bt_ret) {
-            set_tracker_error(tk_err, bt_ret);
-            return NULL;
-        }
-        res = expr_value_to_PyObject(dtree, value_eval, FALSE);
-    }
-    return res;
+    return expr_value_and_dpath_to_PyObject(dtree, expr_value, expr_dpath);
 }
 
 static PyObject *
 tracker_item_to_shallow_PyObject(DataTreeObject *dtree,
-                                 struct tracker *tk,
-                                 int require_dpath)
+                                 struct tracker *tk)
 {
-    PyObject *res = NULL;
-    bitpunch_status_t bt_ret;
-    int complex_type;
-    struct box *filtered_box;
-    struct tracker_error *tk_err = NULL;
-
     if (NULL == tk->dpath) {
         Py_INCREF(Py_None);
         return Py_None;
     }
-    complex_type = dpath_is_complex_type(tk->dpath);
-    if (complex_type || require_dpath) {
-        bt_ret = tracker_get_filtered_item_box(tk, &filtered_box, &tk_err);
-        if (BITPUNCH_OK != bt_ret) {
-            set_tracker_error(tk_err, bt_ret);
-            return NULL;
-        }
-        res = box_to_shallow_PyObject(dtree, filtered_box);
-        box_delete(filtered_box);
-    } else {
-        expr_value_t value_eval;
-
-        bt_ret = tracker_read_item_value(tk, &value_eval, &tk_err);
-        if (BITPUNCH_OK != bt_ret) {
-            set_tracker_error(tk_err, bt_ret);
-            return NULL;
-        }
-        res = expr_value_to_PyObject(dtree, value_eval, TRUE);
-    }
-    return res;
-}
-
-static PyObject *
-box_to_shallow_PyObject(DataTreeObject *dtree, struct box *box)
-{
-    struct ast_node_hdl *as_type;
-    DataContainerObject *dcont;
-
-    as_type = dpath_node_get_as_type(&box->dpath);
-    switch (as_type->ndat->type) {
-    case AST_NODE_TYPE_COMPOSITE:
-        dcont = (DataContainerObject *)DataBlock_new(&DataBlockType,
-                                                     NULL, NULL);
-        if (NULL == dcont) {
-            return NULL;
-        }
-        DataContainer_construct(dcont, dtree, box);
-        return (PyObject *)dcont;
-
-    case AST_NODE_TYPE_ARRAY:
-    case AST_NODE_TYPE_ARRAY_SLICE:
-    case AST_NODE_TYPE_BYTE_ARRAY:
-    case AST_NODE_TYPE_BYTE_SLICE:
-    case AST_NODE_TYPE_BYTE:
-    case AST_NODE_TYPE_AS_BYTES:
-        dcont = (DataContainerObject *)DataArray_new(&DataArrayType,
-                                                     NULL, NULL);
-        if (NULL == dcont) {
-            return NULL;
-        }
-        DataContainer_construct(dcont, dtree, box);
-        return (PyObject *)dcont;
-
-    default:
-        PyErr_Format(PyExc_TypeError,
-                     "cannot convert box type '%s' to shallow python "
-                     "object", ast_node_type_str(as_type->ndat->type));
-        return NULL;
-    }
-    /*NOT REACHED*/
+    return DataItem_new_from_tracker(dtree, tk);
 }
 
 /*
@@ -3278,8 +3445,8 @@ setup_exceptions(PyObject *bitpunch_m)
 static PyObject *
 mod_bitpunch_make_python_object(PyObject *self, PyObject *obj)
 {
-    if (PyObject_TypeCheck(obj, &DataContainerType)) {
-        return DataContainer_make_python_object((DataContainerObject *)obj);
+    if (PyObject_TypeCheck(obj, &DataItemType)) {
+        return DataItem_make_python_object((DataItemObject *)obj);
     } else {
         Py_INCREF(obj);
         return obj;
@@ -3294,41 +3461,31 @@ mod_bitpunch_eval_expr(PyObject *self, PyObject *args)
     if (!PyArg_ParseTuple(args, "s|Oi", &expr)) {
         return NULL;
     }
-    return eval_expr_as_python_object(NULL, expr, FALSE);
+    return eval_expr_as_python_object(NULL, expr);
 }
 
 static PyObject *
 mod_bitpunch_get_builtin_names(PyObject *self,
-                              PyObject *args, PyObject *kwds)
+                               PyObject *args, PyObject *kwds)
 {
-    static char *kwlist[] = { "prefix", "object", NULL };
+    static char *kwlist[] = { "prefix", NULL };
     const char *prefix = "";
-    DataContainerObject *object = NULL;
-    const struct ast_node_hdl *object_node = NULL;
     int prefix_len;
     const char *prev_builtin_name;
     const char *next_builtin_name;
     PyObject *list;
     PyObject *item;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|sO", kwlist,
-                                     &prefix, &object)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|s", kwlist,
+                                     &prefix)) {
         return NULL;
-    }
-    if (NULL != object && (PyObject *)object != Py_None) {
-        if (!PyObject_TypeCheck((PyObject *)object, &DataContainerType)) {
-            return PyErr_Format(PyExc_TypeError,
-                                "'object' argument must be a "
-                                "'bitpunch.DataContainer' object");
-        }
-        object_node = object->box->dpath.item;
     }
     list = PyList_New(0);
     if (NULL == list) {
         return NULL;
     }
     prefix_len = strlen(prefix);
-    next_builtin_name = expr_find_first_builtin(prefix, object_node);
+    next_builtin_name = expr_find_first_builtin(prefix, NULL);
     while (NULL != next_builtin_name &&
            0 == strncmp(next_builtin_name, prefix, prefix_len)) {
         item = PyString_FromString(next_builtin_name);
@@ -3342,8 +3499,7 @@ mod_bitpunch_get_builtin_names(PyObject *self,
             return NULL;
         }
         prev_builtin_name = next_builtin_name;
-        next_builtin_name = expr_find_next_builtin(prev_builtin_name,
-                                                   object_node);
+        next_builtin_name = expr_find_next_builtin(prev_builtin_name, NULL);
     }
     return list;
 }
@@ -3430,29 +3586,12 @@ initmodel_ext(void)
     PyModule_AddObject(bitpunch_m,
                        "IndexKey", (PyObject *)&IndexKeyType);
 
-    /* DataContainer */
-    if (DataContainerType_setup() < 0) {
+    /* DataItem */
+    if (DataItemType_setup() < 0) {
         return ;
     }
-    Py_INCREF(&DataContainerType);
-    PyModule_AddObject(bitpunch_m,
-                       "DataContainer", (PyObject *)&DataContainerType);
-
-    /* DataBlock */
-    if (DataBlockType_setup() < 0) {
-        return ;
-    }
-    Py_INCREF(&DataBlockType);
-    PyModule_AddObject(bitpunch_m,
-                       "DataBlock", (PyObject *)&DataBlockType);
-
-    /* DataArray */
-    if (DataArrayType_setup() < 0) {
-        return ;
-    }
-    Py_INCREF(&DataArrayType);
-    PyModule_AddObject(bitpunch_m,
-                       "DataArray", (PyObject *)&DataArrayType);
+    Py_INCREF(&DataItemType);
+    PyModule_AddObject(bitpunch_m, "DataItem", (PyObject *)&DataItemType);
 
     /* DataTree */
     if (DataTreeType_setup() < 0) {

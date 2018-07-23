@@ -277,6 +277,55 @@ struct tracker_error {
     } u;
 };
 
+bitpunch_status_t
+expr_dpath_to_tracker_internal(expr_dpath_t dpath,
+                               struct tracker **tkp,
+                               struct browse_state *bst);
+bitpunch_status_t
+expr_dpath_to_box_internal(expr_dpath_t dpath,
+                           struct box **boxp,
+                           struct browse_state *bst);
+bitpunch_status_t
+expr_dpath_to_box_direct(expr_dpath_t dpath,
+                         struct box **boxp,
+                         struct browse_state *bst);
+bitpunch_status_t
+expr_dpath_to_container_internal(expr_dpath_t dpath,
+                                 expr_dpath_t *dpathp,
+                                 struct browse_state *bst);
+bitpunch_status_t
+expr_dpath_to_item_internal(expr_dpath_t dpath,
+                            expr_dpath_t *dpathp,
+                            struct browse_state *bst);
+bitpunch_status_t
+expr_dpath_to_dpath_internal(expr_dpath_t src_dpath,
+                             enum expr_dpath_type dst_type,
+                             expr_dpath_t *dst_dpathp,
+                             struct browse_state *bst);
+struct box *
+expr_dpath_get_parent_box(expr_dpath_t dpath);
+bitpunch_status_t
+expr_dpath_get_size(expr_dpath_t dpath,
+                    int64_t *dpath_sizep,
+                    struct browse_state *bst);
+const struct ast_node_hdl *
+expr_dpath_get_item_node(expr_dpath_t dpath);
+int
+expr_dpath_contains_indexed_items(expr_dpath_t dpath);
+const struct ast_node_hdl *
+expr_dpath_get_as_type(expr_dpath_t dpath);
+const struct ast_node_hdl *
+expr_dpath_get_target_filter(expr_dpath_t dpath);
+struct track_path
+expr_dpath_get_track_path(expr_dpath_t dpath);
+int
+expr_dpath_is(expr_dpath_t dpath1, expr_dpath_t dpath2);
+void
+expr_dpath_find_common_ancestor(expr_dpath_t dpath1,
+                                expr_dpath_t dpath2,
+                                expr_dpath_t *ancestor1_dpathp,
+                                expr_dpath_t *ancestor2_dpathp);
+
 void
 box_acquire(struct box *box);
 void
@@ -345,9 +394,18 @@ track_box_contents_internal(struct box *box, struct browse_state *bst);
 bitpunch_status_t
 box_apply_filter(struct box *box,
                  struct tracker_error **errp);
-struct tracker *
+bitpunch_status_t
 track_item_contents(struct tracker *tk,
+                    struct tracker **tkp,
                     struct tracker_error **errp);
+bitpunch_status_t
+track_dpath_contents_internal(expr_dpath_t dpath,
+                              struct tracker **tkp,
+                              struct browse_state *bst);
+bitpunch_status_t
+track_dpath_contents(expr_dpath_t dpath,
+                     struct tracker **tkp,
+                     struct tracker_error **errp);
 
 bitpunch_status_t
 tracker_get_n_items(struct tracker *tk, int64_t *item_countp,
@@ -444,6 +502,15 @@ tracker_read_item_value(struct tracker *tk,
                         expr_value_t *valuep,
                         struct tracker_error **errp);
 
+/* dpath API */
+
+bitpunch_status_t
+expr_dpath_to_dpath(expr_dpath_t src_dpath,
+                    enum expr_dpath_type dst_type,
+                    expr_dpath_t *dst_dpathp,
+                    struct tracker_error **errp);
+
+
 /* generic statement API */
 
 enum statement_type {
@@ -539,25 +606,15 @@ tattr_iterator
 box_iter_attributes(struct box *box);
 
 bitpunch_status_t
-box_evaluate_attribute_value(struct box *box,
-                             const char *attr_name,
-                             expr_value_t *eval_valuep,
-                             struct tracker_error **errp);
-bitpunch_status_t
-box_evaluate_attribute_dpath(struct box *box,
-                             const char *attr_name,
-                             expr_dpath_t *eval_dpathp,
-                             struct tracker_error **errp);
-bitpunch_status_t
-box_evaluate_member(struct box *box,
-                    const char *attr_name,
-                    expr_value_t *eval_valuep,
-                    expr_dpath_t *eval_dpathp,
-                    struct tracker_error **errp);
-bitpunch_status_t
 box_iter_attributes_next(struct box *box, tattr_iterator *it,
                          const struct named_expr **named_exprp,
                          struct tracker_error **errp);
+
+bitpunch_status_t
+box_evaluate_member(struct box *box,
+                    const char *attr_name,
+                    expr_value_t *valuep, expr_dpath_t *dpathp,
+                    struct tracker_error **errp);
 
 /* error reporting */
 
@@ -616,5 +673,6 @@ browse_setup_backends_dpath(struct dpath_node *dpath);
 int
 browse_setup_backends_expr(struct ast_node_hdl *expr);
 
+#include "core/browse_inlines.h"
 
 #endif /*__BROWSE_H__*/

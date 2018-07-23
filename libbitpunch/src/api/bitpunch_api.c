@@ -432,17 +432,13 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
                    struct bitpunch_binary_file_hdl *binary_file,
                    const char *expr,
                    struct box *scope,
-                   expr_value_t *expr_valuep,
-                   expr_dpath_t *expr_dpathp,
+                   expr_value_t *valuep, expr_dpath_t *dpathp,
                    struct tracker_error **errp)
 {
     struct ast_node_hdl *expr_node = NULL;
     struct parser_ctx *parser_ctx = NULL;
-    expr_value_t expr_value = { .type = EXPR_VALUE_TYPE_UNSET };
-    expr_dpath_t expr_dpath = { .type = EXPR_DPATH_TYPE_NONE };
     bitpunch_status_t bt_ret;
-    int compute_dpath;
-    int compute_value;
+    int ret = -1;
 
     assert(NULL != expr);
 
@@ -453,7 +449,7 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
         if (NULL == scope) {
             scope = box_new_from_file(schema, binary_file);
             if (NULL == scope) {
-                goto err;
+                goto end;
             }
         } else {
             box_acquire(scope);
@@ -462,50 +458,19 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
         scope = NULL; // just in case
     }
     if (-1 == bitpunch_resolve_expr(expr_node, scope)) {
-        goto err;
+        goto end;
     }
     assert(ast_node_is_rexpr(expr_node));
-    compute_dpath =
-        (NULL != expr_dpathp
-         && 0 == (expr_node->flags & ASTFLAG_IS_VALUE_TYPE));
-    compute_value =
-        (NULL != expr_valuep
-         && EXPR_VALUE_TYPE_UNSET
-         != expr_node->ndat->u.rexpr.value_type_mask);
+    bt_ret = expr_evaluate(expr_node, scope, valuep, dpathp, errp);
+    if (BITPUNCH_OK == bt_ret) {
+        ret = 0;
+    }
 
-    if (compute_dpath) {
-        bt_ret = expr_evaluate_dpath(expr_node, scope, &expr_dpath, errp);
-        if (BITPUNCH_OK != bt_ret) {
-            goto err;
-        }
-    }
-    if (compute_value) {
-        if (compute_dpath && EXPR_DPATH_TYPE_NONE != expr_dpath.type) {
-            bt_ret = dpath_read_value(expr_dpath, &expr_value, errp);
-        } else {
-            bt_ret = expr_evaluate_value(expr_node, scope,
-                                         &expr_value, errp);
-        }
-        if (BITPUNCH_OK != bt_ret) {
-            goto err;
-        }
-    }
-    box_delete(scope);
-    if (NULL != expr_valuep) {
-        *expr_valuep = expr_value;
-    }
-    if (NULL != expr_dpathp) {
-        *expr_dpathp = expr_dpath;
-    }
-    /* TODO free expr_node */
-    free(parser_ctx);
-    return 0;
-
-  err:
+  end:
     box_delete(scope);
     /* TODO free expr_node */
     free(parser_ctx);
-    return -1;
+    return ret;
 }
 
 

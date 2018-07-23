@@ -260,8 +260,8 @@ let VarBlock = struct {
     }, {
         'spec': spec_static_span_and_slack_sized,
         'data': data_static_span_and_slack_sized,
-        'control_size': 1,
-        'lengths': [4, 6, 3, 0],
+        'control_size': 0,
+        'lengths': [5, 7, 4, 1],
         'data_lengths': [4, 6, 3, 0]
     }, {
         'spec': spec_static_span_and_slack_sized_subblock,

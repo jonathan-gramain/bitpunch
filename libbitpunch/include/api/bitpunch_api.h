@@ -93,8 +93,7 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
                    struct bitpunch_binary_file_hdl *binary_file,
                    const char *expr,
                    struct box *scope,
-                   expr_value_t *expr_valuep,
-                   expr_dpath_t *expr_dpathp,
+                   expr_value_t *valuep, expr_dpath_t *dpathp,
                    struct tracker_error **errp);
 
 const char *

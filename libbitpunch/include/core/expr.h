@@ -47,47 +47,6 @@ struct box;
 struct statement_list;
 struct named_expr;
 
-enum expr_value_type {
-    EXPR_VALUE_TYPE_UNSET = 0,
-    EXPR_VALUE_TYPE_INTEGER = (1<<0),
-    EXPR_VALUE_TYPE_BOOLEAN = (1<<1),
-    EXPR_VALUE_TYPE_STRING = (1<<2),
-    EXPR_VALUE_TYPE_BYTES = (1<<3),
-    EXPR_VALUE_TYPE_ANY = (EXPR_VALUE_TYPE_INTEGER |
-                           EXPR_VALUE_TYPE_BOOLEAN |
-                           EXPR_VALUE_TYPE_STRING |
-                           EXPR_VALUE_TYPE_BYTES),
-};
-
-struct expr_value_from_box {
-    struct box *box;
-};
-
-struct expr_value_string {
-    struct expr_value_from_box from_box; /* inherits */
-    const char *str;
-    int64_t len;
-};
-
-struct expr_value_bytes {
-    struct expr_value_from_box from_box; /* inherits */
-    const char *buf;
-    int64_t len;
-};
-
-struct expr_value {
-    enum expr_value_type type;
-    union {
-        int64_t integer;
-        int boolean;
-        struct expr_value_from_box from_box;
-        struct expr_value_string string;
-        struct expr_value_bytes bytes;
-    };
-};
-
-typedef struct expr_value expr_value_t;
-
 enum expr_dpath_type {
     EXPR_DPATH_TYPE_UNSET = 0,
     EXPR_DPATH_TYPE_NONE = (1<<0),
@@ -109,6 +68,42 @@ struct expr_dpath {
 
 typedef struct expr_dpath expr_dpath_t;
 
+enum expr_value_type {
+    EXPR_VALUE_TYPE_UNSET = 0,
+    EXPR_VALUE_TYPE_INTEGER = (1<<0),
+    EXPR_VALUE_TYPE_BOOLEAN = (1<<1),
+    EXPR_VALUE_TYPE_STRING = (1<<2),
+    EXPR_VALUE_TYPE_BYTES = (1<<3),
+    EXPR_VALUE_TYPE_ANY = (EXPR_VALUE_TYPE_INTEGER |
+                           EXPR_VALUE_TYPE_BOOLEAN |
+                           EXPR_VALUE_TYPE_STRING |
+                           EXPR_VALUE_TYPE_BYTES),
+};
+
+struct expr_value_string {
+    const char *str;
+    int64_t len;
+    struct box *from_box;
+};
+
+struct expr_value_bytes {
+    const char *buf;
+    int64_t len;
+    struct box *from_box;
+};
+
+struct expr_value {
+    enum expr_value_type type;
+    union {
+        int64_t integer;
+        int boolean;
+        struct expr_value_string string;
+        struct expr_value_bytes bytes;
+    };
+};
+
+typedef struct expr_value expr_value_t;
+
 const struct expr_builtin_fn *
 expr_lookup_builtin_fn(const char *name,
                        const struct ast_node_hdl *object);
@@ -119,55 +114,16 @@ const char *
 expr_find_next_builtin(const char *name,
                        const struct ast_node_hdl *object);
 
-bitpunch_status_t
-expr_dpath_to_tracker(expr_dpath_t dpath,
-                      struct tracker **tkp, struct browse_state *bst);
-bitpunch_status_t
-expr_dpath_to_box(expr_dpath_t dpath,
-                  struct box **boxp,
-                  struct browse_state *bst);
-bitpunch_status_t
-expr_dpath_to_box_direct(expr_dpath_t dpath,
-                         struct box **boxp,
-                         struct browse_state *bst);
-bitpunch_status_t
-expr_dpath_to_container(expr_dpath_t dpath,
-                        expr_dpath_t *dpathp,
-                        struct browse_state *bst);
-bitpunch_status_t
-expr_dpath_to_item(expr_dpath_t dpath,
-                   expr_dpath_t *dpathp,
-                   struct browse_state *bst);
-bitpunch_status_t
-expr_dpath_to_dpath(expr_dpath_t src_dpath,
-                    enum expr_dpath_type dst_type,
-                    expr_dpath_t *dst_dpathp,
-                    struct browse_state *bst);
-expr_dpath_t
-expr_dpath_dup(expr_dpath_t src_dpath);
-struct box *
-expr_dpath_get_parent_box(expr_dpath_t dpath);
-bitpunch_status_t
-expr_dpath_get_size(expr_dpath_t dpath,
-                    int64_t *dpath_sizep,
-                    struct browse_state *bst);
-const struct ast_node_hdl *
-expr_dpath_get_item_node(expr_dpath_t dpath);
-const struct ast_node_hdl *
-expr_dpath_get_as_type(expr_dpath_t dpath);
-const struct ast_node_hdl *
-expr_dpath_get_target_filter(expr_dpath_t dpath);
-struct track_path
-expr_dpath_get_track_path(expr_dpath_t dpath);
-int
-expr_dpath_is(expr_dpath_t dpath1, expr_dpath_t dpath2);
-void
-expr_dpath_find_common_ancestor(expr_dpath_t dpath1,
-                                expr_dpath_t dpath2,
-                                expr_dpath_t *ancestor1_dpathp,
-                                expr_dpath_t *ancestor2_dpathp);
 void
 expr_dpath_destroy(expr_dpath_t dpath);
+expr_dpath_t
+expr_dpath_dup(expr_dpath_t src_dpath);
+static inline expr_dpath_t
+expr_dpath_none(void);
+static inline expr_dpath_t
+expr_dpath_as_item(struct tracker *tk);
+static inline expr_dpath_t
+expr_dpath_as_container(struct box *box);
 void
 expr_value_destroy(expr_value_t value);
 static inline expr_value_t
@@ -175,7 +131,11 @@ expr_value_as_integer(int64_t value);
 static inline expr_value_t
 expr_value_as_boolean(int value);
 static inline expr_value_t
-expr_value_as_string(const char *str, int64_t len, struct box *from_box);
+expr_value_as_string(const char *str);
+static inline expr_value_t
+expr_value_as_string_len(const char *str, int64_t len);
+static inline expr_value_t
+expr_value_as_bytes(const char *buf, int64_t len);
 void
 expr_value_attach_box(expr_value_t *value, struct box *box);
 int
@@ -188,12 +148,16 @@ int
 expr_value_cmp(expr_value_t value1, expr_value_t value2);
 
 bitpunch_status_t
+expr_evaluate(struct ast_node_hdl *expr, struct box *scope,
+              expr_value_t *valuep, expr_dpath_t *dpathp,
+              struct tracker_error **errp);
+bitpunch_status_t
 expr_evaluate_value(struct ast_node_hdl *expr, struct box *scope,
-                    expr_value_t *eval_valuep,
+                    expr_value_t *valuep,
                     struct tracker_error **errp);
 bitpunch_status_t
 expr_evaluate_dpath(struct ast_node_hdl *expr, struct box *scope,
-                    expr_dpath_t *eval_dpathp,
+                    expr_dpath_t *dpathp,
                     struct tracker_error **errp);
 bitpunch_status_t
 evaluate_conditional(struct ast_node_hdl *cond, struct box *scope,
@@ -215,48 +179,6 @@ expr_value_to_hashable(expr_value_t value,
 int
 expr_value_type_mask_contains_dpath(enum expr_value_type value_type_mask);
 
-static inline expr_value_t
-expr_value_as_integer(int64_t value)
-{
-    expr_value_t expr;
-
-    expr.type = EXPR_VALUE_TYPE_INTEGER;
-    expr.integer = value;
-    return expr;
-}
-
-static inline expr_value_t
-expr_value_as_boolean(int value)
-{
-    expr_value_t expr;
-
-    expr.type = EXPR_VALUE_TYPE_BOOLEAN;
-    expr.boolean = value;
-    return expr;
-}
-
-static inline expr_value_t
-expr_value_as_string(const char *str, int64_t len, struct box *from_box)
-{
-    expr_value_t expr;
-
-    expr.type = EXPR_VALUE_TYPE_STRING;
-    expr.string.str = str;
-    expr.string.len = len;
-    expr.from_box.box = from_box;
-    return expr;
-}
-
-static inline expr_value_t
-expr_value_as_bytes(const char *buf, int64_t len, struct box *from_box)
-{
-    expr_value_t expr;
-
-    expr.type = EXPR_VALUE_TYPE_STRING;
-    expr.bytes.buf = buf;
-    expr.bytes.len = len;
-    expr.from_box.box = from_box;
-    return expr;
-}
+#include "core/expr_inlines.h"
 
 #endif /*__EXPR_H__*/

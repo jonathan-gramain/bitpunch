@@ -182,7 +182,7 @@ check_tracker_browse_sub_trackers_recur(struct tracker *tk,
     int box_idx;
     const struct test_tracker_expect_box *expect_box;
     bitpunch_status_t bt_ret;
-    struct tracker *sub_tk;
+    struct tracker *sub_tk = NULL;
     const char *dpath_prefix;
     const char *dpath_sub_prefix;
     int64_t n_items;
@@ -212,7 +212,8 @@ check_tracker_browse_sub_trackers_recur(struct tracker *tk,
             ck_assert_int_eq(bt_ret, expect_box->read_item_ret);
         } else if (ast_node_is_container(tk->dpath->item)
                    && AST_NODE_TYPE_BYTE_ARRAY != tk->dpath->item->ndat->type) {
-            sub_tk = track_item_contents(tk, NULL);
+            bt_ret = track_item_contents(tk, &sub_tk, NULL);
+            ck_assert_int_eq(bt_ret, BITPUNCH_OK);
             ck_assert_ptr_ne(sub_tk, NULL);
         
             check_tracker_browse_sub_trackers_recur(sub_tk, test_spec,

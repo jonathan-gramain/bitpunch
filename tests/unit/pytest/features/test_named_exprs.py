@@ -420,7 +420,7 @@ def test_named_exprs_polymorphic(params_named_exprs_polymorphic):
     assert str(dtree.items[1]['?item'].value) == 'bonjour'
     assert str(dtree.eval_expr('items[1].message.value')) == 'bonjour'
     assert isinstance(dtree.eval_expr('items[1].?item.value'),
-                      model.DataArray)
+                      model.DataItem)
     assert str(dtree.eval_expr('items[1].?item.value')) == 'bonjour'
     assert dtree.items[1]['?type'] == 'message'
     assert dtree.eval_expr('items[1].?type') == 'message'

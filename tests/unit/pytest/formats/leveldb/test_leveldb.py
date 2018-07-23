@@ -269,6 +269,7 @@ def test_ldb(spec_ldb, data_ldb):
     assert last_index == nb_entries - 1
     assert len(index_block.restarts) == index_block.nb_restarts
     assert index_block.restarts.get_size() == index_block.nb_restarts * 4
+    assert index_block.restarts.get_size() == 4 * index_block.nb_restarts
 
     # get a heading child block
     child_handle = index_block.eval_expr('entries[1].value <> BlockHandle')

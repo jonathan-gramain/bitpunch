@@ -386,6 +386,361 @@ browse_state_get_last_error_status(struct browse_state *bst)
 }
 
 /*
+ * dpath
+ */
+
+bitpunch_status_t
+expr_dpath_to_tracker_internal(expr_dpath_t dpath,
+                               struct tracker **tkp, struct browse_state *bst)
+{
+    struct tracker *tk;
+
+    switch (dpath.type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        tk = tracker_dup(dpath.item.tk);
+        break ;
+    case EXPR_DPATH_TYPE_CONTAINER:
+        tk = track_box_contents_internal(dpath.container.box, bst);
+        break ;
+    default:
+        assert(0);
+    }
+    *tkp = tk;
+    return BITPUNCH_OK;
+}
+
+bitpunch_status_t
+expr_dpath_to_box_internal(expr_dpath_t dpath,
+                           struct box **boxp,
+                           struct browse_state *bst)
+{
+    switch (dpath.type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        return tracker_get_filtered_item_box_internal(dpath.item.tk, boxp,
+                                                      bst);
+    case EXPR_DPATH_TYPE_CONTAINER:
+        box_acquire(dpath.container.box);
+        *boxp = dpath.container.box;
+        return BITPUNCH_OK;
+    default:
+        assert(0);
+    }
+}
+
+bitpunch_status_t
+expr_dpath_to_box_direct(expr_dpath_t dpath,
+                         struct box **boxp,
+                         struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    struct box *box;
+
+    switch (dpath.type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        bt_ret = tracker_create_item_box_internal(dpath.item.tk, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
+        box = dpath.item.tk->item_box;
+        break ;
+    case EXPR_DPATH_TYPE_CONTAINER:
+        box = dpath.container.box;
+        break ;
+    default:
+        assert(0);
+    }
+    box_acquire(box);
+    *boxp = box;
+    return BITPUNCH_OK;
+}
+
+bitpunch_status_t
+expr_dpath_to_container_internal(expr_dpath_t dpath,
+                                 expr_dpath_t *dpathp,
+                                 struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    struct box *box;
+
+    bt_ret = expr_dpath_to_box_internal(dpath, &box, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    dpathp->type = EXPR_DPATH_TYPE_CONTAINER;
+    dpathp->container.box = box;
+    return BITPUNCH_OK;
+}
+
+bitpunch_status_t
+expr_dpath_to_item_internal(expr_dpath_t dpath,
+                            expr_dpath_t *dpathp,
+                            struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    struct tracker *tk;
+
+    bt_ret = expr_dpath_to_tracker_internal(dpath, &tk, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    dpathp->type = EXPR_DPATH_TYPE_ITEM;
+    dpathp->item.tk = tk;
+    return BITPUNCH_OK;
+}
+
+bitpunch_status_t
+expr_dpath_to_dpath_internal(expr_dpath_t src_dpath,
+                             enum expr_dpath_type dst_type,
+                             expr_dpath_t *dst_dpathp,
+                             struct browse_state *bst)
+{
+    switch (dst_type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        return expr_dpath_to_item_internal(src_dpath, dst_dpathp, bst);
+    case EXPR_DPATH_TYPE_CONTAINER:
+        return expr_dpath_to_container_internal(src_dpath, dst_dpathp, bst);
+    default:
+        assert(0);
+    }
+}
+
+struct box *
+expr_dpath_get_parent_box(expr_dpath_t dpath)
+{
+    switch (dpath.type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        return dpath.item.tk->box;
+    case EXPR_DPATH_TYPE_CONTAINER:
+        return dpath.container.box->parent_box;
+    default:
+        assert(0);
+    }
+}
+
+bitpunch_status_t
+expr_dpath_get_size(expr_dpath_t dpath,
+                    int64_t *dpath_sizep,
+                    struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+
+    switch (dpath.type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        bt_ret = tracker_get_item_size_internal(dpath.item.tk,
+                                                dpath_sizep, bst);
+        break ;
+    case EXPR_DPATH_TYPE_CONTAINER:
+        bt_ret = box_get_used_size(dpath.container.box, dpath_sizep, bst);
+        break ;
+    default:
+        assert(0);
+    }
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    return BITPUNCH_OK;
+}
+
+const struct ast_node_hdl *
+expr_dpath_get_item_node(expr_dpath_t dpath)
+{
+    switch (dpath.type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        return dpath.item.tk->dpath->item;
+    case EXPR_DPATH_TYPE_CONTAINER:
+        return dpath.container.box->dpath.item;
+    default:
+        assert(0);
+    }
+}
+
+int
+expr_dpath_contains_indexed_items(expr_dpath_t dpath)
+{
+    switch (dpath.type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        return ast_node_is_indexed(dpath.item.tk->dpath->item);
+    case EXPR_DPATH_TYPE_CONTAINER:
+        return box_contains_indexed_items(dpath.container.box);
+    default:
+        assert(0);
+    }
+}
+
+const struct ast_node_hdl *
+expr_dpath_get_as_type(expr_dpath_t dpath)
+{
+    switch (dpath.type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        return dpath_node_get_as_type(dpath.item.tk->dpath);
+    case EXPR_DPATH_TYPE_CONTAINER:
+        return dpath_node_get_as_type(&dpath.container.box->dpath);
+    default:
+        assert(0);
+    }
+}
+
+const struct ast_node_hdl *
+expr_dpath_get_target_filter(expr_dpath_t dpath)
+{
+    switch (dpath.type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        return dpath_node_get_target_filter(dpath.item.tk->dpath);
+    case EXPR_DPATH_TYPE_CONTAINER:
+        return dpath_node_get_target_filter(&dpath.container.box->dpath);
+    default:
+        assert(0);
+    }
+}
+
+struct track_path
+expr_dpath_get_track_path(expr_dpath_t dpath)
+{
+    switch (dpath.type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        return dpath.item.tk->cur;
+    case EXPR_DPATH_TYPE_CONTAINER:
+        return dpath.container.box->track_path;
+    default:
+        assert(0);
+    }
+}
+
+int
+expr_dpath_is(expr_dpath_t dpath1, expr_dpath_t dpath2)
+{
+    if (dpath1.type != dpath2.type) {
+        return FALSE;
+    }
+    switch (dpath1.type) {
+    case EXPR_DPATH_TYPE_CONTAINER:
+        return dpath1.container.box == dpath2.container.box;
+    case EXPR_DPATH_TYPE_ITEM:
+        return dpath1.item.tk == dpath2.item.tk;
+    default:
+        return FALSE;
+    }
+}
+
+/**
+ * @brief find the common ancestor box of two dpath expressions
+ *
+ * @param[out] ancestor1_typep dpath type of closest common ancestor
+ * (from dpath1's ancestors)
+ * @param[out] ancestor1_dpathp dpath of closest common ancestor (from
+ * dpath1's ancestors)
+ * @param[out] ancestor2_typep dpath type of closest common ancestor
+ * (from dpath2's ancestors)
+ * @param[out] ancestor2_dpathp dpath of closest common ancestor (from
+ * dpath2's ancestors)
+ */
+void
+expr_dpath_find_common_ancestor(expr_dpath_t dpath1,
+                                expr_dpath_t dpath2,
+                                expr_dpath_t *ancestor1_dpathp,
+                                expr_dpath_t *ancestor2_dpathp)
+{
+    struct track_path path1, path2;
+    struct box *pbox1, *pbox2;
+    struct box *box1, *box2;
+    struct box **ancestors1, **ancestors2;
+    int path_eq;
+    expr_dpath_t ancestor1_dpath, ancestor2_dpath;
+
+    pbox1 = expr_dpath_get_parent_box(dpath1);
+    pbox2 = expr_dpath_get_parent_box(dpath2);
+
+    if (NULL != pbox1) {
+        ancestors1 = alloca((pbox1->depth_level + 1) * sizeof(*ancestors1));
+        box1 = pbox1;
+        while (NULL != box1) {
+            *ancestors1 = box1;
+            ++ancestors1;
+            box1 = box1->parent_box;
+        }
+    }
+    if (NULL != pbox2) {
+        ancestors2 = alloca((pbox2->depth_level + 1) * sizeof(*ancestors2));
+        box2 = pbox2;
+        while (NULL != box2) {
+            *ancestors2 = box2;
+            ++ancestors2;
+            box2 = box2->parent_box;
+        }
+    }
+    if (NULL == pbox1) {
+        ancestor1_dpath = dpath1;
+        if (NULL == pbox2) {
+            ancestor2_dpath = dpath2;
+        } else {
+            ancestor2_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
+            ancestor2_dpath.container.box = ancestors2[-1];
+        }
+        goto end;
+    }
+    if (NULL == pbox2) {
+        ancestor1_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
+        ancestor1_dpath.container.box = ancestors1[-1];
+        ancestor2_dpath = dpath2;
+        goto end;
+    }
+    do {
+        --ancestors1;
+        --ancestors2;
+        path_eq = track_path_eq((*ancestors1)->track_path,
+                                (*ancestors2)->track_path);
+    }
+    while (path_eq && *ancestors1 != pbox1 && *ancestors2 != pbox2);
+
+    if (!path_eq) {
+        ancestor1_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
+        ancestor1_dpath.container.box = ancestors1[1];
+        ancestor2_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
+        ancestor2_dpath.container.box = ancestors2[1];
+        goto end;
+    }
+    if (*ancestors1 == pbox1) {
+        path1 = expr_dpath_get_track_path(dpath1);
+    } else {
+        path1 = ancestors1[-1]->track_path;
+    }
+    if (*ancestors2 == pbox2) {
+        path2 = expr_dpath_get_track_path(dpath2);
+    } else {
+        path2 = ancestors2[-1]->track_path;
+    }
+    path_eq = track_path_eq(path1, path2);
+    if (!path_eq) {
+        ancestor1_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
+        ancestor1_dpath.container.box = *ancestors1;
+        ancestor2_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
+        ancestor2_dpath.container.box = *ancestors2;
+        goto end;
+    }
+    if (*ancestors1 == pbox1) {
+        ancestor1_dpath = dpath1;
+    } else {
+        ancestor1_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
+        ancestor1_dpath.container.box = ancestors1[-1];
+    }
+    if (*ancestors2 == pbox2) {
+        ancestor2_dpath = dpath2;
+    } else {
+        ancestor2_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
+        ancestor2_dpath.container.box = ancestors2[-1];
+    }
+
+  end:
+    if (NULL != ancestor1_dpathp) {
+        *ancestor1_dpathp = ancestor1_dpath;
+    }
+    if (NULL != ancestor2_dpathp) {
+        *ancestor2_dpathp = ancestor2_dpath;
+    }
+}
+
+
+/*
  * box
  */
 
@@ -1363,79 +1718,6 @@ box_new_slice_box(struct tracker *slice_start,
         slice_box->u.array_generic.n_items = 0;
     }
     return slice_box;
-}
-
-static struct box *
-box_new_bytes_box_internal(struct box *parent_box,
-                           int64_t start_offset_used,
-                           int64_t box_size,
-                           struct browse_state *bst)
-{
-    struct dpath_node dpath;
-    struct box *bytes_box;
-    int64_t index_start;
-    int64_t index_end;
-    bitpunch_status_t bt_ret;
-
-    dpath = *DPATH_NODE_AS_BYTES;
-    bytes_box = new_safe(struct box);
-    bt_ret = box_construct(bytes_box, parent_box, &dpath,
-                           start_offset_used, 0u, bst);
-    if (BITPUNCH_OK == bt_ret) {
-        bt_ret = box_set_used_size(bytes_box, box_size, bst);
-    }
-    if (BITPUNCH_OK != bt_ret) {
-        box_delete_non_null(bytes_box);
-        return NULL;
-    }
-    index_start = start_offset_used - parent_box->start_offset_used;
-    index_end = index_start + box_size;
-    bytes_box->track_path = track_path_from_array_slice(index_start,
-                                                        index_end);
-    return bytes_box;
-}
-
-struct box *
-box_new_from_expr_value(expr_value_t value,
-                        struct browse_state *bst)
-{
-    struct box *from_box;
-    const char *value_data;
-    int64_t value_len;
-    const char *file_data;
-    bitpunch_status_t bt_ret;
-
-    switch (value.type) {
-    case EXPR_VALUE_TYPE_STRING:
-        from_box = value.string.from_box.box;
-        value_data = value.string.str;
-        value_len = value.string.len;
-        break ;
-    case EXPR_VALUE_TYPE_BYTES:
-        from_box = value.bytes.from_box.box;
-        value_data = value.bytes.buf;
-        value_len = value.bytes.len;
-        break ;
-    default:
-        return NULL;
-    }
-    if (NULL == from_box) {
-        return NULL;
-    }
-    assert(NULL != value_data);
-    bt_ret = box_apply_filter_internal(from_box, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return NULL;
-    }
-    file_data = from_box->file_hdl->bf_data;
-    bt_ret = box_compute_used_size(from_box, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return NULL;
-    }
-    assert(value_data >= file_data + from_box->start_offset_used);
-    assert(value_data + value_len <= file_data + from_box->end_offset_used);
-    return box_new_bytes_box_internal(from_box, value_data - file_data,
-                                      value_len, bst);
 }
 
 struct box *
@@ -2862,7 +3144,7 @@ box_read_value_internal(struct box *box,
     return bt_ret;
 }
 
-bitpunch_status_t
+static bitpunch_status_t
 box_compute_end_offset_internal(struct box *box,
                                 enum box_offset_type off_type,
                                 int64_t *end_offsetp,
@@ -2974,8 +3256,9 @@ track_file(const struct bitpunch_schema_hdl *def_hdl,
     return tk;
 }
 
-static struct tracker *
+bitpunch_status_t
 track_item_contents_internal(struct tracker *tk,
+                             struct tracker **tkp,
                              struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
@@ -2985,11 +3268,12 @@ track_item_contents_internal(struct tracker *tk,
     DBG_TRACKER_DUMP(tk);
     bt_ret = tracker_get_filtered_item_box_internal(tk, &filtered_box, bst);
     if (BITPUNCH_OK != bt_ret) {
-        return NULL;
+        return bt_ret;
     }
     item_tk = track_box_contents_internal(filtered_box, bst);
     box_delete_non_null(filtered_box);
-    return item_tk;
+    *tkp = item_tk;
+    return BITPUNCH_OK;
 }
 
 static bitpunch_status_t
@@ -4685,9 +4969,50 @@ box_lookup_member_internal(struct box *box, const char *name,
 }
 
 bitpunch_status_t
+box_evaluate_statement_internal(
+    struct box *box,
+    enum statement_type stmt_type, const struct named_statement *named_stmt,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+
+    switch (stmt_type) {
+    case STATEMENT_TYPE_NAMED_EXPR:
+    case STATEMENT_TYPE_ATTRIBUTE:{
+        const struct named_expr *named_expr;
+        struct ast_node_hdl *expr;
+
+        named_expr = (const struct named_expr *)named_stmt;
+        expr = named_expr->expr;
+        return expr_evaluate_internal(expr, box, valuep, dpathp, bst);
+    }
+    case STATEMENT_TYPE_FIELD: {
+        struct tracker *tk;
+        const struct field *field;
+
+        field = (const struct field *)named_stmt;
+        tk = track_box_contents_internal(box, bst);
+        bt_ret = tracker_goto_field_internal(tk, field, FALSE, bst);
+        if (BITPUNCH_OK == bt_ret && NULL != valuep) {
+            bt_ret = tracker_read_item_value_internal(tk, valuep, bst);
+        }
+        if (BITPUNCH_OK == bt_ret && NULL != dpathp) {
+            *dpathp = expr_dpath_as_item(tk);
+        } else {
+            tracker_delete(tk);
+        }
+        return bt_ret;
+    }
+    default:
+        assert(0);
+    }
+    /*NOT REACHED*/
+}
+
+bitpunch_status_t
 box_evaluate_member_internal(struct box *box, const char *name,
-                             expr_value_t *eval_valuep,
-                             expr_dpath_t *eval_dpathp,
+                             expr_value_t *valuep, expr_dpath_t *dpathp,
                              struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
@@ -4701,79 +5026,10 @@ box_evaluate_member_internal(struct box *box, const char *name,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    switch (stmt_type) {
-    case STATEMENT_TYPE_NAMED_EXPR:
-    case STATEMENT_TYPE_ATTRIBUTE:{
-        const struct named_expr *named_expr;
-        struct ast_node_hdl *expr;
-        expr_value_t eval_value;
-        expr_dpath_t eval_dpath;
-        int eval_dpath_computed = FALSE;
-
-        eval_value.type = EXPR_VALUE_TYPE_UNSET;
-        eval_dpath.type = EXPR_DPATH_TYPE_NONE;
-        named_expr = (const struct named_expr *)named_stmt;
-        expr = named_expr->expr;
-        if (NULL != eval_dpathp
-            && 0 == (expr->flags & ASTFLAG_IS_VALUE_TYPE)) {
-            bt_ret = expr_evaluate_dpath_internal(
-                expr, scope, &eval_dpath, bst);
-            if (BITPUNCH_OK == bt_ret) {
-                eval_dpath_computed = TRUE;
-            }
-        }
-        if (BITPUNCH_OK == bt_ret && NULL != eval_valuep) {
-            if (eval_dpath_computed
-                && EXPR_DPATH_TYPE_NONE != eval_dpath.type) {
-                bt_ret = dpath_read_value_internal(eval_dpath,
-                                                   &eval_value, bst);
-            } else {
-                bt_ret = expr_evaluate_value_internal(expr, scope,
-                                                      &eval_value, bst);
-            }
-        }
-        if (BITPUNCH_OK == bt_ret) {
-            if (NULL != eval_valuep) {
-                *eval_valuep = eval_value;
-            }
-            if (NULL != eval_dpathp) {
-                *eval_dpathp = eval_dpath;
-            }
-        } else {
-            if (eval_dpath_computed) {
-                expr_dpath_destroy(eval_dpath);
-            }
-        }
-        box_delete(scope);
-        return bt_ret;
-    }
-    case STATEMENT_TYPE_FIELD: {
-        struct tracker *tk;
-
-        tk = tracker_new(scope);
-        bt_ret = tracker_goto_field_internal(
-            tk, (const struct field *)named_stmt, FALSE, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            tracker_delete(tk);
-            box_delete(scope);
-            return bt_ret;
-        }
-        if (NULL != eval_valuep) {
-            bt_ret = tracker_read_item_value_internal(tk, eval_valuep, bst);
-        }
-        if (BITPUNCH_OK == bt_ret && NULL != eval_dpathp) {
-            eval_dpathp->type = EXPR_DPATH_TYPE_ITEM;
-            eval_dpathp->item.tk = tk;
-        } else {
-            tracker_delete(tk);
-        }
-        box_delete(scope);
-        return bt_ret;
-    }
-    default:
-        assert(0);
-    }
-    /*NOT REACHED*/
+    bt_ret = box_evaluate_statement_internal(scope, stmt_type, named_stmt,
+                                             valuep, dpathp, bst);
+    box_delete(scope);
+    return bt_ret;
 }
 
 /*
@@ -5627,10 +5883,7 @@ tracker_get_item_key__composite(struct tracker *tk,
     DBG_TRACKER_DUMP(tk);
     assert(NULL != tk->cur.u.block.field);
     if (NULL != keyp) {
-        memset(keyp, 0, sizeof(*keyp));
-        keyp->type = EXPR_VALUE_TYPE_STRING;
-        keyp->string.str = tk->cur.u.block.field->nstmt.name;
-        keyp->string.len = strlen(tk->cur.u.block.field->nstmt.name);
+        *keyp = expr_value_as_string(tk->cur.u.block.field->nstmt.name);
     }
     if (NULL != nth_twinp) {
         /* field names are unique */
@@ -5878,21 +6131,42 @@ tracker_goto_nth_item__composite(struct tracker *tk, int64_t index,
 }
 
 static bitpunch_status_t
-tracker_goto_named_item__composite(struct tracker *tk, const char *name,
-                               struct browse_state *bst)
+tracker_goto_nth_item_with_key__composite(
+    struct tracker *tk, expr_value_t item_key, int nth_twin,
+    struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
 
     DBG_TRACKER_DUMP(tk);
+    if (0 != nth_twin) {
+        // all composite attributes are unique
+        return BITPUNCH_NO_ITEM;
+    }
+    if (EXPR_VALUE_TYPE_STRING != item_key.type) {
+        // all composite attributes are string-typed
+        return BITPUNCH_NO_ITEM;
+    }
     bt_ret = tracker_goto_first_item_int__composite(tk, FALSE, bst);
     while (BITPUNCH_OK == bt_ret) {
         if (NULL != tk->cur.u.block.field->nstmt.name
-            && 0 == strcmp(tk->cur.u.block.field->nstmt.name, name)) {
+            && strlen(tk->cur.u.block.field->nstmt.name) == item_key.string.len
+            && 0 == memcmp(tk->cur.u.block.field->nstmt.name,
+                           item_key.string.str, item_key.string.len)) {
             return BITPUNCH_OK;
         }
         bt_ret = tracker_goto_next_item_int__composite(tk, FALSE, bst);
     }
     return bt_ret;
+}
+
+static bitpunch_status_t
+tracker_goto_named_item__composite(struct tracker *tk, const char *name,
+                                   struct browse_state *bst)
+{
+    expr_value_t key;
+
+    key = expr_value_as_string(name);
+    return tracker_goto_nth_item_with_key__composite(tk, key, 0, bst);
 }
 
 static bitpunch_status_t
@@ -6813,8 +7087,16 @@ tracker_goto_next_item_with_key__default(struct tracker *tk,
                                          struct browse_state *bst)
 {
     DBG_TRACKER_DUMP(tk);
-    return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst,
-                         "not an indexed container");
+    return BITPUNCH_NO_ITEM;
+}
+
+static bitpunch_status_t
+tracker_goto_next_item_with_key__composite(struct tracker *tk,
+                                           expr_value_t item_key,
+                                           struct browse_state *bst)
+{
+    DBG_TRACKER_DUMP(tk);
+    return BITPUNCH_NOT_IMPLEMENTED;
 }
 
 static bitpunch_status_t
@@ -6893,8 +7175,7 @@ tracker_goto_nth_item_with_key__default(struct tracker *tk,
                                         struct browse_state *bst)
 {
     DBG_TRACKER_DUMP(tk);
-    return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst,
-                         "not an indexed container");
+    return BITPUNCH_NO_ITEM;
 }
 
 static bitpunch_status_t
@@ -7783,9 +8064,9 @@ browse_setup_backends__tracker__composite(struct ast_node_hdl *item)
     b_tk->goto_named_item = tracker_goto_named_item__composite;
     b_tk->goto_next_key_match = tracker_goto_next_key_match__composite;
     b_tk->goto_next_item_with_key =
-        tracker_goto_next_item_with_key__default;
+        tracker_goto_next_item_with_key__composite;
     b_tk->goto_nth_item_with_key =
-        tracker_goto_nth_item_with_key__default;
+        tracker_goto_nth_item_with_key__composite;
 }
 
 static void
@@ -8452,6 +8733,20 @@ transmit_error(bitpunch_status_t bt_ret, struct browse_state *bst,
 }
 
 bitpunch_status_t
+expr_dpath_to_dpath(expr_dpath_t src_dpath,
+                    enum expr_dpath_type dst_type,
+                    expr_dpath_t *dst_dpathp,
+                    struct tracker_error **errp)
+{
+    struct browse_state bst;
+
+    browse_state_init(&bst);
+    return transmit_error(
+        expr_dpath_to_dpath_internal(src_dpath, dst_type, dst_dpathp, &bst),
+        &bst, errp);
+}
+
+bitpunch_status_t
 box_get_n_items(struct box *box, int64_t *n_itemsp,
                 struct tracker_error **errp)
 {
@@ -8502,17 +8797,55 @@ box_apply_filter(struct box *box,
         box_apply_filter_internal(box, &bst), &bst, errp);
 }
 
-struct tracker *
+bitpunch_status_t
 track_item_contents(struct tracker *tk,
+                    struct tracker **tkp,
                     struct tracker_error **errp)
 {
     struct browse_state bst;
-    struct tracker *item_tk;
 
     browse_state_init(&bst);
-    item_tk = track_item_contents_internal(tk, &bst);
-    (void) transmit_error(BITPUNCH_OK, &bst, errp);
-    return item_tk;
+    return transmit_error(
+        track_item_contents_internal(tk, tkp, &bst),
+        &bst, errp);
+}
+
+bitpunch_status_t
+track_dpath_contents_internal(expr_dpath_t dpath,
+                              struct tracker **tkp,
+                              struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    struct tracker *tk;
+
+    switch (dpath.type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        bt_ret = track_item_contents_internal(dpath.item.tk, &tk, bst);
+        break ;
+    case EXPR_DPATH_TYPE_CONTAINER:
+        tk = track_box_contents_internal(dpath.container.box, bst);
+        bt_ret = BITPUNCH_OK;
+        break ;
+    default:
+        assert(0);
+    }
+    if (BITPUNCH_OK == bt_ret) {
+        *tkp = tk;
+    }
+    return bt_ret;
+}
+
+bitpunch_status_t
+track_dpath_contents(expr_dpath_t dpath,
+                     struct tracker **tkp,
+                     struct tracker_error **errp)
+{
+    struct browse_state bst;
+
+    browse_state_init(&bst);
+    return transmit_error(
+        track_dpath_contents_internal(dpath, tkp, &bst),
+        &bst, errp);
 }
 
 bitpunch_status_t
@@ -8911,17 +9244,14 @@ box_get_n_statements(struct box *box,
 bitpunch_status_t
 box_evaluate_member(struct box *box,
                     const char *attr_name,
-                    expr_value_t *eval_valuep,
-                    expr_dpath_t *eval_dpathp,
+                    expr_value_t *valuep, expr_dpath_t *dpathp,
                     struct tracker_error **errp)
 {
     struct browse_state bst;
 
     browse_state_init(&bst);
     return transmit_error(
-        box_evaluate_member_internal(box, attr_name,
-                                     eval_valuep, eval_dpathp,
-                                     &bst),
+        box_evaluate_member_internal(box, attr_name, valuep, dpathp, &bst),
         &bst, errp);
 }
 

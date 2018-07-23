@@ -63,9 +63,6 @@ struct box *
 box_new_slice_box(struct tracker *slice_start,
                   struct tracker *slice_end,
                   struct browse_state *bst);
-struct box *
-box_new_from_expr_value(expr_value_t value,
-                        struct browse_state *bst);
 
 struct box *
 box_new_as_box(struct box *parent_box,
@@ -118,9 +115,14 @@ box_lookup_member_internal(struct box *box, const char *name,
                            struct browse_state *bst);
 bitpunch_status_t
 box_evaluate_member_internal(struct box *box, const char *name,
-                             expr_value_t *eval_valuep,
-                             expr_dpath_t *eval_dpathp,
+                             expr_value_t *valuep, expr_dpath_t *dpathp,
                              struct browse_state *bst);
+bitpunch_status_t
+box_evaluate_statement_internal(
+    struct box *box,
+    enum statement_type stmt_type, const struct named_statement *named_stmt,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst);
 
 bitpunch_status_t
 tracker_create_item_box_internal(struct tracker *tk,
@@ -147,6 +149,10 @@ tracker_get_filtered_item_box(struct tracker *tk,
                               struct box **filtered_boxp,
                               struct tracker_error **errp);
 
+bitpunch_status_t
+track_item_contents_internal(struct tracker *tk,
+                             struct tracker **tkp,
+                             struct browse_state *bst);
 struct tracker *
 track_box_contents(struct box *box,
                    struct tracker_error **errp);

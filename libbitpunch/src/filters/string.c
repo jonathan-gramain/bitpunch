@@ -38,12 +38,6 @@
 
 #define REF_BOUNDARY  0
 
-bitpunch_status_t
-box_evaluate_member_internal(struct box *box, const char *name,
-                             expr_value_t *eval_valuep,
-                             expr_dpath_t *eval_dpathp,
-                             struct browse_state *bst);
-
 static bitpunch_status_t
 string_get_size_byte_array_single_char_boundary(
     struct ast_node_hdl *filter,

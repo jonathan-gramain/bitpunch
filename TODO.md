@@ -261,3 +261,10 @@ correctly (b_filter is empty)
   - self == entries['abc']
 
 - add test for fix "do not recurse in anonymous fields to find attributes"
+
+- integrate "expr_transform_dpath_internal()" into generic operator
+  evaluation (eval_fn())
+
+  - also at the same time, merge fcall backend functions
+    eval_value_fn() and eval_dpath_fn() into a single function that
+    shall return both value and dpath

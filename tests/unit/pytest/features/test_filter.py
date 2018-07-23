@@ -340,7 +340,7 @@ def test_filter_2(params_filter_2):
     assert model.make_python_object(dtree.eval_expr('^^blocks[1..][1]')) == \
        'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh'
     assert model.make_python_object(dtree.eval_expr('^^^blocks[2]')) == \
-    'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh\n'
+        'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh\n'
     assert model.make_python_object(dtree.eval_expr('^^^^blocks[2]')) == \
        'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh\n'
 
@@ -895,7 +895,7 @@ def test_dynamic_filter_param_integer(params_dynamic_filter_param_integer):
 
     if error:
         with pytest.raises(model.DataError):
-            dtree.values[0]
+            print dtree.values[0]
     else:
         assert model.make_python_object(dtree.values) == [1, 2, 3, 4, 5]
 

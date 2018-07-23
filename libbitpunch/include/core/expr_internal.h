@@ -44,12 +44,16 @@ struct dpath_transform {
 };
 
 bitpunch_status_t
+expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
+                       expr_value_t *valuep, expr_dpath_t *dpathp,
+                       struct browse_state *bst);
+bitpunch_status_t
 expr_evaluate_value_internal(struct ast_node_hdl *expr, struct box *scope,
-                             expr_value_t *eval_valuep,
+                             expr_value_t *valuep,
                              struct browse_state *bst);
 bitpunch_status_t
 expr_evaluate_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
-                             expr_dpath_t *eval_dpathp,
+                             expr_dpath_t *dpathp,
                              struct browse_state *bst);
 bitpunch_status_t
 expr_transform_dpath_internal(struct ast_node_hdl *expr, struct box *scope,

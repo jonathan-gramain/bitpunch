@@ -74,14 +74,5 @@ def test_scoped_eval(params_scoped_eval):
     prop_values = prop.eval_expr('(name <> AsArray).values')
     assert model.make_python_object(prop_values) == int_values
 
-    # check that 'require_dpath=True' is honored
     prop_first_value = prop.eval_expr('(name <> AsArray).values[0]')
-    # a value is returned by default for integers, cannot use
-    # memoryview() on it
-    with pytest.raises(TypeError):
-        memoryview(prop_first_value)
-    # 'require_dpath=True' forces to return a dpath object for
-    # items, which implements buffer interface
-    prop_first_value_tracker = prop.eval_expr('(name <> AsArray).values[0]',
-                                              require_dpath=True)
-    memoryview(prop_first_value_tracker)
+    assert memoryview(prop_first_value) == 'i'

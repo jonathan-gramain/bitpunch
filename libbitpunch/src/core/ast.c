@@ -1952,7 +1952,7 @@ compile_expr_string_literal(struct ast_node_hdl *node,
 
     string = node->ndat->u.string;
     return compile_expr_native_internal(
-        node, expr_value_as_string(string.str, string.len, NULL));
+        node, expr_value_as_string_len(string.str, string.len));
 }
 
 /**

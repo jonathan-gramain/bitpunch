@@ -175,15 +175,14 @@ class CLI(NestedCmd):
         def filter_type(obj, key):
             if not ignore_primitive_types:
                 return False
-            if isinstance(obj, model.DataBlock):
+            if obj.get_filter_type() == 'composite':
                 child_obj = getattr(obj, key)
             else:
                 child_obj = obj[key]
-            return (not isinstance(child_obj, model.DataBlock)
-                    and not isinstance(child_obj, model.DataArray))
+            return (child_obj.get_filter_type() not in ['composite', 'array'])
 
         def build_completion(candidate, obj, completion_base):
-            if isinstance(obj, model.DataBlock):
+            if obj.get_filter_type() == 'composite':
                 return candidate
             elif isinstance(candidate, int):
                 return str(candidate)
@@ -248,8 +247,8 @@ class CLI(NestedCmd):
                          repr(completion_base)))
         if item:
             obj = self.data_tree.eval_expr(item)
-            if not (isinstance(obj, model.DataBlock) and sep == '.' or
-                    isinstance(obj, model.DataArray) and sep in ('[', ':')):
+            if not (obj.get_filter_type() == 'composite' and sep == '.' or
+                    obj.get_filter_type() == 'array' and sep in ('[', ':')):
                 return
             item += item_complement
         else:
@@ -259,9 +258,8 @@ class CLI(NestedCmd):
             if 'sizeof'.startswith(completion_base):
                 yield 'sizeof('
 
-        for builtin in model.get_builtin_names(prefix=completion_base,
-                                                 object=obj):
-            yield builtin + '('
+            for builtin in model.get_builtin_names(prefix=completion_base):
+                yield builtin + '('
 
         if obj is None:
             obj = self.data_tree
@@ -287,12 +285,12 @@ class CLI(NestedCmd):
         if nb_found_keys == 1:
 
             try:
-                if isinstance(obj, model.DataBlock):
+                if obj.get_filter_type() == 'composite':
                     child_obj = getattr(obj, first_key)
                 else:
                     child_obj = obj[first_key]
-                if (isinstance(child_obj, model.DataBlock) or
-                    isinstance(child_obj, model.DataArray)):
+                if (child_obj.get_filter_type() == 'composite' or
+                    child_obj.get_filter_type() == 'array'):
 
                     if str(first_key) != completion_base or sep_end:
                         key_str = build_completion(first_key, obj,
@@ -304,7 +302,7 @@ class CLI(NestedCmd):
                             child_obj,
                             iter_mode=model.Tracker.ITER_MEMBER_NAMES):
                         if not filter_type(child_obj, child_key):
-                            if isinstance(child_obj, model.DataBlock):
+                            if child_obj.get_filter_type() == 'composite':
                                 yield expr + sep_end + '.' + child_key
                             else:
                                 key_str = build_completion(child_key,
@@ -485,8 +483,8 @@ class CLI(NestedCmd):
         if self.format_spec and self.bin_file:
             self.open_data_tree('list')
         obj = self.data_tree.eval_expr(expr) if expr else self.data_tree
-        if (isinstance(obj, model.DataBlock) or
-            isinstance(obj, model.DataArray)):
+        if (obj.get_filter_type() == 'composite' or
+            obj.get_filter_type() == 'array'):
             keys = list(str(key) for key in model.Tracker(
                 obj, iter_mode=model.Tracker.ITER_MEMBER_NAMES))
             self.columnize(keys)
@@ -510,7 +508,8 @@ class CLI(NestedCmd):
                                "missing expression argument to 'print'")
         if self.format_spec and self.bin_file:
             self.open_data_tree('print')
-        print repr(model.make_python_object(self.data_tree.eval_expr(expr)))
+        expr_value = self.data_tree.eval_expr(expr)
+        print repr(model.make_python_object(expr_value))
 
     def complete_print(self, text, begin, end):
         return self._complete_expression(text, begin, end)
@@ -527,7 +526,7 @@ class CLI(NestedCmd):
             raise CommandError('xdump',
                                "missing expression argument to 'xdump'")
         self.open_data_tree('xdump')
-        obj = self.data_tree.eval_expr(expr, require_dpath=True)
+        obj = self.data_tree.eval_expr(expr)
         try:
             memview = memoryview(obj)
             lines = hexdump.hexdump(memview, result='generator')
