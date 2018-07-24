@@ -52,6 +52,9 @@ enum expr_dpath_type {
     EXPR_DPATH_TYPE_NONE = (1<<0),
     EXPR_DPATH_TYPE_ITEM = (1<<1),
     EXPR_DPATH_TYPE_CONTAINER = (1<<2),
+    EXPR_DPATH_TYPE_ANY = (EXPR_DPATH_TYPE_NONE |
+                           EXPR_DPATH_TYPE_ITEM |
+                           EXPR_DPATH_TYPE_CONTAINER),
 };
 
 struct expr_dpath {

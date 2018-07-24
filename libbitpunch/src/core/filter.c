@@ -170,11 +170,16 @@ filter_instance_build(struct ast_node_hdl *node,
 
     ndat = new_safe(struct ast_node_data);
     ndat->type = AST_NODE_TYPE_REXPR_FILTER;
-    ndat->flags = (0 == (ndat->u.rexpr.value_type_mask &
-                         (EXPR_VALUE_TYPE_BYTES |
-                          EXPR_VALUE_TYPE_STRING)) ?
-                   ASTFLAG_IS_VALUE_TYPE : 0u);
     ndat->u.rexpr.value_type_mask = filter_cls->value_type_mask;
+    ndat->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
+    if (0 != (filter_cls->value_type_mask & (EXPR_VALUE_TYPE_INTEGER |
+                                             EXPR_VALUE_TYPE_BOOLEAN))) {
+        ndat->u.rexpr.dpath_type_mask |= EXPR_DPATH_TYPE_NONE;
+    }
+    if (0 != (filter_cls->value_type_mask & (EXPR_VALUE_TYPE_BYTES |
+                                             EXPR_VALUE_TYPE_STRING))) {
+        ndat->u.rexpr.dpath_type_mask |= EXPR_DPATH_TYPE_CONTAINER;
+    }
     ndat->u.rexpr_filter.filter_cls = filter_cls;
     ndat->u.rexpr_filter.filter_def = filter_def;
     node->ndat = ndat;

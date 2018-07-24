@@ -3664,7 +3664,7 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
         /* TODO free expr_node */
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
-    if (0 != (expr_node->flags & ASTFLAG_IS_VALUE_TYPE)) {
+    if (expr_node->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
         free(parser_ctx);
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }

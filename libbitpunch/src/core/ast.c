@@ -514,7 +514,6 @@ resolve_identifier_as_scoped_statement(
     }
     if (n_visible_statements > 0) {
         resolved_type = new_safe(struct ast_node_data);
-        resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
         if (1 == n_visible_statements) {
             stmt_spec = &visible_statements[0];
             resolved_type->u.rexpr_member_common.anchor_filter =
@@ -590,7 +589,6 @@ resolve_identifiers_identifier_as_expression(
 
         resolved_type = new_safe(struct ast_node_data);
         resolved_type->type = AST_NODE_TYPE_REXPR_BUILTIN;
-        resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
         resolved_type->u.rexpr_builtin.builtin = builtin;
         node->ndat = resolved_type;
         return 0;
@@ -1005,7 +1003,6 @@ resolve_identifiers_expr_file(
     }
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_FILE;
-    compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
     // const-cast
     compiled_type->u.rexpr_item.item_type =
         (struct ast_node_hdl *)toplevel_refs->cur_filter;
@@ -1030,7 +1027,6 @@ resolve_identifiers_expr_self(
     }
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_SELF;
-    compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
     // const-cast
     compiled_type->u.rexpr_item.item_type =
         (struct ast_node_hdl *)visible_refs->cur_filter;
@@ -1075,6 +1071,15 @@ expr_value_type_mask_from_dpath_node(const struct dpath_node *dpath)
         return expr_value_type_mask_from_node(dpath->filter);
     }
     return EXPR_VALUE_TYPE_UNSET;
+}
+
+static enum expr_dpath_type
+expr_dpath_type_mask_from_node(const struct ast_node_hdl *node)
+{
+    if (ast_node_is_rexpr(node)) {
+        return node->ndat->u.rexpr.dpath_type_mask;
+    }
+    return EXPR_DPATH_TYPE_UNSET;
 }
 
 static int
@@ -1473,6 +1478,8 @@ ast_node_data_new_rexpr_item(struct ast_node_hdl *item)
     ndat = new_safe(struct ast_node_data);
     ndat->type = AST_NODE_TYPE_REXPR_ITEM;
     ndat->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_BYTES;
+    ndat->u.rexpr.dpath_type_mask = (EXPR_DPATH_TYPE_ITEM |
+                                     EXPR_DPATH_TYPE_CONTAINER);
     ndat->u.rexpr_item.item_type = item;
     return ndat;
 }
@@ -1914,8 +1921,8 @@ compile_expr_native_internal(struct ast_node_hdl *node,
 
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_NATIVE;
-    compiled_type->flags |= ASTFLAG_IS_VALUE_TYPE;
     compiled_type->u.rexpr.value_type_mask = value.type;
+    compiled_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_NONE;
     compiled_type->u.rexpr_native.value = value;
     node->ndat = compiled_type;
     return 0;
@@ -1926,10 +1933,8 @@ compile_expr_integer(struct ast_node_hdl *node,
                      struct compile_ctx *ctx,
                      enum resolve_expect_mask expect_mask)
 {
-    int64_t integer;
-
-    integer = node->ndat->u.integer;
-    return compile_expr_native_internal(node, expr_value_as_integer(integer));
+    return compile_expr_native_internal(
+        node, expr_value_as_integer(node->ndat->u.integer));
 }
 
 static int
@@ -1937,10 +1942,8 @@ compile_expr_boolean(struct ast_node_hdl *node,
                      struct compile_ctx *ctx,
                      enum resolve_expect_mask expect_mask)
 {
-    int boolean;
-
-    boolean = node->ndat->u.boolean;
-    return compile_expr_native_internal(node, expr_value_as_boolean(boolean));
+    return compile_expr_native_internal(
+        node, expr_value_as_boolean(node->ndat->u.boolean));
 }
 
 static int
@@ -1948,11 +1951,9 @@ compile_expr_string_literal(struct ast_node_hdl *node,
                             struct compile_ctx *ctx,
                             enum resolve_expect_mask expect_mask)
 {
-    struct expr_value_string string;
-
-    string = node->ndat->u.string;
     return compile_expr_native_internal(
-        node, expr_value_as_string_len(string.str, string.len));
+        node, expr_value_as_string_len(node->ndat->u.string.str,
+                                       node->ndat->u.string.len));
 }
 
 /**
@@ -1986,8 +1987,8 @@ compile_expr_operator(
     }
     resolved_type = new_safe(struct ast_node_data);
     resolved_type->type = op_type_ast2rexpr(expr->ndat->type);
-    resolved_type->flags = ASTFLAG_IS_VALUE_TYPE;
     resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
+    resolved_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_NONE;
     resolved_type->u.rexpr_op.op = expr->ndat->u.op;
     expr->ndat = resolved_type;
     return 0;
@@ -2044,6 +2045,7 @@ compile_rexpr_operator(
     }
     expr->ndat->u.rexpr_op.evaluator = evaluator;
     expr->ndat->u.rexpr.value_type_mask = evaluator->res_type_mask;
+    expr->ndat->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_NONE;
 
     if (only_native_operands) {
         struct ast_node_hdl *operand;
@@ -2094,6 +2096,8 @@ compile_expr_operator_filter(
     compiled_type->type = AST_NODE_TYPE_REXPR_OP_FILTER;
     compiled_type->u.rexpr.value_type_mask =
         filter->ndat->u.rexpr.value_type_mask;
+    compiled_type->u.rexpr.dpath_type_mask = (EXPR_DPATH_TYPE_ITEM |
+                                              EXPR_DPATH_TYPE_CONTAINER);
     if (ast_node_is_item(target)) {
         target = ast_node_new_rexpr_item(target, ctx);
     }
@@ -2103,8 +2107,6 @@ compile_expr_operator_filter(
     compiled_type->u.rexpr_op_filter.target = target;
     compiled_type->u.rexpr_op_filter.filter_expr = filter;
     node->ndat = compiled_type;
-    node->flags |= ((filter->flags & ASTFLAG_IS_VALUE_TYPE)
-                    & (target->flags & ASTFLAG_IS_VALUE_TYPE));
     return 0;
 }
 
@@ -2295,6 +2297,8 @@ compile_expr_operator_subscript(struct ast_node_hdl *node,
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_OP_SUBSCRIPT;
     compiled_type->u.rexpr.value_type_mask = value_type_mask;
+    compiled_type->u.rexpr.dpath_type_mask = (EXPR_DPATH_TYPE_ITEM |
+                                              EXPR_DPATH_TYPE_CONTAINER);
     assert(ast_node_is_rexpr(anchor_expr));
     compiled_type->u.rexpr_op_subscript_common.anchor_expr = anchor_expr;
     compiled_type->u.rexpr_op_subscript.index = *index;
@@ -2323,7 +2327,7 @@ compile_expr_operator_subscript_slice(struct ast_node_hdl *node,
     if (-1 == compile_expr(anchor_expr, ctx, TRUE)) {
         return -1;
     }
-    if (0 != (anchor_expr->flags & ASTFLAG_IS_VALUE_TYPE)) {
+    if (anchor_expr->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &node->loc,
             "invalid use of subscript operator on value-type expression");
@@ -2337,6 +2341,7 @@ compile_expr_operator_subscript_slice(struct ast_node_hdl *node,
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE;
     compiled_type->u.rexpr.value_type_mask = value_type_mask;
+    compiled_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_CONTAINER;
     assert(ast_node_is_rexpr(anchor_expr));
     compiled_type->u.rexpr_op_subscript_common.anchor_expr = anchor_expr;
     compiled_type->u.rexpr_op_subscript_slice.start = *slice_start;
@@ -2396,12 +2401,11 @@ compile_expr_operator_fcall(struct ast_node_hdl *expr,
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_OP_FCALL;
     compiled_type->u.rexpr.value_type_mask = builtin->res_value_type_mask;
+    compiled_type->u.rexpr.dpath_type_mask = builtin->res_dpath_type_mask;
     compiled_type->u.rexpr_op_fcall.builtin = builtin;
     compiled_type->u.rexpr_op_fcall.func_params = func_params;
     compiled_type->u.rexpr_op_fcall.n_func_params = n_params;
     expr->ndat = compiled_type;
-    expr->flags |= (NULL != builtin->eval_dpath_fn ?
-                    0u : ASTFLAG_IS_VALUE_TYPE);
     return 0;
 }
 
@@ -2428,8 +2432,8 @@ compile_expr_operator_sizeof(struct ast_node_hdl *expr,
     }
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_OP_SIZEOF;
-    compiled_type->flags = ASTFLAG_IS_VALUE_TYPE;
     compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_INTEGER;
+    compiled_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_NONE;
     compiled_type->u.rexpr_op.op = expr->ndat->u.op;
     expr->ndat = compiled_type;
 
@@ -2447,7 +2451,7 @@ compile_expr_operator_sizeof(struct ast_node_hdl *expr,
         }
         expr->ndat->u.rexpr_op.op.operands[0] = target_item;
     } else {
-        if (0 != (target->flags & ASTFLAG_IS_VALUE_TYPE)) {
+        if (target->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
                 "invalid use of sizeof operator on value-type operand");
@@ -2476,13 +2480,13 @@ compile_expr_operator_addrof(struct ast_node_hdl *expr,
     }
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_OP_ADDROF;
-    compiled_type->flags = ASTFLAG_IS_VALUE_TYPE;
     compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_INTEGER;
+    compiled_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_NONE;
     compiled_type->u.rexpr_op.op = expr->ndat->u.op;
     expr->ndat = compiled_type;
 
     op = expr->ndat->u.rexpr_op.op;
-    if (0 != (op.operands[0]->flags & ASTFLAG_IS_VALUE_TYPE)) {
+    if (op.operands[0]->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
             "invalid use of addrof (&) operator on value-type operand");
@@ -2526,6 +2530,8 @@ compile_expr_operator_ancestor(struct ast_node_hdl *expr,
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_OP_ANCESTOR;
     compiled_type->u.rexpr.value_type_mask = value_type_mask;
+    compiled_type->u.rexpr.dpath_type_mask = (EXPR_DPATH_TYPE_ITEM |
+                                              EXPR_DPATH_TYPE_CONTAINER);
     compiled_type->u.rexpr_op.op = expr->ndat->u.op;
     expr->ndat = compiled_type;
     return 0;
@@ -2542,6 +2548,7 @@ compile_expr_star_wildcard(
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_STAR_WILDCARD;
     compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
+    compiled_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
     expr->ndat = compiled_type;
     return 0;
 }
@@ -2606,7 +2613,8 @@ compile_rexpr_named_expr(struct ast_node_hdl *expr,
     }
     expr->ndat->u.rexpr.value_type_mask =
         expr_value_type_mask_from_node(target);
-    expr->flags |= (target->flags & ASTFLAG_IS_VALUE_TYPE);
+    expr->ndat->u.rexpr.dpath_type_mask =
+        expr_dpath_type_mask_from_node(target);
     return 0;
 }
 
@@ -2620,7 +2628,7 @@ compile_rexpr_polymorphic(struct ast_node_hdl *expr,
     struct named_expr *named_expr;
     struct ast_node_hdl *target_expr;
     enum expr_value_type value_type_mask;
-    int is_value_type;
+    enum expr_dpath_type dpath_type_mask;
     
     // FIXME some circular dependency errors could be legit, rework this
     for (i = 0; i < expr->ndat->u.rexpr_polymorphic.n_visible_statements;
@@ -2647,7 +2655,7 @@ compile_rexpr_polymorphic(struct ast_node_hdl *expr,
         return -1;
     }
     value_type_mask = EXPR_VALUE_TYPE_UNSET;
-    is_value_type = TRUE;
+    dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
     for (i = 0; i < expr->ndat->u.rexpr_polymorphic.n_visible_statements;
          ++i) {
         stmt_spec = &expr->ndat->u.rexpr_polymorphic.visible_statements[i];
@@ -2666,17 +2674,16 @@ compile_rexpr_polymorphic(struct ast_node_hdl *expr,
             assert(0);
         }
         assert(ast_node_is_rexpr(target_expr));
-        // possible value types add up for each polymorphic target
+        // possible value and dpath types add up for each polymorphic target
         value_type_mask |= target_expr->ndat->u.rexpr.value_type_mask;
-        if (0 == (target_expr->flags & ASTFLAG_IS_VALUE_TYPE)) {
-            is_value_type = FALSE;
-        }
+        dpath_type_mask |= target_expr->ndat->u.rexpr.dpath_type_mask;
     }
     if (0 != (expr->flags & ASTFLAG_HAS_POLYMORPHIC_ANCHOR)) {
         expr->ndat->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_ANY;
+        expr->ndat->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_ANY;
     } else {
-        expr->flags |= is_value_type ? ASTFLAG_IS_VALUE_TYPE : 0u;
         expr->ndat->u.rexpr.value_type_mask = value_type_mask;
+        expr->ndat->u.rexpr.dpath_type_mask = dpath_type_mask;
     }
     return 0;
 }
@@ -2693,6 +2700,8 @@ compile_rexpr_field(struct ast_node_hdl *expr, struct compile_ctx *ctx)
     }
     expr->ndat->u.rexpr.value_type_mask =
         expr_value_type_mask_from_dpath_node(&field->dpath);
+    expr->ndat->u.rexpr.dpath_type_mask = (EXPR_DPATH_TYPE_ITEM |
+                                           EXPR_DPATH_TYPE_CONTAINER);
     return 0;
 }
 
@@ -2756,6 +2765,7 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
             stmt_spec = &visible_statements[0];
             resolved_type = new_safe(struct ast_node_data);
             resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
+            resolved_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
             resolved_type->u.rexpr_member_common.anchor_expr = anchor_expr;
             resolved_type->u.rexpr_member_common.anchor_filter =
                 (struct ast_node_hdl *)anchor_filter;
@@ -2799,6 +2809,7 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
     }
     resolved_type = new_safe(struct ast_node_data);
     resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
+    resolved_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
     resolved_type->u.rexpr_member_common.anchor_expr = anchor_expr;
     resolved_type->u.rexpr_member_common.anchor_filter =
         (struct ast_node_hdl *)anchor_filter;
@@ -4210,9 +4221,11 @@ dump_composite(const struct ast_node_hdl *composite, FILE *out)
 
 static void
 dump_ast_rexpr(const struct ast_node_hdl *node, FILE *out) {
-    fprintf(out, "value_type: %s (%d)",
+    fprintf(out, "value-type mask: %s (%d), dpath-type mask: %s (%d)",
             expr_value_type_str(node->ndat->u.rexpr.value_type_mask),
-            node->ndat->u.rexpr.value_type_mask);
+            node->ndat->u.rexpr.value_type_mask,
+            expr_dpath_type_str(node->ndat->u.rexpr.dpath_type_mask),
+            node->ndat->u.rexpr.dpath_type_mask);
 }
 
 static void

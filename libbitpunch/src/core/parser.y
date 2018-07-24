@@ -149,7 +149,6 @@
 
     enum ast_node_flag {
         ASTFLAG_IS_ROOT_BLOCK               = (1<<3),
-        ASTFLAG_IS_VALUE_TYPE               = (1<<4),
         ASTFLAG_IS_ANONYMOUS_MEMBER         = (1<<5),
         ASTFLAG_HAS_POLYMORPHIC_ANCHOR      = (1<<6),
         ASTFLAG_REVERSE_COND                = (1<<8),
@@ -174,6 +173,7 @@
 
     struct rexpr {
         enum expr_value_type value_type_mask;
+        enum expr_dpath_type dpath_type_mask;
     };
 
     enum item_flag {
@@ -488,27 +488,20 @@
     };
 
     typedef bitpunch_status_t
-        (*expr_eval_value_builtin_fn_t)(struct ast_node_hdl *object,
-                                        struct statement_list *params,
-                                        int n_params,
-                                        struct box *scope,
-                                        expr_value_t *eval_valuep,
-                                        struct browse_state *bst);
-
-    typedef bitpunch_status_t
-        (*expr_eval_dpath_builtin_fn_t)(struct ast_node_hdl *object,
-                                        struct statement_list *params,
-                                        int n_params,
-                                        struct box *scope,
-                                        expr_dpath_t *eval_dpathp,
-                                        struct browse_state *bst);
+        (*expr_eval_builtin_fn_t)(
+            struct ast_node_hdl *object,
+            struct statement_list *params,
+            int n_params,
+            struct box *scope,
+            expr_value_t *valuep,
+            expr_dpath_t *dpathp,
+            struct browse_state *bst);
 
     struct expr_builtin_fn {
         const char *builtin_name;
         enum expr_value_type res_value_type_mask;
-        expr_eval_value_builtin_fn_t eval_value_fn;
-        expr_eval_dpath_builtin_fn_t eval_dpath_fn;
-        enum ast_node_type member_of;
+        enum expr_value_type res_dpath_type_mask;
+        expr_eval_builtin_fn_t eval_fn;
         int min_n_params;
         int max_n_params;
     };

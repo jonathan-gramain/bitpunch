@@ -802,7 +802,8 @@ expr_eval_builtin_index(struct ast_node_hdl *object,
                         struct statement_list *params,
                         int n_params,
                         struct box *scope,
-                        expr_value_t *eval_valuep,
+                        expr_value_t *valuep,
+                        expr_dpath_t *dpathp,
                         struct browse_state *bst)
 {
     struct ast_node_hdl *array_dpath;
@@ -820,13 +821,13 @@ expr_eval_builtin_index(struct ast_node_hdl *object,
     array_dpath = ((struct named_expr *)TAILQ_FIRST(params))->expr;
     item_dpath = ((struct named_expr *)
                   TAILQ_NEXT(TAILQ_FIRST(params), list))->expr;
-    if (0 != (array_dpath->flags & ASTFLAG_IS_VALUE_TYPE)) {
+    if (array_dpath->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &array_dpath->loc,
                        "cannot evaluate 'index': 1st argument is a "
                        "value-type expression");
         return BITPUNCH_INVALID_PARAM;
     }
-    if (0 != (item_dpath->flags & ASTFLAG_IS_VALUE_TYPE)) {
+    if (item_dpath->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &item_dpath->loc,
                        "cannot evaluate 'index': 2nd argument is a "
                        "value-type expression");
@@ -879,9 +880,12 @@ expr_eval_builtin_index(struct ast_node_hdl *object,
     }
     while (!expr_dpath_is(array_item_dpath, item_ancestor));
     assert(TRACK_PATH_ARRAY == item_track.type);
-    eval_valuep->type = EXPR_VALUE_TYPE_INTEGER;
-    eval_valuep->integer = item_track.u.array.index;
-
+    if (NULL != valuep) {
+        *valuep = expr_value_as_integer(item_track.u.array.index);
+    }
+    if (NULL != dpathp) {
+        *dpathp = expr_dpath_none();
+    }
     expr_dpath_destroy(array_dpath_eval);
     expr_dpath_destroy(item_dpath_eval);
     return BITPUNCH_OK;
@@ -892,7 +896,8 @@ expr_eval_builtin_len(struct ast_node_hdl *object,
                       struct statement_list *params,
                       int n_params,
                       struct box *scope,
-                      expr_value_t *eval_valuep,
+                      expr_value_t *valuep,
+                      expr_dpath_t *dpathp,
                       struct browse_state *bst)
 {
     struct ast_node_hdl *expr;
@@ -902,7 +907,7 @@ expr_eval_builtin_len(struct ast_node_hdl *object,
     struct box *box = NULL;
 
     expr = ((struct named_expr *)TAILQ_FIRST(params))->expr;
-    if (0 != (expr->flags & ASTFLAG_IS_VALUE_TYPE)) {
+    if (expr->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
                        "cannot evaluate 'len' on value-type expression");
         return BITPUNCH_INVALID_PARAM;
@@ -921,8 +926,12 @@ expr_eval_builtin_len(struct ast_node_hdl *object,
         //TODO log
         return bt_ret;
     }
-    eval_valuep->type = EXPR_VALUE_TYPE_INTEGER;
-    eval_valuep->integer = item_count;
+    if (NULL != valuep) {
+        *valuep = expr_value_as_integer(item_count);
+    }
+    if (NULL != dpathp) {
+        *dpathp = expr_dpath_none();
+    }
     return BITPUNCH_OK;
 }
 
@@ -932,14 +941,16 @@ expr_builtin_fns[] = {
     {
         .builtin_name = "index",
         .res_value_type_mask = EXPR_VALUE_TYPE_INTEGER,
-        .eval_value_fn = expr_eval_builtin_index,
+        .res_dpath_type_mask = EXPR_DPATH_TYPE_NONE,
+        .eval_fn = expr_eval_builtin_index,
         .min_n_params = 2,
         .max_n_params = 2,
     },
     {
         .builtin_name = "len",
         .res_value_type_mask = EXPR_VALUE_TYPE_INTEGER,
-        .eval_value_fn = expr_eval_builtin_len,
+        .res_dpath_type_mask = EXPR_DPATH_TYPE_NONE,
+        .eval_fn = expr_eval_builtin_len,
         .min_n_params = 1,
         .max_n_params = 1,
     },
@@ -955,11 +966,7 @@ expr_lookup_builtin_fn(const char *name,
     for (builtin_i = 0;
          builtin_i < N_ELEM(expr_builtin_fns); ++builtin_i) {
         builtin = &expr_builtin_fns[builtin_i];
-        if (0 == strcmp(builtin->builtin_name, name)
-            && ((NULL == object
-                 && AST_NODE_TYPE_NONE == builtin->member_of)
-                || (NULL != object
-                    && object->ndat->type == builtin->member_of))) {
+        if (0 == strcmp(builtin->builtin_name, name)) {
             return builtin;
         }
     }
@@ -991,11 +998,7 @@ expr_find_first_builtin(const char *prefix,
     for (builtin_i = 0;
          builtin_i < N_ELEM(expr_builtin_fns); ++builtin_i) {
         builtin = &expr_builtin_fns[builtin_i];
-        if (strncmp(builtin->builtin_name, prefix, prefix_len) == 0
-            && ((NULL == object
-                 && AST_NODE_TYPE_NONE == builtin->member_of)
-                || (NULL != object
-                    && object->ndat->type == builtin->member_of))) {
+        if (strncmp(builtin->builtin_name, prefix, prefix_len) == 0) {
             return builtin->builtin_name;
         }
     }
@@ -1021,11 +1024,7 @@ expr_find_next_builtin(const char *name,
     for (builtin_i = 0;
          builtin_i < N_ELEM(expr_builtin_fns); ++builtin_i) {
         builtin = &expr_builtin_fns[builtin_i];
-        if (strcmp(builtin->builtin_name, name) > 0
-            && ((NULL == object
-                 && AST_NODE_TYPE_NONE == builtin->member_of)
-                || (NULL != object
-                    && object->ndat->type == builtin->member_of))) {
+        if (strcmp(builtin->builtin_name, name) > 0) {
             return builtin->builtin_name;
         }
     }
@@ -1520,38 +1519,12 @@ expr_evaluate_fcall(
     const struct expr_builtin_fn *builtin;
     struct statement_list *params;
     int n_params;
-    bitpunch_status_t bt_ret;
-
-    // TODO builtins should follow the same pattern and have a single
-    // method with both valuep and dpathp arguments
 
     builtin = expr->ndat->u.rexpr_op_fcall.builtin;
     params = expr->ndat->u.rexpr_op_fcall.func_params;
     n_params = expr->ndat->u.rexpr_op_fcall.n_func_params;
 
-    if (NULL != valuep) {
-        assert(NULL != builtin->eval_value_fn);
-        bt_ret = builtin->eval_value_fn(NULL, params, n_params,
-                                        scope, valuep, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-    }
-    if (NULL != dpathp) {
-        if (NULL != builtin->eval_dpath_fn) {
-            bt_ret = builtin->eval_dpath_fn(NULL, params, n_params,
-                                            scope, dpathp, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                if (NULL != valuep) {
-                    expr_value_destroy(*valuep);
-                }
-                return bt_ret;
-            }
-        } else {
-            *dpathp = expr_dpath_none();
-        }
-    }
-    return BITPUNCH_OK;
+    return builtin->eval_fn(NULL, params, n_params, scope, valuep, dpathp, bst);
 }
 
 static bitpunch_status_t
@@ -1843,7 +1816,7 @@ expr_evaluate_ancestor(
     struct box *ancestor_box;
 
     opd = expr->ndat->u.rexpr_op.op.operands[0];
-    if (0 != (opd->flags & ASTFLAG_IS_VALUE_TYPE)) {
+    if (opd->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
                        "cannot evaluate ancestor operator on value-type "
                        "expression");
@@ -1942,7 +1915,7 @@ expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
         struct dpath_transform transform;
         bitpunch_status_t bt_ret;
 
-        if (0 != (expr->flags & ASTFLAG_IS_VALUE_TYPE)) {
+        if (expr->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
             semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
                            "cannot evaluate expression value: "
                            "not implemented on type '%s'",
@@ -2429,9 +2402,9 @@ expr_value_type_str(enum expr_value_type type)
     case EXPR_VALUE_TYPE_BYTES:
         return "bytes";
     case EXPR_VALUE_TYPE_ANY:
-        return "any";
+        return "any value-type";
     default:
-        return "multiple";
+        return "multiple value-type";
     }
 }
 
@@ -2447,8 +2420,11 @@ expr_dpath_type_str(enum expr_dpath_type type)
         return "item";
     case EXPR_DPATH_TYPE_CONTAINER:
         return "container";
+    case EXPR_DPATH_TYPE_ANY:
+        return "any dpath-type";
+    default:
+        return "multiple dpath-type";
     }
-    return "!!bad expression dpath type!!";
 }
 
 void

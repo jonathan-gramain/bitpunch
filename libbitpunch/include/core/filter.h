@@ -69,10 +69,10 @@ struct filter_class {
 
 int
 filter_class_declare(const char *name,
-                    enum expr_value_type value_type_mask,
-                    filter_instance_build_func_t filter_instance_build_func,
-                    int n_attrs,
-                    ... /* attrs: (name, ref_idx, type, flags) tuples */);
+                     enum expr_value_type value_type_mask,
+                     filter_instance_build_func_t filter_instance_build_func,
+                     int n_attrs,
+                     ... /* attrs: (name, ref_idx, type, flags) tuples */);
 
 struct filter_class *
 filter_class_lookup(const char *name);
