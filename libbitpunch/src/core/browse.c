@@ -168,10 +168,6 @@ struct dpath_node shared_dpath_node_array_slice = {
 struct dpath_node shared_dpath_node_byte_slice = {
     .item = &shared_ast_node_byte_slice,
 };
-struct dpath_node shared_dpath_node_as_bytes = {
-    .item = &shared_ast_node_as_bytes,
-    .filter = &shared_ast_node_as_bytes_filter,
-};
 
 
 static struct track_path
@@ -8702,7 +8698,7 @@ browse_setup_global_backends(void)
     if (-1 == browse_setup_backends_dpath(DPATH_NODE_BYTE_SLICE)) {
         return -1;
     }
-    if (-1 == browse_setup_backends_dpath(DPATH_NODE_AS_BYTES)) {
+    if (-1 == browse_setup_backends_node_recur(AST_NODE_AS_BYTES)) {
         return -1;
     }
     if (-1 == browse_setup_backends_dpath(DPATH_NODE_RAW_BYTE)) {

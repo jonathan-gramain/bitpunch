@@ -43,7 +43,6 @@ extern struct ast_node_hdl shared_ast_node_raw_byte_filter;
 extern struct dpath_node shared_dpath_node_raw_byte;
 extern struct dpath_node shared_dpath_node_array_slice;
 extern struct dpath_node shared_dpath_node_byte_slice;
-extern struct dpath_node shared_dpath_node_as_bytes;
 
 #define AST_NODE_BYTE &shared_ast_node_byte
 #define AST_NODE_ARRAY_SLICE &shared_ast_node_array_slice
@@ -52,7 +51,6 @@ extern struct dpath_node shared_dpath_node_as_bytes;
 #define DPATH_NODE_RAW_BYTE &shared_dpath_node_raw_byte
 #define DPATH_NODE_ARRAY_SLICE &shared_dpath_node_array_slice
 #define DPATH_NODE_BYTE_SLICE &shared_dpath_node_byte_slice
-#define DPATH_NODE_AS_BYTES &shared_dpath_node_as_bytes
 
 void
 browse_state_init(struct browse_state *bst);
