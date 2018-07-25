@@ -647,7 +647,7 @@
 %token <integer> INTEGER
 %token <literal> LITERAL
 %token <boolean> KW_TRUE KW_FALSE
-%token KW_STRUCT KW_UNION KW_FILE KW_MATCH KW_SPAN KW_MINSPAN KW_MAXSPAN KW_IF KW_ELSE KW_KEY KW_SELF KW_LET
+%token KW_FILE KW_MATCH KW_IF KW_ELSE KW_SELF KW_LET
 
 %token <ast_node_type> '|' '^' '&' '>' '<' '+' '-' '*' '/' '%' '!' '~' '.' ':'
 %token <ast_node_type> TOK_LOR "||"
