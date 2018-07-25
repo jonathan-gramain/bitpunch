@@ -1239,8 +1239,9 @@ expr_evaluate_named_expr_internal(
     if (0 != (expr->flags & ASTFLAG_IS_ANONYMOUS_MEMBER)) {
         struct box *direct_scope;
 
-        bt_ret = box_lookup_attribute_internal(
-            member_scope, named_expr->nstmt.name, NULL, &direct_scope, bst);
+        bt_ret = box_lookup_statement_internal(
+            member_scope, STATEMENT_TYPE_NAMED_EXPR,
+            named_expr->nstmt.name, NULL, NULL, &direct_scope, bst);
         box_delete(member_scope);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;

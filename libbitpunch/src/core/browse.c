@@ -4938,18 +4938,6 @@ box_iter_attributes_next_internal(struct box *box,
 }
 
 bitpunch_status_t
-box_lookup_attribute_internal(struct box *box, const char *attr_name,
-                              const struct named_expr **attrp,
-                              struct box **scopep,
-                              struct browse_state *bst)
-{
-    return box_lookup_statement_internal(
-        box, STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_ATTRIBUTE,
-        attr_name,
-        NULL, (const struct named_statement **)attrp, scopep, bst);
-}
-
-bitpunch_status_t
 box_lookup_member_internal(struct box *box, const char *name,
                            enum statement_type *stmt_typep,
                            const struct named_statement **named_stmtp,
