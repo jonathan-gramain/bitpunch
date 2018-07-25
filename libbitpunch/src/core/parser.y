@@ -213,6 +213,7 @@
             AST_NODE_TYPE_STRING,
             AST_NODE_TYPE_IDENTIFIER,
             AST_NODE_TYPE_FILTER_DEF,
+            AST_NODE_TYPE_ARRAY_DEF,
             AST_NODE_TYPE_COMPOSITE,
             AST_NODE_TYPE_ARRAY,
             AST_NODE_TYPE_BYTE,
@@ -306,6 +307,10 @@
                 const char *filter_type;
                 struct block_stmt_list block_stmt_list;
             } filter_def;
+            struct array_def {
+                struct ast_node_hdl *item_type;
+                struct ast_node_hdl *item_count;
+            } array_def;
             struct conditional {
                 struct ast_node_hdl *cond_expr;
                 struct ast_node_hdl *outer_cond;
@@ -855,12 +860,10 @@ expr:
         $$ = $2;
     }
   | '[' opt_expr ']' expr %prec OP_ARRAY_DECL {
-        $$ = ast_node_hdl_create(AST_NODE_TYPE_ARRAY, NULL);
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_ARRAY_DEF, NULL);
         parser_location_make_span(&$$->loc, &@1, &@4);
-        $$->ndat->u.item.min_span_size = SPAN_SIZE_UNDEF;
-        $$->ndat->u.array.item_count = $2;
-        dpath_node_reset(&$$->ndat->u.array.item_type);
-        $$->ndat->u.array.item_type.item = $4;
+        $$->ndat->u.array_def.item_type = $4;
+        $$->ndat->u.array_def.item_count = $2;
     }
 
 opt_expr:
@@ -1231,6 +1234,7 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_STRING: return "string";
     case AST_NODE_TYPE_IDENTIFIER: return "identifier";
     case AST_NODE_TYPE_FILTER_DEF: return "filter def";
+    case AST_NODE_TYPE_ARRAY_DEF: return "array def";
     case AST_NODE_TYPE_COMPOSITE: return "composite";
     case AST_NODE_TYPE_ARRAY: return "array";
     case AST_NODE_TYPE_BYTE: return "byte";

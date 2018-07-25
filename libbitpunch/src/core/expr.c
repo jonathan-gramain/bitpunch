@@ -1294,15 +1294,6 @@ expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        if (AST_NODE_TYPE_COMPOSITE != expr_dpath_get_as_type(
-                anchor_dpath)->ndat->type) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &anchor_expr->loc,
-                "left-side of member operator does not evaluate to a "
-                "composite type");
-            expr_dpath_destroy(anchor_dpath);
-            return BITPUNCH_DATA_ERROR;
-        }
         bt_ret = expr_dpath_to_box_internal(anchor_dpath, &anchor_box, bst);
         expr_dpath_destroy(anchor_dpath);
         if (BITPUNCH_OK != bt_ret) {

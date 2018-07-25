@@ -67,6 +67,22 @@ struct compile_req {
     void *arg;
 };
 
+static struct statement_list empty_field_list =
+    TAILQ_HEAD_INITIALIZER(empty_field_list);
+static struct statement_list empty_named_expr_list =
+    TAILQ_HEAD_INITIALIZER(empty_named_expr_list);
+static struct statement_list empty_attr_list =
+    TAILQ_HEAD_INITIALIZER(empty_attr_list);
+static struct statement_list empty_match_list =
+    TAILQ_HEAD_INITIALIZER(empty_match_list);
+
+static const struct block_stmt_list EMPTY_BLOCK_STMT_LIST = {
+    .field_list = &empty_field_list,
+    .named_expr_list = &empty_named_expr_list,
+    .attribute_list = &empty_attr_list,
+    .match_list = &empty_match_list,
+};
+
 static int
 resolve_identifiers(struct ast_node_hdl *node,
                     const struct list_of_visible_refs *visible_refs,
@@ -605,22 +621,11 @@ resolve_identifiers_identifier_as_filter(
 
     filter_cls = filter_class_lookup(node->ndat->u.identifier);
     if (NULL != filter_cls) {
-        static struct statement_list empty_field_list =
-            TAILQ_HEAD_INITIALIZER(empty_field_list);
-        static struct statement_list empty_named_expr_list =
-            TAILQ_HEAD_INITIALIZER(empty_named_expr_list);
-        static struct statement_list empty_attr_list =
-            TAILQ_HEAD_INITIALIZER(empty_attr_list);
-        static struct statement_list empty_match_list =
-            TAILQ_HEAD_INITIALIZER(empty_match_list);
         struct filter_def *filter_def;
 
         filter_def = new_safe(struct filter_def);
         filter_def->filter_type = node->ndat->u.identifier;
-        filter_def->block_stmt_list.field_list = &empty_field_list;
-        filter_def->block_stmt_list.named_expr_list = &empty_named_expr_list;
-        filter_def->block_stmt_list.attribute_list = &empty_attr_list;
-        filter_def->block_stmt_list.match_list = &empty_match_list;
+        filter_def->block_stmt_list = EMPTY_BLOCK_STMT_LIST;
 
         if (-1 == filter_instance_build(node, filter_cls, filter_def)) {
             return -1;
@@ -778,20 +783,21 @@ resolve_identifiers_filter(struct ast_node_hdl *filter,
 }
 
 static int
-resolve_identifiers_array(
+resolve_identifiers_array_def(
     struct ast_node_hdl *node,
     const struct list_of_visible_refs *visible_refs,
     enum resolve_expect_mask expect_mask,
     enum resolve_identifiers_tag resolve_tags)
 {
     /* resolve array type and count expression, if defined */
-    if (-1 == resolve_identifiers_dpath_node(&node->ndat->u.array.item_type,
-                                             visible_refs, resolve_tags)) {
+    if (-1 == resolve_identifiers(
+            node->ndat->u.array_def.item_type, visible_refs,
+            RESOLVE_EXPECT_TYPE, resolve_tags)) {
         return -1;
     }
-    if (NULL != node->ndat->u.array.item_count &&
+    if (NULL != node->ndat->u.array_def.item_count &&
         -1 == resolve_identifiers_in_expression(
-            node->ndat->u.array.item_count, visible_refs,
+            node->ndat->u.array_def.item_count, visible_refs,
             resolve_tags)) {
         return -1;
     }
@@ -805,6 +811,7 @@ resolve_identifiers_byte_array(
     enum resolve_expect_mask expect_mask,
     enum resolve_identifiers_tag resolve_tags)
 {
+    // FIXME is this function dead code?
     /* resolve array count expression, if defined */
     if (NULL != node->ndat->u.byte_array.size &&
         -1 == resolve_identifiers_in_expression(
@@ -1136,9 +1143,9 @@ resolve_identifiers(struct ast_node_hdl *node,
     case AST_NODE_TYPE_FILTER_DEF:
         return resolve_identifiers_filter(node, visible_refs,
                                           expect_mask, resolve_tags);
-    case AST_NODE_TYPE_ARRAY:
-        return resolve_identifiers_array(node, visible_refs,
-                                         expect_mask, resolve_tags);
+    case AST_NODE_TYPE_ARRAY_DEF:
+        return resolve_identifiers_array_def(node, visible_refs,
+                                             expect_mask, resolve_tags);
     case AST_NODE_TYPE_BYTE_ARRAY:
         return resolve_identifiers_byte_array(node, visible_refs,
                                               expect_mask, resolve_tags);
@@ -1886,29 +1893,62 @@ compile_filter_def(struct ast_node_hdl *filter,
 }
 
 static int
-compile_array(struct ast_node_hdl *node,
+compile_array_def(struct ast_node_hdl *filter,
+                  struct compile_ctx *ctx,
+                  enum resolve_expect_mask expect_mask)
+{
+    struct ast_node_hdl *item_type;
+    struct ast_node_hdl *item_count;
+    struct filter_class *filter_cls;
+    struct filter_def *filter_def;
+    struct ast_node_data *ndat;
+
+    item_type = filter->ndat->u.array_def.item_type;
+    item_count = filter->ndat->u.array_def.item_count;
+    if (NULL != item_count) {
+        compile_expr(item_count, ctx, FALSE);
+    }
+    filter_cls = filter_class_lookup("array");
+    assert(NULL != filter_cls);
+
+    filter_def = new_safe(struct filter_def);
+    filter_def->filter_type = "array";
+    filter_def->block_stmt_list = EMPTY_BLOCK_STMT_LIST;
+
+    ndat = new_safe(struct ast_node_data);
+    ndat->u.item.min_span_size = SPAN_SIZE_UNDEF;
+    ndat->type = AST_NODE_TYPE_ARRAY;
+    ndat->u.rexpr_filter.filter_cls = filter_cls;
+    ndat->u.rexpr_filter.filter_def = filter_def;
+    dpath_node_reset(&ndat->u.array.item_type);
+    ndat->u.array.item_type.item = item_type;
+    ndat->u.array.item_count = item_count;
+    filter->ndat = ndat;
+    return 0;
+}
+
+static int
+compile_array(struct ast_node_hdl *filter,
               struct compile_ctx *ctx,
               enum resolve_expect_mask expect_mask)
 {
-    if (NULL != node->ndat->u.array.item_count) {
-        compile_expr(node->ndat->u.array.item_count, ctx, FALSE);
-    }
-    compile_dpath(&node->ndat->u.array.item_type, ctx,
-                  COMPILE_TAG_NODE_TYPE, 0u);
-    if (!compile_continue(ctx)) {
+    struct ast_node_hdl *item_type;
+    struct ast_node_hdl *item_count;
+    struct dpath_node *item_dpath;
+
+    item_dpath = &filter->ndat->u.array.item_type;
+    item_type = item_dpath->item;
+    item_count = filter->ndat->u.array.item_count;
+
+    if (-1 == compile_dpath(item_dpath, ctx, COMPILE_TAG_NODE_TYPE, 0u)) {
         return -1;
     }
-    assert(NULL != node->ndat->u.array.item_type.filter);
-    if (AST_NODE_TYPE_BYTE == node->ndat->u.array.item_type.item->ndat->type
-        && AST_NODE_TYPE_REXPR_ITEM ==
-        node->ndat->u.array.item_type.filter->ndat->type) {
-        struct ast_node_data *byte_array;
-
-        byte_array = new_safe(struct ast_node_data);
-        byte_array->type = AST_NODE_TYPE_BYTE_ARRAY;
-        byte_array->u.item.min_span_size = SPAN_SIZE_UNDEF;
-        byte_array->u.byte_array.size = node->ndat->u.array.item_count;
-        node->ndat = byte_array;
+    assert(NULL != item_dpath->filter);
+    // if an array of unfiltered bytes, it's a byte array
+    if (AST_NODE_TYPE_BYTE == item_type->ndat->type
+        && AST_NODE_TYPE_REXPR_ITEM == item_dpath->filter->ndat->type) {
+        filter->ndat->type = AST_NODE_TYPE_BYTE_ARRAY;
+        filter->ndat->u.byte_array.size = item_count;
     }
     return 0;
 }
@@ -2842,6 +2882,8 @@ compile_node_type_int(struct ast_node_hdl *node,
         return compile_expr_string_literal(node, ctx, expect_mask);
     case AST_NODE_TYPE_FILTER_DEF:
         return compile_filter_def(node, ctx, expect_mask);
+    case AST_NODE_TYPE_ARRAY_DEF:
+        return compile_array_def(node, ctx, expect_mask);
     case AST_NODE_TYPE_ARRAY:
         return compile_array(node, ctx, expect_mask);
     case AST_NODE_TYPE_CONDITIONAL:
@@ -4321,6 +4363,19 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         fprintf(out, "\n");
         dump_filter_recur(node, depth + 1, visible_refs, out);
         break ;
+    case AST_NODE_TYPE_ARRAY_DEF:
+        fprintf(out, "array def");
+        dump_ast_item_info(node, out);
+        fprintf(out, ", item type:\n");
+        fdump_ast_recur(node->ndat->u.array_def.item_type, depth + 2,
+                        visible_refs, out);
+        fprintf(out, "%*s\\_ value count:\n",
+                (depth + 1) * INDENT_N_SPACES, "");
+        fdump_ast_recur(node->ndat->u.array_def.item_count, depth + 2,
+                        visible_refs, out);
+        dump_ast_container(node, depth, visible_refs, out);
+        fprintf(out, "\n");
+        break ;
     case AST_NODE_TYPE_COMPOSITE:
         fprintf(out, "composite type: %s, ",
                 composite_type_str(node->ndat->u.composite.type));
@@ -4710,6 +4765,7 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
         break ;
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_FILTER_DEF:
+    case AST_NODE_TYPE_ARRAY_DEF:
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_ARRAY_SLICE:

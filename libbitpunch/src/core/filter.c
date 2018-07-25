@@ -140,6 +140,7 @@ filter_class_lookup(const char *name)
 }
 
 void filter_class_declare_item(void);
+void filter_class_declare_array(void);
 void filter_class_declare_binary_integer(void);
 void filter_class_declare_bytes(void);
 void filter_class_declare_string(void);
@@ -152,6 +153,7 @@ void
 filter_class_declare_std(void)
 {
     filter_class_declare_item();
+    filter_class_declare_array();
     filter_class_declare_binary_integer();
     filter_class_declare_bytes();
     filter_class_declare_string();
@@ -209,8 +211,8 @@ filter_class_get_attr(const struct filter_class *filter_cls,
 
 int
 filter_build_attrs(struct ast_node_hdl *node,
-                        const struct filter_class *filter_cls,
-                        struct statement_list *attribute_list)
+                   const struct filter_class *filter_cls,
+                   struct statement_list *attribute_list)
 {
     struct named_expr *attr;
     int attr_ref;

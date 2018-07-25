@@ -34,10 +34,10 @@
 
 #include <assert.h>
 
-#include "filters/item.h"
+#include "core/filter.h"
 
 static int
-item_filter_instance_build(struct ast_node_hdl *filter,
+array_filter_instance_build(struct ast_node_hdl *filter,
                  const struct statement_list *attribute_list,
                  struct compile_ctx *ctx)
 {
@@ -45,24 +45,13 @@ item_filter_instance_build(struct ast_node_hdl *filter,
 }
 
 void
-filter_class_declare_item(void)
+filter_class_declare_array(void)
 {
     int ret;
 
-    ret = filter_class_declare("item",
-                              EXPR_VALUE_TYPE_UNSET,
-                              item_filter_instance_build,
-                              5,
-                              "@span", REF_ITEM_SPAN,
-                              EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@minspan", REF_ITEM_MINSPAN,
-                              EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@maxspan", REF_ITEM_MAXSPAN,
-                              EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@key", REF_ITEM_KEY,
-                              (EXPR_VALUE_TYPE_INTEGER |
-                               EXPR_VALUE_TYPE_STRING), 0,
-                              "@last", REF_ITEM_LAST,
-                              EXPR_VALUE_TYPE_BOOLEAN, 0);
+    ret = filter_class_declare("array",
+                               EXPR_VALUE_TYPE_UNSET,
+                               array_filter_instance_build,
+                               0);
     assert(0 == ret);
 }

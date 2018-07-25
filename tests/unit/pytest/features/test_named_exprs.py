@@ -328,8 +328,8 @@ let T = struct {
 
     type: Selector;
     if (type == 1) {
-        array: IntArray;
-        let ?item = array;
+        arr: IntArray;
+        let ?item = arr;
         let ?type = 'array';
     }
     if (type == 2) {
@@ -370,8 +370,8 @@ let SubT = struct {
 
     type: Selector;
     if (type == 1) {
-        array: IntArray;
-        let ?item = array;
+        arr: IntArray;
+        let ?item = arr;
         let ?type = 'array';
     }
     if (type == 2) {
@@ -428,13 +428,13 @@ def test_named_exprs_polymorphic(params_named_exprs_polymorphic):
     assert dtree.eval_expr('items[1].?item.?my_type') == 'message'
 
     assert model.make_python_object(
-        dtree.items[2].array.values) == [1, 2, 3, 4, 5]
+        dtree.items[2].arr.values) == [1, 2, 3, 4, 5]
     assert model.make_python_object(
         dtree.items[2]['?item'].values) == [1, 2, 3, 4, 5]
     assert model.make_python_object(
-        dtree.eval_expr('items[2].array.values')) == [1, 2, 3, 4, 5]
+        dtree.eval_expr('items[2].arr.values')) == [1, 2, 3, 4, 5]
     assert model.make_python_object(
-        dtree.eval_expr('items[2].array.values[1]')) == 2
+        dtree.eval_expr('items[2].arr.values[1]')) == 2
     assert model.make_python_object(
         dtree.eval_expr('items[2].?item.values[1]')) == 2
     assert dtree.items[2]['?type'] == 'array'

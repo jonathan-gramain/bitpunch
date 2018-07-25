@@ -4571,9 +4571,6 @@ box_iter_statements(struct box *box,
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
     it.stmt_flags = stmt_flags;
-    if (AST_NODE_TYPE_COMPOSITE != box->dpath.item->ndat->type) {
-        return it;
-    }
     it.stmt_lists = &box->dpath.item->ndat->u.rexpr_filter.filter_def->block_stmt_list;
     it.stmt_remaining = stmt_mask;
     box_iter_start_list_internal(&it);
@@ -4607,9 +4604,6 @@ box_riter_statements(struct box *box,
     it.identifier = identifier;
     it.stmt_flags = stmt_flags;
     it.it_flags = STATEMENT_ITERATOR_FLAG_REVERSE;
-    if (AST_NODE_TYPE_COMPOSITE != box->dpath.item->ndat->type) {
-        return it;
-    }
     it.stmt_lists = &box->dpath.item->ndat->u.rexpr_filter.filter_def->block_stmt_list;
     it.stmt_remaining = stmt_mask;
     box_riter_start_list_internal(&it);
@@ -4866,12 +4860,15 @@ box_lookup_statement_internal(struct box *box,
                               struct box **scopep,
                               struct browse_state *bst)
 {
-    if (AST_NODE_TYPE_COMPOSITE != box->dpath.item->ndat->type) {
+    struct filter_def *filter_def;
+
+    filter_def = box->dpath.item->ndat->u.rexpr_filter.filter_def;
+    if (NULL == filter_def) {
         return BITPUNCH_NO_ITEM;
     }
     return box_lookup_statement_recur(
-        box, &box->dpath.item->ndat->u.rexpr_filter.filter_def->block_stmt_list,
-        stmt_mask, identifier, stmt_typep, stmtp, scopep, bst);
+        box, &filter_def->block_stmt_list, stmt_mask, identifier,
+        stmt_typep, stmtp, scopep, bst);
 }
 
 static bitpunch_status_t
@@ -7648,10 +7645,8 @@ tracker_get_item_key__array_slice(struct tracker *tk,
             tk, from_index, keyp, nth_twinp, bst);
     } else {
         if (NULL != keyp) {
-            memset(keyp, 0, sizeof(*keyp));
             assert(tk->cur.u.array.index >= from_index);
-            keyp->type = EXPR_VALUE_TYPE_INTEGER;
-            keyp->integer = tk->cur.u.array.index - from_index;
+            *keyp = expr_value_as_integer(tk->cur.u.array.index - from_index);
         }
         if (NULL != nth_twinp) {
             /* only relevant for indexed arrays */
