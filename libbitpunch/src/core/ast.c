@@ -1794,48 +1794,6 @@ compile_stmt_lists(struct block_stmt_list *stmt_lists,
 }
 
 static int
-compile_filter_attributes(struct ast_node_hdl *node,
-                          const struct filter_class *filter_cls,
-                          struct block_stmt_list *stmt_lists,
-                          struct compile_ctx *ctx)
-{
-    struct named_expr *attr;
-    const struct filter_attr_def *attr_def;
-    int sem_error = FALSE;
-
-    if (-1 == compile_stmt_lists(stmt_lists, ctx)) {
-        return -1;
-    }
-    STATEMENT_FOREACH(named_expr, attr, stmt_lists->attribute_list, list) {
-        assert(ast_node_is_rexpr(attr->expr));
-        attr_def = filter_class_get_attr(filter_cls, attr->nstmt.name);
-        assert(NULL != attr_def);
-        if (0 == (attr_def->value_type_mask
-                  & attr->expr->ndat->u.rexpr.value_type_mask)) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &attr->expr->loc,
-                "attribute \"%s\" passed to filter \"%s\" has "
-                "an incompatible value-type '%s', acceptable "
-                "value-types are '%s'",
-                attr_def->name, filter_cls->name,
-                expr_value_type_str(
-                    attr->expr->ndat->u.rexpr.value_type_mask),
-                expr_value_type_str(attr_def->value_type_mask));
-            sem_error = TRUE;
-            continue ;
-        }
-    }
-    if (sem_error) {
-        return -1;
-    }
-    if (-1 == filter_cls->filter_instance_build_func(
-            node, stmt_lists->attribute_list, ctx)) {
-        return -1;
-    }
-    return 0;
-}
-
-static int
 compile_filter_def(struct ast_node_hdl *filter,
                    struct compile_ctx *ctx,
                    enum resolve_expect_mask expect_mask)
@@ -1845,17 +1803,21 @@ compile_filter_def(struct ast_node_hdl *filter,
     struct block_stmt_list *stmt_lists;
     struct ast_node_data *ndat;
 
-    if (-1 == compile_stmt_lists(&filter->ndat->u.filter_def.block_stmt_list,
-                                 ctx)) {
-        return -1;
-    }
     filter_type = filter->ndat->u.filter_def.filter_type;
     stmt_lists = &filter->ndat->u.filter_def.block_stmt_list;
+
+    if (-1 == compile_stmt_lists(stmt_lists, ctx)) {
+        return -1;
+    }
     if (0 == strcmp(filter_type, "struct") ||
         0 == strcmp(filter_type, "union")) {
+        filter_cls = filter_class_lookup("item");
+        assert(NULL != filter_cls);
+
         ndat = new_safe(struct ast_node_data);
         ndat->type = AST_NODE_TYPE_COMPOSITE;
         ndat->u.item.min_span_size = SPAN_SIZE_UNDEF;
+        ndat->u.rexpr_filter.filter_cls = filter_cls;
         ndat->u.rexpr_filter.filter_def = &filter->ndat->u.filter_def;
         if (0 == strcmp(filter_type, "struct")) {
             ndat->u.composite.type = COMPOSITE_TYPE_STRUCT;
@@ -1863,13 +1825,6 @@ compile_filter_def(struct ast_node_hdl *filter,
             ndat->u.composite.type = COMPOSITE_TYPE_UNION;
         }
         filter->ndat = ndat;
-
-        filter_cls = filter_class_lookup("item");
-        assert(NULL != filter_cls);
-        if (-1 == filter_build_attrs(
-                filter, filter_cls, stmt_lists->attribute_list)) {
-            return -1;
-        }
     } else {
         filter_cls = filter_class_lookup(filter_type);
         if (NULL == filter_cls) {
@@ -1883,11 +1838,6 @@ compile_filter_def(struct ast_node_hdl *filter,
                                         &filter->ndat->u.filter_def)) {
             return -1;
         }
-        // template flag may be removed when compiling OP_FILTER
-        filter->ndat->flags |= ASTFLAG_DATA_TEMPLATE;
-    }
-    if (-1 == compile_filter_attributes(filter, filter_cls, stmt_lists, ctx)) {
-        return -1;
     }
     return 0;
 }
@@ -1925,6 +1875,79 @@ compile_array_def(struct ast_node_hdl *filter,
     ndat->u.array.item_count = item_count;
     filter->ndat = ndat;
     return 0;
+}
+
+static int
+compile_rexpr_filter(struct ast_node_hdl *expr,
+                     struct compile_ctx *ctx)
+{
+    const struct filter_class *filter_cls;
+    const struct block_stmt_list *stmt_lists;
+    struct named_expr *attr;
+    const struct filter_attr_def *attr_def;
+    int attr_ref;
+    int *attr_is_defined;
+    int sem_error = FALSE;
+
+    filter_cls = expr->ndat->u.rexpr_filter.filter_cls;
+    stmt_lists = &expr->ndat->u.rexpr_filter.filter_def->block_stmt_list;
+
+    attr_is_defined = new_n_safe(int, filter_cls->max_attr_ref + 1);
+    STATEMENT_FOREACH(named_expr, attr, stmt_lists->attribute_list, list) {
+        attr_def = filter_class_get_attr(filter_cls, attr->nstmt.name);
+        if (NULL == attr_def) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &attr->nstmt.stmt.loc,
+                "no such attribute \"%s\" for filter \"%s\"",
+                attr->nstmt.name, filter_cls->name);
+            sem_error = TRUE;
+            continue ;
+        }
+        if (0 == (attr_def->value_type_mask
+                  & attr->expr->ndat->u.rexpr.value_type_mask)) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &attr->expr->loc,
+                "attribute \"%s\" passed to filter \"%s\" has "
+                "an incompatible value-type '%s', acceptable "
+                "value-types are '%s'",
+                attr_def->name, filter_cls->name,
+                expr_value_type_str(
+                    attr->expr->ndat->u.rexpr.value_type_mask),
+                expr_value_type_str(attr_def->value_type_mask));
+            sem_error = TRUE;
+            continue ;
+        }
+        attr_ref = attr_def->ref_idx;
+        assert(attr_ref >= 0 && attr_ref <= filter_cls->max_attr_ref);
+        attr_is_defined[attr_ref] = TRUE;
+    }
+    STAILQ_FOREACH(attr_def, &filter_cls->attr_list, list) {
+        if (!attr_is_defined[attr_def->ref_idx]
+            && 0 != (FILTER_ATTR_FLAG_MANDATORY & attr_def->flags)) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
+                "missing mandatory attribute \"%s\"",
+                attr_def->name);
+            sem_error = TRUE;
+        }
+    }
+    free(attr_is_defined);
+    if (sem_error) {
+        return -1;
+    }
+    if (-1 == filter_cls->filter_instance_build_func(expr, ctx)) {
+        return -1;
+    }
+    // template flag may be removed when compiling OP_FILTER
+    expr->ndat->flags |= ASTFLAG_DATA_TEMPLATE;
+    return 0;
+}
+
+static int
+compile_composite(struct ast_node_hdl *filter,
+                  struct compile_ctx *ctx)
+{
+    return compile_rexpr_filter(filter, ctx);
 }
 
 static int
@@ -2620,21 +2643,6 @@ compile_conditional(struct ast_node_hdl *cond, struct compile_ctx *ctx)
 }
 
 static int
-compile_rexpr_filter(struct ast_node_hdl *expr,
-                          struct compile_ctx *ctx)
-{
-    if (-1 == compile_filter_attributes(
-            expr,
-            expr->ndat->u.rexpr_filter.filter_cls,
-            &expr->ndat->u.rexpr_filter.filter_def->block_stmt_list, ctx)) {
-        return -1;
-    }
-    // template flag may be removed when compiling OP_FILTER
-    expr->ndat->flags |= ASTFLAG_DATA_TEMPLATE;
-    return 0;
-}
-
-static int
 compile_rexpr_named_expr(struct ast_node_hdl *expr,
                          struct compile_ctx *ctx)
 {
@@ -2884,6 +2892,10 @@ compile_node_type_int(struct ast_node_hdl *node,
         return compile_filter_def(node, ctx, expect_mask);
     case AST_NODE_TYPE_ARRAY_DEF:
         return compile_array_def(node, ctx, expect_mask);
+    case AST_NODE_TYPE_REXPR_FILTER:
+        return compile_rexpr_filter(node, ctx);
+    case AST_NODE_TYPE_COMPOSITE:
+        return compile_composite(node, ctx);
     case AST_NODE_TYPE_ARRAY:
         return compile_array(node, ctx, expect_mask);
     case AST_NODE_TYPE_CONDITIONAL:
@@ -2961,8 +2973,6 @@ compile_node_type_int(struct ast_node_hdl *node,
         return compile_rexpr_named_expr(node, ctx);
     case AST_NODE_TYPE_REXPR_POLYMORPHIC:
         return compile_rexpr_polymorphic(node, ctx);
-    case AST_NODE_TYPE_REXPR_FILTER:
-        return compile_rexpr_filter(node, ctx);
     default:
         /* nothing to do */
         return 0;

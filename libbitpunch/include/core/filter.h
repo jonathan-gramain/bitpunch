@@ -55,7 +55,6 @@ struct filter_attr_def {
 typedef int
 (*filter_instance_build_func_t)(
     struct ast_node_hdl *filter,
-    const struct statement_list *attribute_list,
     struct compile_ctx *ctx);
 
 struct filter_class {
@@ -87,11 +86,6 @@ int
 filter_instance_build(struct ast_node_hdl *node,
                       const struct filter_class *filter_cls,
                       struct filter_def *filter_def);
-
-int
-filter_build_attrs(struct ast_node_hdl *node,
-                        const struct filter_class *filter_cls,
-                        struct statement_list *attribute_list);
 
 bitpunch_status_t
 filter_instance_evaluate_attrs(struct ast_node_hdl *expr,

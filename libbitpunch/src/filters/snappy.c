@@ -83,9 +83,9 @@ snappy_read(struct ast_node_hdl *filter,
 }
 
 static int
-snappy_filter_instance_build(struct ast_node_hdl *filter,
-                   const struct statement_list *attribute_list,
-                   struct compile_ctx *ctx)
+snappy_filter_instance_build(
+    struct ast_node_hdl *filter,
+    struct compile_ctx *ctx)
 {
     filter->ndat->u.rexpr_filter.read_func = snappy_read;
     return 0;

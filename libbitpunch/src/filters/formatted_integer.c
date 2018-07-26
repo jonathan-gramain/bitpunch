@@ -172,9 +172,9 @@ formatted_integer_read(struct ast_node_hdl *filter,
 }
 
 static int
-formatted_integer_filter_instance_build(struct ast_node_hdl *filter,
-                              const struct statement_list *attribute_list,
-                              struct compile_ctx *ctx)
+formatted_integer_filter_instance_build(
+    struct ast_node_hdl *filter,
+    struct compile_ctx *ctx)
 {
     filter->ndat->u.rexpr_filter.read_func = formatted_integer_read;
     return 0;

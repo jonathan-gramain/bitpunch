@@ -307,12 +307,11 @@ binary_integer_read_generic(
 }
 
 static int
-binary_integer_filter_instance_build(struct ast_node_hdl *filter,
-                           const struct statement_list *attribute_list,
-                           struct compile_ctx *ctx)
+binary_integer_filter_instance_build(
+    struct ast_node_hdl *filter,
+    struct compile_ctx *ctx)
 {
-    filter->ndat->u.rexpr_filter.read_func =
-        binary_integer_read_generic;
+    filter->ndat->u.rexpr_filter.read_func = binary_integer_read_generic;
     return 0;
 }
 

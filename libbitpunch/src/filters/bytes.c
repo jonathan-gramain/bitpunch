@@ -53,9 +53,9 @@ bytes_read(
 
 
 static int
-bytes_filter_instance_build(struct ast_node_hdl *filter,
-                            const struct statement_list *attribute_list,
-                            struct compile_ctx *ctx)
+bytes_filter_instance_build(
+    struct ast_node_hdl *filter,
+    struct compile_ctx *ctx)
 {
     filter->ndat->u.rexpr_filter.read_func = bytes_read;
     return 0;

@@ -185,13 +185,6 @@ filter_instance_build(struct ast_node_hdl *node,
     ndat->u.rexpr_filter.filter_cls = filter_cls;
     ndat->u.rexpr_filter.filter_def = filter_def;
     node->ndat = ndat;
-    if (-1 == filter_build_attrs(
-            node, filter_cls,
-            filter_def->block_stmt_list.attribute_list)) {
-        free(ndat);
-        node->ndat = NULL;
-        return -1;
-    }
     return 0;
 }
 
@@ -208,48 +201,6 @@ filter_class_get_attr(const struct filter_class *filter_cls,
     }
     return NULL; /* not found */
 }
-
-int
-filter_build_attrs(struct ast_node_hdl *node,
-                   const struct filter_class *filter_cls,
-                   struct statement_list *attribute_list)
-{
-    struct named_expr *attr;
-    int attr_ref;
-    const struct filter_attr_def *attr_def;
-    int *attr_is_defined;
-    int sem_error = FALSE;
-
-    attr_is_defined = new_n_safe(int, filter_cls->max_attr_ref + 1);
-    STATEMENT_FOREACH(named_expr, attr, attribute_list, list) {
-        attr_def = filter_class_get_attr(filter_cls, attr->nstmt.name);
-        if (NULL == attr_def) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &attr->nstmt.stmt.loc,
-                           "no such attribute \"%s\" for filter \"%s\"",
-                           attr->nstmt.name, filter_cls->name);
-            sem_error = TRUE;
-            continue ;
-        }
-        attr_ref = attr_def->ref_idx;
-        assert(attr_ref >= 0 && attr_ref <= filter_cls->max_attr_ref);
-        attr_is_defined[attr_ref] = TRUE;
-    }
-    STAILQ_FOREACH(attr_def, &filter_cls->attr_list, list) {
-        if (!attr_is_defined[attr_def->ref_idx]
-            && 0 != (FILTER_ATTR_FLAG_MANDATORY & attr_def->flags)) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &node->loc,
-                           "missing mandatory attribute \"%s\"",
-                           attr_def->name);
-            sem_error = TRUE;
-        }
-    }
-    free(attr_is_defined);
-    if (sem_error) {
-        return -1;
-    }
-    return 0;
-}
-
 
 
 bitpunch_status_t

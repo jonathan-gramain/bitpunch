@@ -38,8 +38,7 @@
 
 static int
 array_filter_instance_build(struct ast_node_hdl *filter,
-                 const struct statement_list *attribute_list,
-                 struct compile_ctx *ctx)
+                            struct compile_ctx *ctx)
 {
     return 0;
 }

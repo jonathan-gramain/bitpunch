@@ -150,9 +150,9 @@ base64_read(struct ast_node_hdl *filter,
 }
 
 static int
-base64_filter_instance_build(struct ast_node_hdl *filter,
-                   const struct statement_list *attribute_list,
-                   struct compile_ctx *ctx)
+base64_filter_instance_build(
+    struct ast_node_hdl *filter,
+    struct compile_ctx *ctx)
 {
     filter->ndat->u.rexpr_filter.read_func = base64_read;
     return 0;

@@ -100,9 +100,9 @@ varint_read(struct ast_node_hdl *filter,
 }
 
 static int
-varint_filter_instance_build(struct ast_node_hdl *filter,
-                   const struct statement_list *attribute_list,
-                   struct compile_ctx *ctx)
+varint_filter_instance_build(
+    struct ast_node_hdl *filter,
+    struct compile_ctx *ctx)
 {
 #if 0
     assert(NULL != data_source);
