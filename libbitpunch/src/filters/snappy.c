@@ -82,13 +82,13 @@ snappy_read(struct ast_node_hdl *filter,
     return BITPUNCH_OK;
 }
 
-static int
+static struct filter_instance *
 snappy_filter_instance_build(
     struct ast_node_hdl *filter,
     struct compile_ctx *ctx)
 {
     filter->ndat->u.rexpr_filter.read_func = snappy_read;
-    return 0;
+    return new_safe(struct filter_instance);
 }
 
 void

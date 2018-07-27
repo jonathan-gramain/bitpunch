@@ -95,6 +95,7 @@
     struct param;
 
     struct statement;
+    struct filter_instance;
 
     TAILQ_HEAD(statement_list, statement);
 
@@ -352,6 +353,7 @@
                 struct tracker_backend b_tk;
                 filter_read_func_t read_func;
                 filter_get_size_func_t get_size_func;
+                struct filter_instance *f_instance;
             } rexpr_filter;
             struct composite {
                 struct rexpr_filter rexpr_filter; /* inherits */
@@ -361,11 +363,6 @@
                     COMPOSITE_TYPE_UNION,
                 } type;
             } composite;
-            struct array {
-                struct rexpr_filter rexpr_filter; /* inherits */
-                struct dpath_node item_type;
-                struct ast_node_hdl *item_count;
-            } array;
             struct byte_array {
                 struct rexpr_filter rexpr_filter; /* inherits */
                 struct ast_node_hdl *size;

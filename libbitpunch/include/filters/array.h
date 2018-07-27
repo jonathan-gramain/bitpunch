@@ -29,39 +29,15 @@
  * DAMAGE.
  */
 
-#define _DEFAULT_SOURCE
-#define _GNU_SOURCE
+#ifndef __FILTER_ARRAY_H__
+#define __FILTER_ARRAY_H__
 
-#include <assert.h>
+#include "core/filter.h"
 
-#include "filters/item.h"
+struct filter_instance_array {
+    struct filter_instance filter; /* inherits */
+    struct dpath_node item_type;
+    struct ast_node_hdl *item_count;
+} filter_instance_array;
 
-static struct filter_instance *
-item_filter_instance_build(struct ast_node_hdl *filter,
-                           struct compile_ctx *ctx)
-{
-    return new_safe(struct filter_instance);
-}
-
-void
-filter_class_declare_item(void)
-{
-    int ret;
-
-    ret = filter_class_declare("item",
-                              EXPR_VALUE_TYPE_UNSET,
-                              item_filter_instance_build,
-                              5,
-                              "@span", REF_ITEM_SPAN,
-                              EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@minspan", REF_ITEM_MINSPAN,
-                              EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@maxspan", REF_ITEM_MAXSPAN,
-                              EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@key", REF_ITEM_KEY,
-                              (EXPR_VALUE_TYPE_INTEGER |
-                               EXPR_VALUE_TYPE_STRING), 0,
-                              "@last", REF_ITEM_LAST,
-                              EXPR_VALUE_TYPE_BOOLEAN, 0);
-    assert(0 == ret);
-}
+#endif

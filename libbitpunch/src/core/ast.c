@@ -43,6 +43,7 @@
 #include "core/print.h"
 #include "core/parser.h"
 #include "filters/item.h"
+#include "filters/array.h"
 #include PATH_TO_PARSER_TAB_H
 
 //#define OUTPUT_DEP_GRAPH
@@ -1847,17 +1848,13 @@ compile_array_def(struct ast_node_hdl *filter,
                   struct compile_ctx *ctx,
                   enum resolve_expect_mask expect_mask)
 {
-    struct ast_node_hdl *item_type;
-    struct ast_node_hdl *item_count;
     struct filter_class *filter_cls;
     struct filter_def *filter_def;
     struct ast_node_data *ndat;
+    struct filter_instance *f_instance;
 
-    item_type = filter->ndat->u.array_def.item_type;
-    item_count = filter->ndat->u.array_def.item_count;
-    if (NULL != item_count) {
-        compile_expr(item_count, ctx, FALSE);
-    }
+    // TODO this should be handled by compile_rexpr_filter() once
+    // array item_type and item_count become regular @attributes
     filter_cls = filter_class_lookup("array");
     assert(NULL != filter_cls);
 
@@ -1870,9 +1867,16 @@ compile_array_def(struct ast_node_hdl *filter,
     ndat->type = AST_NODE_TYPE_ARRAY;
     ndat->u.rexpr_filter.filter_cls = filter_cls;
     ndat->u.rexpr_filter.filter_def = filter_def;
-    dpath_node_reset(&ndat->u.array.item_type);
-    ndat->u.array.item_type.item = item_type;
-    ndat->u.array.item_count = item_count;
+    // FIXME note that we pass the ARRAY_DEF to the array build
+    // function as a transition measure for filter generalization, we
+    // should pass the pre-built REXPR_FILTER instance
+    f_instance = filter_cls->filter_instance_build_func(filter, ctx);
+    if (NULL == f_instance) {
+        return -1;
+    }
+    ndat->u.rexpr_filter.f_instance = f_instance;
+    // template flag may be removed when compiling OP_FILTER
+    ndat->flags |= ASTFLAG_DATA_TEMPLATE;
     filter->ndat = ndat;
     return 0;
 }
@@ -1888,6 +1892,7 @@ compile_rexpr_filter(struct ast_node_hdl *expr,
     int attr_ref;
     int *attr_is_defined;
     int sem_error = FALSE;
+    struct filter_instance *f_instance;
 
     filter_cls = expr->ndat->u.rexpr_filter.filter_cls;
     stmt_lists = &expr->ndat->u.rexpr_filter.filter_def->block_stmt_list;
@@ -1935,9 +1940,11 @@ compile_rexpr_filter(struct ast_node_hdl *expr,
     if (sem_error) {
         return -1;
     }
-    if (-1 == filter_cls->filter_instance_build_func(expr, ctx)) {
+    f_instance = filter_cls->filter_instance_build_func(expr, ctx);
+    if (NULL == f_instance) {
         return -1;
     }
+    expr->ndat->u.rexpr_filter.f_instance = f_instance;
     // template flag may be removed when compiling OP_FILTER
     expr->ndat->flags |= ASTFLAG_DATA_TEMPLATE;
     return 0;
@@ -1955,13 +1962,16 @@ compile_array(struct ast_node_hdl *filter,
               struct compile_ctx *ctx,
               enum resolve_expect_mask expect_mask)
 {
+    struct filter_instance_array *array;
     struct ast_node_hdl *item_type;
     struct ast_node_hdl *item_count;
     struct dpath_node *item_dpath;
 
-    item_dpath = &filter->ndat->u.array.item_type;
+    array = (struct filter_instance_array *)
+        filter->ndat->u.rexpr_filter.f_instance;
+    item_dpath = &array->item_type;
     item_type = item_dpath->item;
-    item_count = filter->ndat->u.array.item_count;
+    item_count = array->item_count;
 
     if (-1 == compile_dpath(item_dpath, ctx, COMPILE_TAG_NODE_TYPE, 0u)) {
         return -1;
@@ -2308,6 +2318,7 @@ compile_expr_operator_subscript(struct ast_node_hdl *node,
                                 struct compile_ctx *ctx,
                                 enum resolve_expect_mask expect_mask)
 {
+    struct filter_instance_array *array;
     struct ast_node_hdl *anchor_expr;
     struct ast_node_data *compiled_type;
     struct subscript_index *index;
@@ -2334,12 +2345,14 @@ compile_expr_operator_subscript(struct ast_node_hdl *node,
         switch (anchor_item->ndat->type) {
         case AST_NODE_TYPE_ARRAY:
         case AST_NODE_TYPE_ARRAY_SLICE:
-            if (-1 == compile_dpath(&anchor_item->ndat->u.array.item_type,
+            array = (struct filter_instance_array *)
+                anchor_item->ndat->u.rexpr_filter.f_instance;
+            if (-1 == compile_dpath(&array->item_type,
                                     ctx, COMPILE_TAG_NODE_TYPE, 0u)) {
                 return -1;
             }
             value_type_mask = expr_value_type_mask_from_dpath_node(
-                &anchor_item->ndat->u.array.item_type);
+                &array->item_type);
             break ;
         case AST_NODE_TYPE_BYTE_ARRAY:
         case AST_NODE_TYPE_BYTE_SLICE:
@@ -3237,8 +3250,9 @@ compile_span_size_composite(struct ast_node_hdl *item, struct compile_ctx *ctx)
 }
 
 static int
-compile_span_size_array(struct ast_node_hdl *array, struct compile_ctx *ctx)
+compile_span_size_array(struct ast_node_hdl *item, struct compile_ctx *ctx)
 {
+    struct filter_instance_array *array;
     struct dpath_node *item_dpath;
     struct ast_node_hdl *item_type;
     struct ast_node_hdl *item_count_expr;
@@ -3246,8 +3260,10 @@ compile_span_size_array(struct ast_node_hdl *array, struct compile_ctx *ctx)
     int64_t min_span_size;
     int dynamic_span;
 
+    array = (struct filter_instance_array *)
+        item->ndat->u.rexpr_filter.f_instance;
     item_count_expr =
-        ast_node_get_named_expr_target(array->ndat->u.array.item_count);
+        ast_node_get_named_expr_target(array->item_count);
     if (NULL != item_count_expr) {
         if (-1 == compile_expr(item_count_expr, ctx, TRUE)) {
             return -1;
@@ -3263,7 +3279,7 @@ compile_span_size_array(struct ast_node_hdl *array, struct compile_ctx *ctx)
             return -1;
         }
     }
-    item_dpath = &array->ndat->u.array.item_type;
+    item_dpath = &array->item_type;
     item_type = ast_node_get_target_item(item_dpath->item);
     assert(ast_node_is_item(item_type));
     if (NULL != item_count_expr
@@ -3297,13 +3313,13 @@ compile_span_size_array(struct ast_node_hdl *array, struct compile_ctx *ctx)
         }
         min_span_size = 0;
         dynamic_span = TRUE;
-        array->ndat->u.item.min_span_size = 0;
-        array->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_DYNAMIC |
+        item->ndat->u.item.min_span_size = 0;
+        item->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_DYNAMIC |
                                       ITEMFLAG_IS_USED_SIZE_DYNAMIC);
     }
-    array->ndat->u.item.min_span_size = min_span_size;
+    item->ndat->u.item.min_span_size = min_span_size;
     if (dynamic_span) {
-        array->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_DYNAMIC |
+        item->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_DYNAMIC |
                                       ITEMFLAG_IS_USED_SIZE_DYNAMIC);
     }
     if (0 == (item_type->flags & ASTFLAG_CONTAINS_LAST_ATTR)) {
@@ -3312,7 +3328,7 @@ compile_span_size_array(struct ast_node_hdl *array, struct compile_ctx *ctx)
             // space, they may not allow to fill the whole slack
             // space, so we don't set ITEMFLAG_FILLS_SLACK (meaning
             // used size may be smaller than max span size)
-            array->ndat->u.item.flags |= (ITEMFLAG_USES_SLACK |
+            item->ndat->u.item.flags |= (ITEMFLAG_USES_SLACK |
                                           ITEMFLAG_SPREADS_SLACK);
         }
     }
@@ -3752,6 +3768,7 @@ ast_node_get_target_item(struct ast_node_hdl *node)
     switch (node->ndat->type) {
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT: {
         struct ast_node_hdl *anchor_target;
+        struct filter_instance_array *array;
 
         anchor_target = ast_node_get_target_item(
             node->ndat->u.rexpr_op_subscript_common.anchor_expr);
@@ -3760,8 +3777,9 @@ ast_node_get_target_item(struct ast_node_hdl *node)
         }
         switch (anchor_target->ndat->type) {
         case AST_NODE_TYPE_ARRAY:
-            return ast_node_get_target_item(
-                anchor_target->ndat->u.array.item_type.item);
+            array = (struct filter_instance_array *)
+                anchor_target->ndat->u.rexpr_filter.f_instance;
+            return ast_node_get_target_item(array->item_type.item);
         case AST_NODE_TYPE_ARRAY_SLICE:
         case AST_NODE_TYPE_BYTE_SLICE:
             return anchor_target;
@@ -3813,6 +3831,7 @@ ast_node_get_target_filter(struct ast_node_hdl *node)
         }
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT: {
         struct ast_node_hdl *anchor_target;
+        struct filter_instance_array *array;
 
         anchor_target = ast_node_get_target_item(
             node->ndat->u.rexpr_op_subscript_common.anchor_expr);
@@ -3821,8 +3840,9 @@ ast_node_get_target_filter(struct ast_node_hdl *node)
         }
         switch (anchor_target->ndat->type) {
         case AST_NODE_TYPE_ARRAY:
-            return ast_node_get_target_filter(
-                anchor_target->ndat->u.array.item_type.filter);
+            array = (struct filter_instance_array *)
+                anchor_target->ndat->u.rexpr_filter.f_instance;
+            return ast_node_get_target_filter(array->item_type.filter);
         case AST_NODE_TYPE_ARRAY_SLICE:
         case AST_NODE_TYPE_BYTE_SLICE:
             return anchor_target;
@@ -4012,6 +4032,7 @@ ast_node_get_as_type__rexpr(const struct ast_node_hdl *expr)
 
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT: {
         struct ast_node_hdl *anchor_target;
+        struct filter_instance_array *array;
 
         anchor_target = ast_node_get_as_type(
             expr->ndat->u.rexpr_op_subscript_common.anchor_expr);
@@ -4020,8 +4041,9 @@ ast_node_get_as_type__rexpr(const struct ast_node_hdl *expr)
         }
         switch (anchor_target->ndat->type) {
         case AST_NODE_TYPE_ARRAY:
-            return dpath_node_get_as_type(
-                &anchor_target->ndat->u.array.item_type);
+            array = (struct filter_instance_array *)
+                anchor_target->ndat->u.rexpr_filter.f_instance;
+            return dpath_node_get_as_type(&array->item_type);
         case AST_NODE_TYPE_ARRAY_SLICE:
         case AST_NODE_TYPE_BYTE_SLICE:
             return anchor_target;
@@ -4073,9 +4095,13 @@ ast_node_get_min_span_size(const struct ast_node_hdl *node)
 int
 ast_node_is_slack(const struct ast_node_hdl *node)
 {
+    struct filter_instance_array *array;
+
     switch (node->ndat->type) {
     case AST_NODE_TYPE_ARRAY:
-        if (NULL == node->ndat->u.array.item_count) {
+        array = (struct filter_instance_array *)
+            node->ndat->u.rexpr_filter.f_instance;
+        if (NULL == array->item_count) {
             return TRUE;
         }
         break ;
@@ -4110,10 +4136,13 @@ int
 ast_node_is_indexed(const struct ast_node_hdl *node)
 {
     const struct ast_node_hdl *target;
+    struct filter_instance_array *array;
 
     switch (node->ndat->type) {
     case AST_NODE_TYPE_ARRAY:
-        target = dpath_node_get_as_type(&node->ndat->u.array.item_type);
+        array = (struct filter_instance_array *)
+            node->ndat->u.rexpr_filter.f_instance;
+        target = dpath_node_get_as_type(&array->item_type);
         if (AST_NODE_TYPE_COMPOSITE != target->ndat->type) {
             return FALSE;
         }
@@ -4127,10 +4156,13 @@ struct ast_node_hdl *
 ast_node_get_key_expr(const struct ast_node_hdl *node)
 {
     const struct ast_node_hdl *target;
+    struct filter_instance_array *array;
 
     switch (node->ndat->type) {
     case AST_NODE_TYPE_ARRAY:
-        target = dpath_node_get_as_type(&node->ndat->u.array.item_type);
+        array = (struct filter_instance_array *)
+            node->ndat->u.rexpr_filter.f_instance;
+        target = dpath_node_get_as_type(&array->item_type);
         if (AST_NODE_TYPE_COMPOSITE != target->ndat->type) {
             return NULL;
         }
@@ -4393,25 +4425,28 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         fprintf(out, "\n");
         dump_composite_recur(node, depth + 1, visible_refs, out);
         break ;
-    case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_ARRAY: {
+        struct filter_instance_array *array;
+
+        array = (struct filter_instance_array *)
+            node->ndat->u.rexpr_filter.f_instance;
         fprintf(out, "\n%*s\\_ ", (depth + 1) * INDENT_N_SPACES, "");
         dump_ast_item_info(node, out);
         fprintf(out, ", item type:\n");
-        fdump_ast_recur(node->ndat->u.array.item_type.item, depth + 2,
-                        visible_refs, out);
-        if (NULL != node->ndat->u.array.item_type.filter) {
+        fdump_ast_recur(array->item_type.item, depth + 2, visible_refs, out);
+        if (NULL != array->item_type.filter) {
             fprintf(out, "%*s\\_ filter:\n",
                     (depth + 1) * INDENT_N_SPACES, "");
-            dump_ast_type(node->ndat->u.array.item_type.filter, depth + 2,
+            dump_ast_type(array->item_type.filter, depth + 2,
                           visible_refs, out);
             fprintf(out, "\n");
         }
         fprintf(out, "%*s\\_ value count:\n",
                 (depth + 1) * INDENT_N_SPACES, "");
-        fdump_ast_recur(node->ndat->u.array.item_count, depth + 2, visible_refs,
-                        out);
+        fdump_ast_recur(array->item_count, depth + 2, visible_refs, out);
         dump_ast_container(node, depth, visible_refs, out);
         break ;
+    }
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:

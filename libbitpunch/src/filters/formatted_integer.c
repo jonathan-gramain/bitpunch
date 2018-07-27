@@ -171,13 +171,13 @@ formatted_integer_read(struct ast_node_hdl *filter,
     return BITPUNCH_DATA_ERROR;
 }
 
-static int
+static struct filter_instance *
 formatted_integer_filter_instance_build(
     struct ast_node_hdl *filter,
     struct compile_ctx *ctx)
 {
     filter->ndat->u.rexpr_filter.read_func = formatted_integer_read;
-    return 0;
+    return new_safe(struct filter_instance);
 }
 
 void

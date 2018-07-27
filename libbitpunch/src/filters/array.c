@@ -34,13 +34,27 @@
 
 #include <assert.h>
 
-#include "core/filter.h"
+#include "filters/array.h"
 
-static int
+static struct filter_instance *
 array_filter_instance_build(struct ast_node_hdl *filter,
                             struct compile_ctx *ctx)
 {
-    return 0;
+    struct ast_node_hdl *item_type;
+    struct ast_node_hdl *item_count;
+    struct filter_instance_array *array;
+
+    assert(AST_NODE_TYPE_ARRAY_DEF == filter->ndat->type);
+    item_type = filter->ndat->u.array_def.item_type;
+    item_count = filter->ndat->u.array_def.item_count;
+    if (NULL != item_count) {
+        compile_expr(item_count, ctx, FALSE);
+    }
+    array = new_safe(struct filter_instance_array);
+    dpath_node_reset(&array->item_type);
+    array->item_type.item = item_type;
+    array->item_count = item_count;
+    return (struct filter_instance *)array;
 }
 
 void

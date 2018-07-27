@@ -306,13 +306,13 @@ binary_integer_read_generic(
     return BITPUNCH_OK;
 }
 
-static int
+static struct filter_instance *
 binary_integer_filter_instance_build(
     struct ast_node_hdl *filter,
     struct compile_ctx *ctx)
 {
     filter->ndat->u.rexpr_filter.read_func = binary_integer_read_generic;
-    return 0;
+    return new_safe(struct filter_instance);
 }
 
 #endif // optimized code

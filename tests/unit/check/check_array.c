@@ -42,6 +42,7 @@
 
 #include "api/bitpunch_api.h"
 #include "core/print.h"
+#include "filters/array.h"
 #include PATH_TO_PARSER_TAB_H
 
 #include "check_tracker.h"
@@ -278,6 +279,7 @@ START_TEST(sarray_ast)
     const struct ast_node_hdl *root;
     const struct block_stmt_list *stmt_lists;
     const struct field *field;
+    struct filter_instance_array *array;
     const struct ast_node_hdl *int_size;
     const struct dpath_node *item_type;
     const struct ast_node_hdl *item_count;
@@ -291,7 +293,9 @@ START_TEST(sarray_ast)
     ck_assert_ptr_ne(field->dpath.item, NULL);
     ck_assert_int_eq(field->dpath.item->ndat->type, AST_NODE_TYPE_ARRAY);
 
-    item_type = &field->dpath.item->ndat->u.array.item_type;
+    array = (struct filter_instance_array *)
+        field->dpath.item->ndat->u.rexpr_filter.f_instance;
+    item_type = &array->item_type;
     ck_assert_ptr_ne(item_type->filter, NULL);
     ck_assert_ptr_ne(item_type->item, NULL);
     ck_assert_int_eq(item_type->item->ndat->type, AST_NODE_TYPE_BYTE_ARRAY);
@@ -302,7 +306,7 @@ START_TEST(sarray_ast)
                      EXPR_VALUE_TYPE_INTEGER);
     ck_assert_int_eq(int_size->ndat->u.rexpr_native.value.integer, 4);
 
-    item_count = field->dpath.item->ndat->u.array.item_count;
+    item_count = array->item_count;
     ck_assert_ptr_ne(item_count, NULL);
     ck_assert_int_eq(item_count->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
     ck_assert_int_eq(item_count->ndat->u.rexpr.value_type_mask,
@@ -337,6 +341,7 @@ START_TEST(varray_ast)
     const struct ast_node_hdl *root;
     const struct block_stmt_list *stmt_lists;
     const struct field *field;
+    struct filter_instance_array *array;
     const struct ast_node_hdl *int_array_size_item;
     const struct ast_node_hdl *int_array_size;
     const struct ast_node_hdl *field_type;
@@ -369,7 +374,9 @@ START_TEST(varray_ast)
     ck_assert_ptr_ne(field_type, NULL);
     ck_assert_int_eq(field_type->ndat->type, AST_NODE_TYPE_ARRAY);
 
-    item_type = &field_type->ndat->u.array.item_type;
+    array = (struct filter_instance_array *)
+        field->dpath.item->ndat->u.rexpr_filter.f_instance;
+    item_type = &array->item_type;
     ck_assert_ptr_ne(item_type->filter, NULL);
     ck_assert_int_eq(item_type->item->ndat->type, AST_NODE_TYPE_BYTE_ARRAY);
     int_size = item_type->item->ndat->u.byte_array.size;
@@ -379,7 +386,7 @@ START_TEST(varray_ast)
                      EXPR_VALUE_TYPE_INTEGER);
     ck_assert_int_eq(int_size->ndat->u.rexpr_native.value.integer, 4);
 
-    item_count = field_type->ndat->u.array.item_count;
+    item_count = array->item_count;
     ck_assert_ptr_ne(item_count, NULL);
     ck_assert_int_eq(item_count->ndat->type, AST_NODE_TYPE_REXPR_OP_ADD);
     ck_assert_int_eq(item_count->ndat->u.rexpr.value_type_mask,

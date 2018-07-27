@@ -158,7 +158,7 @@ string_read_byte_array_multi_char_boundary(
 }
 
 
-static int
+static struct filter_instance *
 string_filter_instance_build(
     struct ast_node_hdl *filter,
     struct compile_ctx *ctx)
@@ -205,7 +205,7 @@ string_filter_instance_build(
             break ;
         }
     }
-    return 0;
+    return new_safe(struct filter_instance);
 }
 
 void

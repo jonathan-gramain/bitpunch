@@ -52,13 +52,13 @@ bytes_read(
 }
 
 
-static int
+static struct filter_instance *
 bytes_filter_instance_build(
     struct ast_node_hdl *filter,
     struct compile_ctx *ctx)
 {
     filter->ndat->u.rexpr_filter.read_func = bytes_read;
-    return 0;
+    return new_safe(struct filter_instance);
 }
 
 void

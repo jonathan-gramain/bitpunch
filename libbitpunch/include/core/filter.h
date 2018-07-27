@@ -52,7 +52,10 @@ struct filter_attr_def {
     enum filter_attr_flags flags;
 };
 
-typedef int
+struct filter_instance {
+};
+
+typedef struct filter_instance *
 (*filter_instance_build_func_t)(
     struct ast_node_hdl *filter,
     struct compile_ctx *ctx);
