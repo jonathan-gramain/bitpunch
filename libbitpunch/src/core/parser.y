@@ -1057,15 +1057,6 @@ block_stmt_list:
 
   | block_stmt_list attribute_stmt {
         $$ = $1;
-        const char *attr_name;
-
-        attr_name = $attribute_stmt->nstmt.name;
-        if (attr_name[0] != '@') {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                           &$attribute_stmt->nstmt.stmt.loc,
-                           "attribute names must start with symbol '@'");
-            YYERROR;
-        }
         TAILQ_INSERT_TAIL($$.attribute_list,
                           (struct statement *)$attribute_stmt, list);
     }
@@ -1105,6 +1096,11 @@ field_stmt:
 
 attribute_stmt:
     IDENTIFIER '=' expr ';' {
+        if ($IDENTIFIER[0] != '@') {
+            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &@$,
+                           "attribute names must start with symbol '@'");
+            YYERROR;
+        }
         $$ = new_safe(struct named_expr);
         $$->nstmt.stmt.loc = @$;
         $$->nstmt.name = $IDENTIFIER;
