@@ -40,13 +40,24 @@ static struct filter_instance *
 array_filter_instance_build(struct ast_node_hdl *filter,
                             struct compile_ctx *ctx)
 {
+    struct named_expr *attr;
     struct ast_node_hdl *item_type;
     struct ast_node_hdl *item_count;
     struct filter_instance_array *array;
 
-    assert(AST_NODE_TYPE_ARRAY_DEF == filter->ndat->type);
-    item_type = filter->ndat->u.array_def.item_type;
-    item_count = filter->ndat->u.array_def.item_count;
+    item_type = NULL;
+    item_count = NULL;
+    // FIXME this does not support conditional attributes
+    STATEMENT_FOREACH(
+        named_expr, attr,
+        filter->ndat->u.rexpr_filter.filter_def->block_stmt_list.attribute_list,
+        list) {
+        if (0 == strcmp(attr->nstmt.name, "@item")) {
+            item_type = attr->expr;
+        } else if (0 == strcmp(attr->nstmt.name, "@length")) {
+            item_count = attr->expr;
+        }
+    }
     if (NULL != item_count) {
         compile_expr(item_count, ctx, FALSE);
     }
@@ -65,6 +76,10 @@ filter_class_declare_array(void)
     ret = filter_class_declare("array",
                                EXPR_VALUE_TYPE_UNSET,
                                array_filter_instance_build,
-                               0);
+                               2,
+                               "@item", REF_ITEM_ITEM,
+                               EXPR_VALUE_TYPE_UNSET, 0,
+                               "@length", REF_ITEM_LENGTH,
+                               EXPR_VALUE_TYPE_INTEGER, 0);
     assert(0 == ret);
 }

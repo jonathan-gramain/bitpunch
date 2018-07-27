@@ -34,6 +34,9 @@
 
 #include "core/filter.h"
 
+#define REF_ITEM_ITEM    0
+#define REF_ITEM_LENGTH  1
+
 struct filter_instance_array {
     struct filter_instance filter; /* inherits */
     struct dpath_node item_type;

@@ -742,8 +742,11 @@ resolve_identifiers_in_stmt_lists(
     }
     STATEMENT_FOREACH(named_expr, named_expr,
                       stmt_lists->attribute_list, list) {
-        if (-1 == resolve_identifiers_in_expression(
-                named_expr->expr, visible_refs, resolve_tags)) {
+        if (-1 == resolve_identifiers(named_expr->expr, visible_refs,
+                                      RESOLVE_EXPECT_TYPE |
+                                      RESOLVE_EXPECT_FILTER |
+                                      RESOLVE_EXPECT_EXPRESSION,
+                                      resolve_tags)) {
             return -1;
         }
     }
@@ -778,28 +781,6 @@ resolve_identifiers_filter(struct ast_node_hdl *filter,
 {
     if (-1 == resolve_identifiers_in_filter_body(filter, visible_refs,
                                                  resolve_tags)) {
-        return -1;
-    }
-    return 0;
-}
-
-static int
-resolve_identifiers_array_def(
-    struct ast_node_hdl *node,
-    const struct list_of_visible_refs *visible_refs,
-    enum resolve_expect_mask expect_mask,
-    enum resolve_identifiers_tag resolve_tags)
-{
-    /* resolve array type and count expression, if defined */
-    if (-1 == resolve_identifiers(
-            node->ndat->u.array_def.item_type, visible_refs,
-            RESOLVE_EXPECT_TYPE, resolve_tags)) {
-        return -1;
-    }
-    if (NULL != node->ndat->u.array_def.item_count &&
-        -1 == resolve_identifiers_in_expression(
-            node->ndat->u.array_def.item_count, visible_refs,
-            resolve_tags)) {
         return -1;
     }
     return 0;
@@ -1144,9 +1125,6 @@ resolve_identifiers(struct ast_node_hdl *node,
     case AST_NODE_TYPE_FILTER_DEF:
         return resolve_identifiers_filter(node, visible_refs,
                                           expect_mask, resolve_tags);
-    case AST_NODE_TYPE_ARRAY_DEF:
-        return resolve_identifiers_array_def(node, visible_refs,
-                                             expect_mask, resolve_tags);
     case AST_NODE_TYPE_BYTE_ARRAY:
         return resolve_identifiers_byte_array(node, visible_refs,
                                               expect_mask, resolve_tags);
@@ -1826,6 +1804,16 @@ compile_filter_def(struct ast_node_hdl *filter,
             ndat->u.composite.type = COMPOSITE_TYPE_UNION;
         }
         filter->ndat = ndat;
+    } else if (0 == strcmp(filter_type, "array")) {
+        filter_cls = filter_class_lookup("array");
+        assert(NULL != filter_cls);
+
+        ndat = new_safe(struct ast_node_data);
+        ndat->type = AST_NODE_TYPE_ARRAY;
+        ndat->u.item.min_span_size = SPAN_SIZE_UNDEF;
+        ndat->u.rexpr_filter.filter_cls = filter_cls;
+        ndat->u.rexpr_filter.filter_def = &filter->ndat->u.filter_def;
+        filter->ndat = ndat;
     } else {
         filter_cls = filter_class_lookup(filter_type);
         if (NULL == filter_cls) {
@@ -1840,44 +1828,6 @@ compile_filter_def(struct ast_node_hdl *filter,
             return -1;
         }
     }
-    return 0;
-}
-
-static int
-compile_array_def(struct ast_node_hdl *filter,
-                  struct compile_ctx *ctx,
-                  enum resolve_expect_mask expect_mask)
-{
-    struct filter_class *filter_cls;
-    struct filter_def *filter_def;
-    struct ast_node_data *ndat;
-    struct filter_instance *f_instance;
-
-    // TODO this should be handled by compile_rexpr_filter() once
-    // array item_type and item_count become regular @attributes
-    filter_cls = filter_class_lookup("array");
-    assert(NULL != filter_cls);
-
-    filter_def = new_safe(struct filter_def);
-    filter_def->filter_type = "array";
-    filter_def->block_stmt_list = EMPTY_BLOCK_STMT_LIST;
-
-    ndat = new_safe(struct ast_node_data);
-    ndat->u.item.min_span_size = SPAN_SIZE_UNDEF;
-    ndat->type = AST_NODE_TYPE_ARRAY;
-    ndat->u.rexpr_filter.filter_cls = filter_cls;
-    ndat->u.rexpr_filter.filter_def = filter_def;
-    // FIXME note that we pass the ARRAY_DEF to the array build
-    // function as a transition measure for filter generalization, we
-    // should pass the pre-built REXPR_FILTER instance
-    f_instance = filter_cls->filter_instance_build_func(filter, ctx);
-    if (NULL == f_instance) {
-        return -1;
-    }
-    ndat->u.rexpr_filter.f_instance = f_instance;
-    // template flag may be removed when compiling OP_FILTER
-    ndat->flags |= ASTFLAG_DATA_TEMPLATE;
-    filter->ndat = ndat;
     return 0;
 }
 
@@ -1908,8 +1858,9 @@ compile_rexpr_filter(struct ast_node_hdl *expr,
             sem_error = TRUE;
             continue ;
         }
-        if (0 == (attr_def->value_type_mask
-                  & attr->expr->ndat->u.rexpr.value_type_mask)) {
+        if (attr_def->value_type_mask != EXPR_VALUE_TYPE_UNSET
+            && 0 == (attr_def->value_type_mask
+                     & attr->expr->ndat->u.rexpr.value_type_mask)) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &attr->expr->loc,
                 "attribute \"%s\" passed to filter \"%s\" has "
@@ -1959,20 +1910,22 @@ compile_composite(struct ast_node_hdl *filter,
 
 static int
 compile_array(struct ast_node_hdl *filter,
-              struct compile_ctx *ctx,
-              enum resolve_expect_mask expect_mask)
+              struct compile_ctx *ctx)
 {
     struct filter_instance_array *array;
     struct ast_node_hdl *item_type;
     struct ast_node_hdl *item_count;
     struct dpath_node *item_dpath;
 
+    if (NULL == filter->ndat->u.rexpr_filter.f_instance
+        && -1 == compile_rexpr_filter(filter, ctx)) {
+        return -1;
+    }
     array = (struct filter_instance_array *)
         filter->ndat->u.rexpr_filter.f_instance;
     item_dpath = &array->item_type;
     item_type = item_dpath->item;
     item_count = array->item_count;
-
     if (-1 == compile_dpath(item_dpath, ctx, COMPILE_TAG_NODE_TYPE, 0u)) {
         return -1;
     }
@@ -2903,14 +2856,12 @@ compile_node_type_int(struct ast_node_hdl *node,
         return compile_expr_string_literal(node, ctx, expect_mask);
     case AST_NODE_TYPE_FILTER_DEF:
         return compile_filter_def(node, ctx, expect_mask);
-    case AST_NODE_TYPE_ARRAY_DEF:
-        return compile_array_def(node, ctx, expect_mask);
     case AST_NODE_TYPE_REXPR_FILTER:
         return compile_rexpr_filter(node, ctx);
     case AST_NODE_TYPE_COMPOSITE:
         return compile_composite(node, ctx);
     case AST_NODE_TYPE_ARRAY:
-        return compile_array(node, ctx, expect_mask);
+        return compile_array(node, ctx);
     case AST_NODE_TYPE_CONDITIONAL:
         return compile_conditional(node, ctx);
     case AST_NODE_TYPE_OP_UPLUS:
@@ -4405,19 +4356,6 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         fprintf(out, "\n");
         dump_filter_recur(node, depth + 1, visible_refs, out);
         break ;
-    case AST_NODE_TYPE_ARRAY_DEF:
-        fprintf(out, "array def");
-        dump_ast_item_info(node, out);
-        fprintf(out, ", item type:\n");
-        fdump_ast_recur(node->ndat->u.array_def.item_type, depth + 2,
-                        visible_refs, out);
-        fprintf(out, "%*s\\_ value count:\n",
-                (depth + 1) * INDENT_N_SPACES, "");
-        fdump_ast_recur(node->ndat->u.array_def.item_count, depth + 2,
-                        visible_refs, out);
-        dump_ast_container(node, depth, visible_refs, out);
-        fprintf(out, "\n");
-        break ;
     case AST_NODE_TYPE_COMPOSITE:
         fprintf(out, "composite type: %s, ",
                 composite_type_str(node->ndat->u.composite.type));
@@ -4810,7 +4748,6 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
         break ;
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_FILTER_DEF:
-    case AST_NODE_TYPE_ARRAY_DEF:
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_ARRAY_SLICE:
