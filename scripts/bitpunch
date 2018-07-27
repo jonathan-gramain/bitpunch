@@ -1,0 +1,8 @@
+#!/bin/bash
+
+PYTHONPATH=$(dirname $0)/../lib.linux-x86_64-2.7
+LD_LIBRARY_PATH=$(dirname $0)/../lib
+
+PYTHONPATH=${PYTHONPATH} \
+          LD_LIBRARY_PATH=${LD_LIBRARY_PATH} \
+          python ${PYTHONPATH}/bitpunch_cli/cli.py "$@"

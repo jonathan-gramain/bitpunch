@@ -34,8 +34,6 @@
 
 #include "utils/port.h"
 
-#define PATH_TO_PARSER_TAB_H "build/libbitpunch/tmp/core/parser.tab.h"
-
 struct ast_node_hdl;
 struct parser_ctx;
 struct bitpunch_schema_hdl;

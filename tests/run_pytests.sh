@@ -1,6 +1,7 @@
 #!/bin/bash
 
-export PYTHONPATH=build/lib.linux-x86_64-2.7
-export LD_LIBRARY_PATH=build/lib
+BUILD_DIR=${BITPUNCH_BUILD_DIR:-build}
 
-py.test $(dirname $0)/unit/pytest
+PYTHONPATH=${BUILD_DIR}/lib.linux-x86_64-2.7 \
+          LD_LIBRARY_PATH=${BUILD_DIR}/lib \
+          py.test $(dirname $0)/unit/pytest

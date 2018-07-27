@@ -1,14 +1,25 @@
 #!/usr/bin/env python
 
+import os
 from distutils.core import setup, Extension
+
+try:
+    build_dir = os.environ['BITPUNCH_BUILD_DIR']
+except KeyError:
+    build_dir = 'build'
 
 model = Extension('bitpunch.model.model_ext',
                   sources = ['pythonlib/bitpunch/model/modelmodule.c'],
                   include_dirs = ['libbitpunch/include', '.'],
-                  library_dirs = ['build/lib'],
+                  library_dirs = ['{}/lib'.format(build_dir)],
                   libraries = ['bitpunch'],
-                  define_macros=[('DEBUG', None)],
-                  extra_compile_args=['-O0', '-g3'])
+                  define_macros=[
+                      ('DEBUG', None),
+                      ('BUILD_DIR', build_dir),
+                      ('PATH_TO_PARSER_TAB_H',
+                       '"{}/libbitpunch/tmp/core/parser.tab.h"'
+                       .format(build_dir))
+                  ])
 
 setup (name = 'bitpunch',
        version = '0.1.0',
