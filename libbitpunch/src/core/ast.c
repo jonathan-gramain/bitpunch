@@ -4297,10 +4297,8 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         fprintf(out, "\"%s\"\n", node->ndat->u.identifier);
         break ;
     case AST_NODE_TYPE_FILTER_DEF:
-        fprintf(out, "filter type: %s, ",
+        fprintf(out, "filter type: %s\n",
                 node->ndat->u.filter_def.filter_type);
-        dump_ast_item_info(node, out);
-        fprintf(out, "\n");
         dump_filter_recur(node, depth + 1, visible_refs, out);
         break ;
     case AST_NODE_TYPE_COMPOSITE:
