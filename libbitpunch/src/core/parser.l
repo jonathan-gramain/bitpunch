@@ -100,7 +100,6 @@ int lit_alloc;
 %}
 
 file       { return KW_FILE; }
-match      { return KW_MATCH; }
 if         { return KW_IF; }
 else       { return KW_ELSE; }
 self       { return KW_SELF; }

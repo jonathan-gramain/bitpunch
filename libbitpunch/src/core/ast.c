@@ -74,14 +74,11 @@ static struct statement_list empty_named_expr_list =
     TAILQ_HEAD_INITIALIZER(empty_named_expr_list);
 static struct statement_list empty_attr_list =
     TAILQ_HEAD_INITIALIZER(empty_attr_list);
-static struct statement_list empty_match_list =
-    TAILQ_HEAD_INITIALIZER(empty_match_list);
 
 static const struct block_stmt_list EMPTY_BLOCK_STMT_LIST = {
     .field_list = &empty_field_list,
     .named_expr_list = &empty_named_expr_list,
     .attribute_list = &empty_attr_list,
-    .match_list = &empty_match_list,
 };
 
 static int
@@ -235,8 +232,6 @@ block_stmt_lists_get_list(enum statement_type stmt_type,
         return stmt_lists->named_expr_list;
     case STATEMENT_TYPE_ATTRIBUTE:
         return stmt_lists->attribute_list;
-    case STATEMENT_TYPE_MATCH:
-        return stmt_lists->match_list;
     default:
         assert(0);
     }
@@ -787,24 +782,6 @@ resolve_identifiers_filter(struct ast_node_hdl *filter,
 }
 
 static int
-resolve_identifiers_byte_array(
-    struct ast_node_hdl *node,
-    const struct list_of_visible_refs *visible_refs,
-    enum resolve_expect_mask expect_mask,
-    enum resolve_identifiers_tag resolve_tags)
-{
-    // FIXME is this function dead code?
-    /* resolve array count expression, if defined */
-    if (NULL != node->ndat->u.byte_array.size &&
-        -1 == resolve_identifiers_in_expression(
-            node->ndat->u.byte_array.size, visible_refs,
-            resolve_tags)) {
-        return -1;
-    }
-    return 0;
-}
-
-static int
 resolve_identifiers_conditional(
     struct ast_node_hdl *node,
     const struct list_of_visible_refs *visible_refs,
@@ -1023,26 +1000,6 @@ resolve_identifiers_expr_self(
     return 0;
 }
 
-static int
-resolve_identifiers_rexpr_filter(
-    struct ast_node_hdl *node,
-    const struct list_of_visible_refs *outer_refs,
-    enum resolve_expect_mask expect_mask,
-    enum resolve_identifiers_tag resolve_tags)
-{
-    struct block_stmt_list *stmt_lists;
-    struct list_of_visible_refs visible_refs;
-
-    stmt_lists = &node->ndat->u.rexpr_filter.filter_def->block_stmt_list;
-    /* add current refs to the chain of visible refs */
-    visible_refs.outer_refs = outer_refs;
-    visible_refs.cur_filter = node;
-    visible_refs.cur_lists = stmt_lists;
-
-    return resolve_identifiers_in_stmt_lists(
-        stmt_lists, &visible_refs, resolve_tags);
-}
-
 
 static enum expr_value_type
 expr_value_type_mask_from_node(const struct ast_node_hdl *node)
@@ -1125,9 +1082,6 @@ resolve_identifiers(struct ast_node_hdl *node,
     case AST_NODE_TYPE_FILTER_DEF:
         return resolve_identifiers_filter(node, visible_refs,
                                           expect_mask, resolve_tags);
-    case AST_NODE_TYPE_BYTE_ARRAY:
-        return resolve_identifiers_byte_array(node, visible_refs,
-                                              expect_mask, resolve_tags);
     case AST_NODE_TYPE_CONDITIONAL:
         return resolve_identifiers_conditional(node, visible_refs,
                                                expect_mask, resolve_tags);
@@ -1187,9 +1141,6 @@ resolve_identifiers(struct ast_node_hdl *node,
     case AST_NODE_TYPE_EXPR_SELF:
         return resolve_identifiers_expr_self(node, visible_refs,
                                              expect_mask, resolve_tags);
-    case AST_NODE_TYPE_REXPR_FILTER:
-        return resolve_identifiers_rexpr_filter(
-            node, visible_refs, expect_mask, resolve_tags);
     default:
         /* nothing to resolve */
         return 0;
@@ -1741,7 +1692,6 @@ compile_stmt_lists(struct block_stmt_list *stmt_lists,
                     struct compile_ctx *ctx)
 {
     struct field *field;
-    struct expr_stmt *match;
     struct named_expr *named_expr;
 
     compile_stmt_list_generic(stmt_lists->named_expr_list, ctx);
@@ -1762,9 +1712,6 @@ compile_stmt_lists(struct block_stmt_list *stmt_lists,
     STATEMENT_FOREACH(named_expr, named_expr,
                       stmt_lists->attribute_list, list) {
         compile_expr(named_expr->expr, ctx, TRUE);
-    }
-    STATEMENT_FOREACH(expr_stmt, match, stmt_lists->match_list, list) {
-        compile_expr(match->expr, ctx, FALSE);
     }
     if (!compile_continue(ctx)) {
         return -1;

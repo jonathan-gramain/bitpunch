@@ -517,7 +517,6 @@ enum statement_type {
     STATEMENT_TYPE_FIELD = (1<<0),
     STATEMENT_TYPE_NAMED_EXPR = (1<<1),
     STATEMENT_TYPE_ATTRIBUTE = (1<<2),
-    STATEMENT_TYPE_MATCH = (1<<5),
 };
 
 enum statement_iterator_flag {
@@ -571,31 +570,6 @@ bitpunch_status_t
 box_iter_statements_next(struct box *box, struct statement_iterator *it,
                          const struct statement **stmtp,
                          struct tracker_error **errp);
-
-bitpunch_status_t
-box_lookup_statement(struct box *box,
-                     enum statement_type stmt_type,
-                     const char *identifier,
-                     enum statement_type *stmt_typep,
-                     const struct named_statement **stmtp,
-                     struct box **scopep,
-                     struct tracker_error **errp);
-
-bitpunch_status_t
-box_get_first_statement(struct box *box,
-                        enum statement_type stmt_type,
-                        const char *stmt_name,
-                        int stmt_flags,
-                        const struct statement **stmtp,
-                        struct tracker_error **errp);
-
-bitpunch_status_t
-box_get_n_statements(struct box *box,
-                     enum statement_type stmt_type,
-                     const char *stmt_name,
-                     int stmt_flags,
-                     int64_t *stmt_countp,
-                     struct tracker_error **errp);
 
 
 /* named expressions API */

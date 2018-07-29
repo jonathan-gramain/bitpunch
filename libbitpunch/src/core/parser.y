@@ -114,7 +114,6 @@
         struct statement_list *field_list;
         struct statement_list *named_expr_list;
         struct statement_list *attribute_list;
-        struct statement_list *match_list;
     };
 
     typedef bitpunch_status_t (*filter_read_func_t)(
@@ -462,11 +461,6 @@
         NAMED_STATEMENT_FLAGS_END          = (STATEMENT_FLAGS_END<<0),
     };
 
-    struct expr_stmt {
-        struct statement stmt; // inherits
-        struct ast_node_hdl *expr;
-    };
-
     struct named_expr {
         struct named_statement nstmt; // inherits
         struct ast_node_hdl *expr;
@@ -589,11 +583,9 @@
         dst->field_list = new_safe(struct statement_list);
         dst->named_expr_list = new_safe(struct statement_list);
         dst->attribute_list = new_safe(struct statement_list);
-        dst->match_list = new_safe(struct statement_list);
         TAILQ_INIT(dst->field_list);
         TAILQ_INIT(dst->named_expr_list);
         TAILQ_INIT(dst->attribute_list);
-        TAILQ_INIT(dst->match_list);
     }
 
     static int
@@ -649,7 +641,6 @@
     struct block_stmt_list block_stmt_list;
     struct statement_list *statement_list;
     struct file_block file_block;
-    struct expr_stmt *expr_stmt;
     struct named_expr *named_expr;
     struct func_param *func_param;
     struct subscript_index subscript_index;
@@ -660,7 +651,7 @@
 %token <integer> INTEGER
 %token <literal> LITERAL
 %token <boolean> KW_TRUE KW_FALSE
-%token KW_FILE KW_MATCH KW_IF KW_ELSE KW_SELF KW_LET
+%token KW_FILE KW_IF KW_ELSE KW_SELF KW_LET
 
 %token <ast_node_type> '|' '^' '&' '>' '<' '+' '-' '*' '/' '%' '!' '~' '.' ':'
 %token <ast_node_type> TOK_LOR "||"
@@ -697,7 +688,6 @@
 %type <statement_list> func_params func_param_nonempty_list
 %type <named_expr> let_stmt field_stmt attribute_stmt func_param
 %type <subscript_index> key_expr opt_key_expr
-%type <expr_stmt> match_stmt
 %locations
 
 %token START_DEF_FILE START_EXPR
@@ -1090,12 +1080,6 @@ block_stmt_list:
                           (struct statement *)$let_stmt, list);
     }
 
-  | block_stmt_list match_stmt {
-        $$ = $1;
-        TAILQ_INSERT_TAIL($$.match_list,
-                          (struct statement *)$match_stmt, list);
-    }
-
   | block_stmt_list if_block {
       /* join 'if' node children to block stmt lists */
       if (-1 == merge_block_stmt_list(&$$, &$if_block)) {
@@ -1135,13 +1119,6 @@ let_stmt:
         $$ = new_safe(struct named_expr);
         $$->nstmt.stmt.loc = @$;
         $$->nstmt.name = $IDENTIFIER;
-        $$->expr = $expr;
-    }
-
-match_stmt:
-    KW_MATCH expr ';' {
-        $$ = new_safe(struct expr_stmt);
-        $$->stmt.loc = @$;
         $$->expr = $expr;
     }
 

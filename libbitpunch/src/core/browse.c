@@ -4491,8 +4491,6 @@ statement_type_str(enum statement_type stmt_type)
         return "named expr";
     case STATEMENT_TYPE_ATTRIBUTE:
         return "attribute";
-    case STATEMENT_TYPE_MATCH:
-        return "match";
     }
     return "unknown statement type";
 }
@@ -4550,11 +4548,6 @@ box_iter_start_list_internal(struct statement_iterator *it)
         it->stmt_remaining &= ~STATEMENT_TYPE_ATTRIBUTE;
         return ;
     }
-    if (0 != (it->stmt_remaining & STATEMENT_TYPE_MATCH)) {
-        it->next_stmt = TAILQ_FIRST(it->stmt_lists->match_list);
-        it->stmt_remaining &= ~STATEMENT_TYPE_MATCH;
-        return ;
-    }
 }
 
 static void
@@ -4576,12 +4569,6 @@ box_riter_start_list_internal(struct statement_iterator *it)
         it->next_stmt = box_iter_statements_advance_if_invalid_internal(
             it, TAILQ_LAST(it->stmt_lists->attribute_list, statement_list));
         it->stmt_remaining &= ~STATEMENT_TYPE_ATTRIBUTE;
-        return ;
-    }
-    if (0 != (it->stmt_remaining & STATEMENT_TYPE_MATCH)) {
-        it->next_stmt = TAILQ_LAST(it->stmt_lists->match_list,
-                                   statement_list);
-        it->stmt_remaining &= ~STATEMENT_TYPE_MATCH;
         return ;
     }
 }
@@ -4708,8 +4695,6 @@ block_stmt_lists_get_list(enum statement_type stmt_type,
         return stmt_lists->named_expr_list;
     case STATEMENT_TYPE_ATTRIBUTE:
         return stmt_lists->attribute_list;
-    case STATEMENT_TYPE_MATCH:
-        return stmt_lists->match_list;
     default:
         assert(0);
     }
@@ -8479,7 +8464,6 @@ browse_setup_backends_recur_composite(struct ast_node_hdl *filter)
     struct block_stmt_list *stmt_lists;
     struct field *field;
     struct named_expr *named_expr;
-    struct expr_stmt *match;
 
     stmt_lists = &filter->ndat->u.rexpr_filter.filter_def->block_stmt_list;
     if (-1 == browse_setup_backends_stmt_list_generic(
@@ -8509,11 +8493,6 @@ browse_setup_backends_recur_composite(struct ast_node_hdl *filter)
     STATEMENT_FOREACH(named_expr, named_expr,
                       stmt_lists->attribute_list, list) {
         if (-1 == browse_setup_backends_node_recur(named_expr->expr)) {
-            return -1;
-        }
-    }
-    STATEMENT_FOREACH(expr_stmt, match, stmt_lists->match_list, list) {
-        if (-1 == browse_setup_backends_node_recur(match->expr)) {
             return -1;
         }
     }
@@ -9225,59 +9204,6 @@ box_iter_statements_next(struct box *box, struct statement_iterator *it,
     browse_state_init(&bst);
     return transmit_error(
         box_iter_statements_next_internal(box, it, stmtp, &bst),
-        &bst, errp);
-}
-
-
-bitpunch_status_t
-box_lookup_statement(struct box *box,
-                     enum statement_type stmt_type,
-                     const char *identifier,
-                     enum statement_type *stmt_typep,
-                     const struct named_statement **stmtp,
-                     struct box **scopep,
-                     struct tracker_error **errp)
-{
-    struct browse_state bst;
-
-    browse_state_init(&bst);
-    return transmit_error(
-        box_lookup_statement_internal(box, stmt_type, identifier,
-                                      stmt_typep, stmtp, scopep, &bst),
-        &bst, errp);
-}
-
-bitpunch_status_t
-box_get_first_statement(struct box *box,
-                        enum statement_type stmt_type,
-                        const char *identifier,
-                        int stmt_flags,
-                        const struct statement **stmtp,
-                        struct tracker_error **errp)
-{
-    struct browse_state bst;
-
-    browse_state_init(&bst);
-    return transmit_error(
-        box_get_first_statement_internal(
-            box, stmt_type, identifier, stmt_flags, stmtp, &bst),
-        &bst, errp);
-}
-
-bitpunch_status_t
-box_get_n_statements(struct box *box,
-                     enum statement_type stmt_type,
-                     const char *identifier,
-                     int stmt_flags,
-                     int64_t *stmt_countp,
-                     struct tracker_error **errp)
-{
-    struct browse_state bst;
-
-    browse_state_init(&bst);
-    return transmit_error(
-        box_get_n_statements_internal(
-            box, stmt_type, identifier, stmt_flags, stmt_countp, &bst),
         &bst, errp);
 }
 
