@@ -4516,7 +4516,7 @@ box_iter_statements_advance_internal(struct statement_iterator *it,
 }
 
 static const struct statement *
-box_iter_statements_advance_if_invalid_internal(
+box_iter_statements_find_first_internal(
     struct statement_iterator *it,
     const struct statement *stmt)
 {
@@ -4533,17 +4533,19 @@ static void
 box_iter_start_list_internal(struct statement_iterator *it)
 {
     if (0 != (it->stmt_remaining & STATEMENT_TYPE_FIELD)) {
-        it->next_stmt = TAILQ_FIRST(it->stmt_lists->field_list);
+        it->next_stmt = box_iter_statements_find_first_internal(
+            it, TAILQ_FIRST(it->stmt_lists->field_list));
         it->stmt_remaining &= ~STATEMENT_TYPE_FIELD;
         return ;
     }
     if (0 != (it->stmt_remaining & STATEMENT_TYPE_NAMED_EXPR)) {
-        it->next_stmt = TAILQ_FIRST(it->stmt_lists->named_expr_list);
+        it->next_stmt = box_iter_statements_find_first_internal(
+            it, TAILQ_FIRST(it->stmt_lists->named_expr_list));
         it->stmt_remaining &= ~STATEMENT_TYPE_NAMED_EXPR;
         return ;
     }
     if (0 != (it->stmt_remaining & STATEMENT_TYPE_ATTRIBUTE)) {
-        it->next_stmt = box_iter_statements_advance_if_invalid_internal(
+        it->next_stmt = box_iter_statements_find_first_internal(
             it, TAILQ_FIRST(it->stmt_lists->attribute_list));
         it->stmt_remaining &= ~STATEMENT_TYPE_ATTRIBUTE;
         return ;
@@ -4554,19 +4556,19 @@ static void
 box_riter_start_list_internal(struct statement_iterator *it)
 {
     if (0 != (it->stmt_remaining & STATEMENT_TYPE_FIELD)) {
-        it->next_stmt = TAILQ_LAST(it->stmt_lists->field_list,
-                                   statement_list);
+        it->next_stmt = box_iter_statements_find_first_internal(
+            it, TAILQ_LAST(it->stmt_lists->field_list, statement_list));
         it->stmt_remaining &= ~STATEMENT_TYPE_FIELD;
         return ;
     }
     if (0 != (it->stmt_remaining & STATEMENT_TYPE_NAMED_EXPR)) {
-        it->next_stmt = TAILQ_LAST(it->stmt_lists->named_expr_list,
-                                   statement_list);
+        it->next_stmt = box_iter_statements_find_first_internal(
+            it, TAILQ_LAST(it->stmt_lists->named_expr_list, statement_list));
         it->stmt_remaining &= ~STATEMENT_TYPE_NAMED_EXPR;
         return ;
     }
     if (0 != (it->stmt_remaining & STATEMENT_TYPE_ATTRIBUTE)) {
-        it->next_stmt = box_iter_statements_advance_if_invalid_internal(
+        it->next_stmt = box_iter_statements_find_first_internal(
             it, TAILQ_LAST(it->stmt_lists->attribute_list, statement_list));
         it->stmt_remaining &= ~STATEMENT_TYPE_ATTRIBUTE;
         return ;
