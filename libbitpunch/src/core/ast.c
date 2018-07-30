@@ -2125,8 +2125,7 @@ compile_subscript_index_cb(struct compile_ctx *ctx,
         twin_idx = subscript->twin;
         assert(ast_node_is_rexpr(twin_idx));
         if (0 == (twin_idx->ndat->u.rexpr.value_type_mask
-                  & EXPR_VALUE_TYPE_INTEGER)
-            && AST_NODE_TYPE_REXPR_STAR_WILDCARD != twin_idx->ndat->type) {
+                  & EXPR_VALUE_TYPE_INTEGER)) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &twin_idx->loc,
                 "invalid expression type in array subscript: "
@@ -2514,22 +2513,6 @@ compile_expr_operator_ancestor(struct ast_node_hdl *expr,
 }
 
 static int
-compile_expr_star_wildcard(
-    struct ast_node_hdl *expr,
-    struct compile_ctx *ctx,
-    enum resolve_expect_mask expect_mask)
-{
-    struct ast_node_data *compiled_type;
-
-    compiled_type = new_safe(struct ast_node_data);
-    compiled_type->type = AST_NODE_TYPE_REXPR_STAR_WILDCARD;
-    compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
-    compiled_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
-    expr->ndat = compiled_type;
-    return 0;
-}
-
-static int
 compile_conditional(struct ast_node_hdl *cond, struct compile_ctx *ctx)
 {
     struct ast_node_hdl *cond_expr;
@@ -2850,8 +2833,6 @@ compile_node_type_int(struct ast_node_hdl *node,
         return compile_expr_operator_fcall(node, ctx, expect_mask);
     case AST_NODE_TYPE_OP_SIZEOF:
         return compile_expr_operator_sizeof(node, ctx, expect_mask);
-    case AST_NODE_TYPE_EXPR_STAR_WILDCARD:
-        return compile_expr_star_wildcard(node, ctx, expect_mask);
     case AST_NODE_TYPE_REXPR_OP_UPLUS:
     case AST_NODE_TYPE_REXPR_OP_UMINUS:
     case AST_NODE_TYPE_REXPR_OP_LNOT:
@@ -3648,7 +3629,6 @@ ast_node_is_rexpr(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_OP_FCALL:
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
-    case AST_NODE_TYPE_REXPR_STAR_WILDCARD:
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_REXPR_ITEM:
         return TRUE;
@@ -4651,13 +4631,11 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         break ;
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
-    case AST_NODE_TYPE_REXPR_STAR_WILDCARD:
         dump_ast_rexpr(node, out);
         fprintf(out, "\n");
         break ;
     case AST_NODE_TYPE_EXPR_FILE:
     case AST_NODE_TYPE_EXPR_SELF:
-    case AST_NODE_TYPE_EXPR_STAR_WILDCARD:
     case AST_NODE_TYPE_NONE:
         fprintf(out, "\n");
         break ;
@@ -4682,11 +4660,9 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_EXPR_FILE:
     case AST_NODE_TYPE_EXPR_SELF:
-    case AST_NODE_TYPE_EXPR_STAR_WILDCARD:
     case AST_NODE_TYPE_REXPR_NATIVE:
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
-    case AST_NODE_TYPE_REXPR_STAR_WILDCARD:
         /* leaf */
         fprintf(out, "%*s|- (%s) ", depth * INDENT_N_SPACES, "",
                 ast_node_type_str(node->ndat->type));

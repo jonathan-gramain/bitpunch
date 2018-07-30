@@ -253,7 +253,6 @@
             AST_NODE_TYPE_OP_FCALL,
             AST_NODE_TYPE_EXPR_FILE,
             AST_NODE_TYPE_EXPR_SELF,
-            AST_NODE_TYPE_EXPR_STAR_WILDCARD,
             AST_NODE_TYPE_REXPR_NATIVE,
             AST_NODE_TYPE_REXPR_OP_EQ,
             AST_NODE_TYPE_REXPR_OP_NE,
@@ -293,7 +292,6 @@
             AST_NODE_TYPE_REXPR_OP_FCALL,
             AST_NODE_TYPE_REXPR_FILE,
             AST_NODE_TYPE_REXPR_SELF,
-            AST_NODE_TYPE_REXPR_STAR_WILDCARD,
         } type;
         enum ast_node_data_flag flags;
         union {
@@ -905,9 +903,6 @@ twin_index:
     '{' expr '}' {
         $$ = $2;
     }
-  | '{' '*' '}' {
-        $$ = ast_node_hdl_create(AST_NODE_TYPE_EXPR_STAR_WILDCARD, &@2);
-    }
 
 func_params:
     /* empty */ {
@@ -1242,8 +1237,6 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_REXPR_FILE: return "'file' expr";
     case AST_NODE_TYPE_EXPR_SELF:
     case AST_NODE_TYPE_REXPR_SELF: return "'self' expr";
-    case AST_NODE_TYPE_EXPR_STAR_WILDCARD:
-    case AST_NODE_TYPE_REXPR_STAR_WILDCARD: return "'*' wildcard expression";
     case AST_NODE_TYPE_OP_EQ:
     case AST_NODE_TYPE_REXPR_OP_EQ: return "operator '=='";
     case AST_NODE_TYPE_OP_NE:
