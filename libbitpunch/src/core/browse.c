@@ -225,6 +225,7 @@ box_delete_non_null(struct box *box);
 static bitpunch_status_t
 box_iter_statements_next_internal(struct box *box,
                                   struct statement_iterator *it,
+                                  enum statement_type *stmt_typep,
                                   const struct statement **stmtp,
                                   struct browse_state *bst);
 
@@ -233,6 +234,7 @@ static bitpunch_status_t
 box_get_first_statement_internal(struct box *box,
                                  enum statement_type stmt_mask,
                                  const char *identifier,
+                                 enum statement_type *stmt_typep,
                                  const struct statement **stmtp,
                                  struct browse_state *bst);
 
@@ -4508,8 +4510,9 @@ box_iter_statements_advance_internal(struct statement_iterator *it,
         }
     } while (NULL != next_stmt
              && NULL != it->identifier
-             && 0 != strcmp(it->identifier,
-                            ((struct named_statement *)next_stmt)->name));
+             && (NULL == ((struct named_statement *)next_stmt)->name
+                 || 0 != strcmp(it->identifier,
+                                ((struct named_statement *)next_stmt)->name)));
     return next_stmt;
 }
 
@@ -4520,8 +4523,9 @@ box_iter_statements_find_first_internal(
 {
     if (NULL == stmt
         || NULL == it->identifier
-        || 0 == strcmp(it->identifier,
-                       ((struct named_statement *)stmt)->name)) {
+        || (NULL != ((struct named_statement *)stmt)->name
+            && 0 == strcmp(it->identifier,
+                           ((struct named_statement *)stmt)->name))) {
         return stmt;
     }
     return box_iter_statements_advance_internal(it, stmt);
@@ -4530,16 +4534,16 @@ box_iter_statements_find_first_internal(
 static void
 box_iter_start_list_internal(struct statement_iterator *it)
 {
-    if (0 != (it->stmt_remaining & STATEMENT_TYPE_FIELD)) {
-        it->next_stmt = box_iter_statements_find_first_internal(
-            it, TAILQ_FIRST(it->stmt_lists->field_list));
-        it->stmt_remaining &= ~STATEMENT_TYPE_FIELD;
-        return ;
-    }
     if (0 != (it->stmt_remaining & STATEMENT_TYPE_NAMED_EXPR)) {
         it->next_stmt = box_iter_statements_find_first_internal(
             it, TAILQ_FIRST(it->stmt_lists->named_expr_list));
         it->stmt_remaining &= ~STATEMENT_TYPE_NAMED_EXPR;
+        return ;
+    }
+    if (0 != (it->stmt_remaining & STATEMENT_TYPE_FIELD)) {
+        it->next_stmt = box_iter_statements_find_first_internal(
+            it, TAILQ_FIRST(it->stmt_lists->field_list));
+        it->stmt_remaining &= ~STATEMENT_TYPE_FIELD;
         return ;
     }
     if (0 != (it->stmt_remaining & STATEMENT_TYPE_ATTRIBUTE)) {
@@ -4553,16 +4557,16 @@ box_iter_start_list_internal(struct statement_iterator *it)
 static void
 box_riter_start_list_internal(struct statement_iterator *it)
 {
-    if (0 != (it->stmt_remaining & STATEMENT_TYPE_FIELD)) {
-        it->next_stmt = box_iter_statements_find_first_internal(
-            it, TAILQ_LAST(it->stmt_lists->field_list, statement_list));
-        it->stmt_remaining &= ~STATEMENT_TYPE_FIELD;
-        return ;
-    }
     if (0 != (it->stmt_remaining & STATEMENT_TYPE_NAMED_EXPR)) {
         it->next_stmt = box_iter_statements_find_first_internal(
             it, TAILQ_LAST(it->stmt_lists->named_expr_list, statement_list));
         it->stmt_remaining &= ~STATEMENT_TYPE_NAMED_EXPR;
+        return ;
+    }
+    if (0 != (it->stmt_remaining & STATEMENT_TYPE_FIELD)) {
+        it->next_stmt = box_iter_statements_find_first_internal(
+            it, TAILQ_LAST(it->stmt_lists->field_list, statement_list));
+        it->stmt_remaining &= ~STATEMENT_TYPE_FIELD;
         return ;
     }
     if (0 != (it->stmt_remaining & STATEMENT_TYPE_ATTRIBUTE)) {
@@ -4571,6 +4575,27 @@ box_riter_start_list_internal(struct statement_iterator *it)
         it->stmt_remaining &= ~STATEMENT_TYPE_ATTRIBUTE;
         return ;
     }
+}
+
+static enum statement_type
+box_iter_get_current_statement_type(struct statement_iterator *it)
+{
+    enum statement_type stmt_done_or_in_progress;
+
+    // lookup in reverse priority order, since the higher priority
+    // ones are already done so not current
+
+    stmt_done_or_in_progress = it->stmt_mask & ~it->stmt_remaining;
+    if (0 != (stmt_done_or_in_progress & STATEMENT_TYPE_ATTRIBUTE)) {
+        return STATEMENT_TYPE_ATTRIBUTE;
+    }
+    if (0 != (stmt_done_or_in_progress & STATEMENT_TYPE_FIELD)) {
+        return STATEMENT_TYPE_FIELD;
+    }
+    if (0 != (stmt_done_or_in_progress & STATEMENT_TYPE_NAMED_EXPR)) {
+        return STATEMENT_TYPE_NAMED_EXPR;
+    }
+    return 0u;
 }
 
 struct statement_iterator
@@ -4583,6 +4608,7 @@ box_iter_statements(struct box *box,
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
     it.stmt_lists = &box->dpath.item->ndat->u.rexpr_filter.filter_def->block_stmt_list;
+    it.stmt_mask = stmt_mask;
     it.stmt_remaining = stmt_mask;
     box_iter_start_list_internal(&it);
     return it;
@@ -4612,6 +4638,7 @@ box_riter_statements(struct box *box,
     it.identifier = identifier;
     it.it_flags = STATEMENT_ITERATOR_FLAG_REVERSE;
     it.stmt_lists = &box->dpath.item->ndat->u.rexpr_filter.filter_def->block_stmt_list;
+    it.stmt_mask = stmt_mask;
     it.stmt_remaining = stmt_mask;
     box_riter_start_list_internal(&it);
     return it;
@@ -4634,6 +4661,7 @@ box_riter_statements_from(struct box *box,
 static bitpunch_status_t
 box_iter_statements_next_internal(struct box *box,
                                   struct statement_iterator *it,
+                                  enum statement_type *stmt_typep,
                                   const struct statement **stmtp,
                                   struct browse_state *bst)
 {
@@ -4653,6 +4681,9 @@ box_iter_statements_next_internal(struct box *box,
         }
         if (cond_eval) {
             it->next_stmt = box_iter_statements_advance_internal(it, stmt);
+            if (NULL != stmt_typep) {
+                *stmt_typep = box_iter_get_current_statement_type(it);
+            }
             if (NULL != stmtp) {
                 *stmtp = stmt;
             }
@@ -4667,25 +4698,10 @@ box_iter_statements_next_internal(struct box *box,
         } else {
             box_iter_start_list_internal(it);
         }
-        return box_iter_statements_next_internal(box, it, stmtp, bst);
+        return box_iter_statements_next_internal(box, it,
+                                                 stmt_typep, stmtp, bst);
     }
     return BITPUNCH_NO_ITEM;
-}
-
-static const struct statement_list *
-block_stmt_lists_get_list(enum statement_type stmt_type,
-                          const struct block_stmt_list *stmt_lists)
-{
-    switch (stmt_type) {
-    case STATEMENT_TYPE_FIELD:
-        return stmt_lists->field_list;
-    case STATEMENT_TYPE_NAMED_EXPR:
-        return stmt_lists->named_expr_list;
-    case STATEMENT_TYPE_ATTRIBUTE:
-        return stmt_lists->attribute_list;
-    default:
-        assert(0);
-    }
 }
 
 static bitpunch_status_t
@@ -4771,65 +4787,22 @@ box_lookup_statement_recur(struct box *box,
                            struct box **scopep,
                            struct browse_state *bst)
 {
-    enum statement_type stmt_type;
-    const struct statement_list *stmt_list;
     struct statement *stmt;
     struct named_statement *nstmt;
-    enum statement_type named_stmt_types_by_prio[] = {
-        STATEMENT_TYPE_NAMED_EXPR,
-        STATEMENT_TYPE_FIELD,
-    };
-    enum statement_type attribute_types_by_prio[] = {
-        STATEMENT_TYPE_ATTRIBUTE,
-    };
-    enum statement_type *stmt_types_by_prio;
-    int n_stmt_types_by_prio;
-    int i;
     bitpunch_status_t bt_ret;
-    int cond_eval;
 
-    if (identifier[0] == '@') {
-        stmt_types_by_prio = attribute_types_by_prio;
-        n_stmt_types_by_prio = N_ELEM(attribute_types_by_prio);
-    } else {
-        stmt_types_by_prio = named_stmt_types_by_prio;
-        n_stmt_types_by_prio = N_ELEM(named_stmt_types_by_prio);
+    bt_ret = box_get_first_statement_internal(
+        box, stmt_mask, identifier,
+        stmt_typep, (const struct statement **)stmtp, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        if (NULL != scopep) {
+            *scopep = box;
+            box_acquire(box);
+        }
+        return BITPUNCH_OK;
     }
-    for (i = 0; i < n_stmt_types_by_prio; ++i) {
-        stmt_type = stmt_types_by_prio[i];
-        if (0 == (stmt_mask & stmt_type)) {
-            continue ;
-        }
-        stmt_list = block_stmt_lists_get_list(stmt_type, stmt_lists);
-        // local fields with no anonymous component have priority
-        TAILQ_FOREACH(stmt, stmt_list, list) {
-            nstmt = (struct named_statement *)stmt;
-            if (NULL != nstmt->name
-                && 0 == strcmp(identifier, nstmt->name)) {
-                bt_ret = evaluate_conditional_internal(
-                    nstmt->stmt.cond, box, &cond_eval, bst);
-                if (BITPUNCH_OK != bt_ret) {
-                    tracker_error_add_box_context(
-                        box, bst, "when evaluating condition");
-                    return bt_ret;
-                }
-                if (cond_eval) {
-                    // statement exists in current evaluation context,
-                    // return it
-                    if (NULL != stmt_typep) {
-                        *stmt_typep = stmt_type;
-                    }
-                    if (NULL != stmtp) {
-                        *stmtp = nstmt;
-                    }
-                    if (NULL != scopep) {
-                        *scopep = box;
-                        box_acquire(box);
-                    }
-                    return BITPUNCH_OK;
-                }
-            }
-        }
+    if (BITPUNCH_NO_ITEM != bt_ret) {
+        return bt_ret;
     }
     // do not recurse anonymous fields to find attributes
     if (identifier[0] != '@') {
@@ -4874,13 +4847,14 @@ static bitpunch_status_t
 box_get_first_statement_internal(struct box *box,
                                  enum statement_type stmt_mask,
                                  const char *identifier,
+                                 enum statement_type *stmt_typep,
                                  const struct statement **stmtp,
                                  struct browse_state *bst)
 {
     struct statement_iterator it;
 
     it = box_iter_statements(box, stmt_mask, identifier);
-    return box_iter_statements_next_internal(box, &it, stmtp, bst);
+    return box_iter_statements_next_internal(box, &it, stmt_typep, stmtp, bst);
 }
 
 bitpunch_status_t
@@ -4898,7 +4872,7 @@ box_get_n_statements_internal(struct box *box,
     stmt_count = -1;
     do {
         ++stmt_count;
-        bt_ret = box_iter_statements_next_internal(box, &it, NULL, bst);
+        bt_ret = box_iter_statements_next_internal(box, &it, NULL, NULL, bst);
     } while (BITPUNCH_OK == bt_ret);
     if (BITPUNCH_NO_ITEM != bt_ret) {
         return bt_ret;
@@ -4928,7 +4902,7 @@ box_iter_attributes_next_internal(struct box *box,
                                   struct browse_state *bst)
 {
     return box_iter_statements_next_internal(
-        box, it, (const struct statement **)named_exprp, bst);
+        box, it, NULL, (const struct statement **)named_exprp, bst);
 }
 
 bitpunch_status_t
@@ -5682,12 +5656,12 @@ box_compute_min_span_size__span_expr(struct box *box,
     span_expr_defines_max = FALSE;
     bt_ret = box_get_first_statement_internal(
         box, STATEMENT_TYPE_ATTRIBUTE, "@minspan",
-        (const struct statement **)&span_stmt, bst);
+        NULL, (const struct statement **)&span_stmt, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
         span_expr_defines_max = TRUE;
         bt_ret = box_get_first_statement_internal(
             box, STATEMENT_TYPE_ATTRIBUTE, "@span",
-            (const struct statement **)&span_stmt, bst);
+            NULL, (const struct statement **)&span_stmt, bst);
     }
     switch (bt_ret) {
     case BITPUNCH_OK:
@@ -5733,12 +5707,12 @@ box_compute_max_span_size__span_expr(struct box *box,
     span_expr_defines_min = FALSE;
     bt_ret = box_get_first_statement_internal(
         box, STATEMENT_TYPE_ATTRIBUTE, "@maxspan",
-        (const struct statement **)&span_stmt, bst);
+        NULL, (const struct statement **)&span_stmt, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
         span_expr_defines_min = TRUE;
         bt_ret = box_get_first_statement_internal(
             box, STATEMENT_TYPE_ATTRIBUTE, "@span",
-            (const struct statement **)&span_stmt, bst);
+            NULL, (const struct statement **)&span_stmt, bst);
     }
     switch (bt_ret) {
     case BITPUNCH_OK:
@@ -5905,7 +5879,7 @@ tracker_goto_item_int__composite(struct tracker *tk,
                                        NULL);
         }
         bt_ret = box_iter_statements_next_internal(xtk->box, &stit,
-                                                   &stmt, bst);
+                                                   NULL, &stmt, bst);
         if (BITPUNCH_OK != bt_ret) {
             tracker_delete(xtk);
             return bt_ret;
@@ -5963,7 +5937,7 @@ tracker_goto_first_item_int__composite(struct tracker *tk, int flat,
                                    NULL);
     }
     bt_ret = box_iter_statements_next_internal(tk->box,
-                                               &stit, &stmt, bst);
+                                               &stit, NULL, &stmt, bst);
     if (BITPUNCH_OK != bt_ret) {
         if (BITPUNCH_NO_ITEM == bt_ret) {
             bt_ret = tracker_set_end(tk, bst);
@@ -6023,7 +5997,7 @@ tracker_goto_next_item_int__composite(struct tracker *tk, int flat,
                 NULL);
         }
         bt_ret = box_iter_statements_next_internal(tk->box, &stit,
-                                                   &stmt, bst);
+                                                   NULL, &stmt, bst);
         if (BITPUNCH_NO_ITEM != bt_ret) {
             break ;
         }
@@ -6742,7 +6716,7 @@ tracker_goto_next_item__array(struct tracker *tk,
         if (BITPUNCH_OK == bt_ret) {
             bt_ret = box_get_first_statement_internal(
                 filtered_box, STATEMENT_TYPE_ATTRIBUTE, "@last",
-                (const struct statement **)&last_attr, bst);
+                NULL, (const struct statement **)&last_attr, bst);
         }
         switch (bt_ret) {
         case BITPUNCH_OK:
@@ -9182,6 +9156,7 @@ track_box_contents(struct box *box,
 
 bitpunch_status_t
 box_iter_statements_next(struct box *box, struct statement_iterator *it,
+                         enum statement_type *stmt_typep,
                          const struct statement **stmtp,
                          struct tracker_error **errp)
 {
@@ -9189,7 +9164,7 @@ box_iter_statements_next(struct box *box, struct statement_iterator *it,
 
     browse_state_init(&bst);
     return transmit_error(
-        box_iter_statements_next_internal(box, it, stmtp, &bst),
+        box_iter_statements_next_internal(box, it, stmt_typep, stmtp, &bst),
         &bst, errp);
 }
 

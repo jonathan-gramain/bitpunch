@@ -525,6 +525,7 @@ enum statement_iterator_flag {
 struct statement_iterator {
     /** attribute name to iterate, or NULL for all statements */
     const char *identifier;
+    enum statement_type stmt_mask;
     enum statement_type stmt_remaining;
     enum statement_iterator_flag it_flags;
     const struct block_stmt_list *stmt_lists;
@@ -563,6 +564,7 @@ box_riter_statements_from(struct box *box,
 
 bitpunch_status_t
 box_iter_statements_next(struct box *box, struct statement_iterator *it,
+                         enum statement_type *stmt_typep,
                          const struct statement **stmtp,
                          struct tracker_error **errp);
 
