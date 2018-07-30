@@ -332,9 +332,6 @@
                 struct ast_node_hdl *func;
                 struct statement_list *func_params;
             } op_fcall;
-            struct file_attr {
-                struct ast_node_hdl *attr_name;
-            } file_attr;
             struct rexpr rexpr; /* base, not instanciable */
             struct rexpr_filter {
                 struct item_node item; /* inherits */
