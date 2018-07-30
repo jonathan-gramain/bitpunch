@@ -526,7 +526,6 @@ struct statement_iterator {
     /** attribute name to iterate, or NULL for all statements */
     const char *identifier;
     enum statement_type stmt_remaining;
-    int stmt_flags;
     enum statement_iterator_flag it_flags;
     const struct block_stmt_list *stmt_lists;
     const struct statement *next_stmt;
@@ -545,26 +544,22 @@ statement_type_str(enum statement_type stmt_type);
 struct statement_iterator
 box_iter_statements(struct box *box,
                     enum statement_type stmt_mask,
-                    const char *identifier,
-                    int stmt_flags);
+                    const char *identifier);
 
 struct statement_iterator
 box_iter_statements_from(struct box *box,
                          const struct statement *stmt,
-                         const char *identifier,
-                         int stmt_flags);
+                         const char *identifier);
 
 struct statement_iterator
 box_riter_statements(struct box *box,
                      enum statement_type stmt_mask,
-                     const char *identifier,
-                     int stmt_flags);
+                     const char *identifier);
 
 struct statement_iterator
 box_riter_statements_from(struct box *box,
                           const struct statement *stmt,
-                          const char *identifier,
-                          int stmt_flags);
+                          const char *identifier);
 
 bitpunch_status_t
 box_iter_statements_next(struct box *box, struct statement_iterator *it,

@@ -233,7 +233,6 @@ static bitpunch_status_t
 box_get_first_statement_internal(struct box *box,
                                  enum statement_type stmt_mask,
                                  const char *identifier,
-                                 int stmt_flags,
                                  const struct statement **stmtp,
                                  struct browse_state *bst);
 
@@ -241,7 +240,6 @@ static bitpunch_status_t
 box_get_n_statements_internal(struct box *box,
                               enum statement_type stmt_mask,
                               const char *identifier,
-                              int stmt_flags,
                               int64_t *stmt_countp,
                               struct browse_state *bst);
 
@@ -4578,14 +4576,12 @@ box_riter_start_list_internal(struct statement_iterator *it)
 struct statement_iterator
 box_iter_statements(struct box *box,
                     enum statement_type stmt_mask,
-                    const char *identifier,
-                    int stmt_flags)
+                    const char *identifier)
 {
     struct statement_iterator it;
 
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
-    it.stmt_flags = stmt_flags;
     it.stmt_lists = &box->dpath.item->ndat->u.rexpr_filter.filter_def->block_stmt_list;
     it.stmt_remaining = stmt_mask;
     box_iter_start_list_internal(&it);
@@ -4595,14 +4591,12 @@ box_iter_statements(struct box *box,
 struct statement_iterator
 box_iter_statements_from(struct box *box,
                          const struct statement *stmt,
-                         const char *identifier,
-                         int stmt_flags)
+                         const char *identifier)
 {
     struct statement_iterator it;
 
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
-    it.stmt_flags = stmt_flags;
     it.next_stmt = box_iter_statements_advance_internal(&it, stmt);
     return it;
 }
@@ -4610,14 +4604,12 @@ box_iter_statements_from(struct box *box,
 struct statement_iterator
 box_riter_statements(struct box *box,
                      enum statement_type stmt_mask,
-                     const char *identifier,
-                     int stmt_flags)
+                     const char *identifier)
 {
     struct statement_iterator it;
 
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
-    it.stmt_flags = stmt_flags;
     it.it_flags = STATEMENT_ITERATOR_FLAG_REVERSE;
     it.stmt_lists = &box->dpath.item->ndat->u.rexpr_filter.filter_def->block_stmt_list;
     it.stmt_remaining = stmt_mask;
@@ -4628,14 +4620,12 @@ box_riter_statements(struct box *box,
 struct statement_iterator
 box_riter_statements_from(struct box *box,
                           const struct statement *stmt,
-                          const char *identifier,
-                          int stmt_flags)
+                          const char *identifier)
 {
     struct statement_iterator it;
 
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
-    it.stmt_flags = stmt_flags;
     it.it_flags = STATEMENT_ITERATOR_FLAG_REVERSE;
     it.next_stmt = box_iter_statements_advance_internal(&it, stmt);
     return it;
@@ -4654,25 +4644,21 @@ box_iter_statements_next_internal(struct box *box,
         int cond_eval;
         bitpunch_status_t bt_ret;
 
-        if (0 == it->stmt_flags
-            || 0 != (it->stmt_flags & stmt->stmt_flags)) {
-            bt_ret = evaluate_conditional_internal(stmt->cond, box,
-                                                   &cond_eval, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                tracker_error_add_box_context(box, bst,
-                                              "when evaluating condition");
-                return bt_ret;
-            }
-            if (cond_eval) {
-                it->next_stmt =
-                    box_iter_statements_advance_internal(it, stmt);
-                if (NULL != stmtp) {
-                    *stmtp = stmt;
-                }
-                return BITPUNCH_OK;
-            }
-            // condition is false: go on with next statement
+        bt_ret = evaluate_conditional_internal(stmt->cond, box,
+                                               &cond_eval, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            tracker_error_add_box_context(box, bst,
+                                          "when evaluating condition");
+            return bt_ret;
         }
+        if (cond_eval) {
+            it->next_stmt = box_iter_statements_advance_internal(it, stmt);
+            if (NULL != stmtp) {
+                *stmtp = stmt;
+            }
+            return BITPUNCH_OK;
+        }
+        // condition is false: go on with next statement
         stmt = box_iter_statements_advance_internal(it, stmt);
     }
     if (0 != it->stmt_remaining) {
@@ -4888,13 +4874,12 @@ static bitpunch_status_t
 box_get_first_statement_internal(struct box *box,
                                  enum statement_type stmt_mask,
                                  const char *identifier,
-                                 int stmt_flags,
                                  const struct statement **stmtp,
                                  struct browse_state *bst)
 {
     struct statement_iterator it;
 
-    it = box_iter_statements(box, stmt_mask, identifier, stmt_flags);
+    it = box_iter_statements(box, stmt_mask, identifier);
     return box_iter_statements_next_internal(box, &it, stmtp, bst);
 }
 
@@ -4902,7 +4887,6 @@ bitpunch_status_t
 box_get_n_statements_internal(struct box *box,
                               enum statement_type stmt_mask,
                               const char *identifier,
-                              int stmt_flags,
                               int64_t *stmt_countp,
                               struct browse_state *bst)
 {
@@ -4910,7 +4894,7 @@ box_get_n_statements_internal(struct box *box,
     struct statement_iterator it;
     int64_t stmt_count;
 
-    it = box_iter_statements(box, stmt_mask, identifier, stmt_flags);
+    it = box_iter_statements(box, stmt_mask, identifier);
     stmt_count = -1;
     do {
         ++stmt_count;
@@ -4934,7 +4918,7 @@ box_iter_attributes(struct box *box)
 {
     return box_iter_statements(box,
                                STATEMENT_TYPE_NAMED_EXPR |
-                               STATEMENT_TYPE_ATTRIBUTE, NULL, 0);
+                               STATEMENT_TYPE_ATTRIBUTE, NULL);
 }
 
 static bitpunch_status_t
@@ -5697,12 +5681,12 @@ box_compute_min_span_size__span_expr(struct box *box,
     DBG_BOX_DUMP(box);
     span_expr_defines_max = FALSE;
     bt_ret = box_get_first_statement_internal(
-        box, STATEMENT_TYPE_ATTRIBUTE, "@minspan", 0,
+        box, STATEMENT_TYPE_ATTRIBUTE, "@minspan",
         (const struct statement **)&span_stmt, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
         span_expr_defines_max = TRUE;
         bt_ret = box_get_first_statement_internal(
-            box, STATEMENT_TYPE_ATTRIBUTE, "@span", 0,
+            box, STATEMENT_TYPE_ATTRIBUTE, "@span",
             (const struct statement **)&span_stmt, bst);
     }
     switch (bt_ret) {
@@ -5748,12 +5732,12 @@ box_compute_max_span_size__span_expr(struct box *box,
     DBG_BOX_DUMP(box);
     span_expr_defines_min = FALSE;
     bt_ret = box_get_first_statement_internal(
-        box, STATEMENT_TYPE_ATTRIBUTE, "@maxspan", 0,
+        box, STATEMENT_TYPE_ATTRIBUTE, "@maxspan",
         (const struct statement **)&span_stmt, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
         span_expr_defines_min = TRUE;
         bt_ret = box_get_first_statement_internal(
-            box, STATEMENT_TYPE_ATTRIBUTE, "@span", 0,
+            box, STATEMENT_TYPE_ATTRIBUTE, "@span",
             (const struct statement **)&span_stmt, bst);
     }
     switch (bt_ret) {
@@ -5864,7 +5848,7 @@ box_get_n_items__composite(struct box *box, int64_t *item_countp,
                        struct browse_state *bst)
 {
     DBG_BOX_DUMP(box);
-    return box_get_n_statements_internal(box, STATEMENT_TYPE_FIELD, NULL, 0,
+    return box_get_n_statements_internal(box, STATEMENT_TYPE_FIELD, NULL,
                                          item_countp, bst);
 }
 
@@ -5915,10 +5899,10 @@ tracker_goto_item_int__composite(struct tracker *tk,
         }
         if (0 != (tk->flags & TRACKER_REVERSED)) {
             stit = box_riter_statements(xtk->box, STATEMENT_TYPE_FIELD,
-                                        NULL, 0);
+                                        NULL);
         } else {
             stit = box_iter_statements(xtk->box, STATEMENT_TYPE_FIELD,
-                                       NULL, 0);
+                                       NULL);
         }
         bt_ret = box_iter_statements_next_internal(xtk->box, &stit,
                                                    &stmt, bst);
@@ -5973,10 +5957,10 @@ tracker_goto_first_item_int__composite(struct tracker *tk, int flat,
     }
     if (0 != (tk->flags & TRACKER_REVERSED)) {
         stit = box_riter_statements(tk->box, STATEMENT_TYPE_FIELD,
-                                    NULL, 0);
+                                    NULL);
     } else {
         stit = box_iter_statements(tk->box, STATEMENT_TYPE_FIELD,
-                                   NULL, 0);
+                                   NULL);
     }
     bt_ret = box_iter_statements_next_internal(tk->box,
                                                &stit, &stmt, bst);
@@ -6032,11 +6016,11 @@ tracker_goto_next_item_int__composite(struct tracker *tk, int flat,
         if (reversed) {
             stit = box_riter_statements_from(
                 tk->box, (const struct statement *)tk->cur.u.block.field,
-                NULL, 0);
+                NULL);
         } else {
             stit = box_iter_statements_from(
                 tk->box, (const struct statement *)tk->cur.u.block.field,
-                NULL, 0);
+                NULL);
         }
         bt_ret = box_iter_statements_next_internal(tk->box, &stit,
                                                    &stmt, bst);
@@ -6757,7 +6741,7 @@ tracker_goto_next_item__array(struct tracker *tk,
         bt_ret = box_apply_filter_internal(filtered_box, bst);
         if (BITPUNCH_OK == bt_ret) {
             bt_ret = box_get_first_statement_internal(
-                filtered_box, STATEMENT_TYPE_ATTRIBUTE, "@last", 0,
+                filtered_box, STATEMENT_TYPE_ATTRIBUTE, "@last",
                 (const struct statement **)&last_attr, bst);
         }
         switch (bt_ret) {
