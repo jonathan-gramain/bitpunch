@@ -571,19 +571,10 @@ box_iter_statements_next(struct box *box, struct statement_iterator *it,
 
 /* named expressions API */
 
-typedef struct statement_iterator tattr_iterator;
-
-tattr_iterator
-box_iter_attributes(struct box *box);
+typedef struct statement_iterator tstatement_iterator;
 
 bitpunch_status_t
-box_iter_attributes_next(struct box *box, tattr_iterator *it,
-                         const struct named_expr **named_exprp,
-                         struct tracker_error **errp);
-
-bitpunch_status_t
-box_evaluate_member(struct box *box,
-                    const char *attr_name,
+box_evaluate_member(struct box *box, const char *name,
                     expr_value_t *valuep, expr_dpath_t *dpathp,
                     struct tracker_error **errp);
 

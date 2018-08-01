@@ -264,11 +264,3 @@ correctly (b_filter is empty)
 
 - integrate "expr_transform_dpath_internal()" into generic operator
   evaluation (eval_fn())
-
-- add tests for box_iter_statements() and variants
-
-  -> see commit that renames
-     box_iter_statements_advance_if_invalid_internal() to
-     box_iter_statements_find_first_internal(), and adds such call to
-     STATEMENT_TYPE_FIELD and STATEMENT_TYPE_NAMED_EXPR cases where an
-     identifier may also be specified

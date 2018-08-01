@@ -1758,7 +1758,7 @@ box_get_attributes_dict(struct box *box)
     bitpunch_status_t bt_ret;
     PyObject *py_key;
     expr_value_t key_value;
-    tattr_iterator attr_iter;
+    tstatement_iterator attr_iter;
     const struct named_expr *named_expr;
     struct tracker_error *tk_err = NULL;
 
@@ -1794,17 +1794,21 @@ box_get_attributes_dict(struct box *box)
         bt_ret = tracker_goto_next_item(tk, NULL);
     }
     tracker_delete(tk);
-    attr_iter = box_iter_attributes(box);
-    bt_ret = box_iter_attributes_next(box, &attr_iter,
-                                      &named_expr, NULL);
+    attr_iter = box_iter_statements(box,
+                                    STATEMENT_TYPE_NAMED_EXPR |
+                                    STATEMENT_TYPE_ATTRIBUTE, NULL);
+    bt_ret = box_iter_statements_next(
+        box, &attr_iter,
+        NULL, (const struct statement **)&named_expr, NULL);
     while (BITPUNCH_OK == bt_ret) {
         py_key = PyString_FromString(named_expr->nstmt.name);
         if (NULL != py_key) {
             PyDict_SetItem(dict, py_key, Py_None);
             Py_DECREF(py_key);
         }
-        bt_ret = box_iter_attributes_next(box, &attr_iter,
-                                          &named_expr, NULL);
+        bt_ret = box_iter_statements_next(
+            box, &attr_iter,
+            NULL, (const struct statement **)&named_expr, NULL);
     }
     return dict;
 }
@@ -2399,7 +2403,7 @@ typedef struct TrackerObject {
     struct tracker *tk;
     TrackerIterType iter_mode;
     TrackerIterType current_iter_mode;
-    tattr_iterator attr_iter;
+    tstatement_iterator attr_iter;
 } TrackerObject;
 
 
@@ -3097,7 +3101,9 @@ Tracker_iter(TrackerObject *self)
     Py_INCREF((PyObject *)self);
     self->current_iter_mode = self->iter_mode;
     if (TRACKER_ITER_ATTRIBUTE_NAMES == self->iter_mode) {
-        self->attr_iter = box_iter_attributes(self->tk->box);
+        self->attr_iter = box_iter_statements(
+            self->tk->box, (STATEMENT_TYPE_NAMED_EXPR |
+                            STATEMENT_TYPE_ATTRIBUTE), NULL);
     }
     return (PyObject *)self;
 }
@@ -3111,7 +3117,9 @@ Tracker_iternext(TrackerObject *self)
                 PyErr_Clear();
                 if (TRACKER_ITER_MEMBER_NAMES == self->current_iter_mode) {
                     self->current_iter_mode = TRACKER_ITER_ATTRIBUTE_NAMES;
-                    self->attr_iter = box_iter_attributes(self->tk->box);
+                    self->attr_iter = box_iter_statements(
+                        self->tk->box, (STATEMENT_TYPE_NAMED_EXPR |
+                                        STATEMENT_TYPE_ATTRIBUTE), NULL);
                 } else {
                     /* StopIteration is implicitly set by the API */
                     return NULL;
@@ -3151,9 +3159,9 @@ Tracker_iternext(TrackerObject *self)
         const struct named_expr *named_expr;
         struct tracker_error *tk_err = NULL;
 
-        bt_ret = box_iter_attributes_next(self->tk->box,
-                                          &self->attr_iter,
-                                          &named_expr, &tk_err);
+        bt_ret = box_iter_statements_next(
+            self->tk->box, &self->attr_iter,
+            NULL, (const struct statement **)&named_expr, &tk_err);
         if (BITPUNCH_NO_ITEM == bt_ret) {
             PyErr_Clear();
             /* StopIteration is implicitly set by the API */

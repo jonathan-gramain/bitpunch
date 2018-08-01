@@ -101,12 +101,6 @@ box_lookup_statement_internal(struct box *box,
                               struct box **scopep,
                               struct browse_state *bst);
 bitpunch_status_t
-box_lookup_member_internal(struct box *box, const char *name,
-                           enum statement_type *stmt_typep,
-                           const struct named_statement **named_stmtp,
-                           struct box **scopep,
-                           struct browse_state *bst);
-bitpunch_status_t
 box_evaluate_member_internal(struct box *box, const char *name,
                              expr_value_t *valuep, expr_dpath_t *dpathp,
                              struct browse_state *bst);

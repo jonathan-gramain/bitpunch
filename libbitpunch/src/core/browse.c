@@ -4887,39 +4887,6 @@ box_get_n_statements_internal(struct box *box,
  * named expressions API
  */
 
-tattr_iterator
-box_iter_attributes(struct box *box)
-{
-    return box_iter_statements(box,
-                               STATEMENT_TYPE_NAMED_EXPR |
-                               STATEMENT_TYPE_ATTRIBUTE, NULL);
-}
-
-static bitpunch_status_t
-box_iter_attributes_next_internal(struct box *box,
-                                  tattr_iterator *it,
-                                  const struct named_expr **named_exprp,
-                                  struct browse_state *bst)
-{
-    return box_iter_statements_next_internal(
-        box, it, NULL, (const struct statement **)named_exprp, bst);
-}
-
-bitpunch_status_t
-box_lookup_member_internal(struct box *box, const char *name,
-                           enum statement_type *stmt_typep,
-                           const struct named_statement **named_stmtp,
-                           struct box **scopep,
-                           struct browse_state *bst)
-{
-    return box_lookup_statement_internal(
-        box,
-        STATEMENT_TYPE_FIELD |
-        STATEMENT_TYPE_NAMED_EXPR |
-        STATEMENT_TYPE_ATTRIBUTE, name,
-        stmt_typep, named_stmtp, scopep, bst);
-}
-
 bitpunch_status_t
 box_evaluate_statement_internal(
     struct box *box,
@@ -4972,9 +4939,11 @@ box_evaluate_member_internal(struct box *box, const char *name,
     const struct named_statement *named_stmt;
     struct box *scope;
 
-    bt_ret = box_lookup_member_internal(box, name,
-                                        &stmt_type, &named_stmt, &scope,
-                                        bst);
+    bt_ret = box_lookup_statement_internal(
+        box, (STATEMENT_TYPE_FIELD |
+              STATEMENT_TYPE_NAMED_EXPR |
+              STATEMENT_TYPE_ATTRIBUTE), name,
+        &stmt_type, &named_stmt, &scope, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -6712,12 +6681,9 @@ tracker_goto_next_item__array(struct tracker *tk,
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        bt_ret = box_apply_filter_internal(filtered_box, bst);
-        if (BITPUNCH_OK == bt_ret) {
-            bt_ret = box_get_first_statement_internal(
-                filtered_box, STATEMENT_TYPE_ATTRIBUTE, "@last",
-                NULL, (const struct statement **)&last_attr, bst);
-        }
+        bt_ret = box_get_first_statement_internal(
+            filtered_box, STATEMENT_TYPE_ATTRIBUTE, "@last",
+            NULL, (const struct statement **)&last_attr, bst);
         switch (bt_ret) {
         case BITPUNCH_OK:
             bt_ret = expr_evaluate_value_internal(
@@ -9155,7 +9121,7 @@ track_box_contents(struct box *box,
 
 
 bitpunch_status_t
-box_iter_statements_next(struct box *box, struct statement_iterator *it,
+box_iter_statements_next(struct box *box, tstatement_iterator *it,
                          enum statement_type *stmt_typep,
                          const struct statement **stmtp,
                          struct tracker_error **errp)
@@ -9170,8 +9136,7 @@ box_iter_statements_next(struct box *box, struct statement_iterator *it,
 
 
 bitpunch_status_t
-box_evaluate_member(struct box *box,
-                    const char *attr_name,
+box_evaluate_member(struct box *box, const char *name,
                     expr_value_t *valuep, expr_dpath_t *dpathp,
                     struct tracker_error **errp)
 {
@@ -9179,20 +9144,7 @@ box_evaluate_member(struct box *box,
 
     browse_state_init(&bst);
     return transmit_error(
-        box_evaluate_member_internal(box, attr_name, valuep, dpathp, &bst),
-        &bst, errp);
-}
-
-bitpunch_status_t
-box_iter_attributes_next(struct box *box, tattr_iterator *it,
-                         const struct named_expr **named_exprp,
-                         struct tracker_error **errp)
-{
-    struct browse_state bst;
-
-    browse_state_init(&bst);
-    return transmit_error(
-        box_iter_attributes_next_internal(box, it, named_exprp, &bst),
+        box_evaluate_member_internal(box, name, valuep, dpathp, &bst),
         &bst, errp);
 }
 
