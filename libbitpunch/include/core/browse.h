@@ -574,9 +574,10 @@ box_iter_statements_next(struct box *box, struct statement_iterator *it,
 typedef struct statement_iterator tstatement_iterator;
 
 bitpunch_status_t
-box_evaluate_member(struct box *box, const char *name,
-                    expr_value_t *valuep, expr_dpath_t *dpathp,
-                    struct tracker_error **errp);
+box_evaluate_identifier(
+    struct box *box, enum statement_type stmt_mask, const char *identifier,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct tracker_error **errp);
 
 /* error reporting */
 

@@ -93,6 +93,21 @@ box_read_value_internal(struct box *box,
                         struct browse_state *bst);
 
 bitpunch_status_t
+box_evaluate_identifier_internal(
+    struct box *box, enum statement_type stmt_mask, const char *identifier,
+    enum statement_type *stmt_typep, const struct named_statement **stmtp,
+    struct box **scopep,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst);
+
+bitpunch_status_t
+box_evaluate_attribute_internal(
+    struct box *box, const char *attr_name,
+    const struct named_expr **attrp,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst);
+
+bitpunch_status_t
 box_lookup_statement_internal(struct box *box,
                               enum statement_type stmt_mask,
                               const char *identifier,
@@ -100,10 +115,6 @@ box_lookup_statement_internal(struct box *box,
                               const struct named_statement **stmtp,
                               struct box **scopep,
                               struct browse_state *bst);
-bitpunch_status_t
-box_evaluate_member_internal(struct box *box, const char *name,
-                             expr_value_t *valuep, expr_dpath_t *dpathp,
-                             struct browse_state *bst);
 bitpunch_status_t
 box_evaluate_statement_internal(
     struct box *box,

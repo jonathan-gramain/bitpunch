@@ -1826,8 +1826,11 @@ DataItem_eval_attr(DataItemObject *self, const char *attr_str,
     if (-1 == DataItem_convert_dpath_to_box(self)) {
         return NULL;
     }
-    bt_ret = box_evaluate_member(self->dpath.container.box, attr_str,
-                                 &attr_value, &attr_dpath, &tk_err);
+    bt_ret = box_evaluate_identifier(self->dpath.container.box,
+                                     STATEMENT_TYPE_FIELD |
+                                     STATEMENT_TYPE_NAMED_EXPR |
+                                     STATEMENT_TYPE_ATTRIBUTE, attr_str,
+                                     &attr_value, &attr_dpath, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
         if (BITPUNCH_NO_ITEM == bt_ret) {
             PyErr_Format(getattr ?

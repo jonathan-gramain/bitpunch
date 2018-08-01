@@ -4930,9 +4930,12 @@ box_evaluate_statement_internal(
 }
 
 bitpunch_status_t
-box_evaluate_member_internal(struct box *box, const char *name,
-                             expr_value_t *valuep, expr_dpath_t *dpathp,
-                             struct browse_state *bst)
+box_evaluate_identifier_internal(
+    struct box *box, enum statement_type stmt_mask, const char *identifier,
+    enum statement_type *stmt_typep, const struct named_statement **stmtp,
+    struct box **scopep,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     enum statement_type stmt_type;
@@ -4940,17 +4943,39 @@ box_evaluate_member_internal(struct box *box, const char *name,
     struct box *scope;
 
     bt_ret = box_lookup_statement_internal(
-        box, (STATEMENT_TYPE_FIELD |
-              STATEMENT_TYPE_NAMED_EXPR |
-              STATEMENT_TYPE_ATTRIBUTE), name,
-        &stmt_type, &named_stmt, &scope, bst);
+        box, stmt_mask, identifier, &stmt_type, &named_stmt, &scope, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
     bt_ret = box_evaluate_statement_internal(scope, stmt_type, named_stmt,
                                              valuep, dpathp, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        if (NULL != stmt_typep) {
+            *stmt_typep = stmt_type;
+        }
+        if (NULL != stmtp) {
+            *stmtp = named_stmt;
+        }
+        if (NULL != scopep) {
+            *scopep = scope;
+            scope = NULL;
+        }
+    }
     box_delete(scope);
     return bt_ret;
+}
+
+bitpunch_status_t
+box_evaluate_attribute_internal(
+    struct box *box, const char *attr_name,
+    const struct named_expr **attrp,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst)
+{
+    return box_evaluate_identifier_internal(
+        box, STATEMENT_TYPE_ATTRIBUTE, attr_name,
+        NULL, (const struct named_statement **)attrp, NULL,
+        valuep, dpathp, bst);
 }
 
 /*
@@ -5618,19 +5643,16 @@ box_compute_min_span_size__span_expr(struct box *box,
     bitpunch_status_t bt_ret;
     const struct named_expr *span_stmt;
     int span_expr_defines_max;
-    struct ast_node_hdl *span_expr;
     expr_value_t span_size;
 
     DBG_BOX_DUMP(box);
     span_expr_defines_max = FALSE;
-    bt_ret = box_get_first_statement_internal(
-        box, STATEMENT_TYPE_ATTRIBUTE, "@minspan",
-        NULL, (const struct statement **)&span_stmt, bst);
+    bt_ret = box_evaluate_attribute_internal(
+        box, "@minspan", &span_stmt, &span_size, NULL, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
         span_expr_defines_max = TRUE;
-        bt_ret = box_get_first_statement_internal(
-            box, STATEMENT_TYPE_ATTRIBUTE, "@span",
-            NULL, (const struct statement **)&span_stmt, bst);
+        bt_ret = box_evaluate_attribute_internal(
+            box, "@span", &span_stmt, &span_size, NULL, bst);
     }
     switch (bt_ret) {
     case BITPUNCH_OK:
@@ -5642,16 +5664,9 @@ box_compute_min_span_size__span_expr(struct box *box,
     default:
         return bt_ret;
     }
-    span_expr = span_stmt->expr;
-    bt_ret = expr_evaluate_value_internal(span_expr, box, &span_size, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        tracker_error_add_box_context(
-            box, bst, "when evaluating expression of min span size");
-        return bt_ret;
-    }
     /* TODO: show data path info in errors */
     if (span_size.integer < 0) {
-        return box_error(BITPUNCH_DATA_ERROR, box, span_expr, bst,
+        return box_error(BITPUNCH_DATA_ERROR, box, span_stmt->expr, bst,
                          "evaluation of span size expression gives "
                          "negative value (%"PRIi64")", span_size.integer);
     }
@@ -5669,19 +5684,16 @@ box_compute_max_span_size__span_expr(struct box *box,
     bitpunch_status_t bt_ret;
     const struct named_expr *span_stmt;
     int span_expr_defines_min;
-    struct ast_node_hdl *span_expr;
     expr_value_t span_size;
 
     DBG_BOX_DUMP(box);
     span_expr_defines_min = FALSE;
-    bt_ret = box_get_first_statement_internal(
-        box, STATEMENT_TYPE_ATTRIBUTE, "@maxspan",
-        NULL, (const struct statement **)&span_stmt, bst);
+    bt_ret = box_evaluate_attribute_internal(
+        box, "@maxspan", &span_stmt, &span_size, NULL, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
         span_expr_defines_min = TRUE;
-        bt_ret = box_get_first_statement_internal(
-            box, STATEMENT_TYPE_ATTRIBUTE, "@span",
-            NULL, (const struct statement **)&span_stmt, bst);
+        bt_ret = box_evaluate_attribute_internal(
+            box, "@span", &span_stmt, &span_size, NULL, bst);
     }
     switch (bt_ret) {
     case BITPUNCH_OK:
@@ -5692,16 +5704,9 @@ box_compute_max_span_size__span_expr(struct box *box,
     default:
         return bt_ret;
     }
-    span_expr = span_stmt->expr;
-    bt_ret = expr_evaluate_value_internal(span_expr, box, &span_size, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        tracker_error_add_box_context(
-            box, bst, "when evaluating expression of max span size");
-        return bt_ret;
-    }
     /* TODO: show data path info in errors */
     if (span_size.integer < 0) {
-        return box_error(BITPUNCH_DATA_ERROR, box, span_expr, bst,
+        return box_error(BITPUNCH_DATA_ERROR, box, span_stmt->expr, bst,
                          "evaluation of span size expression gives "
                          "negative value (%"PRIi64")", span_size.integer);
     }
@@ -6669,7 +6674,6 @@ tracker_goto_next_item__array(struct tracker *tk,
     bitpunch_status_t bt_ret;
     struct box *filtered_box;
     int64_t item_size;
-    const struct named_expr *last_attr;
     expr_value_t last_eval;
     int is_last;
 
@@ -6681,30 +6685,17 @@ tracker_goto_next_item__array(struct tracker *tk,
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        bt_ret = box_get_first_statement_internal(
-            filtered_box, STATEMENT_TYPE_ATTRIBUTE, "@last",
-            NULL, (const struct statement **)&last_attr, bst);
+        bt_ret = box_evaluate_attribute_internal(filtered_box, "@last",
+                                                 NULL, &last_eval, NULL, bst);
+        box_delete_non_null(filtered_box);
         switch (bt_ret) {
         case BITPUNCH_OK:
-            bt_ret = expr_evaluate_value_internal(
-                last_attr->expr, filtered_box, &last_eval, bst);
-            box_delete_non_null(filtered_box);
-            if (BITPUNCH_OK != bt_ret) {
-                return bt_ret;
-            }
-            if (EXPR_VALUE_TYPE_BOOLEAN != last_eval.type) {
-                return tracker_error(
-                    BITPUNCH_INVALID_PARAM, tk, last_attr->expr, bst,
-                    "'@last': expect boolean expression, not \"%s\"",
-                    expr_value_type_str(last_eval.type));
-            }
+            assert(EXPR_VALUE_TYPE_BOOLEAN == last_eval.type);
             is_last = last_eval.boolean;
             break ;
         case BITPUNCH_NO_ITEM:
-            box_delete_non_null(filtered_box);
             break ;
         default:
-            box_delete_non_null(filtered_box);
             return bt_ret;
         }
     }
@@ -9136,15 +9127,18 @@ box_iter_statements_next(struct box *box, tstatement_iterator *it,
 
 
 bitpunch_status_t
-box_evaluate_member(struct box *box, const char *name,
-                    expr_value_t *valuep, expr_dpath_t *dpathp,
-                    struct tracker_error **errp)
+box_evaluate_identifier(
+    struct box *box, enum statement_type stmt_mask, const char *identifier,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct tracker_error **errp)
 {
     struct browse_state bst;
 
     browse_state_init(&bst);
     return transmit_error(
-        box_evaluate_member_internal(box, name, valuep, dpathp, &bst),
+        box_evaluate_identifier_internal(box, stmt_mask, identifier,
+                                         NULL, NULL, NULL,
+                                         valuep, dpathp, &bst),
         &bst, errp);
 }
 
