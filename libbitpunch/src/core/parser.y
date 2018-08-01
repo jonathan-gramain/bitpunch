@@ -203,6 +203,19 @@
         struct dep_resolver_node dr_node;
     };
 
+    enum statement_type {
+        STATEMENT_TYPE_FIELD = (1<<0),
+        STATEMENT_TYPE_NAMED_EXPR = (1<<1),
+        STATEMENT_TYPE_ATTRIBUTE = (1<<2),
+    };
+
+    struct named_statement_spec {
+        enum statement_type stmt_type;
+        struct named_statement *nstmt;
+        const struct ast_node_hdl *anchor_filter;
+        int anonymous_member;
+    };
+
     struct ast_node_data {
         /* when changing this enum, don't forget to update
          * ast_node_type_str() */

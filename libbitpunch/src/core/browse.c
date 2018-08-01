@@ -223,29 +223,6 @@ static void
 box_delete_non_null(struct box *box);
 
 static bitpunch_status_t
-box_iter_statements_next_internal(struct box *box,
-                                  struct statement_iterator *it,
-                                  enum statement_type *stmt_typep,
-                                  const struct statement **stmtp,
-                                  struct browse_state *bst);
-
-
-static bitpunch_status_t
-box_get_first_statement_internal(struct box *box,
-                                 enum statement_type stmt_mask,
-                                 const char *identifier,
-                                 enum statement_type *stmt_typep,
-                                 const struct statement **stmtp,
-                                 struct browse_state *bst);
-
-static bitpunch_status_t
-box_get_n_statements_internal(struct box *box,
-                              enum statement_type stmt_mask,
-                              const char *identifier,
-                              int64_t *stmt_countp,
-                              struct browse_state *bst);
-
-static bitpunch_status_t
 box_compute_min_span_size(struct box *box,
                           struct browse_state *bst);
 static bitpunch_status_t
@@ -4477,508 +4454,6 @@ tracker_reverse_direction_internal(struct tracker *tk,
 }
 
 /*
- * Generic statements API
- */
-
-
-const char *
-statement_type_str(enum statement_type stmt_type)
-{
-    switch (stmt_type) {
-    case STATEMENT_TYPE_FIELD:
-        return "field";
-    case STATEMENT_TYPE_NAMED_EXPR:
-        return "named expr";
-    case STATEMENT_TYPE_ATTRIBUTE:
-        return "attribute";
-    }
-    return "unknown statement type";
-}
-
-static const struct statement *
-box_iter_statements_advance_internal(struct statement_iterator *it,
-                                     const struct statement *stmt)
-{
-    const struct statement *next_stmt;
-
-    next_stmt = stmt;
-    do {
-        if ((it->it_flags & STATEMENT_ITERATOR_FLAG_REVERSE)) {
-            next_stmt = TAILQ_PREV(next_stmt, statement_list, list);
-        } else {
-            next_stmt = TAILQ_NEXT(next_stmt, list);
-        }
-    } while (NULL != next_stmt
-             && NULL != it->identifier
-             && (NULL == ((struct named_statement *)next_stmt)->name
-                 || 0 != strcmp(it->identifier,
-                                ((struct named_statement *)next_stmt)->name)));
-    return next_stmt;
-}
-
-static const struct statement *
-box_iter_statements_find_first_internal(
-    struct statement_iterator *it,
-    const struct statement *stmt)
-{
-    if (NULL == stmt
-        || NULL == it->identifier
-        || (NULL != ((struct named_statement *)stmt)->name
-            && 0 == strcmp(it->identifier,
-                           ((struct named_statement *)stmt)->name))) {
-        return stmt;
-    }
-    return box_iter_statements_advance_internal(it, stmt);
-}
-
-static void
-box_iter_start_list_internal(struct statement_iterator *it)
-{
-    if (0 != (it->stmt_remaining & STATEMENT_TYPE_NAMED_EXPR)) {
-        it->next_stmt = box_iter_statements_find_first_internal(
-            it, TAILQ_FIRST(it->stmt_lists->named_expr_list));
-        it->stmt_remaining &= ~STATEMENT_TYPE_NAMED_EXPR;
-        return ;
-    }
-    if (0 != (it->stmt_remaining & STATEMENT_TYPE_FIELD)) {
-        it->next_stmt = box_iter_statements_find_first_internal(
-            it, TAILQ_FIRST(it->stmt_lists->field_list));
-        it->stmt_remaining &= ~STATEMENT_TYPE_FIELD;
-        return ;
-    }
-    if (0 != (it->stmt_remaining & STATEMENT_TYPE_ATTRIBUTE)) {
-        it->next_stmt = box_iter_statements_find_first_internal(
-            it, TAILQ_FIRST(it->stmt_lists->attribute_list));
-        it->stmt_remaining &= ~STATEMENT_TYPE_ATTRIBUTE;
-        return ;
-    }
-}
-
-static void
-box_riter_start_list_internal(struct statement_iterator *it)
-{
-    if (0 != (it->stmt_remaining & STATEMENT_TYPE_NAMED_EXPR)) {
-        it->next_stmt = box_iter_statements_find_first_internal(
-            it, TAILQ_LAST(it->stmt_lists->named_expr_list, statement_list));
-        it->stmt_remaining &= ~STATEMENT_TYPE_NAMED_EXPR;
-        return ;
-    }
-    if (0 != (it->stmt_remaining & STATEMENT_TYPE_FIELD)) {
-        it->next_stmt = box_iter_statements_find_first_internal(
-            it, TAILQ_LAST(it->stmt_lists->field_list, statement_list));
-        it->stmt_remaining &= ~STATEMENT_TYPE_FIELD;
-        return ;
-    }
-    if (0 != (it->stmt_remaining & STATEMENT_TYPE_ATTRIBUTE)) {
-        it->next_stmt = box_iter_statements_find_first_internal(
-            it, TAILQ_LAST(it->stmt_lists->attribute_list, statement_list));
-        it->stmt_remaining &= ~STATEMENT_TYPE_ATTRIBUTE;
-        return ;
-    }
-}
-
-static enum statement_type
-box_iter_get_current_statement_type(struct statement_iterator *it)
-{
-    enum statement_type stmt_done_or_in_progress;
-
-    // lookup in reverse priority order, since the higher priority
-    // ones are already done so not current
-
-    stmt_done_or_in_progress = it->stmt_mask & ~it->stmt_remaining;
-    if (0 != (stmt_done_or_in_progress & STATEMENT_TYPE_ATTRIBUTE)) {
-        return STATEMENT_TYPE_ATTRIBUTE;
-    }
-    if (0 != (stmt_done_or_in_progress & STATEMENT_TYPE_FIELD)) {
-        return STATEMENT_TYPE_FIELD;
-    }
-    if (0 != (stmt_done_or_in_progress & STATEMENT_TYPE_NAMED_EXPR)) {
-        return STATEMENT_TYPE_NAMED_EXPR;
-    }
-    return 0u;
-}
-
-struct statement_iterator
-box_iter_statements(struct box *box,
-                    enum statement_type stmt_mask,
-                    const char *identifier)
-{
-    struct statement_iterator it;
-
-    memset(&it, 0, sizeof (it));
-    it.identifier = identifier;
-    it.stmt_lists = &box->dpath.item->ndat->u.rexpr_filter.filter_def->block_stmt_list;
-    it.stmt_mask = stmt_mask;
-    it.stmt_remaining = stmt_mask;
-    box_iter_start_list_internal(&it);
-    return it;
-}
-
-struct statement_iterator
-box_iter_statements_from(struct box *box,
-                         const struct statement *stmt,
-                         const char *identifier)
-{
-    struct statement_iterator it;
-
-    memset(&it, 0, sizeof (it));
-    it.identifier = identifier;
-    it.next_stmt = box_iter_statements_advance_internal(&it, stmt);
-    return it;
-}
-
-struct statement_iterator
-box_riter_statements(struct box *box,
-                     enum statement_type stmt_mask,
-                     const char *identifier)
-{
-    struct statement_iterator it;
-
-    memset(&it, 0, sizeof (it));
-    it.identifier = identifier;
-    it.it_flags = STATEMENT_ITERATOR_FLAG_REVERSE;
-    it.stmt_lists = &box->dpath.item->ndat->u.rexpr_filter.filter_def->block_stmt_list;
-    it.stmt_mask = stmt_mask;
-    it.stmt_remaining = stmt_mask;
-    box_riter_start_list_internal(&it);
-    return it;
-}
-
-struct statement_iterator
-box_riter_statements_from(struct box *box,
-                          const struct statement *stmt,
-                          const char *identifier)
-{
-    struct statement_iterator it;
-
-    memset(&it, 0, sizeof (it));
-    it.identifier = identifier;
-    it.it_flags = STATEMENT_ITERATOR_FLAG_REVERSE;
-    it.next_stmt = box_iter_statements_advance_internal(&it, stmt);
-    return it;
-}
-
-static bitpunch_status_t
-box_iter_statements_next_internal(struct box *box,
-                                  struct statement_iterator *it,
-                                  enum statement_type *stmt_typep,
-                                  const struct statement **stmtp,
-                                  struct browse_state *bst)
-{
-    const struct statement *stmt;
-
-    stmt = it->next_stmt;
-    while (NULL != stmt) {
-        int cond_eval;
-        bitpunch_status_t bt_ret;
-
-        bt_ret = evaluate_conditional_internal(stmt->cond, box,
-                                               &cond_eval, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            tracker_error_add_box_context(box, bst,
-                                          "when evaluating condition");
-            return bt_ret;
-        }
-        if (cond_eval) {
-            it->next_stmt = box_iter_statements_advance_internal(it, stmt);
-            if (NULL != stmt_typep) {
-                *stmt_typep = box_iter_get_current_statement_type(it);
-            }
-            if (NULL != stmtp) {
-                *stmtp = stmt;
-            }
-            return BITPUNCH_OK;
-        }
-        // condition is false: go on with next statement
-        stmt = box_iter_statements_advance_internal(it, stmt);
-    }
-    if (0 != it->stmt_remaining) {
-        if (0 != (it->it_flags & STATEMENT_ITERATOR_FLAG_REVERSE)) {
-            box_riter_start_list_internal(it);
-        } else {
-            box_iter_start_list_internal(it);
-        }
-        return box_iter_statements_next_internal(box, it,
-                                                 stmt_typep, stmtp, bst);
-    }
-    return BITPUNCH_NO_ITEM;
-}
-
-static bitpunch_status_t
-box_lookup_statement_recur(struct box *box,
-                           const struct block_stmt_list *stmt_lists,
-                           enum statement_type stmt_mask,
-                           const char *identifier,
-                           enum statement_type *stmt_typep,
-                           const struct named_statement **stmtp,
-                           struct box **scopep,
-                           struct browse_state *bst);
-
-static bitpunch_status_t
-box_lookup_statement_in_anonymous_field_recur(
-    struct box *box,
-    enum statement_type stmt_mask,
-    const char *identifier,
-    const struct named_statement *stmt,
-    enum statement_type *stmt_typep,
-    const struct named_statement **stmtp,
-    struct box **scopep,
-    struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    int cond_eval;
-    const struct field *field;
-    const struct ast_node_hdl *as_type;
-    struct box *scope;
-    struct tracker *tk;
-
-    // optimization: check if the anonymous struct or its anonymous
-    // children (recursively) contain at least one field with the
-    // requested name, to avoid creating a filtered box when it's
-    // certain there will be no such named statement
-
-    // we may optimize this further in the future (e.g. with a hash
-    // table for identifiers for fast lookup)
-
-    field = (const struct field *)stmt;
-    as_type = dpath_node_get_as_type(&field->dpath);
-    assert(AST_NODE_TYPE_COMPOSITE == as_type->ndat->type);
-    if (!identifier_is_visible_in_block_stmt_lists(
-            STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD,
-            identifier, &as_type->ndat->u.rexpr_filter.filter_def->block_stmt_list)) {
-        return BITPUNCH_NO_ITEM;
-    }
-
-    bt_ret = evaluate_conditional_internal(stmt->stmt.cond, box,
-                                           &cond_eval, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        tracker_error_add_box_context(box, bst,
-                                      "when evaluating condition");
-        return bt_ret;
-    }
-    if (!cond_eval) {
-        return BITPUNCH_NO_ITEM;
-    }
-    tk = track_box_contents_internal(box, bst);
-    bt_ret = tracker_goto_field_internal(
-        tk, field, TRUE, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    bt_ret = tracker_get_filtered_item_box_internal(tk, &scope, bst);
-    tracker_delete(tk);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    bt_ret = box_lookup_statement_recur(
-        scope, &as_type->ndat->u.rexpr_filter.filter_def->block_stmt_list,
-        stmt_mask, identifier, stmt_typep, stmtp, scopep, bst);
-    box_delete(scope);
-    return bt_ret;
-}
-
-static bitpunch_status_t
-box_lookup_statement_recur(struct box *box,
-                           const struct block_stmt_list *stmt_lists,
-                           enum statement_type stmt_mask,
-                           const char *identifier,
-                           enum statement_type *stmt_typep,
-                           const struct named_statement **stmtp,
-                           struct box **scopep,
-                           struct browse_state *bst)
-{
-    struct statement *stmt;
-    struct named_statement *nstmt;
-    bitpunch_status_t bt_ret;
-
-    bt_ret = box_get_first_statement_internal(
-        box, stmt_mask, identifier,
-        stmt_typep, (const struct statement **)stmtp, bst);
-    if (BITPUNCH_OK == bt_ret) {
-        if (NULL != scopep) {
-            *scopep = box;
-            box_acquire(box);
-        }
-        return BITPUNCH_OK;
-    }
-    if (BITPUNCH_NO_ITEM != bt_ret) {
-        return bt_ret;
-    }
-    // do not recurse anonymous fields to find attributes
-    if (identifier[0] != '@') {
-        // recurse in anonymous struct/union fields
-        TAILQ_FOREACH(stmt, stmt_lists->field_list, list) {
-            nstmt = (struct named_statement *)stmt;
-            if (NULL == nstmt->name
-                && !(nstmt->stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
-                bt_ret = box_lookup_statement_in_anonymous_field_recur(
-                    box, stmt_mask, identifier, nstmt,
-                    stmt_typep, stmtp, scopep, bst);
-                if (BITPUNCH_NO_ITEM != bt_ret) {
-                    return bt_ret;
-                }
-            }
-        }
-    }
-    return BITPUNCH_NO_ITEM;
-}
-
-bitpunch_status_t
-box_lookup_statement_internal(struct box *box,
-                              enum statement_type stmt_mask,
-                              const char *identifier,
-                              enum statement_type *stmt_typep,
-                              const struct named_statement **stmtp,
-                              struct box **scopep,
-                              struct browse_state *bst)
-{
-    struct filter_def *filter_def;
-
-    filter_def = box->dpath.item->ndat->u.rexpr_filter.filter_def;
-    if (NULL == filter_def) {
-        return BITPUNCH_NO_ITEM;
-    }
-    return box_lookup_statement_recur(
-        box, &filter_def->block_stmt_list, stmt_mask, identifier,
-        stmt_typep, stmtp, scopep, bst);
-}
-
-static bitpunch_status_t
-box_get_first_statement_internal(struct box *box,
-                                 enum statement_type stmt_mask,
-                                 const char *identifier,
-                                 enum statement_type *stmt_typep,
-                                 const struct statement **stmtp,
-                                 struct browse_state *bst)
-{
-    struct statement_iterator it;
-
-    it = box_iter_statements(box, stmt_mask, identifier);
-    return box_iter_statements_next_internal(box, &it, stmt_typep, stmtp, bst);
-}
-
-bitpunch_status_t
-box_get_n_statements_internal(struct box *box,
-                              enum statement_type stmt_mask,
-                              const char *identifier,
-                              int64_t *stmt_countp,
-                              struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    struct statement_iterator it;
-    int64_t stmt_count;
-
-    it = box_iter_statements(box, stmt_mask, identifier);
-    stmt_count = -1;
-    do {
-        ++stmt_count;
-        bt_ret = box_iter_statements_next_internal(box, &it, NULL, NULL, bst);
-    } while (BITPUNCH_OK == bt_ret);
-    if (BITPUNCH_NO_ITEM != bt_ret) {
-        return bt_ret;
-    }
-    if (NULL != stmt_countp) {
-        *stmt_countp = stmt_count;
-    }
-    return BITPUNCH_OK;
-}
-
-/*
- * named expressions API
- */
-
-bitpunch_status_t
-box_evaluate_statement_internal(
-    struct box *box,
-    enum statement_type stmt_type, const struct named_statement *named_stmt,
-    expr_value_t *valuep, expr_dpath_t *dpathp,
-    struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-
-    switch (stmt_type) {
-    case STATEMENT_TYPE_NAMED_EXPR:
-    case STATEMENT_TYPE_ATTRIBUTE:{
-        const struct named_expr *named_expr;
-        struct ast_node_hdl *expr;
-
-        named_expr = (const struct named_expr *)named_stmt;
-        expr = named_expr->expr;
-        return expr_evaluate_internal(expr, box, valuep, dpathp, bst);
-    }
-    case STATEMENT_TYPE_FIELD: {
-        struct tracker *tk;
-        const struct field *field;
-
-        field = (const struct field *)named_stmt;
-        tk = track_box_contents_internal(box, bst);
-        bt_ret = tracker_goto_field_internal(tk, field, FALSE, bst);
-        if (BITPUNCH_OK == bt_ret && NULL != valuep) {
-            bt_ret = tracker_read_item_value_internal(tk, valuep, bst);
-        }
-        if (BITPUNCH_OK == bt_ret && NULL != dpathp) {
-            *dpathp = expr_dpath_as_item(tk);
-        } else {
-            tracker_delete(tk);
-        }
-        return bt_ret;
-    }
-    default:
-        assert(0);
-    }
-    /*NOT REACHED*/
-}
-
-bitpunch_status_t
-box_evaluate_identifier_internal(
-    struct box *box, enum statement_type stmt_mask, const char *identifier,
-    enum statement_type *stmt_typep, const struct named_statement **stmtp,
-    struct box **scopep,
-    expr_value_t *valuep, expr_dpath_t *dpathp,
-    struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    enum statement_type stmt_type;
-    const struct named_statement *named_stmt;
-    struct box *scope;
-
-    bt_ret = box_lookup_statement_internal(
-        box, stmt_mask, identifier, &stmt_type, &named_stmt, &scope, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    bt_ret = box_evaluate_statement_internal(scope, stmt_type, named_stmt,
-                                             valuep, dpathp, bst);
-    if (BITPUNCH_OK == bt_ret) {
-        if (NULL != stmt_typep) {
-            *stmt_typep = stmt_type;
-        }
-        if (NULL != stmtp) {
-            *stmtp = named_stmt;
-        }
-        if (NULL != scopep) {
-            *scopep = scope;
-            scope = NULL;
-        }
-    }
-    box_delete(scope);
-    return bt_ret;
-}
-
-bitpunch_status_t
-box_evaluate_attribute_internal(
-    struct box *box, const char *attr_name,
-    const struct named_expr **attrp,
-    expr_value_t *valuep, expr_dpath_t *dpathp,
-    struct browse_state *bst)
-{
-    return box_evaluate_identifier_internal(
-        box, STATEMENT_TYPE_ATTRIBUTE, attr_name,
-        NULL, (const struct named_statement **)attrp, NULL,
-        valuep, dpathp, bst);
-}
-
-/*
  * tracker error management
  */
 
@@ -5647,12 +5122,12 @@ box_compute_min_span_size__span_expr(struct box *box,
 
     DBG_BOX_DUMP(box);
     span_expr_defines_max = FALSE;
-    bt_ret = box_evaluate_attribute_internal(
-        box, "@minspan", &span_stmt, &span_size, NULL, bst);
+    bt_ret = filter_evaluate_attribute_internal(
+        box->dpath.item, box, "@minspan", &span_stmt, &span_size, NULL, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
         span_expr_defines_max = TRUE;
-        bt_ret = box_evaluate_attribute_internal(
-            box, "@span", &span_stmt, &span_size, NULL, bst);
+        bt_ret = filter_evaluate_attribute_internal(
+            box->dpath.item, box, "@span", &span_stmt, &span_size, NULL, bst);
     }
     switch (bt_ret) {
     case BITPUNCH_OK:
@@ -5688,12 +5163,12 @@ box_compute_max_span_size__span_expr(struct box *box,
 
     DBG_BOX_DUMP(box);
     span_expr_defines_min = FALSE;
-    bt_ret = box_evaluate_attribute_internal(
-        box, "@maxspan", &span_stmt, &span_size, NULL, bst);
+    bt_ret = filter_evaluate_attribute_internal(
+        box->dpath.item, box, "@maxspan", &span_stmt, &span_size, NULL, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
         span_expr_defines_min = TRUE;
-        bt_ret = box_evaluate_attribute_internal(
-            box, "@span", &span_stmt, &span_size, NULL, bst);
+        bt_ret = filter_evaluate_attribute_internal(
+            box->dpath.item, box, "@span", &span_stmt, &span_size, NULL, bst);
     }
     switch (bt_ret) {
     case BITPUNCH_OK:
@@ -5796,8 +5271,9 @@ box_get_n_items__composite(struct box *box, int64_t *item_countp,
                        struct browse_state *bst)
 {
     DBG_BOX_DUMP(box);
-    return box_get_n_statements_internal(box, STATEMENT_TYPE_FIELD, NULL,
-                                         item_countp, bst);
+    return filter_get_n_statements_internal(
+        box->dpath.item, box, STATEMENT_TYPE_FIELD, NULL,
+        item_countp, bst);
 }
 
 static bitpunch_status_t
@@ -5846,14 +5322,13 @@ tracker_goto_item_int__composite(struct tracker *tk,
             return bt_ret;
         }
         if (0 != (tk->flags & TRACKER_REVERSED)) {
-            stit = box_riter_statements(xtk->box, STATEMENT_TYPE_FIELD,
-                                        NULL);
+            stit = filter_riter_statements(
+                xtk->box->dpath.item, xtk->box, STATEMENT_TYPE_FIELD, NULL);
         } else {
-            stit = box_iter_statements(xtk->box, STATEMENT_TYPE_FIELD,
-                                       NULL);
+            stit = filter_iter_statements(
+                xtk->box->dpath.item, xtk->box, STATEMENT_TYPE_FIELD, NULL);
         }
-        bt_ret = box_iter_statements_next_internal(xtk->box, &stit,
-                                                   NULL, &stmt, bst);
+        bt_ret = filter_iter_statements_next_internal(&stit, NULL, &stmt, bst);
         if (BITPUNCH_OK != bt_ret) {
             tracker_delete(xtk);
             return bt_ret;
@@ -5904,14 +5379,13 @@ tracker_goto_first_item_int__composite(struct tracker *tk, int flat,
         return bt_ret;
     }
     if (0 != (tk->flags & TRACKER_REVERSED)) {
-        stit = box_riter_statements(tk->box, STATEMENT_TYPE_FIELD,
-                                    NULL);
+        stit = filter_riter_statements(
+            tk->box->dpath.item, tk->box, STATEMENT_TYPE_FIELD, NULL);
     } else {
-        stit = box_iter_statements(tk->box, STATEMENT_TYPE_FIELD,
-                                   NULL);
+        stit = filter_iter_statements(
+            tk->box->dpath.item, tk->box, STATEMENT_TYPE_FIELD, NULL);
     }
-    bt_ret = box_iter_statements_next_internal(tk->box,
-                                               &stit, NULL, &stmt, bst);
+    bt_ret = filter_iter_statements_next_internal(&stit, NULL, &stmt, bst);
     if (BITPUNCH_OK != bt_ret) {
         if (BITPUNCH_NO_ITEM == bt_ret) {
             bt_ret = tracker_set_end(tk, bst);
@@ -5962,16 +5436,15 @@ tracker_goto_next_item_int__composite(struct tracker *tk, int flat,
         }
         tracker_reset_item(tk);
         if (reversed) {
-            stit = box_riter_statements_from(
-                tk->box, (const struct statement *)tk->cur.u.block.field,
-                NULL);
+            stit = filter_riter_statements_from(
+                tk->box->dpath.item, tk->box,
+                (const struct statement *)tk->cur.u.block.field, NULL);
         } else {
-            stit = box_iter_statements_from(
-                tk->box, (const struct statement *)tk->cur.u.block.field,
-                NULL);
+            stit = filter_iter_statements_from(
+                tk->box->dpath.item, tk->box,
+                (const struct statement *)tk->cur.u.block.field, NULL);
         }
-        bt_ret = box_iter_statements_next_internal(tk->box, &stit,
-                                                   NULL, &stmt, bst);
+        bt_ret = filter_iter_statements_next_internal(&stit, NULL, &stmt, bst);
         if (BITPUNCH_NO_ITEM != bt_ret) {
             break ;
         }
@@ -6685,8 +6158,9 @@ tracker_goto_next_item__array(struct tracker *tk,
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        bt_ret = box_evaluate_attribute_internal(filtered_box, "@last",
-                                                 NULL, &last_eval, NULL, bst);
+        bt_ret = filter_evaluate_attribute_internal(
+            filtered_box->dpath.item, filtered_box, "@last",
+            NULL, &last_eval, NULL, bst);
         box_delete_non_null(filtered_box);
         switch (bt_ret) {
         case BITPUNCH_OK:
@@ -8657,7 +8131,7 @@ browse_setup_global_backends(void)
  * external API wrappers
  */
 
-static bitpunch_status_t
+bitpunch_status_t
 transmit_error(bitpunch_status_t bt_ret, struct browse_state *bst,
                struct tracker_error **errp)
 {
@@ -9110,37 +8584,6 @@ track_box_contents(struct box *box,
     return box_tk;
 }
 
-
-bitpunch_status_t
-box_iter_statements_next(struct box *box, tstatement_iterator *it,
-                         enum statement_type *stmt_typep,
-                         const struct statement **stmtp,
-                         struct tracker_error **errp)
-{
-    struct browse_state bst;
-
-    browse_state_init(&bst);
-    return transmit_error(
-        box_iter_statements_next_internal(box, it, stmt_typep, stmtp, &bst),
-        &bst, errp);
-}
-
-
-bitpunch_status_t
-box_evaluate_identifier(
-    struct box *box, enum statement_type stmt_mask, const char *identifier,
-    expr_value_t *valuep, expr_dpath_t *dpathp,
-    struct tracker_error **errp)
-{
-    struct browse_state bst;
-
-    browse_state_init(&bst);
-    return transmit_error(
-        box_evaluate_identifier_internal(box, stmt_mask, identifier,
-                                         NULL, NULL, NULL,
-                                         valuep, dpathp, &bst),
-        &bst, errp);
-}
 
 /*
  *

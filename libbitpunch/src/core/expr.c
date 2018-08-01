@@ -1239,8 +1239,8 @@ expr_evaluate_named_expr_internal(
     if (0 != (expr->flags & ASTFLAG_IS_ANONYMOUS_MEMBER)) {
         struct box *direct_scope;
 
-        bt_ret = box_lookup_statement_internal(
-            member_scope, STATEMENT_TYPE_NAMED_EXPR,
+        bt_ret = filter_lookup_statement_internal(
+            member_scope->dpath.item, member_scope, STATEMENT_TYPE_NAMED_EXPR,
             named_expr->nstmt.name, NULL, NULL, &direct_scope, bst);
         box_delete(member_scope);
         if (BITPUNCH_OK != bt_ret) {
@@ -1299,8 +1299,8 @@ expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
         if (BITPUNCH_OK != bt_ret) {
             goto error;
         }
-        bt_ret = box_lookup_statement_internal(
-            anchor_box, lookup_mask,
+        bt_ret = filter_lookup_statement_internal(
+            anchor_box->dpath.item, anchor_box, lookup_mask,
             expr->ndat->u.rexpr_polymorphic.identifier,
             stmt_typep, nstmtp, member_scopep, bst);
         if (BITPUNCH_OK != bt_ret) {
@@ -1320,8 +1320,8 @@ expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
     /* look for attribute in turn from inner to outer scope */
     anchor_box = scope;
     while (TRUE) {
-        bt_ret = box_lookup_statement_internal(
-            anchor_box, lookup_mask,
+        bt_ret = filter_lookup_statement_internal(
+            anchor_box->dpath.item, anchor_box, lookup_mask,
             expr->ndat->u.rexpr_polymorphic.identifier,
             stmt_typep, nstmtp, member_scopep, bst);
         if (BITPUNCH_OK == bt_ret) {
@@ -1557,7 +1557,7 @@ expr_evaluate_polymorphic(
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    bt_ret = box_evaluate_statement_internal(
+    bt_ret = evaluate_scoped_statement_internal(
         member_scope, stmt_type, nstmt, valuep, dpathp, bst);
     box_delete(member_scope);
     return bt_ret;
@@ -1642,9 +1642,8 @@ expr_evaluate_field(struct ast_node_hdl *expr, struct box *scope,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    bt_ret = box_evaluate_statement_internal(
-        anchor_box,
-        STATEMENT_TYPE_FIELD,
+    bt_ret = evaluate_scoped_statement_internal(
+        anchor_box, STATEMENT_TYPE_FIELD,
         (struct named_statement *)expr->ndat->u.rexpr_field.field,
         valuep, dpathp, bst);
     box_delete(anchor_box);
@@ -2364,6 +2363,48 @@ evaluate_conditional_internal(struct ast_node_hdl *cond, struct box *scope,
 }
 
 bitpunch_status_t
+evaluate_scoped_statement_internal(
+    struct box *scope,
+    enum statement_type stmt_type, const struct named_statement *named_stmt,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+
+    switch (stmt_type) {
+    case STATEMENT_TYPE_NAMED_EXPR:
+    case STATEMENT_TYPE_ATTRIBUTE:{
+        const struct named_expr *named_expr;
+        struct ast_node_hdl *expr;
+
+        named_expr = (const struct named_expr *)named_stmt;
+        expr = named_expr->expr;
+        return expr_evaluate_internal(expr, scope, valuep, dpathp, bst);
+    }
+    case STATEMENT_TYPE_FIELD: {
+        struct tracker *tk;
+        const struct field *field;
+
+        field = (const struct field *)named_stmt;
+        tk = track_box_contents_internal(scope, bst);
+        bt_ret = tracker_goto_field_internal(tk, field, FALSE, bst);
+        if (BITPUNCH_OK == bt_ret && NULL != valuep) {
+            bt_ret = tracker_read_item_value_internal(tk, valuep, bst);
+        }
+        if (BITPUNCH_OK == bt_ret && NULL != dpathp) {
+            *dpathp = expr_dpath_as_item(tk);
+        } else {
+            tracker_delete(tk);
+        }
+        return bt_ret;
+    }
+    default:
+        assert(0);
+    }
+    /*NOT REACHED*/
+}
+
+bitpunch_status_t
 dpath_read_value_internal(expr_dpath_t dpath,
                           expr_value_t *expr_valuep,
                           struct browse_state *bst)
@@ -2455,18 +2496,6 @@ expr_value_type_mask_contains_dpath(enum expr_value_type value_type_mask)
 /*
  * external API wrappers
  */
-
-static bitpunch_status_t
-transmit_error(bitpunch_status_t bt_ret, struct browse_state *bst,
-               struct tracker_error **errp)
-{
-    if (NULL != errp) {
-        *errp = bst->last_error;
-        bst->last_error = NULL;
-    }
-    browse_state_cleanup(bst);
-    return bt_ret;
-}
 
 bitpunch_status_t
 expr_evaluate(struct ast_node_hdl *expr, struct box *scope,

@@ -37,6 +37,7 @@
 #include "utils/queue.h"
 #include "core/parser.h"
 #include "core/expr.h"
+#include "core/browse_internal.h"
 
 #include PATH_TO_PARSER_TAB_H
 
@@ -109,5 +110,98 @@ filter_instance_read_value(struct ast_node_hdl *filter,
                              int64_t item_size,
                              expr_value_t *valuep,
                              struct browse_state *bst);
+
+/* generic statement API */
+
+enum statement_iterator_flag {
+    STATEMENT_ITERATOR_FLAG_REVERSE = (1<<0),
+};
+struct statement_iterator {
+    /** attribute name to iterate, or NULL for all statements */
+    const char *identifier;
+    struct box *scope;
+    enum statement_type stmt_mask;
+    enum statement_type stmt_remaining;
+    enum statement_iterator_flag it_flags;
+    const struct block_stmt_list *stmt_lists;
+    const struct statement *next_stmt;
+};
+
+typedef struct statement_iterator tstatement_iterator;
+
+const char *
+statement_type_str(enum statement_type stmt_type);
+
+
+struct statement_iterator
+filter_iter_statements(
+    struct ast_node_hdl *filter, struct box *scope,
+    enum statement_type stmt_mask, const char *identifier);
+
+struct statement_iterator
+filter_iter_statements_from(
+    struct ast_node_hdl *filter, struct box *scope,
+    const struct statement *stmt, const char *identifier);
+
+struct statement_iterator
+filter_riter_statements(
+    struct ast_node_hdl *filter, struct box *scope,
+    enum statement_type stmt_mask, const char *identifier);
+
+struct statement_iterator
+filter_riter_statements_from(
+    struct ast_node_hdl *filter, struct box *scope,
+    const struct statement *stmt, const char *identifier);
+
+bitpunch_status_t
+filter_iter_statements_next_internal(
+    struct statement_iterator *it,
+    enum statement_type *stmt_typep, const struct statement **stmtp,
+    struct browse_state *bst);
+
+bitpunch_status_t
+filter_lookup_statement_internal(
+    struct ast_node_hdl *filter, struct box *scope,
+    enum statement_type stmt_mask, const char *identifier,
+    enum statement_type *stmt_typep, const struct named_statement **stmtp,
+    struct box **scopep,
+    struct browse_state *bst);
+
+bitpunch_status_t
+filter_get_n_statements_internal(
+    struct ast_node_hdl *filter, struct box *scope,
+    enum statement_type stmt_mask, const char *identifier,
+    int64_t *stmt_countp,
+    struct browse_state *bst);
+
+bitpunch_status_t
+filter_evaluate_identifier_internal(
+    struct ast_node_hdl *filter, struct box *scope,
+    enum statement_type stmt_mask, const char *identifier,
+    enum statement_type *stmt_typep, const struct named_statement **stmtp,
+    struct box **scopep,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst);
+
+bitpunch_status_t
+filter_evaluate_attribute_internal(
+    struct ast_node_hdl *filter, struct box *scope,
+    const char *attr_name,
+    const struct named_expr **attrp,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst);
+
+bitpunch_status_t
+filter_evaluate_identifier(
+    struct ast_node_hdl *filter, struct box *scope,
+    enum statement_type stmt_mask, const char *identifier,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct tracker_error **errp);
+
+bitpunch_status_t
+filter_iter_statements_next(
+    struct statement_iterator *it,
+    enum statement_type *stmt_typep, const struct statement **stmtp,
+    struct tracker_error **errp);
 
 #endif

@@ -39,6 +39,7 @@
 
 #include "api/bitpunch_api.h"
 #include "core/browse.h"
+#include "core/filter.h"
 #include "core/debug.h"
 
 static const char *radio_sources[] = {
@@ -207,10 +208,11 @@ static void check_codename_entry(struct radio_source_info *info,
     ck_assert_ptr_ne(tk2, NULL);
     bt_ret = tracker_enter_item(tk2, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-    bt_ret = box_evaluate_identifier(tk2->box, (STATEMENT_TYPE_FIELD |
-                                                STATEMENT_TYPE_NAMED_EXPR |
-                                                STATEMENT_TYPE_ATTRIBUTE),
-                                     "codename", &value, NULL, NULL);
+    bt_ret = filter_evaluate_identifier(
+        tk2->box->dpath.item, tk2->box,
+        STATEMENT_TYPE_FIELD | STATEMENT_TYPE_NAMED_EXPR |
+        STATEMENT_TYPE_ATTRIBUTE,
+        "codename", &value, NULL, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     check_codename_value(info, value, code_idx);
     expr_value_destroy(value);

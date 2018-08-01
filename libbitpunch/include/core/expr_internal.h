@@ -81,4 +81,11 @@ bitpunch_status_t
 evaluate_conditional_internal(struct ast_node_hdl *cond, struct box *scope,
                               int *evalp, struct browse_state *bst);
 
+bitpunch_status_t
+evaluate_scoped_statement_internal(
+    struct box *scope,
+    enum statement_type stmt_type, const struct named_statement *named_stmt,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst);
+
 #endif /* __EXPR_INTERNAL_H__ */
