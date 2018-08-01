@@ -38,6 +38,11 @@
 
 #define REF_BOUNDARY  0
 
+struct state_single_char_constant_boundary {
+    struct filter_instance f_instance; /* inherits */
+    char boundary;
+};
+
 static bitpunch_status_t
 string_get_size_byte_array_single_char_boundary(
     struct ast_node_hdl *filter,
@@ -48,19 +53,12 @@ string_get_size_byte_array_single_char_boundary(
     int *attr_is_specified, expr_value_t *attr_value,
     struct browse_state *bst)
 {
-    //bitpunch_status_t bt_ret;
-    //expr_value_t boundary_value;
+    struct state_single_char_constant_boundary *state;
     const char *end;
 
-    /* bt_ret = box_evaluate_member_internal( */
-    /*     scope, "@boundary", &boundary_value, NULL, bst); */
-    /* if (BITPUNCH_OK != bt_ret) { */
-    /*     return bt_ret; */
-    /* } */
-    /* end = memchr(data, boundary_value.string.str[0], max_span_size); */
-    end = memchr(data, attr_value[REF_BOUNDARY].string.str[0],
-                 max_span_size);
-    //expr_value_destroy(boundary_value);
+    state = (struct state_single_char_constant_boundary *)
+        filter->ndat->u.rexpr_filter.f_instance;
+    end = memchr(data, state->boundary, max_span_size);
     if (NULL != end) {
         *span_sizep = end - data + 1;
         *used_sizep = end - data;
@@ -121,10 +119,14 @@ string_read_byte_array_single_char_boundary(
     int *attr_is_specified, expr_value_t *attr_value,
     struct browse_state *bst)
 {
+    struct state_single_char_constant_boundary *state;
+
+    state = (struct state_single_char_constant_boundary *)
+        filter->ndat->u.rexpr_filter.f_instance;
     read_value->type = EXPR_VALUE_TYPE_STRING;
     read_value->string.str = (char *)data;
     if (span_size >= 1
-        && (data[span_size - 1] == attr_value[REF_BOUNDARY].string.str[0])) {
+        && (data[span_size - 1] == state->boundary)) {
         read_value->string.len = span_size - 1;
     } else {
         read_value->string.len = span_size;
@@ -169,8 +171,7 @@ string_filter_instance_build(
 
     stmt_lists = &filter->ndat->u.rexpr_filter.filter_def->block_stmt_list;
     // default read function, may be overriden next
-    filter->ndat->u.rexpr_filter.read_func =
-        string_read_byte_array_no_boundary;
+    filter->ndat->u.rexpr_filter.read_func = string_read_byte_array_no_boundary;
 
     STATEMENT_FOREACH(named_expr, attr, stmt_lists->attribute_list, list) {
         if (0 == strcmp(attr->nstmt.name, "@boundary")) {
@@ -181,18 +182,23 @@ string_filter_instance_build(
                 case 0:
                     /* keep default byte array size */
                     break ;
-                case 1:
+                case 1: {
+                    struct state_single_char_constant_boundary *state;
+
+                    state = new_safe(
+                        struct state_single_char_constant_boundary);
+                    state->boundary = boundary.str[0];
                     filter->ndat->u.rexpr_filter.get_size_func =
                         string_get_size_byte_array_single_char_boundary;
                     filter->ndat->u.rexpr_filter.read_func =
                         string_read_byte_array_single_char_boundary;
-                    break ;
+                    return (struct filter_instance *)state;
+                }
                 default: /* two or more characters boundary */
                     filter->ndat->u.rexpr_filter.get_size_func =
                         string_get_size_byte_array_multi_char_boundary;
                     filter->ndat->u.rexpr_filter.read_func =
                         string_read_byte_array_multi_char_boundary;
-                    break ;
                 }
             } else {
                 /* dynamic boundary: use generic multi-char
