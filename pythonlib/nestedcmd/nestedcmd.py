@@ -76,7 +76,7 @@ class NestedCmd(kmd.Kmd, object):
     def __getattr__(self, name):
         # skip special features of getattr(Kmd) that expand attributes
         # to sub-commands which we don't want.
-        return super(NestedCmd, self).__getattr__(name)
+        return super(kmd.Kmd, self).__getattr__(name)
 
     def preloop(self):
         super(NestedCmd, self).preloop()
