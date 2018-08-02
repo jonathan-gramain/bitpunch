@@ -52,16 +52,11 @@ filter_class_declare_item(void)
                               EXPR_VALUE_TYPE_UNSET,
                               item_filter_instance_build,
                               5,
-                              "@span", REF_ITEM_SPAN,
-                              EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@minspan", REF_ITEM_MINSPAN,
-                              EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@maxspan", REF_ITEM_MAXSPAN,
-                              EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@key", REF_ITEM_KEY,
-                              (EXPR_VALUE_TYPE_INTEGER |
-                               EXPR_VALUE_TYPE_STRING), 0,
-                              "@last", REF_ITEM_LAST,
-                              EXPR_VALUE_TYPE_BOOLEAN, 0);
+                              "@span", EXPR_VALUE_TYPE_INTEGER, 0,
+                              "@minspan", EXPR_VALUE_TYPE_INTEGER, 0,
+                              "@maxspan", EXPR_VALUE_TYPE_INTEGER, 0,
+                              "@key", (EXPR_VALUE_TYPE_INTEGER |
+                                       EXPR_VALUE_TYPE_STRING), 0,
+                              "@last", EXPR_VALUE_TYPE_BOOLEAN, 0);
     assert(0 == ret);
 }

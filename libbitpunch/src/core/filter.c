@@ -46,7 +46,6 @@ struct filter_class filter_class_table[MAX_FILTER_COUNT];
 int                 filter_class_count = 0;
 
 #define MAX_FILTER_ATTR_DEF_COUNT 1024
-#define FILTER_MAX_ATTR_REF       256
 
 struct filter_attr_def filter_attr_def_table[MAX_FILTER_ATTR_DEF_COUNT];
 int                    filter_attr_def_count = 0;
@@ -80,10 +79,9 @@ filter_class_declare(const char *name,
                     enum expr_value_type value_type_mask,
                     filter_instance_build_func_t filter_instance_build_func,
                     int n_attrs,
-                    ... /* attrs: (name, index, type, flags) tuples */)
+                    ... /* attrs: (name, type, flags) tuples */)
 {
     struct filter_class *filter_cls;
-    int max_attr_ref;
     va_list ap;
     int i;
     struct filter_attr_def *attr_def;
@@ -104,7 +102,6 @@ filter_class_declare(const char *name,
     filter_cls->value_type_mask = value_type_mask;
     filter_cls->filter_instance_build_func = filter_instance_build_func;
     filter_cls->n_attrs = n_attrs;
-    max_attr_ref = -1;
     STAILQ_INIT(&filter_cls->attr_list);
     va_start(ap, n_attrs);
     for (i = 0; i < n_attrs; ++i) {
@@ -113,16 +110,11 @@ filter_class_declare(const char *name,
             return -1;
         }
         attr_def->name = va_arg(ap, const char *);
-        attr_def->ref_idx = va_arg(ap, int);
-        assert(attr_def->ref_idx >= 0 &&
-               attr_def->ref_idx <= FILTER_MAX_ATTR_REF);
         attr_def->value_type_mask = va_arg(ap, enum ast_node_type);
         attr_def->flags = va_arg(ap, enum filter_attr_flags);
         STAILQ_INSERT_TAIL(&filter_cls->attr_list, attr_def, list);
-        max_attr_ref = MAX(max_attr_ref, attr_def->ref_idx);
     }
     va_end(ap);
-    filter_cls->max_attr_ref = max_attr_ref;
     return 0;
 }
 

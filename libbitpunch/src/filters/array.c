@@ -77,9 +77,7 @@ filter_class_declare_array(void)
                                EXPR_VALUE_TYPE_UNSET,
                                array_filter_instance_build,
                                2,
-                               "@item", REF_ITEM_ITEM,
-                               EXPR_VALUE_TYPE_UNSET, 0,
-                               "@length", REF_ITEM_LENGTH,
-                               EXPR_VALUE_TYPE_INTEGER, 0);
+                               "@item", EXPR_VALUE_TYPE_UNSET, 0,
+                               "@length", EXPR_VALUE_TYPE_INTEGER, 0);
     assert(0 == ret);
 }

@@ -1769,15 +1769,12 @@ compile_rexpr_filter(struct ast_node_hdl *expr,
     const struct block_stmt_list *stmt_lists;
     struct named_expr *attr;
     const struct filter_attr_def *attr_def;
-    int attr_ref;
-    int *attr_is_defined;
     int sem_error = FALSE;
     struct filter_instance *f_instance;
 
     filter_cls = expr->ndat->u.rexpr_filter.filter_cls;
     stmt_lists = &expr->ndat->u.rexpr_filter.filter_def->block_stmt_list;
 
-    attr_is_defined = new_n_safe(int, filter_cls->max_attr_ref + 1);
     STATEMENT_FOREACH(named_expr, attr, stmt_lists->attribute_list, list) {
         attr_def = filter_class_get_attr(filter_cls, attr->nstmt.name);
         if (NULL == attr_def) {
@@ -1803,21 +1800,20 @@ compile_rexpr_filter(struct ast_node_hdl *expr,
             sem_error = TRUE;
             continue ;
         }
-        attr_ref = attr_def->ref_idx;
-        assert(attr_ref >= 0 && attr_ref <= filter_cls->max_attr_ref);
-        attr_is_defined[attr_ref] = TRUE;
     }
     STAILQ_FOREACH(attr_def, &filter_cls->attr_list, list) {
-        if (!attr_is_defined[attr_def->ref_idx]
-            && 0 != (FILTER_ATTR_FLAG_MANDATORY & attr_def->flags)) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                "missing mandatory attribute \"%s\"",
-                attr_def->name);
-            sem_error = TRUE;
+        if (0 != (FILTER_ATTR_FLAG_MANDATORY & attr_def->flags)) {
+            if (!identifier_is_visible_in_block_stmt_lists(
+                    STATEMENT_TYPE_ATTRIBUTE, attr_def->name,
+                    stmt_lists)) {
+                semantic_error(
+                    SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
+                    "missing mandatory attribute \"%s\"",
+                    attr_def->name);
+                sem_error = TRUE;
+            }
         }
     }
-    free(attr_is_defined);
     if (sem_error) {
         return -1;
     }
@@ -4521,9 +4517,9 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
             list) {
             attr_def = filter_class_get_attr(filter_cls, attr->nstmt.name);
             assert(NULL != attr_def);
-            fprintf(out, "%*s\\_ \"%s\" [%d]:\n",
+            fprintf(out, "%*s\\_ \"%s\":\n",
                     (depth + 2) * INDENT_N_SPACES, "",
-                    attr_def->name, attr_def->ref_idx);
+                    attr_def->name);
             fdump_ast_recur(attr->expr, depth + 3, visible_refs, out);
         }
         break ;

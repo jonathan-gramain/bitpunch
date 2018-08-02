@@ -48,7 +48,6 @@ enum filter_attr_flags {
 struct filter_attr_def {
     STAILQ_ENTRY(filter_attr_def) list;
     const char *name;
-    int ref_idx;
     enum expr_value_type value_type_mask;
     enum filter_attr_flags flags;
 };
@@ -66,7 +65,6 @@ struct filter_class {
     enum expr_value_type value_type_mask;
     filter_instance_build_func_t filter_instance_build_func;
     int n_attrs;
-    int max_attr_ref;
     STAILQ_HEAD(filter_attr_list, filter_attr_def) attr_list;
 };
 
@@ -75,7 +73,7 @@ filter_class_declare(const char *name,
                      enum expr_value_type value_type_mask,
                      filter_instance_build_func_t filter_instance_build_func,
                      int n_attrs,
-                     ... /* attrs: (name, ref_idx, type, flags) tuples */);
+                     ... /* attrs: (name, type, flags) tuples */);
 
 struct filter_class *
 filter_class_lookup(const char *name);

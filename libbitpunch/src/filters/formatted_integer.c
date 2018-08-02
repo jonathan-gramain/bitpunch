@@ -36,10 +36,6 @@
 
 #include "core/filter.h"
 
-#define REF_BASE        0
-#define REF_SIGNED      1
-#define REF_EMPTY_VALUE 2
-
 #define PLUS_SIGN -2
 #define MINUS_SIGN -3
 
@@ -198,12 +194,9 @@ filter_class_declare_formatted_integer(void)
                               EXPR_VALUE_TYPE_INTEGER,
                               formatted_integer_filter_instance_build,
                               3,
-                              "@base", REF_BASE,
-                              EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@empty_value", REF_EMPTY_VALUE,
-                              EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@signed", REF_SIGNED,
-                              EXPR_VALUE_TYPE_BOOLEAN, 0);
+                              "@base", EXPR_VALUE_TYPE_INTEGER, 0,
+                              "@empty_value", EXPR_VALUE_TYPE_INTEGER, 0,
+                              "@signed", EXPR_VALUE_TYPE_BOOLEAN, 0);
     assert(0 == ret);
 }
 

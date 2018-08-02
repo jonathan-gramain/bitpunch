@@ -36,8 +36,6 @@
 
 #include "core/filter.h"
 
-#define REF_BOUNDARY  0
-
 struct state_single_char_constant_boundary {
     struct filter_instance f_instance; /* inherits */
     char boundary;
@@ -237,8 +235,6 @@ filter_class_declare_string(void)
                               EXPR_VALUE_TYPE_STRING,
                               string_filter_instance_build,
                               1,
-                              "@boundary", REF_BOUNDARY,
-                              EXPR_VALUE_TYPE_STRING,
-                              0);
+                              "@boundary", EXPR_VALUE_TYPE_STRING, 0);
     assert(0 == ret);
 }

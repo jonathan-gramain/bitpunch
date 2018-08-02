@@ -38,9 +38,6 @@
 
 #include "core/filter.h"
 
-#define REF_SIGNED  0
-#define REF_ENDIAN  1
-
 enum endian {
     ENDIAN_BAD = -1,
     ENDIAN_BIG,
@@ -249,7 +246,8 @@ binary_integer_read_generic(
     bt_ret = filter_evaluate_attribute_internal(
         filter, scope, "@signed", NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK != bt_ret) {
-        // @signed is a mandatory attribute so BITPUNCH_NO_ITEM may not happen
+        // @signed is a mandatory attribute so BITPUNCH_NO_ITEM shall
+        // be considered an error
         return bt_ret;
     }
     _signed = attr_value.boolean;
@@ -336,11 +334,8 @@ filter_class_declare_binary_integer(void)
                               EXPR_VALUE_TYPE_INTEGER,
                               binary_integer_filter_instance_build,
                               2,
-                              "@signed", REF_SIGNED,
-                              EXPR_VALUE_TYPE_BOOLEAN,
+                              "@signed", EXPR_VALUE_TYPE_BOOLEAN,
                               FILTER_ATTR_FLAG_MANDATORY,
-                              "@endian", REF_ENDIAN,
-                              EXPR_VALUE_TYPE_STRING,
-                              0);
+                              "@endian", EXPR_VALUE_TYPE_STRING, 0);
     assert(0 == ret);
 }

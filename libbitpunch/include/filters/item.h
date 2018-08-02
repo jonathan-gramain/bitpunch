@@ -34,10 +34,4 @@
 
 #include "core/filter.h"
 
-#define REF_ITEM_SPAN    0
-#define REF_ITEM_MINSPAN 1
-#define REF_ITEM_MAXSPAN 2
-#define REF_ITEM_KEY     3
-#define REF_ITEM_LAST    4
-
 #endif
