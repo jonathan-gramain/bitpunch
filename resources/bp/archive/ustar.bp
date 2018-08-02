@@ -9,8 +9,8 @@ let NullTerminatedString = string {
 };
 
 let OctalInt = NullTerminatedString <> formatted_integer {
-    base: 8;
-    empty_value: 0;
+    @base = 8;
+    @empty_value = 0;
 };
 
 file {
