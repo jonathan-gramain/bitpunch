@@ -42,7 +42,6 @@ bytes_read(
     struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    int *attr_is_specified, expr_value_t *attr_value,
     struct browse_state *bst)
 {
     read_value->type = EXPR_VALUE_TYPE_BYTES;

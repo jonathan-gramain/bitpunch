@@ -239,7 +239,6 @@ binary_integer_read_generic(
     struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    int *attr_is_specified, expr_value_t *_attr_value,
     struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;

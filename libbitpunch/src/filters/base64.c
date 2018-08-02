@@ -119,7 +119,6 @@ base64_read(struct ast_node_hdl *filter,
             struct box *scope,
             expr_value_t *read_value,
             const char *data, size_t span_size,
-            int *attr_is_specified, expr_value_t *attr_value,
             struct browse_state *bst)
 {
     size_t decoded_max_length;
@@ -221,8 +220,7 @@ START_TEST(test_base64)
         {
             tcase = &testcases[i];
             bt_ret = base64_read(NULL, NULL, &decoded,
-                                 tcase->encoded, tcase->encoded_length,
-                                 NULL, NULL, NULL);
+                                 tcase->encoded, tcase->encoded_length, NULL);
             if (tcase->decoded_length != -1) {
                 ck_assert(BITPUNCH_OK == bt_ret);
                 ck_assert(decoded.bytes.len == tcase->decoded_length);

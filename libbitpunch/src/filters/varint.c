@@ -45,7 +45,6 @@ varint_get_size(struct ast_node_hdl *filter,
                 int64_t *span_sizep,
                 int64_t *used_sizep,
                 const char *data, int64_t max_span_size,
-                int *attr_is_specified, expr_value_t *attr_value,
                 struct browse_state *bst)
 {
     size_t bytepos;
@@ -67,7 +66,6 @@ varint_read(struct ast_node_hdl *filter,
             struct box *scope,
             expr_value_t *read_value,
             const char *data, size_t span_size,
-            int *attr_is_specified, expr_value_t *attr_value,
             struct browse_state *bst)
 {
     // FIXME optimize

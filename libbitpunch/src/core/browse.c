@@ -4821,8 +4821,6 @@ tracker_compute_item_size__filter_span_size(
     struct browse_state *bst)
 {
     const char *item_data;
-    expr_value_t *attr_value;
-    int *attr_is_specified;
     int64_t span_size;
     int64_t used_size;
     bitpunch_status_t bt_ret;
@@ -4857,18 +4855,9 @@ tracker_compute_item_size__filter_span_size(
             return bt_ret;
         }
     }
-    bt_ret = filter_instance_evaluate_attrs(
-        span_filter, tk->box, &attr_is_specified, &attr_value, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
     bt_ret = span_filter->ndat->u.rexpr_filter.get_size_func(
         span_filter, tk->box, &span_size, &used_size, item_data,
-        max_slack_offset - tk->item_offset,
-        attr_is_specified, attr_value, bst);
-    filter_instance_destroy_attr_values(span_filter,
-                                        attr_is_specified,
-                                        attr_value);
+        max_slack_offset - tk->item_offset, bst);
     if (BITPUNCH_OK != bt_ret) {
         return tracker_error(bt_ret, tk, span_filter, bst,
                              "filter couldn't return field's sizes");
@@ -4886,8 +4875,6 @@ box_compute_item_used_size_internal__byte_array_filter_size(
     struct browse_state *bst)
 {
     const char *item_data;
-    expr_value_t *attr_value;
-    int *attr_is_specified;
     int64_t used_size;
     int64_t dummy_size;
     bitpunch_status_t bt_ret;
@@ -4922,18 +4909,9 @@ box_compute_item_used_size_internal__byte_array_filter_size(
             return bt_ret;
         }
     }
-    bt_ret = filter_instance_evaluate_attrs(
-        used_filter, box, &attr_is_specified, &attr_value, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
     bt_ret = used_filter->ndat->u.rexpr_filter.get_size_func(
         used_filter, box, &dummy_size, &used_size, item_data,
-        max_slack_offset - item_offset,
-        attr_is_specified, attr_value, bst);
-    filter_instance_destroy_attr_values(used_filter,
-                                        attr_is_specified,
-                                        attr_value);
+        max_slack_offset - item_offset, bst);
     if (BITPUNCH_OK != bt_ret) {
         return box_error(bt_ret, box, used_filter, bst,
                          "filter couldn't return field's used size");

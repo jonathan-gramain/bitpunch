@@ -96,18 +96,6 @@ filter_instance_build(struct ast_node_hdl *node,
                       struct filter_def *filter_def);
 
 bitpunch_status_t
-filter_instance_evaluate_attrs(struct ast_node_hdl *expr,
-                                 struct box *scope,
-                                 int **attr_is_specifiedp,
-                                 expr_value_t **attr_valuep,
-                                 struct browse_state *bst);
-
-void
-filter_instance_destroy_attr_values(struct ast_node_hdl *expr,
-                                      int *attr_is_specified,
-                                      expr_value_t *attr_value);
-
-bitpunch_status_t
 filter_instance_read_value(struct ast_node_hdl *filter,
                              struct box *scope,
                              const char *item_data,

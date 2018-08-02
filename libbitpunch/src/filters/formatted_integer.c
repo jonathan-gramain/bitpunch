@@ -69,7 +69,6 @@ formatted_integer_read(struct ast_node_hdl *filter,
                        struct box *scope,
                        expr_value_t *read_value,
                        const char *data, size_t span_size,
-                       int *attr_is_specified, expr_value_t *_attr_value,
                        struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
@@ -243,8 +242,7 @@ formatted_integer_read_test(expr_value_t *resultp,
                                        expr_value_as_boolean(_signed));
     }
     bt_ret = formatted_integer_read(filter, NULL, resultp,
-                                    buffer, strlen(buffer),
-                                    NULL, NULL, NULL);
+                                    buffer, strlen(buffer), NULL);
     if (BITPUNCH_OK == bt_ret) {
         ck_assert_int_eq(resultp->type, EXPR_VALUE_TYPE_INTEGER);
         return 0;

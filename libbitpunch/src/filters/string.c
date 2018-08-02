@@ -50,7 +50,6 @@ string_get_size_byte_array_single_char_boundary(
     int64_t *span_sizep,
     int64_t *used_sizep,
     const char *data, int64_t max_span_size,
-    int *attr_is_specified, expr_value_t *attr_value,
     struct browse_state *bst)
 {
     struct state_single_char_constant_boundary *state;
@@ -76,7 +75,6 @@ string_get_size_byte_array_multi_char_boundary(
     int64_t *span_sizep,
     int64_t *used_sizep,
     const char *data, int64_t max_span_size,
-    int *attr_is_specified, expr_value_t *_attr_value,
     struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
@@ -110,7 +108,6 @@ string_read_byte_array_no_boundary(
     struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    int *attr_is_specified, expr_value_t *attr_value,
     struct browse_state *bst)
 {
     read_value->type = EXPR_VALUE_TYPE_STRING;
@@ -125,7 +122,6 @@ string_read_byte_array_single_char_boundary(
     struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    int *attr_is_specified, expr_value_t *attr_value,
     struct browse_state *bst)
 {
     struct state_single_char_constant_boundary *state;
@@ -149,7 +145,6 @@ string_read_byte_array_multi_char_boundary(
     struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    int *attr_is_specified, expr_value_t *_attr_value,
     struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;

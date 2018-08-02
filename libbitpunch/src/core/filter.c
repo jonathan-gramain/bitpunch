@@ -213,81 +213,6 @@ filter_class_get_attr(const struct filter_class *filter_cls,
     return NULL; /* not found */
 }
 
-
-bitpunch_status_t
-filter_instance_evaluate_attrs(struct ast_node_hdl *expr,
-                                 struct box *scope,
-                                 int **attr_is_specifiedp,
-                                 expr_value_t **attr_valuep,
-                                 struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    const struct filter_class *filter_cls;
-    const struct filter_attr_def *attr_def;
-    int attr_idx;
-    struct named_expr *attr;
-    expr_value_t *attr_value;
-    int *attr_is_specified;
-    int cond_eval;
-
-    filter_cls = expr->ndat->u.rexpr_filter.filter_cls;
-
-    attr_value = new_n_safe(expr_value_t, filter_cls->n_attrs);
-    attr_is_specified = new_n_safe(int, filter_cls->n_attrs);
-
-    STATEMENT_FOREACH(
-        named_expr, attr,
-        expr->ndat->u.rexpr_filter.filter_def->block_stmt_list.attribute_list,
-        list) {
-        // TODO optimize this lookup (e.g. store the index in the
-        // attribute list item)
-        attr_def = filter_class_get_attr(filter_cls, attr->nstmt.name);
-        assert(NULL != attr_def);
-        attr_idx = attr_def->ref_idx;
-        if (attr_is_specified[attr_idx]) {
-            continue ;
-        }
-        bt_ret = evaluate_conditional_internal(attr->nstmt.stmt.cond, scope,
-                                               &cond_eval, bst);
-        if (BITPUNCH_OK == bt_ret) {
-            if (cond_eval) {
-                attr_is_specified[attr_idx] = TRUE;
-                bt_ret = expr_evaluate_value_internal(
-                    attr->expr, scope, &attr_value[attr_idx], bst);
-            }
-        }
-        if (BITPUNCH_OK != bt_ret) {
-            for (attr_idx = 0; attr_idx < 0; --attr_idx) {
-                expr_value_destroy(attr_value[attr_idx]);
-            }
-            free(attr_value);
-            free(attr_is_specified);
-            return bt_ret;
-        }
-    }
-    *attr_valuep = attr_value;
-    *attr_is_specifiedp = attr_is_specified;
-    return BITPUNCH_OK;
-}
-
-void
-filter_instance_destroy_attr_values(struct ast_node_hdl *expr,
-                                    int *attr_is_specified,
-                                    expr_value_t *attr_value)
-{
-    const struct filter_class *filter_cls;
-    int attr_idx;
-
-    filter_cls = expr->ndat->u.rexpr_filter.filter_cls;
-    if (NULL != attr_value) {
-        for (attr_idx = 0; attr_idx < filter_cls->n_attrs; ++attr_idx) {
-            expr_value_destroy(attr_value[attr_idx]);
-        }
-        free(attr_value);
-        free(attr_is_specified);
-    }
-}
-
 bitpunch_status_t
 filter_instance_read_value(struct ast_node_hdl *expr,
                            struct box *scope,
@@ -297,40 +222,28 @@ filter_instance_read_value(struct ast_node_hdl *expr,
                            struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    int *attr_is_specified = NULL;
-    expr_value_t *attr_value = NULL;
     int64_t span_size;
     int64_t used_size;
     expr_value_t value;
 
     value.type = EXPR_VALUE_TYPE_UNSET;
-    bt_ret = filter_instance_evaluate_attrs(expr, scope,
-                                            &attr_is_specified,
-                                            &attr_value, bst);
-    if (BITPUNCH_OK == bt_ret) {
-        if (NULL == expr->ndat->u.rexpr_filter.get_size_func) {
-            span_size = item_size;
-        } else {
-            bt_ret = expr->ndat->u.rexpr_filter.get_size_func(
-                expr, scope,
-                &span_size, &used_size, item_data, item_size,
-                attr_is_specified, attr_value, bst);
-        }
+    if (NULL == expr->ndat->u.rexpr_filter.get_size_func) {
+        span_size = item_size;
+        bt_ret = BITPUNCH_OK;
+    } else {
+        bt_ret = expr->ndat->u.rexpr_filter.get_size_func(
+            expr, scope, &span_size, &used_size, item_data, item_size, bst);
     }
     if (BITPUNCH_OK == bt_ret) {
         memset(&value, 0, sizeof(value));
         bt_ret = expr->ndat->u.rexpr_filter.read_func(
-            expr, scope,
-            &value, item_data, span_size,
-            attr_is_specified, attr_value, bst);
+            expr, scope, &value, item_data, span_size, bst);
     }
     if (BITPUNCH_OK == bt_ret && NULL != valuep) {
         *valuep = value;
     } else {
         expr_value_destroy(value);
     }
-    filter_instance_destroy_attr_values(expr, attr_is_specified,
-                                          attr_value);
     return bt_ret;
 }
 
