@@ -86,6 +86,10 @@ filter_class_declare_std(void);
 const struct filter_attr_def *
 filter_class_get_attr(const struct filter_class *filter_cls,
                          const char *attr_name);
+
+struct filter_def *
+filter_def_create_empty(const char *filter_type);
+
 int
 filter_instance_build(struct ast_node_hdl *node,
                       const struct filter_class *filter_cls,
@@ -203,5 +207,10 @@ filter_iter_statements_next(
     struct statement_iterator *it,
     enum statement_type *stmt_typep, const struct statement **stmtp,
     struct tracker_error **errp);
+
+void
+filter_attach_native_attribute(
+    struct ast_node_hdl *filter,
+    const char *attr_name, expr_value_t value);
 
 #endif

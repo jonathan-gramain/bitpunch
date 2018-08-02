@@ -163,6 +163,17 @@ filter_class_declare_std(void)
     filter_class_declare_formatted_integer();
 }
 
+struct filter_def *
+filter_def_create_empty(const char *filter_type)
+{
+    struct filter_def *filter_def;
+
+    filter_def = new_safe(struct filter_def);
+    filter_def->filter_type = filter_type;
+    init_block_stmt_list(&filter_def->block_stmt_list);
+    return filter_def;
+}
+
 int
 filter_instance_build(struct ast_node_hdl *node,
                       const struct filter_class *filter_cls,
@@ -824,4 +835,26 @@ filter_iter_statements_next(
     return transmit_error(
         filter_iter_statements_next_internal(it, stmt_typep, stmtp, &bst),
         &bst, errp);
+}
+
+/**
+ * @brief attach a native value as an attribute to the filter
+ *
+ * @note target usage is mostly unit tests for filters
+ */
+void
+filter_attach_native_attribute(
+    struct ast_node_hdl *filter,
+    const char *attr_name, expr_value_t value)
+{
+    struct filter_def *filter_def;
+    struct statement_list *attribute_list;
+    struct named_expr *attr;
+
+    filter_def = filter->ndat->u.rexpr_filter.filter_def;
+    attribute_list = filter_def->block_stmt_list.attribute_list;
+    attr = new_safe(struct named_expr);
+    attr->nstmt.name = strdup_safe(attr_name);
+    attr->expr = ast_node_new_rexpr_native(value);
+    TAILQ_INSERT_TAIL(attribute_list, (struct statement *)attr, list);
 }

@@ -1946,7 +1946,9 @@ box_free(struct box *box)
 void
 box_acquire(struct box *box)
 {
-    ++box->use_count;
+    if (NULL != box) {
+        ++box->use_count;
+    }
 }
 
 static void

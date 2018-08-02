@@ -69,9 +69,11 @@ formatted_integer_read(struct ast_node_hdl *filter,
                        struct box *scope,
                        expr_value_t *read_value,
                        const char *data, size_t span_size,
-                       int *attr_is_specified, expr_value_t *attr_value,
+                       int *attr_is_specified, expr_value_t *_attr_value,
                        struct browse_state *bst)
 {
+    bitpunch_status_t bt_ret;
+    expr_value_t attr_value;
     int base;
     int64_t parsed_value;
     int64_t prev_parsed_value;
@@ -86,21 +88,29 @@ formatted_integer_read(struct ast_node_hdl *filter,
     // regarding validity checks for our purpose: basically the buffer
     // has to represent a valid formatted number in its entirety.
 
-    if (attr_is_specified[REF_BASE]) {
-        base = attr_value[REF_BASE].integer;
-    } else {
+    bt_ret = filter_evaluate_attribute_internal(
+        filter, scope, "@base", NULL, &attr_value, NULL, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        base = attr_value.integer;
+    } else if (BITPUNCH_NO_ITEM == bt_ret) {
         base = 10;
-    }
-    if (attr_is_specified[REF_SIGNED]) {
-        _signed = attr_value[REF_SIGNED].boolean;
     } else {
+        return bt_ret;
+    }
+    bt_ret = filter_evaluate_attribute_internal(
+        filter, scope, "@signed", NULL, &attr_value, NULL, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        _signed = attr_value.boolean;
+    } else if (BITPUNCH_NO_ITEM == bt_ret) {
         _signed = TRUE;
+    } else {
+        return bt_ret;
     }
     if (0 == span_size) {
-        if (attr_is_specified[REF_EMPTY_VALUE]) {
-            read_value->type = EXPR_VALUE_TYPE_INTEGER;
-            read_value->integer = attr_value[REF_EMPTY_VALUE].integer;
-            return BITPUNCH_OK;
+        bt_ret = filter_evaluate_attribute_internal(
+            filter, scope, "@empty_value", NULL, read_value, NULL, bst);
+        if (BITPUNCH_NO_ITEM != bt_ret) {
+            return bt_ret;
         }
         semantic_error(SEMANTIC_LOGLEVEL_ERROR,
                        NULL != filter ? &filter->loc : NULL,
@@ -211,20 +221,30 @@ formatted_integer_read_test(expr_value_t *resultp,
                             int empty_value,
                             int _signed)
 {
-    int attr_is_specified[3];
-    expr_value_t attr_value[3];
+    struct filter_class *filter_cls;
+    struct ast_node_hdl *filter;
     bitpunch_status_t bt_ret;
 
-    attr_is_specified[REF_BASE] = base != -1;
-    attr_is_specified[REF_EMPTY_VALUE] = empty_value != -1;
-    attr_is_specified[REF_SIGNED] = _signed != -1;
-    attr_value[REF_BASE].integer = base;
-    attr_value[REF_EMPTY_VALUE].integer = empty_value;
-    attr_value[REF_SIGNED].boolean = _signed;
-
-    bt_ret = formatted_integer_read(NULL, NULL, resultp,
+    filter_cls = filter_class_lookup("formatted_integer");
+    assert(NULL != filter_cls);
+    filter = ast_node_hdl_new();
+    filter_instance_build(filter, filter_cls,
+                          filter_def_create_empty("formatted_integer"));
+    if (base != -1) {
+        filter_attach_native_attribute(filter, "@base",
+                                       expr_value_as_integer(base));
+    }
+    if (empty_value != -1) {
+        filter_attach_native_attribute(filter, "@empty_value",
+                                       expr_value_as_integer(empty_value));
+    }
+    if (_signed != -1) {
+        filter_attach_native_attribute(filter, "@signed",
+                                       expr_value_as_boolean(_signed));
+    }
+    bt_ret = formatted_integer_read(filter, NULL, resultp,
                                     buffer, strlen(buffer),
-                                    attr_is_specified, attr_value, NULL);
+                                    NULL, NULL, NULL);
     if (BITPUNCH_OK == bt_ret) {
         ck_assert_int_eq(resultp->type, EXPR_VALUE_TYPE_INTEGER);
         return 0;

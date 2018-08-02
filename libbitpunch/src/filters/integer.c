@@ -239,26 +239,37 @@ binary_integer_read_generic(
     struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    int *attr_is_specified, expr_value_t *attr_value,
+    int *attr_is_specified, expr_value_t *_attr_value,
     struct browse_state *bst)
 {
+    bitpunch_status_t bt_ret;
+    expr_value_t attr_value;
     int _signed;
     enum endian endian;
 
-    _signed = attr_value[REF_SIGNED].boolean;
-    if (attr_is_specified[REF_ENDIAN]) {
-        endian = str2endian(attr_value[REF_ENDIAN].string);
+    bt_ret = filter_evaluate_attribute_internal(
+        filter, scope, "@signed", NULL, &attr_value, NULL, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        // @signed is a mandatory attribute so BITPUNCH_NO_ITEM may not happen
+        return bt_ret;
+    }
+    _signed = attr_value.boolean;
+    bt_ret = filter_evaluate_attribute_internal(
+        filter, scope, "@endian", NULL, &attr_value, NULL, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        endian = str2endian(attr_value.string);
         if (endian == ENDIAN_BAD) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
                 "bad endian value \"%.*s\": "
                 "must be \"big\", \"little\" or \"native\"",
-                (int)attr_value[REF_ENDIAN].string.len,
-                attr_value[REF_ENDIAN].string.str);
+                (int)attr_value.string.len, attr_value.string.str);
             return BITPUNCH_INVALID_PARAM;
         }
-    } else {
+    } else if (BITPUNCH_NO_ITEM == bt_ret) {
         endian = ENDIAN_DEFAULT;
+    } else {
+        return bt_ret;
     }
     if (endian == ENDIAN_NATIVE) {
         if (is_little_endian()) {

@@ -76,21 +76,30 @@ string_get_size_byte_array_multi_char_boundary(
     int64_t *span_sizep,
     int64_t *used_sizep,
     const char *data, int64_t max_span_size,
-    int *attr_is_specified, expr_value_t *attr_value,
+    int *attr_is_specified, expr_value_t *_attr_value,
     struct browse_state *bst)
 {
+    bitpunch_status_t bt_ret;
+    expr_value_t attr_value;
     const char *end;
 
-    end = memmem(data, max_span_size,
-                 attr_value[REF_BOUNDARY].string.str,
-                 attr_value[REF_BOUNDARY].string.len);
-    if (NULL != end) {
-        *span_sizep = end - data + attr_value[REF_BOUNDARY].string.len;
-        *used_sizep = end - data;
-    } else {
-        *span_sizep = max_span_size;
-        *used_sizep = max_span_size;
+    bt_ret = filter_evaluate_attribute_internal(
+        filter, scope, "@boundary", NULL, &attr_value, NULL, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        end = memmem(data, max_span_size,
+                     attr_value.string.str, attr_value.string.len);
+        if (NULL != end) {
+            *span_sizep = end - data + attr_value.string.len;
+            *used_sizep = end - data;
+            expr_value_destroy(attr_value);
+            return BITPUNCH_OK;
+        }
+        expr_value_destroy(attr_value);
+    } else if (BITPUNCH_NO_ITEM != bt_ret) {
+        return bt_ret;
     }
+    *span_sizep = max_span_size;
+    *used_sizep = max_span_size;
     return BITPUNCH_OK;
 }
 
@@ -140,22 +149,31 @@ string_read_byte_array_multi_char_boundary(
     struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    int *attr_is_specified, expr_value_t *attr_value,
+    int *attr_is_specified, expr_value_t *_attr_value,
     struct browse_state *bst)
 {
+    bitpunch_status_t bt_ret;
+    expr_value_t attr_value;
     struct expr_value_string boundary;
 
-    boundary = attr_value[REF_BOUNDARY].string;
-
-    read_value->type = EXPR_VALUE_TYPE_STRING;
-    read_value->string.str = (char *)data;
-    if (span_size >= boundary.len
-        && 0 == memcmp(data + span_size - boundary.len,
-                       boundary.str, boundary.len)) {
-        read_value->string.len = span_size - boundary.len;
-    } else {
-        read_value->string.len = span_size;
+    bt_ret = filter_evaluate_attribute_internal(
+        filter, scope, "@boundary", NULL, &attr_value, NULL, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        boundary = attr_value.string;
+        read_value->type = EXPR_VALUE_TYPE_STRING;
+        read_value->string.str = (char *)data;
+        if (span_size >= boundary.len
+            && 0 == memcmp(data + span_size - boundary.len,
+                           boundary.str, boundary.len)) {
+            read_value->string.len = span_size - boundary.len;
+            expr_value_destroy(attr_value);
+            return BITPUNCH_OK;
+        }
+        expr_value_destroy(attr_value);
+    } else if (BITPUNCH_NO_ITEM != bt_ret) {
+        return bt_ret;
     }
+    read_value->string.len = span_size;
     return BITPUNCH_OK;
 }
 

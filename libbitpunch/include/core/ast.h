@@ -44,6 +44,7 @@ struct bitpunch_schema_hdl;
 struct box;
 struct field;
 struct parser_location;
+struct expr_value;
 enum statement_type;
 
 enum resolve_expect_mask {
@@ -98,6 +99,9 @@ compile_dpath(struct dpath_node *node,
               struct compile_ctx *ctx,
               dep_resolver_tagset_t tags_pre,
               dep_resolver_tagset_t tags_post);
+
+struct ast_node_hdl *
+ast_node_new_rexpr_native(struct expr_value value);
 
 int
 compile_continue(struct compile_ctx *ctx);

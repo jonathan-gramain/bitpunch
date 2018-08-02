@@ -64,6 +64,15 @@ expr_dpath_as_container(struct box *box)
 }
 
 static inline expr_value_t
+expr_value_unset(void)
+{
+    expr_value_t ev;
+
+    ev.type = EXPR_VALUE_TYPE_UNSET;
+    return ev;
+}
+
+static inline expr_value_t
 expr_value_as_integer(int64_t value)
 {
     expr_value_t ev;

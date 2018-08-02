@@ -530,6 +530,7 @@
     const char *ast_node_type_str(enum ast_node_type type);
     const char *composite_type_str(enum composite_type type);
     struct ast_node_hdl *ast_node_hdl_new(void);
+    void init_block_stmt_list(struct block_stmt_list *dst);
 }
 
 %define parse.error verbose
@@ -553,6 +554,18 @@
         nhdl = new_safe(struct ast_node_hdl);
         dep_resolver_node_init(&nhdl->dr_node);
         return nhdl;
+    }
+
+    void
+    init_block_stmt_list(struct block_stmt_list *dst)
+    {
+        memset(dst, 0, sizeof (*dst));
+        dst->field_list = new_safe(struct statement_list);
+        dst->named_expr_list = new_safe(struct statement_list);
+        dst->attribute_list = new_safe(struct statement_list);
+        TAILQ_INIT(dst->field_list);
+        TAILQ_INIT(dst->named_expr_list);
+        TAILQ_INIT(dst->attribute_list);
     }
 
     static struct ast_node_hdl *
@@ -582,18 +595,6 @@
         nhdl->ndat->u.op.operands[0] = opd1;
         nhdl->ndat->u.op.operands[1] = opd2;
         return nhdl;
-    }
-
-    static void
-    init_block_stmt_list(struct block_stmt_list *dst)
-    {
-        memset(dst, 0, sizeof (*dst));
-        dst->field_list = new_safe(struct statement_list);
-        dst->named_expr_list = new_safe(struct statement_list);
-        dst->attribute_list = new_safe(struct statement_list);
-        TAILQ_INIT(dst->field_list);
-        TAILQ_INIT(dst->named_expr_list);
-        TAILQ_INIT(dst->attribute_list);
     }
 
     static int

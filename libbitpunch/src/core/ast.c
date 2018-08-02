@@ -68,19 +68,6 @@ struct compile_req {
     void *arg;
 };
 
-static struct statement_list empty_field_list =
-    TAILQ_HEAD_INITIALIZER(empty_field_list);
-static struct statement_list empty_named_expr_list =
-    TAILQ_HEAD_INITIALIZER(empty_named_expr_list);
-static struct statement_list empty_attr_list =
-    TAILQ_HEAD_INITIALIZER(empty_attr_list);
-
-static const struct block_stmt_list EMPTY_BLOCK_STMT_LIST = {
-    .field_list = &empty_field_list,
-    .named_expr_list = &empty_named_expr_list,
-    .attribute_list = &empty_attr_list,
-};
-
 static int
 resolve_identifiers(struct ast_node_hdl *node,
                     const struct list_of_visible_refs *visible_refs,
@@ -617,13 +604,9 @@ resolve_identifiers_identifier_as_filter(
 
     filter_cls = filter_class_lookup(node->ndat->u.identifier);
     if (NULL != filter_cls) {
-        struct filter_def *filter_def;
-
-        filter_def = new_safe(struct filter_def);
-        filter_def->filter_type = node->ndat->u.identifier;
-        filter_def->block_stmt_list = EMPTY_BLOCK_STMT_LIST;
-
-        if (-1 == filter_instance_build(node, filter_cls, filter_def)) {
+        if (-1 == filter_instance_build(
+                node, filter_cls,
+                filter_def_create_empty(node->ndat->u.identifier))) {
             return -1;
         }
         return 0;
@@ -1927,6 +1910,17 @@ compile_expr_string_literal(struct ast_node_hdl *node,
     return compile_expr_native_internal(
         node, expr_value_as_string_len(node->ndat->u.string.str,
                                        node->ndat->u.string.len));
+}
+
+struct ast_node_hdl *
+ast_node_new_rexpr_native(expr_value_t value)
+{
+    struct ast_node_hdl *expr;
+
+    expr = ast_node_hdl_new();
+    expr->ndat = new_safe(struct ast_node_data);
+    (void)compile_expr_native_internal(expr, value);
+    return expr;
 }
 
 /**

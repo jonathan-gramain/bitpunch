@@ -130,6 +130,8 @@ expr_dpath_as_container(struct box *box);
 void
 expr_value_destroy(expr_value_t value);
 static inline expr_value_t
+expr_value_unset(void);
+static inline expr_value_t
 expr_value_as_integer(int64_t value);
 static inline expr_value_t
 expr_value_as_boolean(int value);
