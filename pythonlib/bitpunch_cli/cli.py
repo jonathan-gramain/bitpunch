@@ -172,17 +172,27 @@ class CLI(NestedCmd):
             else:
                 return partial_expr
 
+        def is_identifier(key):
+            str_key = str(key)
+            return (str_key[0].isalpha() and
+                    all(c.isalnum() or c == '_' for c in str_key))
+
+        def is_attribute(key):
+            str_key = str(key)
+            return len(str_key) > 0 and str_key[0] == '@'
+
         def filter_type(obj, key):
             if not ignore_primitive_types:
                 return False
-            if obj.get_filter_type() == 'composite':
+            if obj.get_filter_type() == 'composite' or is_attribute(key):
                 child_obj = getattr(obj, key)
             else:
                 child_obj = obj[key]
             return (child_obj.get_filter_type() not in ['composite', 'array'])
 
         def build_completion(candidate, obj, completion_base):
-            if obj.get_filter_type() == 'composite':
+            if (obj.get_filter_type() == 'composite' or
+                isinstance(candidate, str)):
                 return candidate
             elif isinstance(candidate, int):
                 return str(candidate)
@@ -248,7 +258,7 @@ class CLI(NestedCmd):
         if item:
             obj = self.data_tree.eval_expr(item)
             if not (obj.get_filter_type() == 'composite' and sep == '.' or
-                    obj.get_filter_type() == 'array' and sep in ('[', ':')):
+                    obj.get_filter_type() == 'array' and sep in ('.', '[', ':')):
                 return
             item += item_complement
         else:
@@ -276,33 +286,40 @@ class CLI(NestedCmd):
                         first_key = key
                         first_key_str = key_str
                     else:
+                        def yield_key(key):
+                            dottable = is_identifier(key) or is_attribute(key)
+                            return ((sep != '.' or dottable)
+                                    and (sep != '[' or not dottable))
                         if nb_found_keys == 1:
-                            yield item + sep + first_key_str + sep_end
-                        yield item + sep + key_str + sep_end
+                            if yield_key(first_key_str):
+                                yield item + sep + first_key_str + sep_end
+                        if yield_key(key_str):
+                            yield item + sep + key_str + sep_end
                     nb_found_keys += 1
 
 
         if nb_found_keys == 1:
 
             try:
-                if obj.get_filter_type() == 'composite':
-                    child_obj = getattr(obj, first_key)
-                else:
-                    child_obj = obj[first_key]
+                child_obj = obj[first_key]
                 if (child_obj.get_filter_type() == 'composite' or
                     child_obj.get_filter_type() == 'array'):
 
                     if str(first_key) != completion_base or sep_end:
                         key_str = build_completion(first_key, obj,
                                                    completion_base)
-                        yield item + sep + key_str + sep_end
+                        if (is_attribute(key_str)):
+                            yield item + '.' + key_str
+                        else:
+                            yield item + sep + key_str + sep_end
                         return
 
                     for child_key in model.Tracker(
                             child_obj,
                             iter_mode=model.Tracker.ITER_MEMBER_NAMES):
                         if not filter_type(child_obj, child_key):
-                            if child_obj.get_filter_type() == 'composite':
+                            if (is_attribute(child_key) or
+                                child_obj.get_filter_type() == 'composite'):
                                 yield expr + sep_end + '.' + child_key
                             else:
                                 key_str = build_completion(child_key,
