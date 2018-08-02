@@ -69,6 +69,7 @@ def test_array_items(params_array_items):
     params = params_array_items
     dtree, sizeof_array = params['dtree'], params['sizeof_array']
     assert len(dtree.integers) == 10
+    assert dtree.integers['@length'] == 10
     assert dtree.integers.get_size() == sizeof_array
     for i in range(10):
         mapped_i = (i * 7) % 10

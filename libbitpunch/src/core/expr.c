@@ -1172,12 +1172,11 @@ expr_evaluate_dpath_anchor_common(struct ast_node_hdl *anchor_expr,
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        if (AST_NODE_TYPE_COMPOSITE != expr_dpath_get_as_type(
-                anchor_dpath)->ndat->type) {
+        if (!ast_node_is_rexpr_filter(expr_dpath_get_as_type(anchor_dpath))) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &anchor_expr->loc,
                 "left-side of member operator does not evaluate to a "
-                "composite type");
+                "filter type");
             expr_dpath_destroy(anchor_dpath);
             return BITPUNCH_DATA_ERROR;
         }

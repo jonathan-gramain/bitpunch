@@ -2677,10 +2677,10 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
     anchor_filter = ast_node_get_as_type(anchor_expr);
     anchor_target = ast_node_get_named_expr_target(anchor_expr);
     if (NULL != anchor_filter) {
-        if (anchor_filter->ndat->type != AST_NODE_TYPE_COMPOSITE) {
+        if (!ast_node_is_rexpr_filter(anchor_filter)) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                "invalid use of member operator on non-block dpath");
+                "invalid use of member operator on non-filter dpath");
             return -1;
         }
         if (member->ndat->u.identifier[0] == '@') {
@@ -3629,6 +3629,25 @@ ast_node_is_rexpr(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_OP_FCALL:
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
+    case AST_NODE_TYPE_REXPR_FILTER:
+    case AST_NODE_TYPE_REXPR_ITEM:
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
+int
+ast_node_is_rexpr_filter(const struct ast_node_hdl *node)
+{
+    if (NULL == node) {
+        return FALSE;
+    }
+    switch (node->ndat->type) {
+    case AST_NODE_TYPE_COMPOSITE:
+    case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE_ARRAY:
+    case AST_NODE_TYPE_REXPR_OP_FILTER:
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_REXPR_ITEM:
         return TRUE;

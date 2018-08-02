@@ -19,7 +19,8 @@ model = Extension('bitpunch.model.model_ext',
                       ('PATH_TO_PARSER_TAB_H',
                        '"{}/libbitpunch/tmp/core/parser.tab.h"'
                        .format(build_dir))
-                  ])
+                  ],
+                  extra_compile_args=['-O0'])
 
 setup (name = 'bitpunch',
        version = '0.1.0',
