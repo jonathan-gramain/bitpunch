@@ -49,7 +49,6 @@ varint_get_size(struct ast_node_hdl *filter,
 {
     size_t bytepos;
 
-    // FIXME optimize
     for (bytepos = 0; bytepos < max_span_size; ++bytepos) {
         if (!(data[bytepos] & 0x80)) {
             *span_sizep = bytepos + 1;
@@ -68,14 +67,12 @@ varint_read(struct ast_node_hdl *filter,
             const char *data, size_t span_size,
             struct browse_state *bst)
 {
-    // FIXME optimize
     const unsigned char *udata = (const unsigned char *)data;
     size_t bytepos;
     size_t cur_shift;
     uint64_t rawvalue;
     int64_t value;
 
-    // FIXME optimize
     rawvalue = 0;
     cur_shift = 0;
     for (bytepos = 0; bytepos < span_size; ++bytepos) {
@@ -102,17 +99,6 @@ varint_filter_instance_build(
     struct ast_node_hdl *filter,
     struct compile_ctx *ctx)
 {
-#if 0
-    assert(NULL != data_source);
-
-    if (AST_NODE_TYPE_BYTE != data_source->ndat->type &&
-        AST_NODE_TYPE_BYTE_ARRAY != data_source->ndat->type) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
-            "varint filter expects a byte array");
-        return -1;
-    }
-#endif
     filter->ndat->u.rexpr_filter.get_size_func = varint_get_size;
     filter->ndat->u.rexpr_filter.read_func = varint_read;
     return new_safe(struct filter_instance);
