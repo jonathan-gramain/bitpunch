@@ -245,20 +245,6 @@ filter_instance_read_value(struct ast_node_hdl *expr,
  */
 
 
-const char *
-statement_type_str(enum statement_type stmt_type)
-{
-    switch (stmt_type) {
-    case STATEMENT_TYPE_FIELD:
-        return "field";
-    case STATEMENT_TYPE_NAMED_EXPR:
-        return "named expr";
-    case STATEMENT_TYPE_ATTRIBUTE:
-        return "attribute";
-    }
-    return "unknown statement type";
-}
-
 static const struct statement *
 filter_iter_statements_advance_internal(
     struct statement_iterator *it,

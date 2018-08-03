@@ -119,10 +119,6 @@ struct statement_iterator {
 
 typedef struct statement_iterator tstatement_iterator;
 
-const char *
-statement_type_str(enum statement_type stmt_type);
-
-
 struct statement_iterator
 filter_iter_statements(
     struct ast_node_hdl *filter, struct box *scope,
