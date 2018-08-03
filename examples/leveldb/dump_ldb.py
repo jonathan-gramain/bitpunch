@@ -53,15 +53,18 @@ if __name__ == '__main__':
         description='dump a LevelDB .LDB data file to JSON\n')
     ap.add_argument('input_file', type=argparse.FileType('r'), nargs=1,
                     help='LDB input file')
-    ap.add_argument('output_file', type=argparse.FileType('wb'), nargs=1,
+    ap.add_argument('output_file', type=argparse.FileType('wb'), nargs='?',
                     help='JSON output file')
 
     args = ap.parse_args()
     input_file = args.input_file[0]
-    output_file = args.output_file[0]
-    print('dumping LDB entries from {inf} to {outf}'
-          .format(inf=input_file.name,
-                  outf=output_file.name))
+    if args.output_file is not None:
+        output_file = args.output_file
+    else:
+        output_file = sys.stdout
+    sys.stderr.write('dumping LDB entries from {inf} to {outf}\n'
+                     .format(inf=input_file.name,
+                             outf=output_file.name))
 
     script_dir = os.path.dirname(sys.argv[0])
     ldb_bp = model.find_handler(path='database.leveldb.ldb')
@@ -71,4 +74,4 @@ if __name__ == '__main__':
     n_dumped_records = records_dumper(
         records_extractor(ldb_model), output_file)
 
-print('dumped {0} records'.format(n_dumped_records))
+sys.stderr.write('dumped {0} records\n'.format(n_dumped_records))
