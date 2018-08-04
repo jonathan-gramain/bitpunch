@@ -531,6 +531,12 @@ box_error(bitpunch_status_t bt_ret, struct box *box,
           const char *message_fmt, ...)
     __attribute__((format(printf, 5, 6)));
 bitpunch_status_t
+node_error(bitpunch_status_t bt_ret,
+           const struct ast_node_hdl *node,
+           struct browse_state *bst,
+           const char *message_fmt, ...)
+    __attribute__((format(printf, 4, 5)));
+bitpunch_status_t
 box_error_out_of_bounds(struct box *box,
                         const struct ast_node_hdl *node,
                         enum box_offset_type requested_end_offset_type,

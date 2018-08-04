@@ -822,16 +822,14 @@ expr_eval_builtin_index(struct ast_node_hdl *object,
     item_dpath = ((struct named_expr *)
                   TAILQ_NEXT(TAILQ_FIRST(params), list))->expr;
     if (array_dpath->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &array_dpath->loc,
-                       "cannot evaluate 'index': 1st argument is a "
-                       "value-type expression");
-        return BITPUNCH_INVALID_PARAM;
+        return node_error(BITPUNCH_INVALID_PARAM, array_dpath, bst,
+                          "cannot evaluate 'index': 1st argument is a "
+                          "value-type expression");
     }
     if (item_dpath->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &item_dpath->loc,
-                       "cannot evaluate 'index': 2nd argument is a "
-                       "value-type expression");
-        return BITPUNCH_INVALID_PARAM;
+        return node_error(BITPUNCH_INVALID_PARAM, item_dpath, bst,
+                          "cannot evaluate 'index': 2nd argument is a "
+                          "value-type expression");
     }
     bt_ret = expr_evaluate_dpath_internal(array_dpath, scope,
                                           &array_dpath_eval, bst);
@@ -840,11 +838,10 @@ expr_eval_builtin_index(struct ast_node_hdl *object,
     }
     array_node = expr_dpath_get_item_node(array_dpath_eval);
     if (AST_NODE_TYPE_ARRAY != array_node->ndat->type) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &array_dpath->loc,
-                       "cannot evaluate 'index': 1st argument is not "
-                       "an array");
         expr_dpath_destroy(array_dpath_eval);
-        return BITPUNCH_INVALID_PARAM;
+        return node_error(BITPUNCH_INVALID_PARAM, array_dpath, bst,
+                          "cannot evaluate 'index': 1st argument is not "
+                          "an array");
     }
     bt_ret = expr_evaluate_dpath_internal(item_dpath, scope,
                                           &item_dpath_eval, bst);
@@ -859,12 +856,11 @@ expr_eval_builtin_index(struct ast_node_hdl *object,
 
     if (!ancestor_is_array
         || expr_dpath_is(item_dpath_eval, item_ancestor)) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &array_dpath->loc,
-                       "cannot evaluate 'index': 2nd argument is not a "
-                       "descendent of array");
         expr_dpath_destroy(array_dpath_eval);
         expr_dpath_destroy(item_dpath_eval);
-        return BITPUNCH_INVALID_PARAM;
+        return node_error(BITPUNCH_INVALID_PARAM, array_dpath, bst,
+                          "cannot evaluate 'index': 2nd argument is not a "
+                          "descendent of array");
     }
     array_item_dpath = item_dpath_eval;
     item_track.type = TRACK_PATH_NOTYPE;
@@ -908,9 +904,8 @@ expr_eval_builtin_len(struct ast_node_hdl *object,
 
     expr = ((struct named_expr *)TAILQ_FIRST(params))->expr;
     if (expr->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                       "cannot evaluate 'len' on value-type expression");
-        return BITPUNCH_INVALID_PARAM;
+        return node_error(BITPUNCH_INVALID_PARAM, expr, bst,
+                          "cannot evaluate 'len' on value-type expression");
     }
     bt_ret = expr_evaluate_dpath_internal(expr, scope, &dpath_eval, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -1173,12 +1168,11 @@ expr_evaluate_dpath_anchor_common(struct ast_node_hdl *anchor_expr,
             return bt_ret;
         }
         if (!ast_node_is_rexpr_filter(expr_dpath_get_as_type(anchor_dpath))) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &anchor_expr->loc,
+            expr_dpath_destroy(anchor_dpath);
+            return node_error(
+                BITPUNCH_DATA_ERROR, anchor_expr, bst,
                 "left-side of member operator does not evaluate to a "
                 "filter type");
-            expr_dpath_destroy(anchor_dpath);
-            return BITPUNCH_DATA_ERROR;
         }
         *dpathp = anchor_dpath;
         return BITPUNCH_OK;
@@ -1255,12 +1249,11 @@ expr_evaluate_named_expr_internal(
         return bt_ret;
     }
     if (!cond_eval) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                       "no member named '%s' is associated to block in "
-                       "current evaluation context",
-                       named_expr->nstmt.name);
         box_delete(member_scope);
-        return BITPUNCH_DATA_ERROR;
+        return node_error(BITPUNCH_DATA_ERROR, expr, bst,
+                          "no member named '%s' is associated to block in "
+                          "current evaluation context",
+                          named_expr->nstmt.name);
     }
     *named_exprp = named_expr;
     *member_scopep = member_scope;
@@ -1632,9 +1625,8 @@ expr_evaluate_field(struct ast_node_hdl *expr, struct box *scope,
         return bt_ret;
     }
     if (EXPR_DPATH_TYPE_NONE == anchor_dpath.type) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                       "cannot evaluate field value on non-dpath anchor");
-        return BITPUNCH_INVALID_PARAM;
+        return node_error(BITPUNCH_INVALID_PARAM, expr, bst,
+                          "cannot evaluate field value on non-dpath anchor");
     }
     bt_ret = expr_dpath_to_box_internal(anchor_dpath, &anchor_box, bst);
     expr_dpath_destroy(anchor_dpath);
@@ -1761,12 +1753,10 @@ expr_evaluate_subscript_slice(
     }
     if (tk_slice_start->cur.u.array.index
         > tk_slice_end->cur.u.array.index) {
-        assert(NULL != expr->ndat->u.rexpr_op_subscript_slice.start.key);
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR,
-            &expr->ndat->u.rexpr_op_subscript_slice.start.key->loc,
+        bt_ret = node_error(
+            BITPUNCH_DATA_ERROR,
+            expr->ndat->u.rexpr_op_subscript_slice.start.key, bst,
             "start index of slice is greater than end index");
-        bt_ret = BITPUNCH_DATA_ERROR;
         goto end;
     }
     slice_box = box_new_slice_box(tk_slice_start, tk_slice_end, bst);
@@ -1807,10 +1797,9 @@ expr_evaluate_ancestor(
 
     opd = expr->ndat->u.rexpr_op.op.operands[0];
     if (opd->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                       "cannot evaluate ancestor operator on value-type "
-                       "expression");
-        return BITPUNCH_INVALID_PARAM;
+        return node_error(BITPUNCH_INVALID_PARAM, expr, bst,
+                          "cannot evaluate ancestor operator on value-type "
+                          "expression");
     }
     bt_ret = expr_evaluate_dpath_internal(opd, scope, &opd_dpath, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -1906,11 +1895,10 @@ expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
         bitpunch_status_t bt_ret;
 
         if (expr->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                           "cannot evaluate expression value: "
-                           "not implemented on type '%s'",
-                           ast_node_type_str(expr->ndat->type));
-            return BITPUNCH_NOT_IMPLEMENTED;
+            return node_error(BITPUNCH_NOT_IMPLEMENTED, expr, bst,
+                              "cannot evaluate expression value: "
+                              "not implemented on type '%s'",
+                              ast_node_type_str(expr->ndat->type));
         }
         transform.dpath.type = EXPR_DPATH_TYPE_NONE;
         transform.dpath_is_data_source = FALSE;
@@ -1989,9 +1977,8 @@ expr_transform_dpath_generic_internal(struct ast_node_hdl *expr,
     expr_dpath_t filtered_dpath;
 
     if (EXPR_DPATH_TYPE_NONE != transformp->dpath.type) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                       "cannot evaluate filtered dpath: multiple sources");
-        return BITPUNCH_INVALID_PARAM;
+        return node_error(BITPUNCH_INVALID_PARAM, expr, bst,
+                          "cannot evaluate filtered dpath: multiple sources");
     }
     bt_ret = expr_evaluate_dpath_internal(expr, scope,
                                           &transformp->dpath, bst);
@@ -2050,11 +2037,10 @@ expr_transform_dpath_polymorphic(
         struct tracker *tk;
 
         if (EXPR_DPATH_TYPE_NONE != transformp->dpath.type) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                "cannot evaluate filtered dpath: multiple sources");
             box_delete(member_scope);
-            return BITPUNCH_INVALID_PARAM;
+            return node_error(
+                BITPUNCH_INVALID_PARAM, expr, bst,
+                "cannot evaluate filtered dpath: multiple sources");
         }
         field = (struct field *)nstmt;
         tk = track_box_contents_internal(member_scope, bst);
@@ -2098,9 +2084,8 @@ expr_transform_dpath_item(struct ast_node_hdl *expr, struct box *scope,
         return BITPUNCH_OK;
     }
     if (EXPR_DPATH_TYPE_NONE == transformp->dpath.type) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                       "no data source to compute dpath");
-        return BITPUNCH_INVALID_PARAM;
+        return node_error(BITPUNCH_INVALID_PARAM, expr, bst,
+                          "no data source to compute dpath");
     }
     // item is an "as-type" filter (cast)
     bt_ret = expr_dpath_to_box_direct(transformp->dpath, &target_box, bst);
@@ -2316,11 +2301,10 @@ expr_evaluate_filter_type_internal(struct ast_node_hdl *filter,
         return expr_evaluate_filter_type_filter(filter, scope, kind,
                                                 filter_typep, bst);
     default:
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
-                       "cannot evaluate filter type on expression "
-                       "of type '%s'",
-                       ast_node_type_str(filter->ndat->type));
-        return BITPUNCH_INVALID_PARAM;
+        return node_error(BITPUNCH_INVALID_PARAM, filter, bst,
+                          "cannot evaluate filter type on expression "
+                          "of type '%s'",
+                          ast_node_type_str(filter->ndat->type));
     }
 }
 

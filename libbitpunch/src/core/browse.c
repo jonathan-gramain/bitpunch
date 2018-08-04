@@ -4482,7 +4482,6 @@ tracker_error_new(bitpunch_status_t bt_ret,
         assert(NULL == box);
         tk_err->tk = tracker_dup_raw(tk);
     } else {
-        assert(NULL == tk);
         tk_err->box = box;
         box_acquire(box);
     }
@@ -4512,23 +4511,14 @@ tracker_error_destroy(struct tracker_error *tk_err)
     int ctx_i;
 
     if (NULL != tk_err) {
-        if (NULL != tk_err->tk) {
-            assert(NULL == tk_err->box);
-            tracker_delete(tk_err->tk);
-        } else {
-            assert(NULL != tk_err->box);
-            box_delete(tk_err->box);
-        }
+        tracker_delete(tk_err->tk);
+        box_delete(tk_err->box);
         for (ctx_i = 0; ctx_i < tk_err->n_contexts; ++ctx_i) {
             struct tracker_error_context_info *ctx_info;
 
             ctx_info = &tk_err->contexts[ctx_i];
-            if (NULL != ctx_info->tk) {
-                tracker_delete(ctx_info->tk);
-            }
-            if (NULL != ctx_info->box) {
-                box_delete(ctx_info->box);
-            }
+            tracker_delete(ctx_info->tk);
+            box_delete(ctx_info->box);
         }
         if (!(tk_err->flags & TRACKER_ERROR_STATIC)) {
             free(tk_err);
@@ -4577,6 +4567,24 @@ box_error(bitpunch_status_t bt_ret, struct box *box,
                                         message_fmt, ap);
     va_end(ap);
     DBG_BOX_DUMP(box);
+    return bt_ret;
+}
+
+// FIXME make a common error handling layer outside of browse.c
+bitpunch_status_t
+node_error(bitpunch_status_t bt_ret,
+           const struct ast_node_hdl *node,
+           struct browse_state *bst,
+           const char *message_fmt, ...)
+{
+    va_list ap;
+
+    browse_state_clear_error(bst);
+
+    va_start(ap, message_fmt);
+    bst->last_error = tracker_error_new(bt_ret, NULL, NULL, node,
+                                        message_fmt, ap);
+    va_end(ap);
     return bt_ret;
 }
 
