@@ -92,7 +92,7 @@ class CLI(NestedCmd):
         super(CLI, self).__init__()
         self.intro = '*** BitPunch command-line interface ***'
         self.prompt = 'bitpunch> '
-        self.expr_operators_delim = (' ', '(', '&')
+        self.expr_operators_delim = (' ', '(', ')', '&', '<>')
 
         self.format_spec = None
         self.format_spec_path = None
@@ -138,44 +138,43 @@ class CLI(NestedCmd):
     def _complete_expression_nocatch(self, text, begin, end,
                                      ignore_primitive_types=False):
         # do not append a final ' ' automatically if only one possible
-        # completion
+        # completion, as we want to do it only for leaf items
         completion.suppress_append = True
 
-        def extract_trailing_dpath_expr(text):
-            if text and text[-1] == ')':
-                raise NoCompletion()
-
-            min_boundary = -1
-            boundaries = [text.rfind(boundary)
-                          for boundary in self.expr_operators_delim]
-            for boundary in boundaries:
-                if (boundary != -1 and
-                    (min_boundary == -1 or boundary > min_boundary)):
-                    min_boundary = boundary
-            if min_boundary != -1:
-                expr = text[min_boundary+1:]
+        def extract_active_dpath_expr(text):
+            rightmost_boundary_index = None
+            rightmost_boundary = None
+            for boundary in self.expr_operators_delim:
+                boundary_index = text.rfind(boundary)
+                if (boundary_index != -1 and
+                    (rightmost_boundary_index is None or
+                     boundary_index > rightmost_boundary_index)):
+                    rightmost_boundary_index = boundary_index
+                    rightmost_boundary = boundary
+            if rightmost_boundary_index is not None:
+                if rightmost_boundary != ')':
+                    return text[rightmost_boundary_index+len(rightmost_boundary):]
             else:
-                expr = text
-            return expr
+                return text
 
-        def extract_right_side_item(partial_expr):
-            if not partial_expr:
-                return ''
-
-            for char_pos in range(len(partial_expr) - 1, -1, -1):
-                item_char = partial_expr[char_pos]
-                if not (item_char.isalnum() or item_char in "_?.[:]\"'{}-+/*"):
-                    if item_char not in (tuple(self.expr_operators_delim)):
-                        raise ValueError()
-                    item_pos = char_pos + 1
-                    return partial_expr[item_pos:]
-            else:
-                return partial_expr
+            extra_closing_parenthesis = 1
+            limit = rightmost_boundary_index
+            while True:
+                parenthesis_index = max(text[:limit].rfind('('),
+                                        text[:limit].rfind(')'))
+                if parenthesis_index == -1:
+                    return '' # unbalanced parenthesis: cannot complete
+                extra_closing_parenthesis += \
+                    text[parenthesis_index] == ')' and 1 or -1
+                if extra_closing_parenthesis == 0:
+                    return text[parenthesis_index:]
+                limit = parenthesis_index
+            return ''
 
         def is_identifier(key):
             str_key = str(key)
-            return (str_key[0].isalpha() and
-                    all(c.isalnum() or c == '_' for c in str_key))
+            return ((str_key[0].isalpha() or str_key[0] in ['_', '?']) and
+                    all(c.isalnum() or c == '_' for c in str_key[1:]))
 
         def is_attribute(key):
             str_key = str(key)
@@ -184,11 +183,11 @@ class CLI(NestedCmd):
         def filter_type(obj, key):
             if not ignore_primitive_types:
                 return False
-            if obj.get_filter_type() == 'composite' or is_attribute(key):
-                child_obj = getattr(obj, key)
-            else:
+            try:
                 child_obj = obj[key]
-            return (child_obj.get_filter_type() not in ['composite', 'array'])
+                return (child_obj.get_filter_type() not in ['composite', 'array'])
+            except Exception:
+                return True
 
         def build_completion(candidate, obj, completion_base):
             if (obj.get_filter_type() == 'composite' or
@@ -207,24 +206,21 @@ class CLI(NestedCmd):
                 return None
             return s[rightmost_idx]
 
-        try:
-            expr = extract_trailing_dpath_expr(text[:end])
-        except NoCompletion:
-            return
+        expr = extract_active_dpath_expr(text[:end])
 
         if self.format_spec and self.bin_file:
             self.open_data_tree('(complete expression)')
 
         #FIXME: not working with slices
         if expr.endswith(']'):
-            item = extract_right_side_item(expr)
+            item = expr
             item_complement = ''
             sep = '.'
             sep_end = ''
             completion_base = ''
         else:
             item_complement = ''
-            sep = rightmost_sep(expr, ".[")
+            sep = rightmost_sep(expr, ".[)")
             sep_end = ''
             if not sep:
                 sep = '.'
@@ -237,19 +233,16 @@ class CLI(NestedCmd):
                     item_complement = '[' + item_complement
             if sep in ('[', ':'):
                 sep_end = ']'
+            if sep == ')':
+                left += ')' # put back the missing parenthesis to make
+                            # a valid expression
+                sep = '.'
             if (not left or left.endswith(' ')) and sep != '':
                 return
-            if all(c not in right
-                   for c in (tuple(self.expr_operators_delim)
-                             + (')',))):
-                item = extract_right_side_item(left)
-                completion_base = right
-            else:
-                item = ''
-                sep = ''
-                sep_end = ''
-                completion_base = extract_right_side_item(right)
+            item = left
+            completion_base = right
 
+        completion_prefix = text[begin:end-len(expr)]
         logging.debug('complete_expression text=%s expr=%s begin=%d end=%d item=%s item_complement=%s sep=%s sep_end=%s completion_base=%s'
                       % (repr(text), repr(expr), begin, end,
                          repr(item), repr(item_complement),
@@ -263,13 +256,13 @@ class CLI(NestedCmd):
             item += item_complement
         else:
             if 'file'.startswith(completion_base):
-                yield 'file'
+                yield completion_prefix + 'file'
             obj = None
             if 'sizeof'.startswith(completion_base):
-                yield 'sizeof('
+                yield completion_prefix + 'sizeof('
 
             for builtin in model.get_builtin_names(prefix=completion_base):
-                yield builtin + '('
+                yield completion_prefix + builtin + '('
 
         if obj is None:
             obj = self.data_tree
@@ -292,9 +285,9 @@ class CLI(NestedCmd):
                                     and (sep != '[' or not dottable))
                         if nb_found_keys == 1:
                             if yield_key(first_key_str):
-                                yield item + sep + first_key_str + sep_end
+                                yield completion_prefix + item + sep + first_key_str + sep_end
                         if yield_key(key_str):
-                            yield item + sep + key_str + sep_end
+                            yield completion_prefix + item + sep + key_str + sep_end
                     nb_found_keys += 1
 
 
@@ -309,9 +302,9 @@ class CLI(NestedCmd):
                         key_str = build_completion(first_key, obj,
                                                    completion_base)
                         if (is_attribute(key_str)):
-                            yield item + '.' + key_str
+                            yield completion_prefix + item + '.' + key_str
                         else:
-                            yield item + sep + key_str + sep_end
+                            yield completion_prefix + item + sep + key_str + sep_end
                         return
 
                     for child_key in model.Tracker(
@@ -320,18 +313,18 @@ class CLI(NestedCmd):
                         if not filter_type(child_obj, child_key):
                             if (is_attribute(child_key) or
                                 child_obj.get_filter_type() == 'composite'):
-                                yield expr + sep_end + '.' + child_key
+                                yield completion_prefix + expr + sep_end + '.' + child_key
                             else:
                                 key_str = build_completion(child_key,
                                                            child_obj,
                                                            completion_base)
-                                yield expr + sep_end + '[' + key_str + ']'
+                                yield completion_prefix + expr + sep_end + '[' + key_str + ']'
 
                 elif first_key_str != completion_base or sep_end:
-                        yield item + sep + first_key_str + sep_end + ' '
+                        yield completion_prefix + item + sep + first_key_str + sep_end + ' '
                         return
             except Exception:
-                yield item + sep + first_key_str + sep_end
+                yield completion_prefix + item + sep + first_key_str + sep_end
 
 
     ### COMMANDS ###

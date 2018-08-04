@@ -80,7 +80,7 @@ class NestedCmd(kmd.Kmd, object):
 
     def preloop(self):
         super(NestedCmd, self).preloop()
-        completer.word_break_characters = ' \t\n()'
+        completer.word_break_characters = ' \t\n'
         completer.quote_characters = ''
 
         self.interactive_mode = self.stdin.isatty()
