@@ -26,6 +26,7 @@ import os
 import errno
 import shlex
 import json
+from ruamel.yaml import YAML
 import argparse
 import pprint
 import traceback
@@ -361,18 +362,39 @@ class CLI(NestedCmd):
         else:
             return []
 
+    def _do_dump_generic(self, args, dump_type, dump_func):
+        pargs = self.parse_dump_args('dump {0}'.format(dump_type), args)
+        if self.format_spec and self.bin_file:
+            self.open_data_tree('dump {0}'.format(dump_type))
+        dump_obj = self.data_tree.eval_expr(pargs.expression)
+        if pargs.output_file == '-':
+            dump_func(dump_obj, sys.stdout)
+        else:
+            try:
+                with open(pargs.output_file, 'wxb') as output_file:
+                    dump_func(dump_obj, output_file)
+            except IOError as e:
+                if e.errno != errno.EEXIST:
+                    raise e
+                sys.stderr.write('File {0} exists, replace? (y/N) '
+                                 .format(pargs.output_file))
+                answer = sys.stdin.readline().strip()
+                if answer.lower() in ['y', 'yes']:
+                    with open(pargs.output_file, 'wb') as output_file:
+                        dump_func(dump_obj, output_file)
+
     def do_dump_json(self, args):
         """Dump the value of an expression in JSON format
 
     Usage: dump json <output_file> <expression>
 """
-        pargs = self.parse_dump_args('dump json', args)
-        if self.format_spec and self.bin_file:
-            self.open_data_tree('dump json')
-        dump_obj = self.data_tree.eval_expr(pargs.expression)
-        dump_obj = model.make_python_object(dump_obj) # required for JSON serialization
-        with open(pargs.output_file, 'wxb') as output_file:
-            json.dump(dump_obj, output_file, encoding='iso8859-1', indent=4)
+        def dump_json_to_file(obj, out):
+            # required for JSON serialization
+            deep_obj = model.make_python_object(obj)
+            json.dump(deep_obj, out, encoding='iso8859-1', indent=4)
+            out.write('\n')
+
+        self._do_dump_generic(args, 'json', dump_json_to_file)
 
     def complete_dump_json(self, text, begin, end):
         logging.debug('complete_dump_json text=%s begin=%d end=%d'
@@ -385,17 +407,35 @@ class CLI(NestedCmd):
 
     Usage: dump python <output_file> <expression>
 """
-        pargs = self.parse_dump_args('dump python', args)
-        if self.format_spec and self.bin_file:
-            self.open_data_tree('dump python')
-        dump_obj = self.data_tree.eval_expr(pargs.expression)
-        # not strictly necessary, but enables pretty-printing
-        dump_obj = model.make_python_object(dump_obj)
-        with open(pargs.output_file, 'wxb') as output_file:
-            pprint.pprint(dump_obj, output_file)
+        def dump_python_to_file(obj, out):
+            # not strictly necessary, but enables pretty-printing
+            deep_obj = model.make_python_object(obj)
+            pprint.pprint(deep_obj, out)
+
+        self._do_dump_generic(args, 'python', dump_python_to_file)
 
     def complete_dump_python(self, text, begin, end):
         logging.debug('complete_dump_python text=%s begin=%d end=%d'
+                      % (repr(text), begin, end))
+        return self._complete_dump(text, begin, end)
+
+
+    def do_dump_yaml(self, args):
+        """Dump the value of an expression in YAML format
+
+    Usage: dump yaml <output_file> <expression>
+"""
+        def dump_yaml_to_file(obj, out):
+            # required for YAML serialization
+            deep_obj = model.make_python_object(obj)
+            yaml = YAML()
+            yaml.default_flow_style = False
+            yaml.dump(deep_obj, out)
+
+        self._do_dump_generic(args, 'yaml', dump_yaml_to_file)
+
+    def complete_dump_yaml(self, text, begin, end):
+        logging.debug('complete_dump_yaml text=%s begin=%d end=%d'
                       % (repr(text), begin, end))
         return self._complete_dump(text, begin, end)
 
@@ -405,12 +445,7 @@ class CLI(NestedCmd):
 
     Usage: dump raw <output_file> <dpath_expression>
 """
-        pargs = self.parse_dump_args('dump raw', args)
-        self.open_data_tree('dump raw')
-        obj = self.data_tree.eval_expr(pargs.expression)
-        logging.info("dump_raw dpath=%s", repr(pargs.expression))
-        with open(pargs.output_file, 'wxb') as output_file:
-            output_file.write(obj)
+        self._do_dump_generic(args, 'raw', lambda obj, out: out.write(obj))
 
     def complete_dump_raw(self, text, begin, end):
         logging.debug('complete_dump_raw text=%s begin=%d end=%d'
@@ -526,7 +561,7 @@ class CLI(NestedCmd):
 
 
     def do_xdump(self, args):
-        """Print the value of a dpath expression in hexadecimal + ascii
+        """Print the raw contents of a dpath expression in hexadecimal + ascii
         format, 16 bytes per line
 
     Usage: xdump <expression>
