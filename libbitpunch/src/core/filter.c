@@ -131,7 +131,8 @@ filter_class_lookup(const char *name)
     return NULL;
 }
 
-void filter_class_declare_item(void);
+void filter_class_declare_struct(void);
+void filter_class_declare_union(void);
 void filter_class_declare_array(void);
 void filter_class_declare_binary_integer(void);
 void filter_class_declare_bytes(void);
@@ -144,7 +145,8 @@ void filter_class_declare_formatted_integer(void);
 void
 filter_class_declare_std(void)
 {
-    filter_class_declare_item();
+    filter_class_declare_struct();
+    filter_class_declare_union();
     filter_class_declare_array();
     filter_class_declare_binary_integer();
     filter_class_declare_bytes();
@@ -504,7 +506,7 @@ filter_lookup_statement_in_anonymous_field_recur(
 
     field = (const struct field *)stmt;
     as_type = dpath_node_get_as_type(&field->dpath);
-    assert(AST_NODE_TYPE_COMPOSITE == as_type->ndat->type);
+    assert(ast_node_is_rexpr_filter(as_type));
     if (!identifier_is_visible_in_block_stmt_lists(
             STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD,
             identifier,

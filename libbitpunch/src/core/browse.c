@@ -49,6 +49,7 @@
 #include "core/debug.h"
 
 //FIXME remove once filters become isolated
+#include "filters/composite.h"
 #include "filters/array.h"
 
 #define DISABLE_BOX_CACHING
@@ -1324,8 +1325,6 @@ box_construct(struct box *o_box,
     }
     /* initialize internal state */
     switch (dpath->item->ndat->type) {
-    case AST_NODE_TYPE_COMPOSITE:
-        break ;
     case AST_NODE_TYPE_ARRAY: {
         struct filter_instance_array *array;
 
@@ -1356,8 +1355,17 @@ box_construct(struct box *o_box,
     case AST_NODE_TYPE_AS_BYTES:
         o_box->u.array_generic.n_items = -1;
         break ;
+    case AST_NODE_TYPE_REXPR_FILTER: {
+        if (NULL != dpath->item->ndat->u.rexpr_filter.b_box.init) {
+            bt_ret = dpath->item->ndat->u.rexpr_filter.b_box.init(o_box);
+            if (BITPUNCH_OK != bt_ret) {
+                return bt_ret;
+            }
+        }
+        break ;
+    }
     default:
-        assert(0);
+        break ;
     }
     return BITPUNCH_OK;
 }
@@ -1913,7 +1921,7 @@ box_get_scope_box(struct box *box)
 
     scope = box;
     while (NULL != scope
-           && AST_NODE_TYPE_COMPOSITE != scope->dpath.item->ndat->type) {
+           && !ast_node_is_rexpr_filter(scope->dpath.item)) {
         scope = scope->parent_box;
     }
     return scope;
@@ -1924,14 +1932,16 @@ box_free(struct box *box)
 {
     /* destroy internal state */
     switch (box->dpath.item->ndat->type) {
-    case AST_NODE_TYPE_COMPOSITE:
-        break ;
     case AST_NODE_TYPE_ARRAY:
         if (box_index_cache_exists(box)) {
             box_destroy_index_cache_by_key(box);
         }
         box_destroy_mark_offsets_repo(box);
         break ;
+    case AST_NODE_TYPE_REXPR_FILTER:
+        if (NULL != box->dpath.item->ndat->u.rexpr_filter.b_box.destroy) {
+            box->dpath.item->ndat->u.rexpr_filter.b_box.destroy(box);
+        }
     default:
         break ;
     }
@@ -2546,7 +2556,10 @@ tracker_reset_item(struct tracker *tk)
 static void
 tracker_reset_track_path(struct tracker *tk)
 {
-    switch (tk->box->dpath.item->ndat->type) {
+    struct ast_node_hdl *item;
+
+    item = tk->box->dpath.item;
+    switch (item->ndat->type) {
     case AST_NODE_TYPE_COMPOSITE:
         tk->cur = track_path_from_composite_field(NULL);
         break ;
@@ -2556,6 +2569,11 @@ tracker_reset_track_path(struct tracker *tk)
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
         tk->cur = track_path_from_array_index(-1);
+        break ;
+    case AST_NODE_TYPE_REXPR_FILTER:
+        if (NULL != item->ndat->u.rexpr_filter.b_tk.reset_track_path) {
+            item->ndat->u.rexpr_filter.b_tk.reset_track_path(tk);
+        }
         break ;
     default:
         assert(0);
@@ -3222,6 +3240,15 @@ box_get_end_path(struct box *box, struct track_path *end_pathp,
         end_pathp->type = TRACK_PATH_COMPOSITE;
         end_pathp->u.block.field = NULL;
         break ;
+    case AST_NODE_TYPE_REXPR_FILTER:
+        if (NULL != node->ndat->u.rexpr_filter.b_box.get_end_path) {
+            bt_ret = node->ndat->u.rexpr_filter.b_box.get_end_path(
+                box, end_pathp, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                return bt_ret;
+            }
+        }
+        break ;
     default:
         *end_pathp = TRACK_PATH_NONE;
         break ;
@@ -3314,6 +3341,10 @@ tracker_compute_item_offset(struct tracker *tk,
         return tracker_goto_nth_item_internal(
             tk, tk->cur.u.array.index - index_start, bst);
     }
+    case AST_NODE_TYPE_REXPR_FILTER:
+        assert(NULL != node->ndat->u.rexpr_filter.b_tk.goto_track_path);
+        return node->ndat->u.rexpr_filter.b_tk.goto_track_path(
+            tk, tk->cur, bst);
     default:
         assert(0);
     }
@@ -3349,7 +3380,6 @@ tracker_get_n_items_internal(struct tracker *tk, int64_t *item_countp,
                              struct browse_state *bst)
 {
     DBG_TRACKER_DUMP(tk);
-    assert(ast_node_is_container(tk->box->dpath.item));
     return box_get_n_items_internal(tk->box, item_countp, bst);
 }
 
@@ -5404,22 +5434,26 @@ tracker_goto_next_item_int__composite(struct tracker *tk, int flat,
     DBG_TRACKER_CHECK_STATE(tk);
     while (TRUE) {
         /* union: no offset change */
-        if (0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)
-            && COMPOSITE_TYPE_STRUCT ==
-            tk->box->dpath.item->ndat->u.composite.type) {
-            int64_t item_size;
+        if (0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
+            struct filter_instance_composite *composite;
 
-            bt_ret = tracker_get_item_size_internal(tk, &item_size, bst);
-            if (BITPUNCH_OK != bt_ret) {
+            composite = (struct filter_instance_composite *)
+                tk->box->dpath.item->ndat->u.rexpr_filter.f_instance;
+            if (COMPOSITE_TYPE_STRUCT == composite->type) {
+                int64_t item_size;
+
+                bt_ret = tracker_get_item_size_internal(tk, &item_size, bst);
+                if (BITPUNCH_OK != bt_ret) {
+                    DBG_TRACKER_CHECK_STATE(tk);
+                    return bt_ret;
+                }
                 DBG_TRACKER_CHECK_STATE(tk);
-                return bt_ret;
-            }
-            DBG_TRACKER_CHECK_STATE(tk);
-            if (reversed) {
-                assert(tk->item_offset >= item_size);
-                tk->item_offset -= item_size;
-            } else {
-                tk->item_offset += item_size;
+                if (reversed) {
+                    assert(tk->item_offset >= item_size);
+                    tk->item_offset -= item_size;
+                } else {
+                    tk->item_offset += item_size;
+                }
             }
         }
         tracker_reset_item(tk);
@@ -7399,9 +7433,12 @@ static void
 browse_setup_backends__box__composite(struct ast_node_hdl *item)
 {
     struct box_backend *b_box = NULL;
+    struct filter_instance_composite *composite;
 
     b_box = &item->ndat->u.rexpr_filter.b_box;
     memset(b_box, 0, sizeof (*b_box));
+    composite = (struct filter_instance_composite *)
+        item->ndat->u.rexpr_filter.f_instance;
 
     if (0 != (item->flags & ASTFLAG_IS_ROOT_BLOCK)) {
         b_box->compute_slack_size = box_compute_slack_size__from_file_hdl;
@@ -7414,7 +7451,7 @@ browse_setup_backends__box__composite(struct ast_node_hdl *item)
         b_box->compute_used_size = box_compute_used_size__static_size;
     } else if (0 != (item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
         b_box->compute_used_size = box_compute_used_size__as_max_span;
-    } else if (COMPOSITE_TYPE_STRUCT == item->ndat->u.composite.type) {
+    } else if (COMPOSITE_TYPE_STRUCT == composite->type) {
         b_box->compute_used_size = box_compute_used_size__packed_dynamic_size;
     } else /* union */ {
         b_box->compute_used_size = box_compute_used_size__union_dynamic_size;
@@ -7435,7 +7472,7 @@ browse_setup_backends__box__composite(struct ast_node_hdl *item)
                 box_compute_max_span_size__as_slack;
         }
     }
-    if (COMPOSITE_TYPE_STRUCT == item->ndat->u.composite.type) {
+    if (COMPOSITE_TYPE_STRUCT == composite->type) {
         b_box->get_max_slack_offset = box_get_children_slack__struct;
     }
     b_box->get_n_items = box_get_n_items__composite;

@@ -42,7 +42,7 @@
 #include "core/browse_internal.h"
 #include "core/print.h"
 #include "core/parser.h"
-#include "filters/item.h"
+#include "filters/composite.h"
 #include "filters/array.h"
 #include PATH_TO_PARSER_TAB_H
 
@@ -285,7 +285,7 @@ lookup_visible_statements_in_anonymous_field(
     if (NULL != field_type) {
         if (AST_NODE_TYPE_FILTER_DEF == field_type->ndat->type) {
             stmt_lists = &field_type->ndat->u.filter_def.block_stmt_list;
-        } else if (AST_NODE_TYPE_COMPOSITE == field_type->ndat->type) {
+        } else if (ast_node_is_rexpr_filter(field_type)) {
             stmt_lists = &field_type->ndat->u.rexpr_filter
                 .filter_def->block_stmt_list;
         } else {
@@ -1232,7 +1232,7 @@ resolve_user_expr_scoped_recur(struct ast_node_hdl *expr,
     struct list_of_visible_refs visible_refs;
 
     while (NULL != cur_scope
-           && AST_NODE_TYPE_COMPOSITE != cur_scope->dpath.item->ndat->type) {
+           && !ast_node_is_rexpr_filter(cur_scope->dpath.item)) {
         cur_scope = cur_scope->parent_box;
     }
     if (NULL == cur_scope) {
@@ -1240,7 +1240,6 @@ resolve_user_expr_scoped_recur(struct ast_node_hdl *expr,
     }
     visible_refs.outer_refs = NULL;
     visible_refs.cur_filter = cur_scope->dpath.item;
-    assert(cur_scope->dpath.item->ndat->type == AST_NODE_TYPE_COMPOSITE);
     visible_refs.cur_lists =
         &cur_scope->dpath.item->ndat->u.rexpr_filter.filter_def->block_stmt_list;
     if (NULL != inner_refs) {
@@ -1623,17 +1622,27 @@ compile_field_cb(struct compile_ctx *ctx,
     if (0 != (tags & COMPILE_TAG_NODE_TYPE) && NULL == field->nstmt.name) {
         const struct ast_node_hdl *as_type;
 
-        // Unnamed fields with block types allow direct child
-        // field access without using the dot operator (like
-        // inheritance). For non-block types it becomes a hidden
-        // field (takes up space but not exposed to API).
+        // Unnamed fields allow direct child field and named
+        // expression access without using the dot operator (like with
+        // inheritance). If the unnamed field does not refer to a
+        // filter or if the filter has no field nor named expression,
+        // it becomes a hidden field (takes up space but not exposed
+        // to API).
 
         // XXX only set flag if all polymorphic named expr targets are
         // hidden fields
         as_type = ast_node_get_named_expr_target(
             (struct ast_node_hdl *)
             dpath_node_get_as_type__pre_compile_stage(dpath));
-        if (AST_NODE_TYPE_COMPOSITE != as_type->ndat->type) {
+        if (ast_node_is_rexpr_filter(as_type)) {
+            struct filter_def *filter_def;
+
+            filter_def = as_type->ndat->u.rexpr_filter.filter_def;
+            if (TAILQ_EMPTY(filter_def->block_stmt_list.field_list) &&
+                TAILQ_EMPTY(filter_def->block_stmt_list.named_expr_list)) {
+                field->nstmt.stmt.stmt_flags |= FIELD_FLAG_HIDDEN;
+            }
+        } else {
             field->nstmt.stmt.stmt_flags |= FIELD_FLAG_HIDDEN;
         }
     }
@@ -1720,7 +1729,7 @@ compile_filter_def(struct ast_node_hdl *filter,
     }
     if (0 == strcmp(filter_type, "struct") ||
         0 == strcmp(filter_type, "union")) {
-        filter_cls = filter_class_lookup("item");
+        filter_cls = filter_class_lookup(filter_type);
         assert(NULL != filter_cls);
 
         ndat = new_safe(struct ast_node_data);
@@ -1728,11 +1737,6 @@ compile_filter_def(struct ast_node_hdl *filter,
         ndat->u.item.min_span_size = SPAN_SIZE_UNDEF;
         ndat->u.rexpr_filter.filter_cls = filter_cls;
         ndat->u.rexpr_filter.filter_def = &filter->ndat->u.filter_def;
-        if (0 == strcmp(filter_type, "struct")) {
-            ndat->u.composite.type = COMPOSITE_TYPE_STRUCT;
-        } else {
-            ndat->u.composite.type = COMPOSITE_TYPE_UNION;
-        }
         filter->ndat = ndat;
     } else if (0 == strcmp(filter_type, "array")) {
         filter_cls = filter_class_lookup("array");
@@ -2880,6 +2884,7 @@ compile_node_type(struct ast_node_hdl *node,
 static int
 compile_span_size_composite(struct ast_node_hdl *item, struct compile_ctx *ctx)
 {
+    struct filter_instance_composite *composite;
     struct named_expr *attr;
     struct ast_node_hdl *min_span_expr;
     struct ast_node_hdl *max_span_expr;
@@ -2908,6 +2913,8 @@ compile_span_size_composite(struct ast_node_hdl *item, struct compile_ctx *ctx)
        the minimum
     */
 
+    composite = (struct filter_instance_composite *)
+        item->ndat->u.rexpr_filter.f_instance;
     min_span_size = 0;
     dynamic_span = FALSE;
     dynamic_used = FALSE;
@@ -2965,7 +2972,7 @@ compile_span_size_composite(struct ast_node_hdl *item, struct compile_ctx *ctx)
         } else if (NULL == field->nstmt.stmt.cond) {
             /* only update min span size if field is not conditional */
             assert(SPAN_SIZE_UNDEF != field_type->u.item.min_span_size);
-            if (COMPOSITE_TYPE_UNION == item->ndat->u.composite.type) {
+            if (COMPOSITE_TYPE_UNION == composite->type) {
                 min_span_size = MAX(min_span_size,
                                     field_type->u.item.min_span_size);
             } else /* struct */ {
@@ -3006,7 +3013,7 @@ compile_span_size_composite(struct ast_node_hdl *item, struct compile_ctx *ctx)
                      ITEMFLAG_CONDITIONALLY_SPREADS_SLACK))
             || NULL != field->nstmt.stmt.cond) {
             first_trailer_field = NULL;
-        } else if (COMPOSITE_TYPE_STRUCT == item->ndat->u.composite.type
+        } else if (COMPOSITE_TYPE_STRUCT == composite->type
                    && (child_spreads_slack ||
                        child_conditionally_spreads_slack)
                    && NULL == first_trailer_field
@@ -3644,6 +3651,18 @@ ast_node_is_rexpr_filter(const struct ast_node_hdl *node)
     default:
         return FALSE;
     }
+}
+
+int
+ast_node_filter_has_fields(const struct ast_node_hdl *node)
+{
+    struct filter_def *filter_def;
+
+    if (!ast_node_is_rexpr_filter(node)) {
+        return FALSE;
+    }
+    filter_def = node->ndat->u.rexpr_filter.filter_def;
+    return !TAILQ_EMPTY(filter_def->block_stmt_list.field_list);
 }
 
 struct ast_node_hdl *
@@ -4291,8 +4310,6 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         dump_filter_recur(node, depth + 1, visible_refs, out);
         break ;
     case AST_NODE_TYPE_COMPOSITE:
-        fprintf(out, "composite type: %s, ",
-                composite_type_str(node->ndat->u.composite.type));
         dump_ast_item_info(node, out);
         fprintf(out, "\n");
         dump_composite_recur(node, depth + 1, visible_refs, out);

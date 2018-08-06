@@ -1471,6 +1471,8 @@ DataItem_get_filter_type_str(DataItemObject *self)
     }
     item = expr_dpath_get_as_type(self->dpath);
     switch (item->ndat->type) {
+    case AST_NODE_TYPE_REXPR_FILTER:
+        return item->ndat->u.rexpr_filter.filter_def->filter_type;
     case AST_NODE_TYPE_COMPOSITE:
         return "composite";
     case AST_NODE_TYPE_ARRAY:
@@ -2117,7 +2119,7 @@ box_to_deep_PyList(struct DataTreeObject *dtree, struct box *box)
 }
 
 static PyObject *
-box_to_PyString(struct DataTreeObject *dtree, struct box *box)
+box_to_native_PyObject(struct DataTreeObject *dtree, struct box *box)
 {
     bitpunch_status_t bt_ret;
     expr_value_t value_eval;
@@ -2351,7 +2353,10 @@ tracker_item_to_deep_PyObject(DataTreeObject *dtree, struct tracker *tk)
 static PyObject *
 box_to_deep_PyObject(struct DataTreeObject *dtree, struct box *box)
 {
-    switch (dpath_node_get_as_type(&box->dpath)->ndat->type) {
+    struct ast_node_hdl *node;
+
+    node = dpath_node_get_as_type(&box->dpath);
+    switch (node->ndat->type) {
     case AST_NODE_TYPE_COMPOSITE:
         return box_to_deep_PyDict(dtree, box);
     case AST_NODE_TYPE_ARRAY:
@@ -2361,7 +2366,16 @@ box_to_deep_PyObject(struct DataTreeObject *dtree, struct box *box)
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_AS_BYTES:
-        return box_to_PyString(dtree, box);
+        return box_to_native_PyObject(dtree, box);
+    case AST_NODE_TYPE_REXPR_FILTER: {
+        if (NULL != node->ndat->u.rexpr_filter.b_item.read_value) {
+            return box_to_native_PyObject(dtree, box);
+        }
+        if (ast_node_filter_has_fields(node)) {
+            return box_to_deep_PyDict(dtree, box);
+        }
+        return box_to_deep_PyList(dtree, box);
+    }
     default:
         PyErr_Format(PyExc_ValueError,
                      "Cannot convert container type '%s' to python object",
@@ -2412,13 +2426,23 @@ typedef struct TrackerObject {
 static int
 Tracker_set_default_iter_mode(TrackerObject *self)
 {
-    switch (self->tk->box->dpath.item->ndat->type) {
+    struct ast_node_hdl *node;
+
+    node = self->tk->box->dpath.item;
+    switch (node->ndat->type) {
     case AST_NODE_TYPE_COMPOSITE:
         self->iter_mode = TRACKER_ITER_FIELD_NAMES;
         break ;
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_ARRAY_SLICE:
         if (box_contains_indexed_items(self->tk->box)) {
+            self->iter_mode = TRACKER_ITER_FIELD_NAMES;
+        } else {
+            self->iter_mode = TRACKER_ITER_FIELD_VALUES;
+        }
+        break ;
+    case AST_NODE_TYPE_REXPR_FILTER:
+        if (ast_node_filter_has_fields(node)) {
             self->iter_mode = TRACKER_ITER_FIELD_NAMES;
         } else {
             self->iter_mode = TRACKER_ITER_FIELD_VALUES;

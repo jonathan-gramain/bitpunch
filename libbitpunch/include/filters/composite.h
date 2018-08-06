@@ -29,34 +29,18 @@
  * DAMAGE.
  */
 
-#define _DEFAULT_SOURCE
-#define _GNU_SOURCE
+#ifndef __FILTER_COMPOSITE_H__
+#define __FILTER_COMPOSITE_H__
 
-#include <assert.h>
+#include "core/filter.h"
 
-#include "filters/item.h"
+struct filter_instance_composite {
+    struct filter_instance filter; /* inherits */
+    enum composite_type {
+        COMPOSITE_TYPE_UNDEF,
+        COMPOSITE_TYPE_STRUCT,
+        COMPOSITE_TYPE_UNION,
+    } type;
+};
 
-static struct filter_instance *
-item_filter_instance_build(struct ast_node_hdl *filter,
-                           struct compile_ctx *ctx)
-{
-    return new_safe(struct filter_instance);
-}
-
-void
-filter_class_declare_item(void)
-{
-    int ret;
-
-    ret = filter_class_declare("item",
-                              EXPR_VALUE_TYPE_UNSET,
-                              item_filter_instance_build,
-                              5,
-                              "@span", EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@minspan", EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@maxspan", EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@key", (EXPR_VALUE_TYPE_INTEGER |
-                                       EXPR_VALUE_TYPE_STRING), 0,
-                              "@last", EXPR_VALUE_TYPE_BOOLEAN, 0);
-    assert(0 == ret);
-}
+#endif

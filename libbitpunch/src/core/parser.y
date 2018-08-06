@@ -355,14 +355,6 @@
                 filter_get_size_func_t get_size_func;
                 struct filter_instance *f_instance;
             } rexpr_filter;
-            struct composite {
-                struct rexpr_filter rexpr_filter; /* inherits */
-                enum composite_type {
-                    COMPOSITE_TYPE_UNDEF,
-                    COMPOSITE_TYPE_STRUCT,
-                    COMPOSITE_TYPE_UNION,
-                } type;
-            } composite;
             struct byte_array {
                 struct rexpr_filter rexpr_filter; /* inherits */
                 struct ast_node_hdl *size;
@@ -526,7 +518,6 @@
                         const char *fmt, ...)
         __attribute__((format(printf,3,4)));
     const char *ast_node_type_str(enum ast_node_type type);
-    const char *composite_type_str(enum composite_type type);
     struct ast_node_hdl *ast_node_hdl_new(void);
     void init_block_stmt_list(struct block_stmt_list *dst);
 }
@@ -641,7 +632,6 @@
     int64_t integer;
     int boolean;
     char *ident;
-    enum composite_type composite_type;
     struct expr_value_string literal;
     struct ast_node_hdl *ast_node_hdl;
     struct field *field;
@@ -1313,17 +1303,6 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_REXPR_BUILTIN: return "builtin expression";
     }
     return "!!bad value type!!";
-}
-
-const char *
-composite_type_str(enum composite_type type)
-{
-    switch (type) {
-    case COMPOSITE_TYPE_UNDEF: return "undef";
-    case COMPOSITE_TYPE_STRUCT: return "struct";
-    case COMPOSITE_TYPE_UNION: return "union";
-    }
-    return "!!bad block type!!";
 }
 
 void yyerror(YYLTYPE *loc, yyscan_t scanner,

@@ -114,6 +114,8 @@ int
 ast_node_is_rexpr(const struct ast_node_hdl *node);
 int
 ast_node_is_rexpr_filter(const struct ast_node_hdl *node);
+int
+ast_node_filter_has_fields(const struct ast_node_hdl *node);
 struct ast_node_hdl *
 ast_node_get_target_item(struct ast_node_hdl *node);
 struct ast_node_hdl *
