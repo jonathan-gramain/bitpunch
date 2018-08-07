@@ -1881,6 +1881,7 @@ DataItem_get_item(DataItemObject *self, PyObject *attr_name,
                 getattr ? PyExc_AttributeError : PyExc_IndexError)) {
             return NULL;
         }
+        PyErr_Clear();
     }
     return DataItem_get_keyed_item(self, attr_name, getattr);
 }
