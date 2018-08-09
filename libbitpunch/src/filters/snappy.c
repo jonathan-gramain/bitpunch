@@ -82,12 +82,13 @@ snappy_read(struct ast_node_hdl *filter,
 }
 
 static struct filter_instance *
-snappy_filter_instance_build(
-    struct ast_node_hdl *filter,
-    struct compile_ctx *ctx)
+snappy_filter_instance_build(struct ast_node_hdl *filter)
 {
-    filter->ndat->u.rexpr_filter.read_func = snappy_read;
-    return new_safe(struct filter_instance);
+    struct filter_instance *f_instance;
+
+    f_instance = new_safe(struct filter_instance);
+    f_instance->read_func = snappy_read;
+    return f_instance;
 }
 
 void
@@ -96,8 +97,8 @@ filter_class_declare_snappy(void)
     int ret;
 
     ret = filter_class_declare("snappy",
-                              EXPR_VALUE_TYPE_BYTES,
-                              snappy_filter_instance_build,
-                              0);
+                               EXPR_VALUE_TYPE_BYTES,
+                               snappy_filter_instance_build, NULL,
+                               0);
     assert(0 == ret);
 }

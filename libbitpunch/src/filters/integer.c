@@ -315,12 +315,13 @@ binary_integer_read_generic(
 }
 
 static struct filter_instance *
-binary_integer_filter_instance_build(
-    struct ast_node_hdl *filter,
-    struct compile_ctx *ctx)
+binary_integer_filter_instance_build(struct ast_node_hdl *filter)
 {
-    filter->ndat->u.rexpr_filter.read_func = binary_integer_read_generic;
-    return new_safe(struct filter_instance);
+    struct filter_instance *f_instance;
+
+    f_instance = new_safe(struct filter_instance);
+    f_instance->read_func = binary_integer_read_generic;
+    return f_instance;
 }
 
 #endif // optimized code
@@ -331,11 +332,11 @@ filter_class_declare_binary_integer(void)
     int ret;
 
     ret = filter_class_declare("integer",
-                              EXPR_VALUE_TYPE_INTEGER,
-                              binary_integer_filter_instance_build,
-                              2,
-                              "@signed", EXPR_VALUE_TYPE_BOOLEAN,
-                              FILTER_ATTR_FLAG_MANDATORY,
-                              "@endian", EXPR_VALUE_TYPE_STRING, 0);
+                               EXPR_VALUE_TYPE_INTEGER,
+                               binary_integer_filter_instance_build, NULL,
+                               2,
+                               "@signed", EXPR_VALUE_TYPE_BOOLEAN,
+                               FILTER_ATTR_FLAG_MANDATORY,
+                               "@endian", EXPR_VALUE_TYPE_STRING, 0);
     assert(0 == ret);
 }

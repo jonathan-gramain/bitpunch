@@ -482,7 +482,8 @@ resolve_identifiers_dpath_node(
 {
     if (NULL != node->item
         && -1 == resolve_identifiers(node->item, visible_refs,
-                                     RESOLVE_EXPECT_TYPE, resolve_tags)) {
+                                     RESOLVE_EXPECT_TYPE |
+                                     RESOLVE_EXPECT_FILTER, resolve_tags)) {
         return -1;
     }
     if (NULL != node->filter
@@ -556,16 +557,6 @@ resolve_identifiers_identifier_as_type(
     struct ast_node_hdl *node,
     const struct list_of_visible_refs *visible_refs)
 {
-    if (0 == strcmp(node->ndat->u.identifier, "byte")) {
-        struct ast_node_data *resolved_type;
-
-        /* native 'byte' type */
-        resolved_type = new_safe(struct ast_node_data);
-        resolved_type->type = AST_NODE_TYPE_BYTE;
-        resolved_type->u.item.min_span_size = 1;
-        node->ndat = resolved_type;
-        return 0;
-    }
     return resolve_identifier_as_scoped_statement(
         node, visible_refs, STATEMENT_TYPE_NAMED_EXPR);
 }
@@ -1442,6 +1433,8 @@ compile_expr(struct ast_node_hdl *node, struct compile_ctx *ctx,
     return compile_node(node, ctx,
                         (is_dependency ? COMPILE_TAG_NODE_TYPE : 0u),
                         (is_dependency ? 0u : COMPILE_TAG_NODE_TYPE),
+                        RESOLVE_EXPECT_TYPE |
+                        RESOLVE_EXPECT_FILTER |
                         RESOLVE_EXPECT_EXPRESSION);
 }
 
@@ -1647,19 +1640,19 @@ compile_field_cb(struct compile_ctx *ctx,
         }
     }
     if (NULL != field->nstmt.stmt.cond) {
-        if (0 != (dpath->u.item.flags & ITEMFLAG_SPREADS_SLACK)) {
-            dpath->u.item.flags &= ~ITEMFLAG_SPREADS_SLACK;
-            dpath->u.item.flags |= ITEMFLAG_CONDITIONALLY_SPREADS_SLACK;
+        if (0 != (dpath->item->ndat->u.item.flags & ITEMFLAG_SPREADS_SLACK)) {
+            dpath->item->ndat->u.item.flags &= ~ITEMFLAG_SPREADS_SLACK;
+            dpath->item->ndat->u.item.flags |= ITEMFLAG_CONDITIONALLY_SPREADS_SLACK;
         }
-        if (0 != (dpath->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
-            dpath->u.item.flags &= ~ITEMFLAG_FILLS_SLACK;
-            dpath->u.item.flags |= ITEMFLAG_CONDITIONALLY_FILLS_SLACK;
+        if (0 != (dpath->item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
+            dpath->item->ndat->u.item.flags &= ~ITEMFLAG_FILLS_SLACK;
+            dpath->item->ndat->u.item.flags |= ITEMFLAG_CONDITIONALLY_FILLS_SLACK;
         }
     }
     return tags;
 }
 
-static int
+int
 compile_field(struct field *field,
               struct compile_ctx *ctx,
               dep_resolver_tagset_t tags_pre,
@@ -1712,72 +1705,15 @@ compile_stmt_lists(struct block_stmt_list *stmt_lists,
 }
 
 static int
-compile_filter_def(struct ast_node_hdl *filter,
-                   struct compile_ctx *ctx,
-                   enum resolve_expect_mask expect_mask)
+compile_filter_def_validate_attributes(struct ast_node_hdl *filter,
+                                       struct filter_class *filter_cls)
 {
-    const char *filter_type;
-    struct filter_class *filter_cls;
-    struct block_stmt_list *stmt_lists;
-    struct ast_node_data *ndat;
-
-    filter_type = filter->ndat->u.filter_def.filter_type;
-    stmt_lists = &filter->ndat->u.filter_def.block_stmt_list;
-
-    if (-1 == compile_stmt_lists(stmt_lists, ctx)) {
-        return -1;
-    }
-    if (0 == strcmp(filter_type, "struct") ||
-        0 == strcmp(filter_type, "union")) {
-        filter_cls = filter_class_lookup(filter_type);
-        assert(NULL != filter_cls);
-
-        ndat = new_safe(struct ast_node_data);
-        ndat->type = AST_NODE_TYPE_COMPOSITE;
-        ndat->u.item.min_span_size = SPAN_SIZE_UNDEF;
-        ndat->u.rexpr_filter.filter_cls = filter_cls;
-        ndat->u.rexpr_filter.filter_def = &filter->ndat->u.filter_def;
-        filter->ndat = ndat;
-    } else if (0 == strcmp(filter_type, "array")) {
-        filter_cls = filter_class_lookup("array");
-        assert(NULL != filter_cls);
-
-        ndat = new_safe(struct ast_node_data);
-        ndat->type = AST_NODE_TYPE_ARRAY;
-        ndat->u.item.min_span_size = SPAN_SIZE_UNDEF;
-        ndat->u.rexpr_filter.filter_cls = filter_cls;
-        ndat->u.rexpr_filter.filter_def = &filter->ndat->u.filter_def;
-        filter->ndat = ndat;
-    } else {
-        filter_cls = filter_class_lookup(filter_type);
-        if (NULL == filter_cls) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
-                "no filter named '%s' exists",
-                filter_type);
-            return -1;
-        }
-        if (-1 == filter_instance_build(filter, filter_cls,
-                                        &filter->ndat->u.filter_def)) {
-            return -1;
-        }
-    }
-    return 0;
-}
-
-static int
-compile_rexpr_filter(struct ast_node_hdl *expr,
-                     struct compile_ctx *ctx)
-{
-    const struct filter_class *filter_cls;
     const struct block_stmt_list *stmt_lists;
     struct named_expr *attr;
     const struct filter_attr_def *attr_def;
     int sem_error = FALSE;
-    struct filter_instance *f_instance;
 
-    filter_cls = expr->ndat->u.rexpr_filter.filter_cls;
-    stmt_lists = &expr->ndat->u.rexpr_filter.filter_def->block_stmt_list;
+    stmt_lists = &filter->ndat->u.filter_def.block_stmt_list;
 
     STATEMENT_FOREACH(named_expr, attr, stmt_lists->attribute_list, list) {
         attr_def = filter_class_get_attr(filter_cls, attr->nstmt.name);
@@ -1811,7 +1747,7 @@ compile_rexpr_filter(struct ast_node_hdl *expr,
                     STATEMENT_TYPE_ATTRIBUTE, attr_def->name,
                     stmt_lists)) {
                 semantic_error(
-                    SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
+                    SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
                     "missing mandatory attribute \"%s\"",
                     attr_def->name);
                 sem_error = TRUE;
@@ -1821,50 +1757,50 @@ compile_rexpr_filter(struct ast_node_hdl *expr,
     if (sem_error) {
         return -1;
     }
-    f_instance = filter_cls->filter_instance_build_func(expr, ctx);
-    if (NULL == f_instance) {
-        return -1;
-    }
-    expr->ndat->u.rexpr_filter.f_instance = f_instance;
-    // template flag may be removed when compiling OP_FILTER
-    expr->ndat->flags |= ASTFLAG_DATA_TEMPLATE;
     return 0;
 }
 
 static int
-compile_composite(struct ast_node_hdl *filter,
-                  struct compile_ctx *ctx)
+compile_filter_def(struct ast_node_hdl *filter,
+                   struct compile_ctx *ctx,
+                   enum resolve_expect_mask expect_mask)
 {
-    return compile_rexpr_filter(filter, ctx);
+    const char *filter_type;
+    struct filter_class *filter_cls;
+    struct block_stmt_list *stmt_lists;
+
+    filter_type = filter->ndat->u.filter_def.filter_type;
+    stmt_lists = &filter->ndat->u.filter_def.block_stmt_list;
+
+    if (-1 == compile_stmt_lists(stmt_lists, ctx)) {
+        return -1;
+    }
+    filter_cls = filter_class_lookup(filter_type);
+    if (NULL == filter_cls) {
+        semantic_error(
+            SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
+            "no filter named '%s' exists",
+            filter_type);
+        return -1;
+    }
+    if (-1 == compile_filter_def_validate_attributes(filter, filter_cls)) {
+        return -1;
+    }
+    return filter_instance_build(filter, filter_cls,
+                                 &filter->ndat->u.filter_def);
 }
 
 static int
-compile_array(struct ast_node_hdl *filter,
-              struct compile_ctx *ctx)
+compile_rexpr_filter(struct ast_node_hdl *expr,
+                     dep_resolver_tagset_t tags,
+                     struct compile_ctx *ctx)
 {
-    struct filter_instance_array *array;
-    struct ast_node_hdl *item_type;
-    struct ast_node_hdl *item_count;
-    struct dpath_node *item_dpath;
+    const struct filter_class *filter_cls;
 
-    if (NULL == filter->ndat->u.rexpr_filter.f_instance
-        && -1 == compile_rexpr_filter(filter, ctx)) {
-        return -1;
-    }
-    array = (struct filter_instance_array *)
-        filter->ndat->u.rexpr_filter.f_instance;
-    item_dpath = &array->item_type;
-    item_type = item_dpath->item;
-    item_count = array->item_count;
-    if (-1 == compile_dpath(item_dpath, ctx, COMPILE_TAG_NODE_TYPE, 0u)) {
-        return -1;
-    }
-    assert(NULL != item_dpath->filter);
-    // if an array of unfiltered bytes, it's a byte array
-    if (AST_NODE_TYPE_BYTE == item_type->ndat->type
-        && AST_NODE_TYPE_REXPR_ITEM == item_dpath->filter->ndat->type) {
-        filter->ndat->type = AST_NODE_TYPE_BYTE_ARRAY;
-        filter->ndat->u.byte_array.size = item_count;
+    filter_cls = expr->ndat->u.rexpr_filter.filter_cls;
+    if (NULL != filter_cls->filter_instance_compile_func) {
+        return filter_cls->filter_instance_compile_func(
+            expr, expr->ndat->u.rexpr_filter.f_instance, tags, ctx);
     }
     return 0;
 }
@@ -2780,12 +2716,11 @@ compile_node_type_int(struct ast_node_hdl *node,
         return compile_expr_string_literal(node, ctx, expect_mask);
     case AST_NODE_TYPE_FILTER_DEF:
         return compile_filter_def(node, ctx, expect_mask);
-    case AST_NODE_TYPE_REXPR_FILTER:
-        return compile_rexpr_filter(node, ctx);
+    case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_COMPOSITE:
-        return compile_composite(node, ctx);
     case AST_NODE_TYPE_ARRAY:
-        return compile_array(node, ctx);
+    case AST_NODE_TYPE_REXPR_FILTER:
+        return compile_rexpr_filter(node, COMPILE_TAG_NODE_TYPE, ctx);
     case AST_NODE_TYPE_CONDITIONAL:
         return compile_conditional(node, ctx);
     case AST_NODE_TYPE_OP_UPLUS:
@@ -2882,385 +2817,12 @@ compile_node_type(struct ast_node_hdl *node,
 }
 
 static int
-compile_span_size_composite(struct ast_node_hdl *item, struct compile_ctx *ctx)
-{
-    struct filter_instance_composite *composite;
-    struct named_expr *attr;
-    struct ast_node_hdl *min_span_expr;
-    struct ast_node_hdl *max_span_expr;
-    const struct statement_list *field_list;
-    struct field *field;
-    struct dpath_node *field_type;
-    int64_t min_span_size;
-    int dynamic_span;
-    int dynamic_used;
-    int contains_last_attr;
-    int child_uses_slack;
-    int child_spreads_slack;
-    int child_conditionally_spreads_slack;
-    int child_fills_slack;
-    int child_conditionally_fills_slack;
-    struct field *first_trailer_field;
-
-    /* - Compute the minimum span size from the sum (struct) or
-       max (union) of fields' minimum span sizes. If size is
-       static, minimum size is actual size.
-
-       - If an unconditional span size is given by an expression,
-       resolve it
-
-       - Set the dynamic flag if actual size may be greater than
-       the minimum
-    */
-
-    composite = (struct filter_instance_composite *)
-        item->ndat->u.rexpr_filter.f_instance;
-    min_span_size = 0;
-    dynamic_span = FALSE;
-    dynamic_used = FALSE;
-    contains_last_attr = FALSE;
-    child_uses_slack = FALSE;
-    child_spreads_slack = FALSE;
-    child_conditionally_spreads_slack = FALSE;
-    child_fills_slack = FALSE;
-    child_conditionally_fills_slack = FALSE;
-
-    min_span_expr = NULL;
-    max_span_expr = NULL;
-    STATEMENT_FOREACH(
-        named_expr, attr,
-        item->ndat->u.rexpr_filter.filter_def->block_stmt_list.attribute_list,
-        list) {
-        if (-1 == compile_expr(attr->expr, ctx, TRUE)) {
-            return -1;
-        }
-        if (0 == strcmp(attr->nstmt.name, "@minspan")) {
-            if (NULL == attr->nstmt.stmt.cond) {
-                min_span_expr = attr->expr;
-            }
-            dynamic_span = TRUE;
-        } else if (0 == strcmp(attr->nstmt.name, "@maxspan")) {
-            if (NULL == attr->nstmt.stmt.cond) {
-                max_span_expr = attr->expr;
-            }
-            dynamic_span = TRUE;
-        } else if (0 == strcmp(attr->nstmt.name, "@span")) {
-            if (NULL == attr->nstmt.stmt.cond) {
-                min_span_expr = attr->expr;
-                max_span_expr = attr->expr;
-            } else {
-                dynamic_span = TRUE;
-            }
-        } else if (0 == strcmp(attr->nstmt.name, "@last")) {
-            contains_last_attr = TRUE;
-        }
-    }
-    field_list = item->ndat->u.rexpr_filter.filter_def->block_stmt_list.field_list;
-    first_trailer_field = NULL;
-    STATEMENT_FOREACH(field, field, field_list, list) {
-        compile_field(field, ctx,
-                      COMPILE_TAG_NODE_TYPE |
-                      COMPILE_TAG_NODE_SPAN_SIZE, 0u);
-    }
-    if (!compile_continue(ctx)) {
-        return -1;
-    }
-    STATEMENT_FOREACH(field, field, field_list, list) {
-        field_type = &field->dpath;
-        if (0 != (field_type->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-            dynamic_used = TRUE;
-        } else if (NULL == field->nstmt.stmt.cond) {
-            /* only update min span size if field is not conditional */
-            assert(SPAN_SIZE_UNDEF != field_type->u.item.min_span_size);
-            if (COMPOSITE_TYPE_UNION == composite->type) {
-                min_span_size = MAX(min_span_size,
-                                    field_type->u.item.min_span_size);
-            } else /* struct */ {
-                min_span_size += field_type->u.item.min_span_size;
-            }
-        } else {
-            // if at least one conditional field is present, the
-            // used size is dynamic
-            dynamic_used = TRUE;
-        }
-        if (0 != (field_type->u.item.flags & ITEMFLAG_USES_SLACK)) {
-            child_uses_slack = TRUE;
-        }
-        if (0 != (field_type->u.item.flags & ITEMFLAG_SPREADS_SLACK)) {
-            if (NULL != field->nstmt.stmt.cond) {
-                child_conditionally_spreads_slack = TRUE;
-            } else {
-                child_spreads_slack = TRUE;
-            }
-        }
-        if (0 != (field_type->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
-            if (NULL != field->nstmt.stmt.cond) {
-                child_conditionally_fills_slack = TRUE;
-            } else {
-                child_fills_slack = TRUE;
-            }
-        }
-        if (0 != (field_type->u.item.flags
-                  & ITEMFLAG_CONDITIONALLY_SPREADS_SLACK)) {
-            child_conditionally_spreads_slack = TRUE;
-        }
-        if (0 != (field_type->u.item.flags
-                  & ITEMFLAG_CONDITIONALLY_FILLS_SLACK)) {
-            child_conditionally_fills_slack = TRUE;
-        }
-        if (0 != (field_type->u.item.flags
-                  & (ITEMFLAG_SPREADS_SLACK |
-                     ITEMFLAG_CONDITIONALLY_SPREADS_SLACK))
-            || NULL != field->nstmt.stmt.cond) {
-            first_trailer_field = NULL;
-        } else if (COMPOSITE_TYPE_STRUCT == composite->type
-                   && (child_spreads_slack ||
-                       child_conditionally_spreads_slack)
-                   && NULL == first_trailer_field
-                   && 0 == (field_type->u.item.flags
-                            & (ITEMFLAG_SPREADS_SLACK |
-                               ITEMFLAG_CONDITIONALLY_SPREADS_SLACK))) {
-            first_trailer_field = field;
-        }
-    }
-    if (child_spreads_slack) {
-        STATEMENT_FOREACH(field, field, field_list, list) {
-            field_type = &field->dpath;
-            if (0 == (field_type->u.item.flags
-                      & (ITEMFLAG_SPREADS_SLACK |
-                         ITEMFLAG_CONDITIONALLY_SPREADS_SLACK))) {
-                field->nstmt.stmt.stmt_flags |= FIELD_FLAG_HEADER;
-            } else {
-                break ;
-            }
-        }
-    }
-    for (field = first_trailer_field;
-         NULL != field;
-         field = (struct field *)
-             TAILQ_NEXT((struct statement *)field, list)) {
-        field->nstmt.stmt.stmt_flags |= FIELD_FLAG_TRAILER;
-    }
-    if (NULL != min_span_expr) {
-        assert(EXPR_VALUE_TYPE_INTEGER
-               == min_span_expr->ndat->u.rexpr.value_type_mask);
-        if (AST_NODE_TYPE_REXPR_NATIVE == min_span_expr->ndat->type) {
-            int64_t user_min_span_size;
-
-            user_min_span_size = min_span_expr->ndat->u.rexpr_native.value.integer;
-            if (user_min_span_size < min_span_size) {
-                semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                               &min_span_expr->loc,
-                               "declared min span size too small to "
-                               "hold all contained fields (requires %"
-                               PRIi64" bytes but only spans %"PRIi64")",
-                               min_span_size, user_min_span_size);
-                return -1;
-            }
-            min_span_size = user_min_span_size;
-        } else {
-            dynamic_span = TRUE;
-        }
-    }
-    if (NULL != max_span_expr) {
-        assert(EXPR_VALUE_TYPE_INTEGER
-               == max_span_expr->ndat->u.rexpr.value_type_mask);
-        if (AST_NODE_TYPE_REXPR_NATIVE == max_span_expr->ndat->type) {
-            int64_t user_max_span_size;
-
-            user_max_span_size = max_span_expr->ndat->u.rexpr_native.value.integer;
-            if (user_max_span_size < min_span_size) {
-                semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                               &max_span_expr->loc,
-                               "declared max span size smaller than "
-                               "min span size (%"PRIi64" bytes < %"
-                               PRIi64")",
-                               user_max_span_size, min_span_size);
-                return -1;
-            }
-            // override
-            dynamic_span = (user_max_span_size != min_span_size);
-        } else {
-            dynamic_span = TRUE;
-        }
-    }
-    // when no span expression is declared, span space matches
-    // used space
-    if (NULL == min_span_expr && NULL == max_span_expr && !dynamic_span) {
-        dynamic_span = dynamic_used;
-    }
-    // if max span expression exists and is inconditional, slack
-    // space claimed by children is allocated greedily by their
-    // parent up to the max allowable, otherwise it has to be
-    // claimed as well
-    if (NULL == max_span_expr) {
-        // if any field uses the remaining slack space, the block also
-        // does, otherwise the same idea applies with fields that may
-        // use the slack space (those that have filters defining their
-        // span size)
-        if (child_uses_slack) {
-            item->ndat->u.item.flags |= ITEMFLAG_USES_SLACK;
-        }
-        if (child_spreads_slack) {
-            item->ndat->u.item.flags |= ITEMFLAG_SPREADS_SLACK;
-        } else if (child_conditionally_spreads_slack) {
-            item->ndat->u.item.flags |= ITEMFLAG_CONDITIONALLY_SPREADS_SLACK;
-        }
-        if (child_fills_slack) {
-            item->ndat->u.item.flags |= ITEMFLAG_FILLS_SLACK;
-        } else if (child_conditionally_fills_slack) {
-            item->ndat->u.item.flags |= ITEMFLAG_CONDITIONALLY_FILLS_SLACK;
-        }
-    }
-    item->ndat->u.item.min_span_size = min_span_size;
-    if (dynamic_span) {
-        item->ndat->u.item.flags |= ITEMFLAG_IS_SPAN_SIZE_DYNAMIC;
-    }
-    if (dynamic_used) {
-        item->ndat->u.item.flags |= ITEMFLAG_IS_USED_SIZE_DYNAMIC;
-    }
-    if (contains_last_attr) {
-        item->flags |= ASTFLAG_CONTAINS_LAST_ATTR;
-    }
-    return 0;
-}
-
-static int
-compile_span_size_array(struct ast_node_hdl *item, struct compile_ctx *ctx)
-{
-    struct filter_instance_array *array;
-    struct dpath_node *item_dpath;
-    struct ast_node_hdl *item_type;
-    struct ast_node_hdl *item_count_expr;
-    int64_t item_count;
-    int64_t min_span_size;
-    int dynamic_span;
-
-    array = (struct filter_instance_array *)
-        item->ndat->u.rexpr_filter.f_instance;
-    item_count_expr =
-        ast_node_get_named_expr_target(array->item_count);
-    if (NULL != item_count_expr) {
-        if (-1 == compile_expr(item_count_expr, ctx, TRUE)) {
-            return -1;
-        }
-        // XXX check all polymorphic named expr targets
-        if (0 == (EXPR_VALUE_TYPE_INTEGER
-                  & item_count_expr->ndat->u.rexpr.value_type_mask)) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &item_count_expr->loc,
-                "invalid array size type: expect an integer, got '%s'",
-                expr_value_type_str(
-                    item_count_expr->ndat->u.rexpr.value_type_mask));
-            return -1;
-        }
-    }
-    item_dpath = &array->item_type;
-    item_type = ast_node_get_target_item(item_dpath->item);
-    assert(ast_node_is_item(item_type));
-    if (NULL != item_count_expr
-        && item_count_expr->ndat->type == AST_NODE_TYPE_REXPR_NATIVE
-        && item_count_expr->ndat->u.rexpr_native.value.integer > 0) {
-        // compile item type as a dependency because the array
-        // contains a fixed number of at least one item
-        if (-1 == compile_dpath(item_dpath, ctx,
-                                COMPILE_TAG_NODE_TYPE |
-                                COMPILE_TAG_NODE_SPAN_SIZE, 0u)) {
-            return -1;
-        }
-        assert(SPAN_SIZE_UNDEF != item_type->ndat->u.item.min_span_size);
-        assert(EXPR_VALUE_TYPE_INTEGER
-               == item_count_expr->ndat->u.rexpr.value_type_mask);
-        assert(SPAN_SIZE_UNDEF != item_type->ndat->u.item.min_span_size);
-        item_count = item_count_expr->ndat->u.rexpr_native.value.integer;
-        min_span_size = item_count * item_type->ndat->u.item.min_span_size;
-        dynamic_span =
-            (0 != (item_dpath->u.item.flags & ASTFLAG_CONTAINS_LAST_ATTR)
-             || 0 != (item_dpath->u.item.flags
-                      & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC));
-    } else {
-        // schedule compilation of item type and size without
-        // depending on it, so to allow recursive nesting of items and
-        // possibly empty arrays
-        if (-1 == compile_dpath(item_dpath, ctx,
-                                0u, (COMPILE_TAG_NODE_TYPE |
-                                     COMPILE_TAG_NODE_SPAN_SIZE))) {
-            return -1;
-        }
-        min_span_size = 0;
-        dynamic_span = TRUE;
-        item->ndat->u.item.min_span_size = 0;
-        item->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_DYNAMIC |
-                                      ITEMFLAG_IS_USED_SIZE_DYNAMIC);
-    }
-    item->ndat->u.item.min_span_size = min_span_size;
-    if (dynamic_span) {
-        item->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_DYNAMIC |
-                                      ITEMFLAG_IS_USED_SIZE_DYNAMIC);
-    }
-    if (0 == (item_type->flags & ASTFLAG_CONTAINS_LAST_ATTR)) {
-        if (NULL == item_count_expr) {
-            // because the array items can take more than one byte of
-            // space, they may not allow to fill the whole slack
-            // space, so we don't set ITEMFLAG_FILLS_SLACK (meaning
-            // used size may be smaller than max span size)
-            item->ndat->u.item.flags |= (ITEMFLAG_USES_SLACK |
-                                          ITEMFLAG_SPREADS_SLACK);
-        }
-    }
-    return 0;
-}
-
-static int
 compile_span_size_byte(struct ast_node_hdl *byte, struct compile_ctx *ctx)
 {
+    byte->ndat->u.item.min_span_size = 1;
     return 0;
 }
 
-static int
-compile_span_size_byte_array(struct ast_node_hdl *byte_array,
-                             struct compile_ctx *ctx)
-{
-    struct ast_node_hdl *size_expr;
-    int64_t min_span_size;
-
-    size_expr = byte_array->ndat->u.byte_array.size;
-    if (NULL != size_expr) {
-        if (-1 == compile_expr(size_expr, ctx, TRUE)) {
-            return -1;
-        }
-        assert(ast_node_is_rexpr(size_expr));
-        if (0 == (EXPR_VALUE_TYPE_INTEGER
-                  & size_expr->ndat->u.rexpr.value_type_mask)) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &size_expr->loc,
-                "invalid byte array size type: expect an integer, "
-                "got '%s'",
-                expr_value_type_str(size_expr->ndat->u.rexpr.value_type_mask));
-            return -1;
-        }
-    }
-    if (NULL != size_expr
-        && AST_NODE_TYPE_REXPR_NATIVE == size_expr->ndat->type) {
-        min_span_size = size_expr->ndat->u.rexpr_native.value.integer;
-    } else {
-        min_span_size = 0;
-        byte_array->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_DYNAMIC |
-                                           ITEMFLAG_IS_USED_SIZE_DYNAMIC);
-    }
-    if (NULL == size_expr) {
-        // for now we don't know if there's a filter defining span
-        // size on top of the byte array which limits the amount of
-        // slack used: assume for now it will use the entire space;
-        // compilation of a size-defining filter may later adjust the
-        // slack flags
-        byte_array->ndat->u.item.flags |= (ITEMFLAG_USES_SLACK |
-                                           ITEMFLAG_SPREADS_SLACK |
-                                           ITEMFLAG_FILLS_SLACK);
-    }
-    byte_array->ndat->u.item.min_span_size = min_span_size;
-    return 0;
-}
 
 static int
 compile_span_size_rexpr_item(struct ast_node_hdl *filter,
@@ -3284,7 +2846,7 @@ get_filter_defining_size_status(struct ast_node_hdl *filter);
 static enum filter_defining_size_status
 get_filter_defining_size_status_filter(struct ast_node_hdl *filter)
 {
-    return NULL != filter->ndat->u.rexpr_filter.get_size_func ?
+    return NULL != filter->ndat->u.rexpr_filter.f_instance->get_size_func ?
         FILTER_ALWAYS_DEFINES_SIZE : FILTER_NEVER_DEFINES_SIZE;
 }
         
@@ -3331,7 +2893,7 @@ get_filter_defining_size_status(struct ast_node_hdl *filter)
 
 static int
 compile_span_size_rexpr_op_filter(struct ast_node_hdl *filter,
-                               struct compile_ctx *ctx)
+                                  struct compile_ctx *ctx)
 {
     struct ast_node_hdl *target;
     struct ast_node_hdl *filter_expr;
@@ -3419,20 +2981,19 @@ compile_node_span_size(struct ast_node_hdl *node,
                        struct compile_ctx *ctx)
 {
     switch (node->ndat->type) {
-    case AST_NODE_TYPE_COMPOSITE:
-        return compile_span_size_composite(node, ctx);
-    case AST_NODE_TYPE_ARRAY:
-        return compile_span_size_array(node, ctx);
     case AST_NODE_TYPE_BYTE:
         return compile_span_size_byte(node, ctx);
-    case AST_NODE_TYPE_BYTE_ARRAY:
-        return compile_span_size_byte_array(node, ctx);
     case AST_NODE_TYPE_REXPR_ITEM:
         return compile_span_size_rexpr_item(node, ctx);
     case AST_NODE_TYPE_REXPR_OP_FILTER:
         return compile_span_size_rexpr_op_filter(node, ctx);
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
         return compile_span_size_rexpr_named_expr(node, ctx);
+    case AST_NODE_TYPE_COMPOSITE:
+    case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE_ARRAY:
+    case AST_NODE_TYPE_REXPR_FILTER:
+        return compile_rexpr_filter(node, COMPILE_TAG_NODE_SPAN_SIZE, ctx);
     default:
         return 0;
     }
@@ -3570,7 +3131,6 @@ compile_dpath_span_size(struct dpath_node *node, struct compile_ctx *ctx)
                            COMPILE_TAG_NODE_SPAN_SIZE, 0u, 0u)) {
         return -1;
     }
-    node->u.item = node->item->ndat->u.item;
     return 0;
 }
 
@@ -3579,7 +3139,6 @@ void
 dpath_node_reset(struct dpath_node *dpath)
 {
     memset(dpath, 0, sizeof (*dpath));
-    dpath->u.item.min_span_size = SPAN_SIZE_UNDEF;
 }
 
 int
@@ -3683,14 +3242,13 @@ ast_node_get_target_item(struct ast_node_hdl *node)
         }
         switch (anchor_target->ndat->type) {
         case AST_NODE_TYPE_ARRAY:
+        case AST_NODE_TYPE_BYTE_ARRAY:
             array = (struct filter_instance_array *)
                 anchor_target->ndat->u.rexpr_filter.f_instance;
             return ast_node_get_target_item(array->item_type.item);
         case AST_NODE_TYPE_ARRAY_SLICE:
         case AST_NODE_TYPE_BYTE_SLICE:
             return anchor_target;
-        case AST_NODE_TYPE_BYTE_ARRAY:
-            return AST_NODE_BYTE;
         default:
             assert(0);
         }
@@ -3746,14 +3304,13 @@ ast_node_get_target_filter(struct ast_node_hdl *node)
         }
         switch (anchor_target->ndat->type) {
         case AST_NODE_TYPE_ARRAY:
+        case AST_NODE_TYPE_BYTE_ARRAY:
             array = (struct filter_instance_array *)
                 anchor_target->ndat->u.rexpr_filter.f_instance;
             return ast_node_get_target_filter(array->item_type.filter);
         case AST_NODE_TYPE_ARRAY_SLICE:
         case AST_NODE_TYPE_BYTE_SLICE:
             return anchor_target;
-        case AST_NODE_TYPE_BYTE_ARRAY:
-            return AST_NODE_BYTE;
         default:
             assert(0);
         }
@@ -3764,6 +3321,9 @@ ast_node_get_target_filter(struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_OP_FILTER:
         return ast_node_get_target_filter(
             node->ndat->u.rexpr_op_filter.filter_expr);
+    case AST_NODE_TYPE_COMPOSITE:
+    case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_REXPR_ITEM:
         return node;
@@ -3947,14 +3507,13 @@ ast_node_get_as_type__rexpr(const struct ast_node_hdl *expr)
         }
         switch (anchor_target->ndat->type) {
         case AST_NODE_TYPE_ARRAY:
+        case AST_NODE_TYPE_BYTE_ARRAY:
             array = (struct filter_instance_array *)
                 anchor_target->ndat->u.rexpr_filter.f_instance;
             return dpath_node_get_as_type(&array->item_type);
         case AST_NODE_TYPE_ARRAY_SLICE:
         case AST_NODE_TYPE_BYTE_SLICE:
             return anchor_target;
-        case AST_NODE_TYPE_BYTE_ARRAY:
-            return AST_NODE_BYTE;
         default:
             assert(0);
         }
@@ -4005,21 +3564,13 @@ ast_node_is_slack(const struct ast_node_hdl *node)
 
     switch (node->ndat->type) {
     case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE_ARRAY:
         array = (struct filter_instance_array *)
             node->ndat->u.rexpr_filter.f_instance;
-        if (NULL == array->item_count) {
-            return TRUE;
-        }
-        break ;
-    case AST_NODE_TYPE_BYTE_ARRAY:
-        if (NULL == node->ndat->u.byte_array.size) {
-            return TRUE;
-        }
-        break ;
+        return NULL == array->item_count;
     default:
-        break ;
+        return FALSE;
     }
-    return FALSE;
 }
 
 struct ast_node_hdl *
@@ -4314,7 +3865,8 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         fprintf(out, "\n");
         dump_composite_recur(node, depth + 1, visible_refs, out);
         break ;
-    case AST_NODE_TYPE_ARRAY: {
+    case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE_ARRAY: {
         struct filter_instance_array *array;
 
         array = (struct filter_instance_array *)
@@ -4346,13 +3898,6 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_BYTE:
         fprintf(out, "\n");
         dump_ast_item(node, depth, visible_refs, out);
-        break ;
-    case AST_NODE_TYPE_BYTE_ARRAY:
-        dump_ast_item_info(node, out);
-        fprintf(out, ", byte count:\n");
-        fdump_ast_recur(node->ndat->u.byte_array.size, depth + 2, visible_refs,
-                        out);
-        dump_ast_container(node, depth, visible_refs, out);
         break ;
     case AST_NODE_TYPE_CONDITIONAL:
         fprintf(out, "\n%*s\\_ condition expr:\n",

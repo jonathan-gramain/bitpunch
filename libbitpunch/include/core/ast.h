@@ -100,6 +100,12 @@ compile_dpath(struct dpath_node *node,
               dep_resolver_tagset_t tags_pre,
               dep_resolver_tagset_t tags_post);
 
+int
+compile_field(struct field *field,
+              struct compile_ctx *ctx,
+              dep_resolver_tagset_t tags_pre,
+              dep_resolver_tagset_t tags_post);
+
 struct ast_node_hdl *
 ast_node_new_rexpr_native(struct expr_value value);
 

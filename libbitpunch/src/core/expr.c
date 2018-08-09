@@ -2271,7 +2271,7 @@ expr_evaluate_filter_type_filter(struct ast_node_hdl *filter,
     case FILTER_KIND_DEFINING_SPAN_SIZE:
     case FILTER_KIND_DEFINING_USED_SIZE:
         *filter_typep =
-            NULL != filter->ndat->u.rexpr_filter.get_size_func ?
+            NULL != filter->ndat->u.rexpr_filter.f_instance->get_size_func ?
             filter : NULL;
         return BITPUNCH_OK;
     case FILTER_KIND_ITEM:

@@ -52,12 +52,13 @@ bytes_read(
 
 
 static struct filter_instance *
-bytes_filter_instance_build(
-    struct ast_node_hdl *filter,
-    struct compile_ctx *ctx)
+bytes_filter_instance_build(struct ast_node_hdl *filter)
 {
-    filter->ndat->u.rexpr_filter.read_func = bytes_read;
-    return new_safe(struct filter_instance);
+    struct filter_instance *f_instance;
+
+    f_instance = new_safe(struct filter_instance);
+    f_instance->read_func = bytes_read;
+    return f_instance;
 }
 
 void
@@ -67,7 +68,7 @@ filter_class_declare_bytes(void)
 
     ret = filter_class_declare("bytes",
                                EXPR_VALUE_TYPE_BYTES,
-                               bytes_filter_instance_build,
+                               bytes_filter_instance_build, NULL,
                                0);
     assert(0 == ret);
 }

@@ -75,11 +75,13 @@ filter_attr_def_new(void)
 }
 
 int
-filter_class_declare(const char *name,
-                    enum expr_value_type value_type_mask,
-                    filter_instance_build_func_t filter_instance_build_func,
-                    int n_attrs,
-                    ... /* attrs: (name, type, flags) tuples */)
+filter_class_declare(
+    const char *name,
+    enum expr_value_type value_type_mask,
+    filter_instance_build_func_t filter_instance_build_func,
+    filter_instance_compile_func_t filter_instance_compile_func,
+    int n_attrs,
+    ... /* attrs: (name, type, flags) tuples */)
 {
     struct filter_class *filter_cls;
     va_list ap;
@@ -101,6 +103,7 @@ filter_class_declare(const char *name,
     filter_cls->name = name;
     filter_cls->value_type_mask = value_type_mask;
     filter_cls->filter_instance_build_func = filter_instance_build_func;
+    filter_cls->filter_instance_compile_func = filter_instance_compile_func;
     filter_cls->n_attrs = n_attrs;
     STAILQ_INIT(&filter_cls->attr_list);
     va_start(ap, n_attrs);
@@ -131,6 +134,7 @@ filter_class_lookup(const char *name)
     return NULL;
 }
 
+void filter_class_declare_byte(void);
 void filter_class_declare_struct(void);
 void filter_class_declare_union(void);
 void filter_class_declare_array(void);
@@ -145,6 +149,7 @@ void filter_class_declare_formatted_integer(void);
 void
 filter_class_declare_std(void)
 {
+    filter_class_declare_byte();
     filter_class_declare_struct();
     filter_class_declare_union();
     filter_class_declare_array();
@@ -174,9 +179,22 @@ filter_instance_build(struct ast_node_hdl *node,
                       struct filter_def *filter_def)
 {
     struct ast_node_data *ndat;
+    struct filter_instance *f_instance;
 
     ndat = new_safe(struct ast_node_data);
-    ndat->type = AST_NODE_TYPE_REXPR_FILTER;
+    // template flag may be removed when compiling OP_FILTER
+    ndat->flags |= ASTFLAG_DATA_TEMPLATE;
+    ndat->u.item.min_span_size = SPAN_SIZE_UNDEF;
+    if (0 == strcmp(filter_def->filter_type, "struct") ||
+        0 == strcmp(filter_def->filter_type, "union")) {
+        ndat->type = AST_NODE_TYPE_COMPOSITE;
+    } else if (0 == strcmp(filter_def->filter_type, "array")) {
+        ndat->type = AST_NODE_TYPE_ARRAY;
+    } else if (0 == strcmp(filter_def->filter_type, "byte")) {
+        ndat->type = AST_NODE_TYPE_BYTE;
+    } else {
+        ndat->type = AST_NODE_TYPE_REXPR_FILTER;
+    }
     ndat->u.rexpr.value_type_mask = filter_cls->value_type_mask;
     ndat->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
     if (0 != (filter_cls->value_type_mask & (EXPR_VALUE_TYPE_INTEGER |
@@ -189,7 +207,14 @@ filter_instance_build(struct ast_node_hdl *node,
     }
     ndat->u.rexpr_filter.filter_cls = filter_cls;
     ndat->u.rexpr_filter.filter_def = filter_def;
+
     node->ndat = ndat;
+
+    f_instance = filter_cls->filter_instance_build_func(node);
+    if (NULL == f_instance) {
+        return -1;
+    }
+    ndat->u.rexpr_filter.f_instance = f_instance;
     return 0;
 }
 
@@ -221,16 +246,16 @@ filter_instance_read_value(struct ast_node_hdl *expr,
     expr_value_t value;
 
     value.type = EXPR_VALUE_TYPE_UNSET;
-    if (NULL == expr->ndat->u.rexpr_filter.get_size_func) {
+    if (NULL == expr->ndat->u.rexpr_filter.f_instance->get_size_func) {
         span_size = item_size;
         bt_ret = BITPUNCH_OK;
     } else {
-        bt_ret = expr->ndat->u.rexpr_filter.get_size_func(
+        bt_ret = expr->ndat->u.rexpr_filter.f_instance->get_size_func(
             expr, scope, &span_size, &used_size, item_data, item_size, bst);
     }
     if (BITPUNCH_OK == bt_ret) {
         memset(&value, 0, sizeof(value));
-        bt_ret = expr->ndat->u.rexpr_filter.read_func(
+        bt_ret = expr->ndat->u.rexpr_filter.f_instance->read_func(
             expr, scope, &value, item_data, span_size, bst);
     }
     if (BITPUNCH_OK == bt_ret && NULL != valuep) {

@@ -122,50 +122,7 @@ struct ast_node_data shared_ast_node_data_as_bytes = {
 struct ast_node_hdl shared_ast_node_as_bytes = {
     .ndat = &shared_ast_node_data_as_bytes,
 };
-struct ast_node_data shared_ast_node_data_as_bytes_filter = {
-    .type = AST_NODE_TYPE_REXPR_ITEM,
-    .u = {
-        .rexpr_item = {
-            .rexpr_filter = {
-                .item = {
-                    .rexpr = {
-                        .value_type_mask = EXPR_VALUE_TYPE_BYTES,
-                    },
-                },
-            },
-            .item_type = &shared_ast_node_byte_slice,
-        },
-    },
-};
-struct ast_node_hdl shared_ast_node_as_bytes_filter = {
-    .ndat = &shared_ast_node_data_as_bytes_filter,
-};
 
-struct ast_node_data shared_ast_node_data_raw_byte_filter = {
-    .type = AST_NODE_TYPE_REXPR_ITEM,
-    .u = {
-        .rexpr_item = {
-            .rexpr_filter = {
-                .item = {
-                    .rexpr = {
-                        .value_type_mask = EXPR_VALUE_TYPE_BYTES,
-                    },
-                },
-            },
-            .item_type = &shared_ast_node_byte,
-        },
-    }
-};
-
-struct ast_node_hdl shared_ast_node_raw_byte_filter = {
-    .ndat = &shared_ast_node_data_raw_byte_filter,
-};
-
-struct dpath_node shared_dpath_node_raw_byte = {
-    .u = { .item = { .min_span_size = 1 } },
-    .item = &shared_ast_node_byte,
-    .filter = &shared_ast_node_raw_byte_filter,
-};
 struct dpath_node shared_dpath_node_array_slice = {
     .item = &shared_ast_node_array_slice,
 };
@@ -1356,8 +1313,8 @@ box_construct(struct box *o_box,
         o_box->u.array_generic.n_items = -1;
         break ;
     case AST_NODE_TYPE_REXPR_FILTER: {
-        if (NULL != dpath->item->ndat->u.rexpr_filter.b_box.init) {
-            bt_ret = dpath->item->ndat->u.rexpr_filter.b_box.init(o_box);
+        if (NULL != dpath->item->ndat->u.rexpr_filter.f_instance->b_box.init) {
+            bt_ret = dpath->item->ndat->u.rexpr_filter.f_instance->b_box.init(o_box);
             if (BITPUNCH_OK != bt_ret) {
                 return bt_ret;
             }
@@ -1943,9 +1900,10 @@ box_free(struct box *box)
             box_destroy_mark_offsets_repo(box);
             break ;
         case AST_NODE_TYPE_REXPR_FILTER:
-            if (NULL != item->ndat->u.rexpr_filter.b_box.destroy) {
-                item->ndat->u.rexpr_filter.b_box.destroy(box);
+            if (NULL != item->ndat->u.rexpr_filter.f_instance->b_box.destroy) {
+                item->ndat->u.rexpr_filter.f_instance->b_box.destroy(box);
             }
+            break ;
         default:
             break ;
         }
@@ -2400,7 +2358,7 @@ tracker_lookup_current_twin_index(struct tracker *tk,
     do {
         bt_ret = tracker_goto_next_item_internal(xtk, bst);
         if (BITPUNCH_OK == bt_ret) {
-            bt_ret = node->ndat->u.rexpr_filter.b_tk.goto_next_key_match(
+            bt_ret = node->ndat->u.rexpr_filter.f_instance->b_tk.goto_next_key_match(
                 xtk, item_key, TRACK_PATH_NONE, bst);
             if (BITPUNCH_OK == bt_ret
                 && (-1 == in_slice_path.u.array.index
@@ -2505,7 +2463,7 @@ tracker_goto_next_key_match_in_mark(struct tracker *tk,
     search_boundary = track_path_from_array_index(
         box_array_get_mark_start_index(tk->box, mark + 1));
 
-    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_next_key_match(
+    return tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_next_key_match(
         tk, key, search_boundary, bst);
 }
 
@@ -2576,8 +2534,8 @@ tracker_reset_track_path(struct tracker *tk)
         tk->cur = track_path_from_array_index(-1);
         break ;
     case AST_NODE_TYPE_REXPR_FILTER:
-        if (NULL != item->ndat->u.rexpr_filter.b_tk.reset_track_path) {
-            item->ndat->u.rexpr_filter.b_tk.reset_track_path(tk);
+        if (NULL != item->ndat->u.rexpr_filter.f_instance->b_tk.reset_track_path) {
+            item->ndat->u.rexpr_filter.f_instance->b_tk.reset_track_path(tk);
         }
         break ;
     default:
@@ -2836,7 +2794,6 @@ tracker_create_item_box_internal(struct tracker *tk,
             if (BITPUNCH_OK != bt_ret) {
                 goto end;
             }
-            dpath.u.item = dpath.item->ndat->u.item;
             item_box = new_safe(struct box);
             bt_ret = box_construct(item_box, xtk->box, &dpath,
                                    xtk->item_offset, box_flags, bst);
@@ -2932,7 +2889,7 @@ box_compute_min_span_size(struct box *box,
         /* nothing to do */
         return BITPUNCH_OK;
     }
-    return box->dpath.item->ndat->u.rexpr_filter.b_box.compute_min_span_size(
+    return box->dpath.item->ndat->u.rexpr_filter.f_instance->b_box.compute_min_span_size(
         box, bst);
 }
 
@@ -2990,7 +2947,7 @@ box_compute_used_size(struct box *box,
         }
         if (call_backend) {
             bt_ret =
-                box->dpath.item->ndat->u.rexpr_filter.b_box.compute_used_size(
+                box->dpath.item->ndat->u.rexpr_filter.f_instance->b_box.compute_used_size(
                     box, bst);
         }
     }
@@ -3045,7 +3002,7 @@ box_compute_max_span_size(struct box *box,
         return BITPUNCH_OK;
     }
     box->flags |= COMPUTING_SPAN_SIZE;
-    bt_ret = box->dpath.item->ndat->u.rexpr_filter.b_box.compute_max_span_size(box, bst);
+    bt_ret = box->dpath.item->ndat->u.rexpr_filter.f_instance->b_box.compute_max_span_size(box, bst);
     box->flags &= ~COMPUTING_SPAN_SIZE;
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_box_context(
@@ -3073,7 +3030,7 @@ box_compute_slack_size(struct box *box,
         /* nothing to do */
         return BITPUNCH_OK;
     }
-    bt_ret = box->dpath.item->ndat->u.rexpr_filter.b_box.compute_slack_size(
+    bt_ret = box->dpath.item->ndat->u.rexpr_filter.f_instance->b_box.compute_slack_size(
         box, bst);
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_box_context(
@@ -3096,8 +3053,8 @@ box_get_children_slack(struct box *box,
         box->flags |= COMPUTING_MAX_SLACK_OFFSET;
         flag_set = TRUE;
     }
-    if (NULL != box->dpath.item->ndat->u.rexpr_filter.b_box.get_max_slack_offset) {
-        bt_ret = box->dpath.item->ndat->u.rexpr_filter.b_box.get_max_slack_offset(
+    if (NULL != box->dpath.item->ndat->u.rexpr_filter.f_instance->b_box.get_max_slack_offset) {
+        bt_ret = box->dpath.item->ndat->u.rexpr_filter.f_instance->b_box.get_max_slack_offset(
             box, get_left_offset, max_slack_offsetp, bst);
     } else {
         bt_ret = box_compute_max_span_size(box, bst);
@@ -3125,7 +3082,7 @@ box_get_n_items_internal(struct box *box, int64_t *n_itemsp,
 {
     bitpunch_status_t bt_ret;
 
-    bt_ret = box->dpath.item->ndat->u.rexpr_filter.b_box.get_n_items(
+    bt_ret = box->dpath.item->ndat->u.rexpr_filter.f_instance->b_box.get_n_items(
         box, n_itemsp, bst);
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_box_context(
@@ -3148,7 +3105,7 @@ box_read_value_internal(struct box *box,
     }
     bt_ret = box_compute_used_size(box, bst);
     if (BITPUNCH_OK == bt_ret) {
-        b_item = &box->dpath.filter->ndat->u.rexpr_filter.b_item;
+        b_item = &box->dpath.filter->ndat->u.rexpr_filter.f_instance->b_item;
         bt_ret = b_item->read_value(
             box->dpath.filter, box,
             box->start_offset_used,
@@ -3246,8 +3203,8 @@ box_get_end_path(struct box *box, struct track_path *end_pathp,
         end_pathp->u.block.field = NULL;
         break ;
     case AST_NODE_TYPE_REXPR_FILTER:
-        if (NULL != node->ndat->u.rexpr_filter.b_box.get_end_path) {
-            bt_ret = node->ndat->u.rexpr_filter.b_box.get_end_path(
+        if (NULL != node->ndat->u.rexpr_filter.f_instance->b_box.get_end_path) {
+            bt_ret = node->ndat->u.rexpr_filter.f_instance->b_box.get_end_path(
                 box, end_pathp, bst);
             if (BITPUNCH_OK != bt_ret) {
                 return bt_ret;
@@ -3347,8 +3304,8 @@ tracker_compute_item_offset(struct tracker *tk,
             tk, tk->cur.u.array.index - index_start, bst);
     }
     case AST_NODE_TYPE_REXPR_FILTER:
-        assert(NULL != node->ndat->u.rexpr_filter.b_tk.goto_track_path);
-        return node->ndat->u.rexpr_filter.b_tk.goto_track_path(
+        assert(NULL != node->ndat->u.rexpr_filter.f_instance->b_tk.goto_track_path);
+        return node->ndat->u.rexpr_filter.f_instance->b_tk.goto_track_path(
             tk, tk->cur, bst);
     default:
         assert(0);
@@ -3498,7 +3455,7 @@ tracker_goto_first_item_internal(struct tracker *tk,
     DBG_TRACKER_DUMP(tk);
     tracker_set_dangling(tk);
     tk->item_offset = -1;
-    bt_ret = tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_first_item(tk, bst);
+    bt_ret = tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_first_item(tk, bst);
     switch (bt_ret) {
     case BITPUNCH_NO_ITEM:
         tk->flags |= TRACKER_AT_END;
@@ -3530,7 +3487,7 @@ tracker_goto_next_item_internal(struct tracker *tk,
     if (NULL == tk->dpath) {
         return tracker_goto_first_item_internal(tk, bst);
     }
-    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_next_item(tk, bst);
+    return tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_next_item(tk, bst);
 }
 
 
@@ -3542,7 +3499,7 @@ tracker_goto_nth_item_internal(struct tracker *tk, int64_t index,
     if (index < 0) {
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
-    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_nth_item(tk, index, bst);
+    return tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_nth_item(tk, index, bst);
 }
 
 static bitpunch_status_t
@@ -3555,7 +3512,7 @@ tracker_goto_nth_position_internal(struct tracker *tk, int64_t index,
     if (index < 0) {
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
-    bt_ret = tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_nth_item(tk, index, bst);
+    bt_ret = tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_nth_item(tk, index, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
         int64_t n_items;
 
@@ -3577,10 +3534,10 @@ tracker_goto_named_item_internal(struct tracker *tk, const char *name,
                                  struct browse_state *bst)
 {
     DBG_TRACKER_DUMP(tk);
-    if (NULL == tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_named_item) {
+    if (NULL == tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_named_item) {
         return tracker_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst, NULL);
     }
-    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_named_item(tk, name, bst);
+    return tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_named_item(tk, name, bst);
 }
 
 
@@ -3602,7 +3559,7 @@ tracker_goto_next_item_with_key_internal(struct tracker *tk,
     if (NULL == tk->dpath) {
         return tracker_goto_nth_item_with_key_internal(tk, item_key, 0, bst);
     }
-    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_next_item_with_key(
+    return tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_next_item_with_key(
         tk, item_key, bst);
 }
 
@@ -3618,7 +3575,7 @@ tracker_goto_nth_item_with_key_internal(struct tracker *tk,
                              "parameter \"nth_twin\" must be >= 0 (is %d)",
                              nth_twin);
     }
-    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_nth_item_with_key(
+    return tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_nth_item_with_key(
         tk, item_key, nth_twin, bst);
 }
 
@@ -4228,7 +4185,7 @@ tracker_compute_item_size_internal(struct tracker *tk,
             return bt_ret;
         }
     }
-    return tk->dpath->item->ndat->u.rexpr_filter.b_tk.compute_item_size(
+    return tk->dpath->item->ndat->u.rexpr_filter.f_instance->b_tk.compute_item_size(
         tk, item_sizep, bst);
 }
 
@@ -4273,17 +4230,18 @@ tracker_get_item_size_internal(struct tracker *tk, int64_t *item_sizep,
     if (NULL == tk->dpath) {
         return BITPUNCH_NO_ITEM;
     }
-    if (0 == (tk->dpath->u.item.flags & ITEMFLAG_IS_USED_SIZE_DYNAMIC)) {
+    if (0 == (tk->dpath->item->ndat->u.item.flags
+              & ITEMFLAG_IS_USED_SIZE_DYNAMIC)) {
         if (0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
             bt_ret = tracker_set_item_size(
-                tk, tk->dpath->u.item.min_span_size, bst);
+                tk, tk->dpath->item->ndat->u.item.min_span_size, bst);
             if (BITPUNCH_OK == bt_ret && NULL != item_sizep) {
                 *item_sizep = tk->item_size;
             }
             return bt_ret;
         } else {
             if (NULL != item_sizep) {
-                *item_sizep = tk->dpath->u.item.min_span_size;
+                *item_sizep = tk->dpath->item->ndat->u.item.min_span_size;
             }
             return BITPUNCH_OK;
         }
@@ -4328,7 +4286,7 @@ tracker_get_item_key_internal(struct tracker *tk,
     if (NULL == tk->dpath) {
         return BITPUNCH_NO_ITEM;
     }
-    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.get_item_key(
+    return tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.get_item_key(
         tk, keyp, NULL, bst);
 }
 
@@ -4342,7 +4300,7 @@ tracker_get_item_key_multi_internal(struct tracker *tk,
     if (NULL == tk->dpath) {
         return BITPUNCH_NO_ITEM;
     }
-    return tk->box->dpath.item->ndat->u.rexpr_filter.b_tk.get_item_key(
+    return tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.get_item_key(
         tk, keyp, nth_twinp, bst);
 }
 
@@ -4452,7 +4410,7 @@ tracker_read_item_value_direct_internal(struct tracker *tk,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    bt_ret = filter_type->ndat->u.rexpr_filter.b_item.read_value(
+    bt_ret = filter_type->ndat->u.rexpr_filter.f_instance->b_item.read_value(
         filter_type, tk->box, item_offset, item_size, valuep, bst);
     if (BITPUNCH_OK == bt_ret && NULL != valuep) {
         expr_value_attach_box(valuep, tk->box);
@@ -4871,7 +4829,7 @@ tracker_compute_item_size__filter_span_size(
 
     DBG_TRACKER_DUMP(tk);
     assert(NULL != span_filter);
-    assert(NULL != span_filter->ndat->u.rexpr_filter.get_size_func);
+    assert(NULL != span_filter->ndat->u.rexpr_filter.f_instance->get_size_func);
 
     bt_ret = box_apply_filter_internal(tk->box, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -4898,7 +4856,7 @@ tracker_compute_item_size__filter_span_size(
             return bt_ret;
         }
     }
-    bt_ret = span_filter->ndat->u.rexpr_filter.get_size_func(
+    bt_ret = span_filter->ndat->u.rexpr_filter.f_instance->get_size_func(
         span_filter, tk->box, &span_size, &used_size, item_data,
         max_slack_offset - tk->item_offset, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -4925,7 +4883,7 @@ box_compute_item_used_size_internal__byte_array_filter_size(
 
     DBG_BOX_DUMP(box);
     assert(NULL != used_filter);
-    assert(NULL != used_filter->ndat->u.rexpr_filter.get_size_func);
+    assert(NULL != used_filter->ndat->u.rexpr_filter.f_instance->get_size_func);
 
     bt_ret = box_apply_filter_internal(box, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -4952,7 +4910,7 @@ box_compute_item_used_size_internal__byte_array_filter_size(
             return bt_ret;
         }
     }
-    bt_ret = used_filter->ndat->u.rexpr_filter.get_size_func(
+    bt_ret = used_filter->ndat->u.rexpr_filter.f_instance->get_size_func(
         used_filter, box, &dummy_size, &used_size, item_data,
         max_slack_offset - item_offset, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -5724,28 +5682,6 @@ box_get_children_slack__struct(struct box *box,
 }
 
 static bitpunch_status_t
-box_get_children_slack__from_parent(struct box *box,
-                                    int get_left_offset,
-                                    int64_t *max_slack_offsetp,
-                                    struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    int64_t max_span_size;
-    int64_t max_slack_offset;
-
-    DBG_BOX_DUMP(box);
-    max_span_size = box_get_known_end_offset(box);
-    bt_ret = box_get_children_slack(box->parent_box, get_left_offset,
-                                    &max_slack_offset, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    *max_slack_offsetp = MIN(max_span_size, max_slack_offset);
-    return BITPUNCH_OK;
-}
-
-
-static bitpunch_status_t
 tracker_get_item_key__array_generic(struct tracker *tk,
                                     expr_value_t *keyp,
                                     int *nth_twinp,
@@ -6080,7 +6016,7 @@ filter_read_value__operator_filter(struct ast_node_hdl *filter,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    return filter_type->ndat->u.rexpr_filter.b_item.read_value(
+    return filter_type->ndat->u.rexpr_filter.f_instance->b_item.read_value(
         filter_type, scope, item_offset, item_size, valuep, bst);
 }
 
@@ -6210,7 +6146,7 @@ tracker_goto_next_item__array(struct tracker *tk,
         tk->item_box = NULL;
         tk->item_offset += (0 != (tk->flags & TRACKER_REVERSED) ?
                             -tk->item_size : tk->item_size);
-        if (0 != (tk->dpath->u.item.flags
+        if (0 != (tk->dpath->item->ndat->u.item.flags
                   & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
             tk->item_size = -1;
         }
@@ -6584,7 +6520,7 @@ tracker_goto_next_item_with_key__indexed_array_internal(
             } else {
                 end_path = TRACK_PATH_NONE;
             }
-            bt_ret = node->ndat->u.rexpr_filter.b_tk.goto_next_key_match(
+            bt_ret = node->ndat->u.rexpr_filter.f_instance->b_tk.goto_next_key_match(
                 xtk, item_key, end_path, bst);
         }
         if (BITPUNCH_OK == bt_ret) {
@@ -6657,7 +6593,7 @@ tracker_goto_nth_item_with_key__indexed_array_internal(
         do {
             bt_ret = tracker_goto_next_item_internal(xtk, bst);
             if (BITPUNCH_OK == bt_ret) {
-                bt_ret = node->ndat->u.rexpr_filter.b_tk.goto_next_key_match(
+                bt_ret = node->ndat->u.rexpr_filter.f_instance->b_tk.goto_next_key_match(
                     xtk, item_key, end_path, bst);
             }
             if (xtk->cur.u.array.index >= from_index) {
@@ -6693,14 +6629,15 @@ tracker_compute_item_size__byte_array_dynamic_size(
     struct browse_state *bst)
 {
     struct ast_node_hdl *item;
+    struct filter_instance_array *array;
     expr_value_t byte_count;
     bitpunch_status_t bt_ret;
 
     item = tk->dpath->item;
-    assert(0 != (item->ndat->u.byte_array.size->ndat->u.rexpr.value_type_mask
-                 & EXPR_VALUE_TYPE_INTEGER));
+    array = (struct filter_instance_array *)
+        item->ndat->u.rexpr_filter.f_instance;
     bt_ret = expr_evaluate_value_internal(
-        item->ndat->u.byte_array.size, tk->box, &byte_count, bst);
+        array->item_count, tk->box, &byte_count, bst);
     if (BITPUNCH_OK != bt_ret) {
         // FIXME more appropriate context
         tracker_error_add_box_context(
@@ -6709,14 +6646,14 @@ tracker_compute_item_size__byte_array_dynamic_size(
     }
     if (EXPR_VALUE_TYPE_INTEGER != byte_count.type) {
         return box_error(
-            BITPUNCH_DATA_ERROR, tk->box, item->ndat->u.byte_array.size, bst,
+            BITPUNCH_DATA_ERROR, tk->box, array->item_count, bst,
             "evaluation of byte array size returned a value-type "
             "'%s', expect an integer",
             expr_value_type_str(byte_count.type));
     }
     if (byte_count.integer < 0) {
         return box_error(
-            BITPUNCH_DATA_ERROR, tk->box, item->ndat->u.byte_array.size, bst,
+            BITPUNCH_DATA_ERROR, tk->box, array->item_count, bst,
             "evaluation of byte array size gives negative value (%"PRIi64")",
             byte_count.integer);
     }
@@ -6794,7 +6731,7 @@ box_get_n_items__byte_array_non_slack(
     struct box *box, int64_t *item_countp,
     struct browse_state *bst)
 {
-    const struct byte_array *byte_array;
+    struct filter_instance_array *array;
     expr_value_t size;
 
     DBG_BOX_DUMP(box);
@@ -6802,25 +6739,24 @@ box_get_n_items__byte_array_non_slack(
         bitpunch_status_t bt_ret;
         struct box *scope;
 
-        byte_array = &box->dpath.item->ndat->u.byte_array;
-        assert(0 != (byte_array->size->ndat->u.rexpr.value_type_mask
-                     & EXPR_VALUE_TYPE_INTEGER));
+        array = (struct filter_instance_array *)
+            box->dpath.item->ndat->u.rexpr_filter.f_instance;
         scope = box_get_scope_box(box->parent_box);
         assert(NULL != scope);
-        bt_ret = expr_evaluate_value_internal(byte_array->size,
+        bt_ret = expr_evaluate_value_internal(array->item_count,
                                               scope, &size, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
         if (EXPR_VALUE_TYPE_INTEGER != size.type) {
             return box_error(
-                BITPUNCH_DATA_ERROR, box, byte_array->size, bst,
+                BITPUNCH_DATA_ERROR, box, array->item_count, bst,
                 "evaluation of byte array size returned a value-type "
                 "'%s', expect an integer",
                 expr_value_type_str(size.type));
         }
         if (size.integer < 0) {
-            return box_error(BITPUNCH_DATA_ERROR, box, byte_array->size, bst,
+            return box_error(BITPUNCH_DATA_ERROR, box, array->item_count, bst,
                              "evaluation of byte array size gives "
                              "negative value (%"PRIi64")", size.integer);
         }
@@ -6879,8 +6815,7 @@ tracker_goto_first_item__byte_array_generic(struct tracker *tk,
                                             struct browse_state *bst)
 {
     DBG_TRACKER_DUMP(tk);
-    return tracker_goto_first_item__array_generic(tk, DPATH_NODE_RAW_BYTE,
-                                                  bst);
+    return tracker_goto_first_item__array_generic(tk, &tk->box->dpath, bst);
 }
 
 static bitpunch_status_t
@@ -6911,7 +6846,7 @@ tracker_goto_first_item__byte_array_slack(struct tracker *tk,
     tk->item_offset = tk->box->start_offset_used;
     tk->item_size = 1;
     tk->cur.u.array.index = 0;
-    tk->dpath = DPATH_NODE_RAW_BYTE;
+    tk->dpath = &tk->box->dpath;
     DBG_TRACKER_CHECK_STATE(tk);
     return BITPUNCH_OK;
 }
@@ -6938,7 +6873,7 @@ tracker_goto_next_item__byte_array_generic(struct tracker *tk,
         return BITPUNCH_NO_ITEM;
     }
     /* check new item */
-    tk->dpath = DPATH_NODE_RAW_BYTE;
+    tk->dpath = &tk->box->dpath;
     bt_ret = tracker_check_item(tk, bst);
     if (BITPUNCH_OK != bt_ret) {
         /* rollback */
@@ -6975,7 +6910,7 @@ tracker_goto_nth_item__byte_array_generic(
         return BITPUNCH_NO_ITEM;
     }
     tk->flags &= ~TRACKER_AT_END;
-    tk->dpath = DPATH_NODE_RAW_BYTE;
+    tk->dpath = &tk->box->dpath;
     if (0 == (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
         tk->cur.u.array.index = index;
         DBG_TRACKER_CHECK_STATE(tk);
@@ -7059,7 +6994,8 @@ box_compute_used_size__array_slice(struct box *box,
     array = (struct filter_instance_array *)
         array_node->ndat->u.rexpr_filter.f_instance;
     item_type = ast_node_get_target_item(array->item_type.item);
-    if (0 == (array->item_type.u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+    if (0 == (array->item_type.item->ndat->u.item.flags
+              & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
         int64_t n_elems;
         int64_t item_size;
 
@@ -7073,7 +7009,7 @@ box_compute_used_size__array_slice(struct box *box,
         /* Default implementation of dynamic sized arrays works by
          * tracking contents, which has a custom implementation for
          * array slices. */
-        bt_ret = array_node->ndat->u.rexpr_filter.b_box.compute_used_size(box, bst);
+        bt_ret = array_node->ndat->u.rexpr_filter.f_instance->b_box.compute_used_size(box, bst);
     }
     return bt_ret;
 }
@@ -7143,7 +7079,7 @@ tracker_goto_first_item__array_slice(struct tracker *tk,
     if (-1 == index) {
         index = 0;
     }
-    bt_ret = array_box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_nth_item(tk, index, bst);
+    bt_ret = array_box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_nth_item(tk, index, bst);
     tk->box = slice_box;
     return bt_ret;
 }
@@ -7181,7 +7117,7 @@ tracker_goto_next_item__array_slice(struct tracker *tk,
     }
     array_box = box_array_slice_get_ancestor_array(slice_box);
     tk->box = array_box;
-    bt_ret = array_box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_next_item(tk, bst);
+    bt_ret = array_box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_next_item(tk, bst);
     tk->box = slice_box;
     return bt_ret;
 }
@@ -7208,7 +7144,7 @@ tracker_goto_nth_item__array_slice(struct tracker *tk, int64_t index,
     }
     array_box = box_array_slice_get_ancestor_array(slice_box);
     tk->box = array_box;
-    bt_ret = array_box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_nth_item(
+    bt_ret = array_box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_nth_item(
         tk, index_start + index, bst);
     tk->box = slice_box;
     return bt_ret;
@@ -7258,7 +7194,7 @@ tracker_goto_next_item_with_key__array_slice(struct tracker *tk,
         bt_ret = tracker_goto_next_item_with_key__indexed_array_internal(
             tk, item_key, end_index, bst);
     } else {
-        bt_ret = array_box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_next_item_with_key(
+        bt_ret = array_box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_next_item_with_key(
             tk, item_key, bst);
         if (BITPUNCH_OK == bt_ret && tk->cur.u.array.index == end_index) {
             bt_ret = tracker_set_end(tk, bst);
@@ -7299,7 +7235,7 @@ tracker_goto_nth_item_with_key__array_slice(
     } else {
         /* this call shall return an error since the function we're in
          * expects the underlying array to be indexed. */
-        bt_ret = array_box->dpath.item->ndat->u.rexpr_filter.b_tk.goto_nth_item_with_key(
+        bt_ret = array_box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_nth_item_with_key(
             tk, item_key, nth_twin, bst);
     }
     tk->box = slice_box;
@@ -7405,32 +7341,51 @@ browse_setup_backends__filter__filter(struct ast_node_hdl *filter)
 {
     struct item_backend *b_item = NULL;
 
-    b_item = &filter->ndat->u.rexpr_filter.b_item;
+    b_item = &filter->ndat->u.rexpr_filter.f_instance->b_item;
     memset(b_item, 0, sizeof (*b_item));
 
     b_item->read_value = filter_read_value__filter;
 }
 
-static void
-browse_setup_backends__filter__operator_filter(struct ast_node_hdl *filter)
+static struct filter_instance *
+operator_filter_filter_instance_build(struct ast_node_hdl *item)
 {
-    struct item_backend *b_item = NULL;
+    struct filter_instance *filter;
+    struct item_backend *b_item;
 
-    b_item = &filter->ndat->u.rexpr_filter.b_item;
+    filter = new_safe(struct filter_instance);
+    b_item = &filter->b_item;
     memset(b_item, 0, sizeof (*b_item));
 
     b_item->read_value = filter_read_value__operator_filter;
+    return filter;
 }
 
 static void
-browse_setup_backends__filter__item(struct ast_node_hdl *filter)
+browse_setup_backends__operator_filter(struct ast_node_hdl *item)
 {
-    struct item_backend *b_item = NULL;
+    item->ndat->u.rexpr_filter.f_instance =
+        operator_filter_filter_instance_build(item);
+}
 
-    b_item = &filter->ndat->u.rexpr_filter.b_item;
+static struct filter_instance *
+item_filter_instance_build(struct ast_node_hdl *item)
+{
+    struct filter_instance *filter;
+    struct item_backend *b_item;
+
+    filter = new_safe(struct filter_instance);
+    b_item = &filter->b_item;
     memset(b_item, 0, sizeof (*b_item));
 
     b_item->read_value = filter_read_value__bytes;
+    return filter;
+}
+
+static void
+browse_setup_backends__item(struct ast_node_hdl *item)
+{
+    item->ndat->u.rexpr_filter.f_instance = item_filter_instance_build(item);
 }
 
 
@@ -7440,7 +7395,7 @@ browse_setup_backends__box__composite(struct ast_node_hdl *item)
     struct box_backend *b_box = NULL;
     struct filter_instance_composite *composite;
 
-    b_box = &item->ndat->u.rexpr_filter.b_box;
+    b_box = &item->ndat->u.rexpr_filter.f_instance->b_box;
     memset(b_box, 0, sizeof (*b_box));
     composite = (struct filter_instance_composite *)
         item->ndat->u.rexpr_filter.f_instance;
@@ -7488,7 +7443,7 @@ browse_setup_backends__tracker__composite(struct ast_node_hdl *item)
 {
     struct tracker_backend *b_tk = NULL;
 
-    b_tk = &item->ndat->u.rexpr_filter.b_tk;
+    b_tk = &item->ndat->u.rexpr_filter.f_instance->b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
     b_tk->get_item_key = tracker_get_item_key__composite;
@@ -7515,10 +7470,10 @@ browse_setup_backends__box__array(struct ast_node_hdl *item)
     struct box_backend *b_box = NULL;
     const struct ast_node_hdl *item_type;
 
-    b_box = &item->ndat->u.rexpr_filter.b_box;
-    memset(b_box, 0, sizeof (*b_box));
     array = (struct filter_instance_array *)
         item->ndat->u.rexpr_filter.f_instance;
+    b_box = &array->filter.b_box;
+    memset(b_box, 0, sizeof (*b_box));
     item_type = array->item_type.item;
 
     if (0 != (item->ndat->u.item.flags & ITEMFLAG_USES_SLACK)) {
@@ -7563,10 +7518,10 @@ browse_setup_backends__tracker__array(struct ast_node_hdl *item)
     struct tracker_backend *b_tk = NULL;
     const struct ast_node_hdl *item_type;
 
-    b_tk = &item->ndat->u.rexpr_filter.b_tk;
-    memset(b_tk, 0, sizeof (*b_tk));
     array = (struct filter_instance_array *)
         item->ndat->u.rexpr_filter.f_instance;
+    b_tk = &array->filter.b_tk;
+    memset(b_tk, 0, sizeof (*b_tk));
     item_type = array->item_type.item;
 
     if (NULL != ast_node_get_key_expr(item)) {
@@ -7619,7 +7574,7 @@ browse_setup_backends__tracker__byte(struct ast_node_hdl *item)
 {
     struct tracker_backend *b_tk = NULL;
 
-    b_tk = &item->ndat->u.rexpr_filter.b_tk;
+    b_tk = &item->ndat->u.rexpr_filter.f_instance->b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
     b_tk->compute_item_size = tracker_compute_item_size__byte;
@@ -7629,9 +7584,12 @@ browse_setup_backends__tracker__byte(struct ast_node_hdl *item)
 static void
 browse_setup_backends__box__byte_array(struct ast_node_hdl *item)
 {
+    struct filter_instance_array *array;
     struct box_backend *b_box = NULL;
 
-    b_box = &item->ndat->u.rexpr_filter.b_box;
+    array = (struct filter_instance_array *)
+        item->ndat->u.rexpr_filter.f_instance;
+    b_box = &array->filter.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
     if (0 != (item->ndat->u.item.flags & ITEMFLAG_USES_SLACK)) {
@@ -7653,7 +7611,7 @@ browse_setup_backends__box__byte_array(struct ast_node_hdl *item)
         }
         b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
     }
-    if (NULL != item->ndat->u.byte_array.size) {
+    if (NULL != array->item_count) {
         b_box->get_n_items = box_get_n_items__byte_array_non_slack;
     } else {
         b_box->get_n_items = box_get_n_items__byte_array_slack;
@@ -7665,7 +7623,7 @@ browse_setup_backends__box__byte(struct ast_node_hdl *item)
 {
     struct box_backend *b_box = NULL;
 
-    b_box = &item->ndat->u.rexpr_filter.b_box;
+    b_box = &item->ndat->u.rexpr_filter.f_instance->b_box;
     memset(b_box, 0, sizeof (*b_box));
 
     b_box->compute_slack_size = box_compute_slack_size__from_parent;
@@ -7678,20 +7636,23 @@ browse_setup_backends__box__byte(struct ast_node_hdl *item)
 static void
 browse_setup_backends__tracker__byte_array(struct ast_node_hdl *item)
 {
+    struct filter_instance_array *array;
     struct tracker_backend *b_tk = NULL;
 
-    b_tk = &item->ndat->u.rexpr_filter.b_tk;
+    array = (struct filter_instance_array *)
+        item->ndat->u.rexpr_filter.f_instance;
+    b_tk = &array->filter.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
     b_tk->get_item_key = tracker_get_item_key__array_generic;
-    if (NULL != item->ndat->u.byte_array.size) {
+    if (NULL != array->item_count) {
         b_tk->compute_item_size =
             tracker_compute_item_size__byte_array_dynamic_size;
     } else {
         b_tk->compute_item_size =
             tracker_compute_item_size__byte_array_slack;
     }
-    if (NULL != item->ndat->u.byte_array.size) {
+    if (NULL != array->item_count) {
         b_tk->goto_first_item =
             tracker_goto_first_item__array_non_slack;
     } else {
@@ -7706,30 +7667,24 @@ browse_setup_backends__tracker__byte_array(struct ast_node_hdl *item)
         tracker_goto_nth_item_with_key__default;
 }
 
-
-static void
-browse_setup_backends__box__array_slice(struct ast_node_hdl *item)
+static struct filter_instance *
+array_slice_filter_instance_build(struct ast_node_hdl *item)
 {
-    struct box_backend *b_box = NULL;
+    struct filter_instance *slice;
+    struct box_backend *b_box;
+    struct tracker_backend *b_tk;
 
-    b_box = &item->ndat->u.rexpr_filter.b_box;
+    slice = new_safe(struct filter_instance);
+    b_box = &slice->b_box;
+    b_tk = &slice->b_tk;
     memset(b_box, 0, sizeof (*b_box));
+    memset(b_tk, 0, sizeof (*b_tk));
 
     b_box->compute_slack_size = box_compute_slack_size__from_parent;
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
     b_box->compute_max_span_size = box_compute_max_span_size__as_used;
     b_box->compute_used_size = box_compute_used_size__array_slice;
-    b_box->get_max_slack_offset = box_get_children_slack__from_parent;
     b_box->get_n_items = box_get_n_items__slice_generic;
-}
-
-static void
-browse_setup_backends__tracker__array_slice(struct ast_node_hdl *item)
-{
-    struct tracker_backend *b_tk = NULL;
-
-    b_tk = &item->ndat->u.rexpr_filter.b_tk;
-    memset(b_tk, 0, sizeof (*b_tk));
 
     b_tk->get_item_key = tracker_get_item_key__array_slice;
     b_tk->compute_item_size = tracker_compute_item_size__item_box;
@@ -7742,31 +7697,35 @@ browse_setup_backends__tracker__array_slice(struct ast_node_hdl *item)
         tracker_goto_next_item_with_key__array_slice;
     b_tk->goto_nth_item_with_key =
         tracker_goto_nth_item_with_key__array_slice;
+
+    return slice;
 }
 
-
 static void
-browse_setup_backends__box__byte_slice(struct ast_node_hdl *item)
+browse_setup_backends__array_slice(struct ast_node_hdl *item)
 {
-    struct box_backend *b_box = NULL;
+    item->ndat->u.rexpr_filter.f_instance =
+        array_slice_filter_instance_build(item);
+}
 
-    b_box = &item->ndat->u.rexpr_filter.b_box;
+static struct filter_instance *
+byte_slice_filter_instance_build(struct ast_node_hdl *item)
+{
+    struct filter_instance *slice;
+    struct box_backend *b_box;
+    struct tracker_backend *b_tk;
+
+    slice = new_safe(struct filter_instance);
+    b_box = &slice->b_box;
+    b_tk = &slice->b_tk;
     memset(b_box, 0, sizeof (*b_box));
+    memset(b_tk, 0, sizeof (*b_tk));
 
     b_box->compute_slack_size = box_compute_slack_size__from_parent;
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
     b_box->compute_max_span_size = box_compute_max_span_size__as_used;
     b_box->compute_used_size = box_compute_used_size__byte_slice;
     b_box->get_n_items = box_get_n_items__slice_generic;
-}
-
-static void
-browse_setup_backends__tracker__byte_slice(struct ast_node_hdl *item)
-{
-    struct tracker_backend *b_tk = NULL;
-
-    b_tk = &item->ndat->u.rexpr_filter.b_tk;
-    memset(b_tk, 0, sizeof (*b_tk));
 
     b_tk->get_item_key = tracker_get_item_key__byte_slice;
     b_tk->compute_item_size = tracker_compute_item_size__item_box;
@@ -7779,31 +7738,35 @@ browse_setup_backends__tracker__byte_slice(struct ast_node_hdl *item)
         tracker_goto_next_item_with_key__not_impl;
     b_tk->goto_nth_item_with_key =
         tracker_goto_nth_item_with_key__not_impl;
+
+    return slice;
 }
 
-
 static void
-browse_setup_backends__box__as_bytes(struct ast_node_hdl *item)
+browse_setup_backends__byte_slice(struct ast_node_hdl *item)
 {
-    struct box_backend *b_box = NULL;
+    item->ndat->u.rexpr_filter.f_instance =
+        byte_slice_filter_instance_build(item);
+}
 
-    b_box = &item->ndat->u.rexpr_filter.b_box;
+static struct filter_instance *
+as_bytes_filter_instance_build(struct ast_node_hdl *item)
+{
+    struct filter_instance *as_bytes;
+    struct box_backend *b_box;
+    struct tracker_backend *b_tk;
+
+    as_bytes = new_safe(struct filter_instance);
+    b_box = &as_bytes->b_box;
+    b_tk = &as_bytes->b_tk;
     memset(b_box, 0, sizeof (*b_box));
+    memset(b_tk, 0, sizeof (*b_tk));
 
     b_box->compute_slack_size = box_compute_slack_size__as_bytes;
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
     b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
     b_box->compute_used_size = box_compute_used_size__as_bytes;
     b_box->get_n_items = box_get_n_items__as_bytes;
-}
-
-static void
-browse_setup_backends__tracker__as_bytes(struct ast_node_hdl *item)
-{
-    struct tracker_backend *b_tk = NULL;
-
-    b_tk = &item->ndat->u.rexpr_filter.b_tk;
-    memset(b_tk, 0, sizeof (*b_tk));
 
     b_tk->get_item_key = tracker_get_item_key__array_generic;
     b_tk->compute_item_size = tracker_compute_item_size__item_box;
@@ -7814,6 +7777,15 @@ browse_setup_backends__tracker__as_bytes(struct ast_node_hdl *item)
         tracker_goto_next_item_with_key__default;
     b_tk->goto_nth_item_with_key =
         tracker_goto_nth_item_with_key__default;
+
+    return as_bytes;
+}
+
+static void
+browse_setup_backends__as_bytes(struct ast_node_hdl *item)
+{
+    item->ndat->u.rexpr_filter.f_instance =
+        as_bytes_filter_instance_build(item);
 }
 
 static int
@@ -7837,16 +7809,13 @@ browse_setup_backends_node(struct ast_node_hdl *node)
         browse_setup_backends__tracker__byte_array(node);
         break ;
     case AST_NODE_TYPE_ARRAY_SLICE:
-        browse_setup_backends__box__array_slice(node);
-        browse_setup_backends__tracker__array_slice(node);
+        browse_setup_backends__array_slice(node);
         break ;
     case AST_NODE_TYPE_BYTE_SLICE:
-        browse_setup_backends__box__byte_slice(node);
-        browse_setup_backends__tracker__byte_slice(node);
+        browse_setup_backends__byte_slice(node);
         break ;
     case AST_NODE_TYPE_AS_BYTES:
-        browse_setup_backends__box__as_bytes(node);
-        browse_setup_backends__tracker__as_bytes(node);
+        browse_setup_backends__as_bytes(node);
         break ;
     case AST_NODE_TYPE_REXPR_FILTER:
         browse_setup_backends__filter__filter(node);
@@ -7854,10 +7823,10 @@ browse_setup_backends_node(struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_ITEM:
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
-        browse_setup_backends__filter__item(node);
+        browse_setup_backends__item(node);
         break ;
     case AST_NODE_TYPE_REXPR_OP_FILTER:
-        browse_setup_backends__filter__operator_filter(node);
+        browse_setup_backends__operator_filter(node);
         break ;
     default:
         break ;
@@ -8134,9 +8103,6 @@ browse_setup_backends_dpath(struct dpath_node *dpath)
 int
 browse_setup_global_backends(void)
 {
-    if (-1 == browse_setup_backends_dpath(DPATH_NODE_RAW_BYTE)) {
-        return -1;
-    }
     if (-1 == browse_setup_backends_dpath(DPATH_NODE_ARRAY_SLICE)) {
         return -1;
     }
@@ -8144,9 +8110,6 @@ browse_setup_global_backends(void)
         return -1;
     }
     if (-1 == browse_setup_backends_node_recur(AST_NODE_AS_BYTES)) {
-        return -1;
-    }
-    if (-1 == browse_setup_backends_dpath(DPATH_NODE_RAW_BYTE)) {
         return -1;
     }
     return 0;

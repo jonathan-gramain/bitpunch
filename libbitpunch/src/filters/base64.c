@@ -149,12 +149,13 @@ base64_read(struct ast_node_hdl *filter,
 }
 
 static struct filter_instance *
-base64_filter_instance_build(
-    struct ast_node_hdl *filter,
-    struct compile_ctx *ctx)
+base64_filter_instance_build(struct ast_node_hdl *filter)
 {
-    filter->ndat->u.rexpr_filter.read_func = base64_read;
-    return new_safe(struct filter_instance);
+    struct filter_instance *f_instance;
+
+    f_instance = new_safe(struct filter_instance);
+    f_instance->read_func = base64_read;
+    return f_instance;
 }
 
 void
@@ -163,9 +164,9 @@ filter_class_declare_base64(void)
     int ret;
 
     ret = filter_class_declare("base64",
-                              EXPR_VALUE_TYPE_BYTES,
-                              base64_filter_instance_build,
-                              0);
+                               EXPR_VALUE_TYPE_BYTES,
+                               base64_filter_instance_build, NULL,
+                               0);
     assert(0 == ret);
 }
 

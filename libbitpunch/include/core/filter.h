@@ -53,27 +53,41 @@ struct filter_attr_def {
 };
 
 struct filter_instance {
+    struct item_node item; /* inherits */
+    struct item_backend b_item;
+    struct box_backend b_box;
+    struct tracker_backend b_tk;
+    filter_read_func_t read_func;
+    filter_get_size_func_t get_size_func;
 };
 
 typedef struct filter_instance *
-(*filter_instance_build_func_t)(
+(*filter_instance_build_func_t)(struct ast_node_hdl *filter);
+
+typedef int
+(*filter_instance_compile_func_t)(
     struct ast_node_hdl *filter,
+    struct filter_instance *f_instance,
+    dep_resolver_tagset_t tags,
     struct compile_ctx *ctx);
 
 struct filter_class {
     const char *name;
     enum expr_value_type value_type_mask;
     filter_instance_build_func_t filter_instance_build_func;
+    filter_instance_compile_func_t filter_instance_compile_func;
     int n_attrs;
     STAILQ_HEAD(filter_attr_list, filter_attr_def) attr_list;
 };
 
 int
-filter_class_declare(const char *name,
-                     enum expr_value_type value_type_mask,
-                     filter_instance_build_func_t filter_instance_build_func,
-                     int n_attrs,
-                     ... /* attrs: (name, type, flags) tuples */);
+filter_class_declare(
+    const char *name,
+    enum expr_value_type value_type_mask,
+    filter_instance_build_func_t filter_instance_build_func,
+    filter_instance_compile_func_t filter_instance_compile_func,
+    int n_attrs,
+    ... /* attrs: (name, type, flags) tuples */);
 
 struct filter_class *
 filter_class_lookup(const char *name);

@@ -191,9 +191,6 @@
     };
 
     struct dpath_node {
-        union {
-            struct item_node item;
-        } u;
         struct ast_node_hdl *item;
         struct ast_node_hdl *filter;
         struct ast_node_hdl *filter_defining_span_size;
@@ -348,17 +345,8 @@
                 struct item_node item; /* inherits */
                 struct filter_def *filter_def;
                 const struct filter_class *filter_cls;
-                struct item_backend b_item;
-                struct box_backend b_box;
-                struct tracker_backend b_tk;
-                filter_read_func_t read_func;
-                filter_get_size_func_t get_size_func;
                 struct filter_instance *f_instance;
             } rexpr_filter;
-            struct byte_array {
-                struct rexpr_filter rexpr_filter; /* inherits */
-                struct ast_node_hdl *size;
-            } byte_array;
             struct rexpr_op_filter {
                 struct rexpr_filter rexpr_filter; /* inherits */
                 struct ast_node_hdl *filter_expr;

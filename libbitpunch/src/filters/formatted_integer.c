@@ -177,12 +177,13 @@ formatted_integer_read(struct ast_node_hdl *filter,
 }
 
 static struct filter_instance *
-formatted_integer_filter_instance_build(
-    struct ast_node_hdl *filter,
-    struct compile_ctx *ctx)
+formatted_integer_filter_instance_build(struct ast_node_hdl *filter)
 {
-    filter->ndat->u.rexpr_filter.read_func = formatted_integer_read;
-    return new_safe(struct filter_instance);
+    struct filter_instance *f_instance;
+
+    f_instance = new_safe(struct filter_instance);
+    f_instance->read_func = formatted_integer_read;
+    return f_instance;
 }
 
 void
@@ -191,12 +192,12 @@ filter_class_declare_formatted_integer(void)
     int ret;
 
     ret = filter_class_declare("formatted_integer",
-                              EXPR_VALUE_TYPE_INTEGER,
-                              formatted_integer_filter_instance_build,
-                              3,
-                              "@base", EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@empty_value", EXPR_VALUE_TYPE_INTEGER, 0,
-                              "@signed", EXPR_VALUE_TYPE_BOOLEAN, 0);
+                               EXPR_VALUE_TYPE_INTEGER,
+                               formatted_integer_filter_instance_build, NULL,
+                               3,
+                               "@base", EXPR_VALUE_TYPE_INTEGER, 0,
+                               "@empty_value", EXPR_VALUE_TYPE_INTEGER, 0,
+                               "@signed", EXPR_VALUE_TYPE_BOOLEAN, 0);
     assert(0 == ret);
 }
 

@@ -36,13 +36,40 @@
 
 #include "core/filter.h"
 
-struct state_single_char_constant_boundary {
-    struct filter_instance f_instance; /* inherits */
+static bitpunch_status_t
+string_read_no_boundary(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    expr_value_t *read_value,
+    const char *data, size_t span_size,
+    struct browse_state *bst)
+{
+    read_value->type = EXPR_VALUE_TYPE_STRING;
+    read_value->string.str = (char *)data;
+    read_value->string.len = span_size;
+    return BITPUNCH_OK;
+}
+
+
+struct string_single_char_constant_boundary {
+    struct filter_instance p; /* inherits */
     char boundary;
 };
 
+static struct filter_instance *
+string_build_no_boundary(void)
+{
+    struct filter_instance *f_instance;
+
+    f_instance = new_safe(struct filter_instance);
+    /* no get_size_func(): keep default byte array size */
+    f_instance->read_func = string_read_no_boundary;
+    return f_instance;
+}
+
+
 static bitpunch_status_t
-string_get_size_byte_array_single_char_boundary(
+string_get_size_single_char_constant_boundary(
     struct ast_node_hdl *filter,
     struct box *scope,
     int64_t *span_sizep,
@@ -50,12 +77,12 @@ string_get_size_byte_array_single_char_boundary(
     const char *data, int64_t max_span_size,
     struct browse_state *bst)
 {
-    struct state_single_char_constant_boundary *state;
+    struct string_single_char_constant_boundary *f_instance;
     const char *end;
 
-    state = (struct state_single_char_constant_boundary *)
+    f_instance = (struct string_single_char_constant_boundary *)
         filter->ndat->u.rexpr_filter.f_instance;
-    end = memchr(data, state->boundary, max_span_size);
+    end = memchr(data, f_instance->boundary, max_span_size);
     if (NULL != end) {
         *span_sizep = end - data + 1;
         *used_sizep = end - data;
@@ -67,7 +94,43 @@ string_get_size_byte_array_single_char_boundary(
 }
 
 static bitpunch_status_t
-string_get_size_byte_array_multi_char_boundary(
+string_read_single_char_constant_boundary(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    expr_value_t *read_value,
+    const char *data, size_t span_size,
+    struct browse_state *bst)
+{
+    struct string_single_char_constant_boundary *f_instance;
+
+    f_instance = (struct string_single_char_constant_boundary *)
+        filter->ndat->u.rexpr_filter.f_instance;
+    read_value->type = EXPR_VALUE_TYPE_STRING;
+    read_value->string.str = (char *)data;
+    if (span_size >= 1
+        && (data[span_size - 1] == f_instance->boundary)) {
+        read_value->string.len = span_size - 1;
+    } else {
+        read_value->string.len = span_size;
+    }
+    return BITPUNCH_OK;
+}
+
+static struct filter_instance *
+string_build_single_char_constant_boundary(char boundary)
+{
+    struct string_single_char_constant_boundary *f_instance;
+                    
+    f_instance = new_safe(struct string_single_char_constant_boundary);
+    f_instance->boundary = boundary;
+    f_instance->p.get_size_func = string_get_size_single_char_constant_boundary;
+    f_instance->p.read_func = string_read_single_char_constant_boundary;
+    return (struct filter_instance *)f_instance;
+}
+
+
+static bitpunch_status_t
+string_get_size_generic(
     struct ast_node_hdl *filter,
     struct box *scope,
     int64_t *span_sizep,
@@ -99,46 +162,8 @@ string_get_size_byte_array_multi_char_boundary(
     return BITPUNCH_OK;
 }
 
-
 static bitpunch_status_t
-string_read_byte_array_no_boundary(
-    struct ast_node_hdl *filter,
-    struct box *scope,
-    expr_value_t *read_value,
-    const char *data, size_t span_size,
-    struct browse_state *bst)
-{
-    read_value->type = EXPR_VALUE_TYPE_STRING;
-    read_value->string.str = (char *)data;
-    read_value->string.len = span_size;
-    return BITPUNCH_OK;
-}
-
-static bitpunch_status_t
-string_read_byte_array_single_char_boundary(
-    struct ast_node_hdl *filter,
-    struct box *scope,
-    expr_value_t *read_value,
-    const char *data, size_t span_size,
-    struct browse_state *bst)
-{
-    struct state_single_char_constant_boundary *state;
-
-    state = (struct state_single_char_constant_boundary *)
-        filter->ndat->u.rexpr_filter.f_instance;
-    read_value->type = EXPR_VALUE_TYPE_STRING;
-    read_value->string.str = (char *)data;
-    if (span_size >= 1
-        && (data[span_size - 1] == state->boundary)) {
-        read_value->string.len = span_size - 1;
-    } else {
-        read_value->string.len = span_size;
-    }
-    return BITPUNCH_OK;
-}
-
-static bitpunch_status_t
-string_read_byte_array_multi_char_boundary(
+string_read_generic(
     struct ast_node_hdl *filter,
     struct box *scope,
     expr_value_t *read_value,
@@ -170,20 +195,26 @@ string_read_byte_array_multi_char_boundary(
     return BITPUNCH_OK;
 }
 
+static struct filter_instance *
+string_build_generic(void)
+{
+    struct filter_instance *f_instance;
+                    
+    f_instance = new_safe(struct filter_instance);
+    f_instance->get_size_func = string_get_size_generic;
+    f_instance->read_func = string_read_generic;
+    return f_instance;
+}
+
 
 static struct filter_instance *
-string_filter_instance_build(
-    struct ast_node_hdl *filter,
-    struct compile_ctx *ctx)
+string_filter_instance_build(struct ast_node_hdl *filter)
 {
     const struct block_stmt_list *stmt_lists;
     struct named_expr *attr;
     struct expr_value_string boundary;
 
     stmt_lists = &filter->ndat->u.rexpr_filter.filter_def->block_stmt_list;
-    // default read function, may be overriden next
-    filter->ndat->u.rexpr_filter.read_func = string_read_byte_array_no_boundary;
-
     STATEMENT_FOREACH(named_expr, attr, stmt_lists->attribute_list, list) {
         if (0 == strcmp(attr->nstmt.name, "@boundary")) {
             if (AST_NODE_TYPE_REXPR_NATIVE == attr->expr->ndat->type
@@ -191,38 +222,23 @@ string_filter_instance_build(
                 boundary = attr->expr->ndat->u.rexpr_native.value.string;
                 switch (boundary.len) {
                 case 0:
-                    /* keep default byte array size */
-                    break ;
-                case 1: {
-                    struct state_single_char_constant_boundary *state;
-
-                    state = new_safe(
-                        struct state_single_char_constant_boundary);
-                    state->boundary = boundary.str[0];
-                    filter->ndat->u.rexpr_filter.get_size_func =
-                        string_get_size_byte_array_single_char_boundary;
-                    filter->ndat->u.rexpr_filter.read_func =
-                        string_read_byte_array_single_char_boundary;
-                    return (struct filter_instance *)state;
-                }
-                default: /* two or more characters boundary */
-                    filter->ndat->u.rexpr_filter.get_size_func =
-                        string_get_size_byte_array_multi_char_boundary;
-                    filter->ndat->u.rexpr_filter.read_func =
-                        string_read_byte_array_multi_char_boundary;
+                    return string_build_no_boundary();
+                case 1:
+                    return string_build_single_char_constant_boundary(
+                        boundary.str[0]);
+                default:
+                    /* two or more characters boundary: use generic
+                     * implementation */
+                    return string_build_generic();
                 }
             } else {
-                /* dynamic boundary: use generic multi-char
-                 * implementation */
-                filter->ndat->u.rexpr_filter.get_size_func =
-                    string_get_size_byte_array_multi_char_boundary;
-                filter->ndat->u.rexpr_filter.read_func =
-                    string_read_byte_array_multi_char_boundary;
+                /* dynamic boundary: use generic implementation */
+                return string_build_generic();
             }
             break ;
         }
     }
-    return new_safe(struct filter_instance);
+    return string_build_no_boundary();
 }
 
 void
@@ -232,9 +248,9 @@ filter_class_declare_string(void)
 
     //TODO add regex boundary support
     ret = filter_class_declare("string",
-                              EXPR_VALUE_TYPE_STRING,
-                              string_filter_instance_build,
-                              1,
-                              "@boundary", EXPR_VALUE_TYPE_STRING, 0);
+                               EXPR_VALUE_TYPE_STRING,
+                               string_filter_instance_build, NULL,
+                               1,
+                               "@boundary", EXPR_VALUE_TYPE_STRING, 0);
     assert(0 == ret);
 }
