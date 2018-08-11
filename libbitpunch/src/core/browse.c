@@ -1930,20 +1930,25 @@ box_get_scope_box(struct box *box)
 static void
 box_free(struct box *box)
 {
+    struct ast_node_hdl *item;
+
+    item = box->dpath.item;
     /* destroy internal state */
-    switch (box->dpath.item->ndat->type) {
-    case AST_NODE_TYPE_ARRAY:
-        if (box_index_cache_exists(box)) {
-            box_destroy_index_cache_by_key(box);
+    if (NULL != item) {
+        switch (item->ndat->type) {
+        case AST_NODE_TYPE_ARRAY:
+            if (box_index_cache_exists(box)) {
+                box_destroy_index_cache_by_key(box);
+            }
+            box_destroy_mark_offsets_repo(box);
+            break ;
+        case AST_NODE_TYPE_REXPR_FILTER:
+            if (NULL != item->ndat->u.rexpr_filter.b_box.destroy) {
+                item->ndat->u.rexpr_filter.b_box.destroy(box);
+            }
+        default:
+            break ;
         }
-        box_destroy_mark_offsets_repo(box);
-        break ;
-    case AST_NODE_TYPE_REXPR_FILTER:
-        if (NULL != box->dpath.item->ndat->u.rexpr_filter.b_box.destroy) {
-            box->dpath.item->ndat->u.rexpr_filter.b_box.destroy(box);
-        }
-    default:
-        break ;
     }
     if (0 != (box->flags & BOX_DATA_FILTER)) {
         (void)bitpunch_close_binary_file(
