@@ -2275,6 +2275,8 @@ expr_evaluate_filter_type_filter(struct ast_node_hdl *filter,
             filter : NULL;
         return BITPUNCH_OK;
     case FILTER_KIND_ITEM:
+        *filter_typep = NULL;
+        return BITPUNCH_OK;
     default:
         assert(0);
     }
