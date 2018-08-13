@@ -32,3 +32,9 @@
 // DO NOT INCLUDE THIS FILE DIRECTLY
 // It shall only be included from browse.h
 
+static inline int
+tracker_is_dangling(const struct tracker *tk)
+{
+    return NULL == tk->dpath;
+}
+

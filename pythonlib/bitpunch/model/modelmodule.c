@@ -2325,7 +2325,7 @@ tracker_item_to_deep_PyObject(DataTreeObject *dtree, struct tracker *tk)
     struct box *filtered_box;
     struct tracker_error *tk_err = NULL;
 
-    if (NULL == tk->dpath) {
+    if (tracker_is_dangling(tk)) {
         Py_INCREF(Py_None);
         return Py_None;
     }
@@ -3446,7 +3446,7 @@ static PyObject *
 tracker_item_to_shallow_PyObject(DataTreeObject *dtree,
                                  struct tracker *tk)
 {
-    if (NULL == tk->dpath) {
+    if (tracker_is_dangling(tk)) {
         Py_INCREF(Py_None);
         return Py_None;
     }

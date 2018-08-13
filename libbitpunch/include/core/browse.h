@@ -370,6 +370,8 @@ tracker_fdump(const struct tracker *tk, FILE *out);
 
 enum tracker_state
 tracker_get_state(const struct tracker *tk);
+static inline int
+tracker_is_dangling(const struct tracker *tk);
 
 struct tracker *
 track_file(const struct bitpunch_schema_hdl *def_hdl,

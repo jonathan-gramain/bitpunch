@@ -2467,7 +2467,7 @@ tracker_goto_next_key_match_in_mark(struct tracker *tk,
 enum tracker_state
 tracker_get_state(const struct tracker *tk)
 {
-    if (NULL == tk->dpath) {
+    if (tracker_is_dangling(tk)) {
         if (0 != (tk->flags & TRACKER_AT_END)) {
             return TRACKER_STATE_AT_END;
         } else {
@@ -2657,9 +2657,9 @@ tracker_fdump(const struct tracker *tk, FILE *out)
             "TRACKER @");
     tracker_dump_abs_dpath(tk, out);
     fprintf(out, ": itype='%s' ftype='%s' iloc=[%"PRIi64"..%"PRIi64"[ flags: ",
-            (NULL != tk->dpath ?
+            (!tracker_is_dangling(tk) ?
              ast_node_type_str(tk->dpath->item->ndat->type) : "N/A"),
-            (NULL != tk->dpath && NULL != tk->dpath->filter ?
+            (!tracker_is_dangling(tk) && NULL != tk->dpath->filter ?
              ast_node_type_str(tk->dpath->filter->ndat->type) : "N/A"),
             tk->item_offset,
             (-1 == tk->item_size ? -1 :
@@ -2745,7 +2745,7 @@ tracker_create_item_box_internal(struct tracker *tk,
     }
     box_flags = 0 != (xtk->flags & TRACKER_REVERSED) ? BOX_RALIGN : 0u;
     if (NULL == xtk->item_box) {
-        if (NULL == xtk->dpath) {
+        if (tracker_is_dangling(xtk)) {
             bt_ret = BITPUNCH_NO_ITEM;
             goto end;
         }
@@ -2831,7 +2831,7 @@ tracker_get_filtered_dpath_internal(struct tracker *tk,
     struct dpath_transform transform;
     bitpunch_status_t bt_ret;
 
-    if (NULL == tk->dpath) {
+    if (tracker_is_dangling(tk)) {
         return BITPUNCH_NO_ITEM;
     }
     // initialize work dpath with unfiltered tracked item
@@ -2857,7 +2857,7 @@ tracker_get_filtered_item_box_internal(struct tracker *tk,
     expr_dpath_t filtered_dpath;
     struct box *filtered_box;
 
-    if (NULL == tk->dpath) {
+    if (tracker_is_dangling(tk)) {
         return BITPUNCH_NO_ITEM;
     }
     bt_ret = tracker_get_filtered_dpath_internal(tk, &filtered_dpath, bst);
@@ -3261,7 +3261,7 @@ tracker_compute_item_offset(struct tracker *tk,
     const struct ast_node_hdl *node;
 
     DBG_TRACKER_DUMP(tk);
-    if (NULL == tk->dpath) {
+    if (tracker_is_dangling(tk)) {
         if (0 != (tk->flags & TRACKER_AT_END)) {
             tk->flags |= TRACKER_NEED_ITEM_OFFSET;
             return tracker_goto_end_offset(tk, bst);
@@ -3312,7 +3312,7 @@ tracker_get_item_offset_internal(struct tracker *tk, int64_t *item_offsetp,
     bitpunch_status_t bt_ret;
 
     DBG_TRACKER_DUMP(tk);
-    if (NULL == tk->dpath) {
+    if (tracker_is_dangling(tk)) {
         return BITPUNCH_NO_ITEM;
     }
     if (-1 == tk->item_offset) {
@@ -3347,7 +3347,7 @@ tracker_check_item(struct tracker *tk,
 
     DBG_TRACKER_DUMP(tk);
     reversed_iter = (0 != (tk->flags & TRACKER_REVERSED));
-    if (NULL != tk->dpath
+    if (!tracker_is_dangling(tk)
         && 0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)
         && -1 == tk->item_offset) {
         bitpunch_status_t bt_ret;
@@ -3381,7 +3381,7 @@ tracker_check_item(struct tracker *tk,
 
     if (-1 != tk->item_size) {
         item_size = tk->item_size;
-    } else if (NULL != tk->dpath) {
+    } else if (!tracker_is_dangling(tk)) {
         item_size = ast_node_get_min_span_size(tk->dpath->item);
     } else {
         item_size = 0;
@@ -3476,7 +3476,7 @@ tracker_goto_next_item_internal(struct tracker *tk,
     if (0 != (tk->flags & TRACKER_AT_END)) {
         return BITPUNCH_NO_ITEM;
     }
-    if (NULL == tk->dpath) {
+    if (tracker_is_dangling(tk)) {
         return tracker_goto_first_item_internal(tk, bst);
     }
     return tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_next_item(tk, bst);
@@ -3554,7 +3554,7 @@ tracker_goto_next_item_with_key_internal(struct tracker *tk,
                                          struct browse_state *bst)
 {
     DBG_TRACKER_DUMP(tk);
-    if (NULL == tk->dpath) {
+    if (tracker_is_dangling(tk)) {
         return tracker_goto_nth_item_with_key_internal(tk, item_key, 0, bst);
     }
     return tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_next_item_with_key(
@@ -3917,7 +3917,7 @@ tracker_return_from_slice(struct tracker *tk,
 
     slice_box = tk->box;
     tk->box = tk->box->parent_box;
-    if (NULL != tk->dpath) {
+    if (!tracker_is_dangling(tk)) {
         if (-1 != slice_box->track_path.u.array.index) {
             tk->cur.u.array.index +=
                 slice_box->track_path.u.array.index;
@@ -4119,7 +4119,7 @@ tracker_get_abs_dpath(const struct tracker *tk,
     int n_out;
 
     n_out = box_get_abs_dpath(tk->box, dpath_expr_buf, buf_size);
-    if (NULL == tk->dpath) {
+    if (tracker_is_dangling(tk)) {
         return n_out;
     }
     if (n_out < buf_size) {
@@ -4204,7 +4204,7 @@ tracker_compute_item_size(struct tracker *tk,
         DBG_TRACKER_CHECK_STATE(tk);
         return BITPUNCH_OK;
     }
-    if (NULL == tk->dpath) {
+    if (tracker_is_dangling(tk)) {
         return BITPUNCH_NO_ITEM;
     }
     assert(ast_node_is_item(tk->dpath->item));
@@ -4225,7 +4225,7 @@ tracker_get_item_size_internal(struct tracker *tk, int64_t *item_sizep,
     bitpunch_status_t bt_ret;
 
     DBG_TRACKER_DUMP(tk);
-    if (NULL == tk->dpath) {
+    if (tracker_is_dangling(tk)) {
         return BITPUNCH_NO_ITEM;
     }
     if (0 == (tk->dpath->item->ndat->u.item.flags
@@ -4281,7 +4281,7 @@ tracker_get_item_key_internal(struct tracker *tk,
                               struct browse_state *bst)
 {
     DBG_TRACKER_DUMP(tk);
-    if (NULL == tk->dpath) {
+    if (tracker_is_dangling(tk)) {
         return BITPUNCH_NO_ITEM;
     }
     return tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.get_item_key(
@@ -4295,7 +4295,7 @@ tracker_get_item_key_multi_internal(struct tracker *tk,
                                     struct browse_state *bst)
 {
     DBG_TRACKER_DUMP(tk);
-    if (NULL == tk->dpath) {
+    if (tracker_is_dangling(tk)) {
         return BITPUNCH_NO_ITEM;
     }
     return tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.get_item_key(
@@ -4422,7 +4422,7 @@ tracker_reverse_direction_internal(struct tracker *tk,
 {
     bitpunch_status_t bt_ret;
 
-    if (NULL != tk->dpath
+    if (!tracker_is_dangling(tk)
         && 0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
         if (-1 == tk->item_size) {
             bt_ret = tracker_compute_item_location(tk, bst);
@@ -4635,7 +4635,7 @@ tracker_error_item_out_of_bounds(struct tracker *tk,
                  "item spans [%"PRIi64"..%"PRIi64"[",
                  tk->item_offset, tk->item_offset + tk->item_size);
         out_of_bounds_offset = tk->item_offset + tk->item_size;
-    } else if (NULL != tk->dpath) {
+    } else if (!tracker_is_dangling(tk)) {
         snprintf(item_span_msg, sizeof (item_span_msg),
                  "item spans [%"PRIi64"..[",
                  tk->item_offset);
@@ -6270,7 +6270,7 @@ tracker_goto_nth_item__array_slack_dynamic_item_size(
         tracker_goto_mark_internal(xtk, item_dpath, mark, bst);
     } else {
         tracker_goto_last_cached_item_internal(xtk, bst);
-        if (NULL == xtk->dpath) {
+        if (tracker_is_dangling(xtk)) {
             bt_ret = tracker_goto_next_item_internal(xtk, bst);
             if (BITPUNCH_OK != bt_ret) {
                 tracker_delete(xtk);
