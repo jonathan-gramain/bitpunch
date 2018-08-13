@@ -83,7 +83,7 @@ expr_dpath_is_complex_type(expr_dpath_t dpath)
 {
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        return dpath_is_complex_type(dpath.item.tk->dpath);
+        return dpath_is_complex_type(&dpath.item.tk->dpath);
     case EXPR_DPATH_TYPE_CONTAINER:
         return dpath_is_complex_type(&dpath.container.box->dpath);
     default:
@@ -2329,7 +2329,7 @@ tracker_item_to_deep_PyObject(DataTreeObject *dtree, struct tracker *tk)
         Py_INCREF(Py_None);
         return Py_None;
     }
-    complex_type = dpath_is_complex_type(tk->dpath);
+    complex_type = dpath_is_complex_type(&tk->dpath);
     if (complex_type) {
         bt_ret = tracker_get_filtered_item_box(tk, &filtered_box, &tk_err);
         if (BITPUNCH_OK == bt_ret) {

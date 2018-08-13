@@ -35,6 +35,6 @@
 static inline int
 tracker_is_dangling(const struct tracker *tk)
 {
-    return NULL == tk->dpath;
+    return NULL == tk->dpath.filter;
 }
 

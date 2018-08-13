@@ -189,7 +189,7 @@ struct tracker_error;
 struct tracker {
     struct box *box;         /**< container box */
 
-    const struct dpath_node *dpath; /**< tracked item dpath */
+    struct dpath_node dpath; /**< tracked item dpath */
 
     int64_t item_offset;     /**< current item's absolute byte offset
                               * in file data (-1 if unset) */
