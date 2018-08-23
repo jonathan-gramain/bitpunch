@@ -919,14 +919,6 @@ box_check_start_offset(struct box *box, int64_t start_offset,
         assert(0);
     }
     return BITPUNCH_OK;
-
-    if (start_offset < box->start_offset_used) {
-        return box_error_out_of_bounds(box, NULL,
-                                       BOX_START_OFFSET_USED,
-                                       start_offset,
-                                       BOX_START_OFFSET_USED, bst);
-    }
-    return BITPUNCH_OK;
 }
 
 
