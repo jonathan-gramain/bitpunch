@@ -3489,7 +3489,9 @@ tracker_goto_nth_item_internal(struct tracker *tk, int64_t index,
 {
     DBG_TRACKER_DUMP(tk);
     if (index < 0) {
-        return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
+        return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst,
+                             "array index cannot be negative (got %ld)",
+                             index);
     }
     return tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_nth_item(tk, index, bst);
 }
@@ -3502,7 +3504,9 @@ tracker_goto_nth_position_internal(struct tracker *tk, int64_t index,
 
     DBG_TRACKER_DUMP(tk);
     if (index < 0) {
-        return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
+        return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst,
+                             "array index cannot be negative (got %ld)",
+                             index);
     }
     bt_ret = tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_nth_item(tk, index, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
@@ -3527,7 +3531,9 @@ tracker_goto_named_item_internal(struct tracker *tk, const char *name,
 {
     DBG_TRACKER_DUMP(tk);
     if (NULL == tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_named_item) {
-        return tracker_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst, NULL);
+        return tracker_error(
+            BITPUNCH_NOT_IMPLEMENTED, tk, tk->box->dpath.item, bst,
+            "goto_named_item() backend not implemented by filter");
     }
     return tk->box->dpath.item->ndat->u.rexpr_filter.f_instance->b_tk.goto_named_item(tk, name, bst);
 }
