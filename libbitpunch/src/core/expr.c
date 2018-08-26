@@ -1151,16 +1151,19 @@ expr_value_cmp(expr_value_t value1, expr_value_t value2)
 }
 
 static bitpunch_status_t
-expr_evaluate_dpath_anchor_common(struct ast_node_hdl *anchor_expr,
-                                  const struct ast_node_hdl *anchor_filter,
+expr_evaluate_dpath_anchor_common(struct ast_node_hdl *expr,
                                   struct box *scope,
                                   expr_dpath_t *dpathp,
                                   struct browse_state *bst)
 {
+    struct ast_node_hdl *anchor_expr;
+    struct ast_node_hdl *anchor_filter;
     expr_dpath_t anchor_dpath;
     bitpunch_status_t bt_ret;
     struct box *anchor_box;
 
+    anchor_expr = expr->ndat->u.rexpr_member_common.anchor_expr;
+    anchor_filter = expr->ndat->u.rexpr_member_common.anchor_filter;
     if (NULL != anchor_expr) {
         bt_ret = expr_evaluate_dpath_internal(anchor_expr, scope,
                                               &anchor_dpath, bst);
@@ -1203,19 +1206,14 @@ expr_evaluate_named_expr_internal(
     struct box **member_scopep,
     struct browse_state *bst)
 {
-    struct ast_node_hdl *anchor_expr;
-    struct ast_node_hdl *anchor_filter;
     const struct named_expr *named_expr;
     bitpunch_status_t bt_ret;
     expr_dpath_t anchor_dpath;
     int cond_eval;
     struct box *member_scope;
 
-    anchor_expr = expr->ndat->u.rexpr_member_common.anchor_expr;
-    anchor_filter = expr->ndat->u.rexpr_member_common.anchor_filter;
     named_expr = expr->ndat->u.rexpr_named_expr.named_expr;
-    bt_ret = expr_evaluate_dpath_anchor_common(anchor_expr, anchor_filter,
-                                               scope, &anchor_dpath, bst);
+    bt_ret = expr_evaluate_dpath_anchor_common(expr, scope, &anchor_dpath, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -1611,16 +1609,11 @@ expr_evaluate_field(struct ast_node_hdl *expr, struct box *scope,
                     expr_value_t *valuep, expr_dpath_t *dpathp,
                     struct browse_state *bst)
 {
-    struct ast_node_hdl *anchor_expr;
-    struct ast_node_hdl *anchor_filter;
     bitpunch_status_t bt_ret;
     expr_dpath_t anchor_dpath;
     struct box *anchor_box;
 
-    anchor_expr = expr->ndat->u.rexpr_member_common.anchor_expr;
-    anchor_filter = expr->ndat->u.rexpr_member_common.anchor_filter;
-    bt_ret = expr_evaluate_dpath_anchor_common(anchor_expr, anchor_filter,
-                                               scope, &anchor_dpath, bst);
+    bt_ret = expr_evaluate_dpath_anchor_common(expr, scope, &anchor_dpath, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
