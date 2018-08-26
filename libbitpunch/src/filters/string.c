@@ -37,6 +37,13 @@
 #include "core/filter.h"
 
 static bitpunch_status_t
+string_box_init(struct box *box)
+{
+    box->u.array_generic.n_items = -1;
+    return BITPUNCH_OK;
+}
+
+static bitpunch_status_t
 string_read_no_boundary(
     struct ast_node_hdl *filter,
     struct box *scope,
@@ -62,6 +69,7 @@ string_build_no_boundary(void)
     struct filter_instance *f_instance;
 
     f_instance = new_safe(struct filter_instance);
+    f_instance->b_box.init = string_box_init;
     /* no get_size_func(): keep default byte array size */
     f_instance->read_func = string_read_no_boundary;
     return f_instance;
@@ -122,6 +130,7 @@ string_build_single_char_constant_boundary(char boundary)
     struct string_single_char_constant_boundary *f_instance;
                     
     f_instance = new_safe(struct string_single_char_constant_boundary);
+    f_instance->p.b_box.init = string_box_init;
     f_instance->boundary = boundary;
     f_instance->p.get_size_func = string_get_size_single_char_constant_boundary;
     f_instance->p.read_func = string_read_single_char_constant_boundary;
@@ -201,6 +210,7 @@ string_build_generic(void)
     struct filter_instance *f_instance;
                     
     f_instance = new_safe(struct filter_instance);
+    f_instance->b_box.init = string_box_init;
     f_instance->get_size_func = string_get_size_generic;
     f_instance->read_func = string_read_generic;
     return f_instance;

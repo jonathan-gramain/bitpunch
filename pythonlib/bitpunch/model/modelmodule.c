@@ -1827,7 +1827,7 @@ DataItem_eval_attr(DataItemObject *self, const char *attr_str,
         return NULL;
     }
     bt_ret = filter_evaluate_identifier(
-        self->dpath.container.box->dpath.item, self->dpath.container.box,
+        self->dpath.container.box->dpath.filter, self->dpath.container.box,
         STATEMENT_TYPE_FIELD |
         STATEMENT_TYPE_NAMED_EXPR |
         STATEMENT_TYPE_ATTRIBUTE, attr_str,
@@ -2126,7 +2126,7 @@ box_to_native_PyObject(struct DataTreeObject *dtree, struct box *box)
     expr_value_t value_eval;
     struct tracker_error *tk_err = NULL;
 
-    assert(ast_node_is_item(box->dpath.item));
+    assert(ast_node_is_item(box->dpath.filter));
 
     bt_ret = box_read_value(box, &value_eval, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
@@ -2380,7 +2380,7 @@ box_to_deep_PyObject(struct DataTreeObject *dtree, struct box *box)
     default:
         PyErr_Format(PyExc_ValueError,
                      "Cannot convert container type '%s' to python object",
-                     ast_node_type_str(box->dpath.item->ndat->type));
+                     ast_node_type_str(box->dpath.filter->ndat->type));
         return NULL;
     }
     /*NOT REACHED*/
@@ -2429,7 +2429,7 @@ Tracker_set_default_iter_mode(TrackerObject *self)
 {
     struct ast_node_hdl *node;
 
-    node = self->tk->box->dpath.item;
+    node = self->tk->box->dpath.filter;
     switch (node->ndat->type) {
     case AST_NODE_TYPE_COMPOSITE:
         self->iter_mode = TRACKER_ITER_FIELD_NAMES;
@@ -2452,7 +2452,7 @@ Tracker_set_default_iter_mode(TrackerObject *self)
     default:
         PyErr_Format(PyExc_TypeError,
                      "container of type '%s' cannot be iterated",
-                     ast_node_type_str(self->tk->box->dpath.item->ndat->type));
+                     ast_node_type_str(self->tk->box->dpath.filter->ndat->type));
         return -1;
     }
     self->current_iter_mode = self->iter_mode;
@@ -3129,7 +3129,7 @@ Tracker_iter(TrackerObject *self)
     self->current_iter_mode = self->iter_mode;
     if (TRACKER_ITER_ATTRIBUTE_NAMES == self->iter_mode) {
         self->attr_iter = filter_iter_statements(
-            self->tk->box->dpath.item, self->tk->box,
+            self->tk->box->dpath.filter, self->tk->box,
             STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_ATTRIBUTE, NULL);
     }
     return (PyObject *)self;
@@ -3145,7 +3145,7 @@ Tracker_iternext(TrackerObject *self)
                 if (TRACKER_ITER_MEMBER_NAMES == self->current_iter_mode) {
                     self->current_iter_mode = TRACKER_ITER_ATTRIBUTE_NAMES;
                     self->attr_iter = filter_iter_statements(
-                        self->tk->box->dpath.item, self->tk->box,
+                        self->tk->box->dpath.filter, self->tk->box,
                         STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_ATTRIBUTE,
                         NULL);
                 } else {

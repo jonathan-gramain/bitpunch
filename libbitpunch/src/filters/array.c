@@ -76,7 +76,7 @@ compile_type_array(struct ast_node_hdl *filter,
     assert(NULL != array->item_type.filter);
     // if an array of unfiltered bytes, it's a byte array
     if (AST_NODE_TYPE_BYTE == array->item_type.item->ndat->type
-        && AST_NODE_TYPE_REXPR_ITEM == array->item_type.filter->ndat->type) {
+        && AST_NODE_TYPE_BYTE == array->item_type.filter->ndat->type) {
         filter->ndat->type = AST_NODE_TYPE_BYTE_ARRAY;
     }
     return 0;
@@ -155,60 +155,18 @@ compile_span_size_array(struct ast_node_hdl *item,
     }
     if (0 == (item_type->flags & ASTFLAG_CONTAINS_LAST_ATTR)) {
         if (NULL == item_count_expr) {
-            // because the array items can take more than one byte of
-            // space, they may not allow to fill the whole slack
-            // space, so we don't set ITEMFLAG_FILLS_SLACK (meaning
-            // used size may be smaller than max span size)
             item->ndat->u.item.flags |= (ITEMFLAG_USES_SLACK |
-                                          ITEMFLAG_SPREADS_SLACK);
+                                         ITEMFLAG_SPREADS_SLACK);
+            // array items taking more than one byte of space may not
+            // allow to fill the whole slack space, so we don't set
+            // ITEMFLAG_FILLS_SLACK (meaning used size may be smaller
+            // than max span size)
+            // FIXME rework trailer / RALIGN handling completely
+            if (AST_NODE_TYPE_BYTE == item_type->ndat->type) {
+                item->ndat->u.item.flags |= ITEMFLAG_FILLS_SLACK;
+            }
         }
     }
-    return 0;
-}
-
-static int
-compile_span_size_byte_array(struct ast_node_hdl *item,
-                             struct filter_instance_array *array,
-                             struct compile_ctx *ctx)
-{
-    struct ast_node_hdl *size_expr;
-    int64_t min_span_size;
-
-    size_expr = array->item_count;
-    if (NULL != size_expr) {
-        if (-1 == compile_expr(size_expr, ctx, TRUE)) {
-            return -1;
-        }
-        assert(ast_node_is_rexpr(size_expr));
-        if (0 == (EXPR_VALUE_TYPE_INTEGER
-                  & size_expr->ndat->u.rexpr.value_type_mask)) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &size_expr->loc,
-                "invalid byte array size type: expect an integer, "
-                "got '%s'",
-                expr_value_type_str(size_expr->ndat->u.rexpr.value_type_mask));
-            return -1;
-        }
-    }
-    if (NULL != size_expr
-        && AST_NODE_TYPE_REXPR_NATIVE == size_expr->ndat->type) {
-        min_span_size = size_expr->ndat->u.rexpr_native.value.integer;
-    } else {
-        min_span_size = 0;
-        item->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_DYNAMIC |
-                                     ITEMFLAG_IS_USED_SIZE_DYNAMIC);
-    }
-    if (NULL == size_expr) {
-        // for now we don't know if there's a filter defining span
-        // size on top of the byte array which limits the amount of
-        // slack used: assume for now it will use the entire space;
-        // compilation of a size-defining filter may later adjust the
-        // slack flags
-        item->ndat->u.item.flags |= (ITEMFLAG_USES_SLACK |
-                                     ITEMFLAG_SPREADS_SLACK |
-                                     ITEMFLAG_FILLS_SLACK);
-    }
-    item->ndat->u.item.min_span_size = min_span_size;
     return 0;
 }
 
@@ -225,21 +183,9 @@ array_filter_instance_compile(struct ast_node_hdl *filter,
         && -1 == compile_type_array(filter, array, ctx)) {
         return -1;
     }
-    if (0 != (tags & COMPILE_TAG_NODE_SPAN_SIZE)) {
-        switch (filter->ndat->type) {
-        case AST_NODE_TYPE_ARRAY:
-            if (-1 == compile_span_size_array(filter, array, ctx)) {
-                return -1;
-            }
-            break ;
-        case AST_NODE_TYPE_BYTE_ARRAY:
-            if (-1 == compile_span_size_byte_array(filter, array, ctx)) {
-                return -1;
-            }
-            break ;
-        default:
-            assert(0);
-        }
+    if (0 != (tags & COMPILE_TAG_NODE_SPAN_SIZE)
+        && -1 == compile_span_size_array(filter, array, ctx)) {
+        return -1;
     }
     return 0;
 }

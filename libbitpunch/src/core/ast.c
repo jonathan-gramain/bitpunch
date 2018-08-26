@@ -944,7 +944,7 @@ resolve_identifiers_expr_file(
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_FILE;
     // const-cast
-    compiled_type->u.rexpr_item.item_type =
+    compiled_type->u.rexpr_file.item_type =
         (struct ast_node_hdl *)toplevel_refs->cur_filter;
     expr->ndat = compiled_type;
     return 0;
@@ -968,7 +968,7 @@ resolve_identifiers_expr_self(
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_SELF;
     // const-cast
-    compiled_type->u.rexpr_item.item_type =
+    compiled_type->u.rexpr_self.item_type =
         (struct ast_node_hdl *)visible_refs->cur_filter;
     expr->ndat = compiled_type;
     return 0;
@@ -1223,16 +1223,16 @@ resolve_user_expr_scoped_recur(struct ast_node_hdl *expr,
     struct list_of_visible_refs visible_refs;
 
     while (NULL != cur_scope
-           && !ast_node_is_rexpr_filter(cur_scope->dpath.item)) {
+           && AST_NODE_TYPE_COMPOSITE != cur_scope->dpath.filter->ndat->type) {
         cur_scope = cur_scope->parent_box;
     }
     if (NULL == cur_scope) {
         return resolve_user_expr_internal(expr, inmost_refs);
     }
     visible_refs.outer_refs = NULL;
-    visible_refs.cur_filter = cur_scope->dpath.item;
+    visible_refs.cur_filter = cur_scope->dpath.filter;
     visible_refs.cur_lists =
-        &cur_scope->dpath.item->ndat->u.rexpr_filter.filter_def->block_stmt_list;
+        &cur_scope->dpath.filter->ndat->u.rexpr_filter.filter_def->block_stmt_list;
     if (NULL != inner_refs) {
         inner_refs->outer_refs = &visible_refs;
     }
@@ -1379,31 +1379,6 @@ output_dep_graph_links(struct compile_ctx *ctx,
     }
 }
 #endif
-
-static struct ast_node_data *
-ast_node_data_new_rexpr_item(struct ast_node_hdl *item)
-{
-    struct ast_node_data *ndat;
-
-    ndat = new_safe(struct ast_node_data);
-    ndat->type = AST_NODE_TYPE_REXPR_ITEM;
-    ndat->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_BYTES;
-    ndat->u.rexpr.dpath_type_mask = (EXPR_DPATH_TYPE_ITEM |
-                                     EXPR_DPATH_TYPE_CONTAINER);
-    ndat->u.rexpr_item.item_type = item;
-    return ndat;
-}
-
-static struct ast_node_hdl *
-ast_node_new_rexpr_item(struct ast_node_hdl *item, struct compile_ctx *ctx)
-{
-    struct ast_node_hdl *node;
-
-    node = ast_node_hdl_new();
-    node->loc = item->loc;
-    node->ndat = ast_node_data_new_rexpr_item(item);
-    return node;
-}
 
 int
 compile_node(struct ast_node_hdl *node,
@@ -2001,12 +1976,6 @@ compile_expr_operator_filter(
         filter->ndat->u.rexpr.value_type_mask;
     compiled_type->u.rexpr.dpath_type_mask = (EXPR_DPATH_TYPE_ITEM |
                                               EXPR_DPATH_TYPE_CONTAINER);
-    if (ast_node_is_item(target)) {
-        target = ast_node_new_rexpr_item(target, ctx);
-    }
-    if (ast_node_is_item(filter)) {
-        filter = ast_node_new_rexpr_item(filter, ctx);
-    }
     compiled_type->u.rexpr_op_filter.target = target;
     compiled_type->u.rexpr_op_filter.filter_expr = filter;
     node->ndat = compiled_type;
@@ -2323,47 +2292,48 @@ compile_expr_operator_sizeof(struct ast_node_hdl *expr,
                              enum resolve_expect_mask expect_mask)
 {
     struct ast_node_data *compiled_type;
-    struct ast_node_hdl *operand;
+    struct op op;
     struct ast_node_hdl *target;
-    struct ast_node_hdl *target_item;
 
-    operand = expr->ndat->u.op.operands[0];
-    if (-1 == compile_node(operand, ctx,
+    op = expr->ndat->u.op;
+    if (-1 == compile_node(op.operands[0], ctx,
                            COMPILE_TAG_NODE_TYPE |
                            COMPILE_TAG_NODE_SPAN_SIZE, 0u,
                            RESOLVE_EXPECT_TYPE |
                            RESOLVE_EXPECT_DPATH_EXPRESSION)) {
         return -1;
     }
+    target = ast_node_get_named_expr_target(op.operands[0]);
+    if (ast_node_is_filter(target)) {
+        if (0 != (target->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
+                "invalid use of sizeof operator on dynamic-sized type\n"
+                "(use a dpath expression if size is dynamic)");
+            return -1;
+        }
+        compiled_type = new_safe(struct ast_node_data);
+        compiled_type->type = AST_NODE_TYPE_REXPR_NATIVE;
+        compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_INTEGER;
+        compiled_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_NONE;
+        compiled_type->u.rexpr_native.value =
+            expr_value_as_integer(target->ndat->u.item.min_span_size);
+        expr->ndat = compiled_type;
+        return 0;
+    }
+    if (target->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_UNSET ||
+        target->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
+        semantic_error(
+            SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
+            "invalid use of sizeof operator on non-dpath operand");
+        return -1;
+    }
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_OP_SIZEOF;
     compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_INTEGER;
     compiled_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_NONE;
-    compiled_type->u.rexpr_op.op = expr->ndat->u.op;
+    compiled_type->u.rexpr_op.op = op;
     expr->ndat = compiled_type;
-
-    target = ast_node_get_named_expr_target(operand);
-    if (AST_NODE_TYPE_REXPR_ITEM == target->ndat->type) {
-        // XXX support named expr polymorphism
-        target_item = ast_node_get_target_item(target);
-        if (0 != (target_item->ndat->u.item.flags
-                  & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                "invalid use of sizeof operator on dynamic-sized type name\n"
-                "(use a dpath expression for computing size dynamically)");
-            return -1;
-        }
-        expr->ndat->u.rexpr_op.op.operands[0] = target_item;
-    } else {
-        if (target->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                "invalid use of sizeof operator on value-type operand");
-            return -1;
-        }
-        expr->ndat->u.rexpr_op.op.operands[0] = operand;
-    }
     return 0;
 }
 
@@ -2378,25 +2348,24 @@ compile_expr_operator_addrof(struct ast_node_hdl *expr,
     struct ast_node_data *compiled_type;
     struct op op;
 
-    if (-1 == compile_node(expr->ndat->u.op.operands[0], ctx,
+    op = expr->ndat->u.op;
+    if (-1 == compile_node(op.operands[0], ctx,
                            COMPILE_TAG_NODE_TYPE, 0u,
                            RESOLVE_EXPECT_DPATH_EXPRESSION)) {
         return -1;
     }
-    compiled_type = new_safe(struct ast_node_data);
-    compiled_type->type = AST_NODE_TYPE_REXPR_OP_ADDROF;
-    compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_INTEGER;
-    compiled_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_NONE;
-    compiled_type->u.rexpr_op.op = expr->ndat->u.op;
-    expr->ndat = compiled_type;
-
-    op = expr->ndat->u.rexpr_op.op;
     if (op.operands[0]->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
             "invalid use of addrof (&) operator on value-type operand");
         return -1;
     }
+    compiled_type = new_safe(struct ast_node_data);
+    compiled_type->type = AST_NODE_TYPE_REXPR_OP_ADDROF;
+    compiled_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_INTEGER;
+    compiled_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_NONE;
+    compiled_type->u.rexpr_op.op = op;
+    expr->ndat = compiled_type;
     return 0;
 }
 
@@ -2480,10 +2449,6 @@ compile_rexpr_named_expr(struct ast_node_hdl *expr,
     target = named_expr->expr;
     if (-1 == compile_expr(target, ctx, TRUE)) {
         return -1;
-    }
-    if (ast_node_is_item(target)) {
-        named_expr->expr = ast_node_new_rexpr_item(target, ctx);
-        target = named_expr->expr;
     }
     expr->ndat->u.rexpr.value_type_mask =
         expr_value_type_mask_from_node(target);
@@ -2603,9 +2568,10 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
                            RESOLVE_EXPECT_DPATH_EXPRESSION)) {
         return -1;
     }
+    //anchor_expr = ast_node_get_named_expr_target(op->operands[0]);
     anchor_expr = op->operands[0];
-    anchor_filter = ast_node_get_as_type(anchor_expr);
     anchor_target = ast_node_get_named_expr_target(anchor_expr);
+    anchor_filter = ast_node_get_as_type(anchor_expr);
     if (NULL != anchor_filter) {
         if (!ast_node_is_rexpr_filter(anchor_filter)) {
             semantic_error(
@@ -2637,6 +2603,31 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
         }
         if (n_visible_statements == 1) {
             stmt_spec = &visible_statements[0];
+            if (ast_node_is_item(anchor_target)) {
+                // TODO for full type property support (like
+                // Type.field) it may be necessary to introduce new
+                // compiled types, for now compile as the target type
+                // directly, for sizeof(Type.field) it's enough
+                switch (stmt_spec->stmt_type) {
+                case STATEMENT_TYPE_NAMED_EXPR:
+                case STATEMENT_TYPE_ATTRIBUTE:
+                    resolved_type = ast_node_get_as_type(
+                        ((struct named_expr *)stmt_spec->nstmt)->expr)->ndat;
+                    free(visible_statements);
+                    expr->ndat = resolved_type;
+                    break ;
+                case STATEMENT_TYPE_FIELD:
+                    resolved_type = ast_node_get_as_type(
+                        ((struct field *)stmt_spec->nstmt)->dpath.filter)->ndat;
+                    free(visible_statements);
+                    expr->ndat = resolved_type;
+                    break ;
+                default:
+                    assert(0);
+                }
+                return compile_node_type(expr, ctx, (RESOLVE_EXPECT_TYPE |
+                                                     RESOLVE_EXPECT_FILTER));
+            }
             resolved_type = new_safe(struct ast_node_data);
             resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
             resolved_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
@@ -2656,16 +2647,8 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
                 free(visible_statements);
                 return compile_rexpr_named_expr(expr, ctx);
             case STATEMENT_TYPE_FIELD:
-                // this is for supporting type-as-expression
-                // e.g. sizeof(Type.field)
-                //
-                // there is probably a cleaner way to support
-                // type-as-expressions for future work
-                if (AST_NODE_TYPE_REXPR_ITEM == anchor_target->ndat->type) {
-                    expr->ndat = ast_node_data_new_rexpr_item(
-                        ((struct field *)stmt_spec->nstmt)->dpath.item);
-                    return 0;
-                }
+                // FIXME support static sizeof(Type) form (used to be
+                // supported via REXPR_ITEM)
                 resolved_type->type = AST_NODE_TYPE_REXPR_FIELD;
                 resolved_type->u.rexpr_field.field =
                     (struct field *)stmt_spec->nstmt;
@@ -2678,6 +2661,12 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
         // n_visible_statements > 1 => polymorphic member
     } else {
         // dynamic anchor => polymorphic member
+        if (ast_node_is_item(anchor_expr)) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &member->loc,
+                "polymorphic members of types not supported");
+            return -1;
+        }
         visible_statements = NULL;
         n_visible_statements = 0;
     }
@@ -2824,16 +2813,6 @@ compile_span_size_byte(struct ast_node_hdl *byte, struct compile_ctx *ctx)
 }
 
 
-static int
-compile_span_size_rexpr_item(struct ast_node_hdl *filter,
-                             struct compile_ctx *ctx)
-{
-    return compile_node(filter->ndat->u.rexpr_item.item_type, ctx,
-                        COMPILE_TAG_NODE_TYPE |
-                        COMPILE_TAG_NODE_SPAN_SIZE, 0u,
-                        RESOLVE_EXPECT_TYPE);
-}
-
 enum filter_defining_size_status {
     FILTER_ALWAYS_DEFINES_SIZE,
     FILTER_CONDITIONALLY_DEFINES_SIZE,
@@ -2914,48 +2893,47 @@ compile_span_size_rexpr_op_filter(struct ast_node_hdl *filter,
     if (!compile_continue(ctx)) {
         return -1;
     }
-    if (AST_NODE_TYPE_REXPR_ITEM == target->ndat->type) {
-        target_item = target->ndat->u.rexpr_item.item_type;
-        if (0 != (target_item->ndat->u.item.flags & ITEMFLAG_SPREADS_SLACK)) {
-            switch (get_filter_defining_size_status(filter_expr)) {
-            case FILTER_ALWAYS_DEFINES_SIZE:
-                // this filter always defines the span size of its
-                // item, so the item is always using the
-                // filter-defined space, nevertheless it claims some
-                // slack space and needs to know how much is available
-                // so keeps ITEMFLAG_USES_SLACK flag
+    target_item = ast_node_get_target_item(target);
+    if (NULL != target_item
+        && 0 != (target_item->ndat->u.item.flags & ITEMFLAG_SPREADS_SLACK)) {
+        switch (get_filter_defining_size_status(filter_expr)) {
+        case FILTER_ALWAYS_DEFINES_SIZE:
+            // this filter always defines the span size of its
+            // item, so the item is always using the
+            // filter-defined space, nevertheless it claims some
+            // slack space and needs to know how much is available
+            // so keeps ITEMFLAG_USES_SLACK flag
+            target_item->ndat->u.item.flags
+                &= ~(ITEMFLAG_SPREADS_SLACK |
+                     ITEMFLAG_CONDITIONALLY_SPREADS_SLACK |
+                     ITEMFLAG_FILLS_SLACK |
+                     ITEMFLAG_CONDITIONALLY_FILLS_SLACK);
+            break ;
+        case FILTER_CONDITIONALLY_DEFINES_SIZE:
+            // filter defines the span size conditionally, the
+            // target item may or not spread on or fill the slack
+            // space
+            if (0 != (target_item->ndat->u.item.flags
+                      & ITEMFLAG_SPREADS_SLACK)) {
                 target_item->ndat->u.item.flags
-                    &= ~(ITEMFLAG_SPREADS_SLACK |
-                         ITEMFLAG_CONDITIONALLY_SPREADS_SLACK |
-                         ITEMFLAG_FILLS_SLACK |
-                         ITEMFLAG_CONDITIONALLY_FILLS_SLACK);
-                break ;
-            case FILTER_CONDITIONALLY_DEFINES_SIZE:
-                // filter defines the span size conditionally, the
-                // target item may or not spread on or fill the slack
-                // space
-                if (0 != (target_item->ndat->u.item.flags
-                          & ITEMFLAG_SPREADS_SLACK)) {
-                    target_item->ndat->u.item.flags
-                        &= ~ITEMFLAG_SPREADS_SLACK;
-                    target_item->ndat->u.item.flags
-                        |= ITEMFLAG_CONDITIONALLY_SPREADS_SLACK;
-                }
-                if (0 != (target_item->ndat->u.item.flags
-                          & ITEMFLAG_FILLS_SLACK)) {
-                    target_item->ndat->u.item.flags
-                        &= ~ITEMFLAG_FILLS_SLACK;
-                    target_item->ndat->u.item.flags
-                        |= ITEMFLAG_CONDITIONALLY_FILLS_SLACK;
-                }
-                break ;
-            case FILTER_NEVER_DEFINES_SIZE:
-                // keep slack flags as is since filters do not alter
-                // the item spread behavior
-                break ;
-            default:
-                assert(0);
+                    &= ~ITEMFLAG_SPREADS_SLACK;
+                target_item->ndat->u.item.flags
+                    |= ITEMFLAG_CONDITIONALLY_SPREADS_SLACK;
             }
+            if (0 != (target_item->ndat->u.item.flags
+                      & ITEMFLAG_FILLS_SLACK)) {
+                target_item->ndat->u.item.flags
+                    &= ~ITEMFLAG_FILLS_SLACK;
+                target_item->ndat->u.item.flags
+                    |= ITEMFLAG_CONDITIONALLY_FILLS_SLACK;
+            }
+            break ;
+        case FILTER_NEVER_DEFINES_SIZE:
+            // keep slack flags as is since filters do not alter
+            // the item spread behavior
+            break ;
+        default:
+            assert(0);
         }
     }
     return 0;
@@ -2983,8 +2961,6 @@ compile_node_span_size(struct ast_node_hdl *node,
     switch (node->ndat->type) {
     case AST_NODE_TYPE_BYTE:
         return compile_span_size_byte(node, ctx);
-    case AST_NODE_TYPE_REXPR_ITEM:
-        return compile_span_size_rexpr_item(node, ctx);
     case AST_NODE_TYPE_REXPR_OP_FILTER:
         return compile_span_size_rexpr_op_filter(node, ctx);
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
@@ -3112,9 +3088,6 @@ compile_dpath_type(struct dpath_node *node,
         return -1;
     }
     node->item = target_item;
-    if (ast_node_is_item(expr)) {
-        expr = ast_node_new_rexpr_item(expr, ctx);
-    }
     node->filter = expr;
     return 0;
 }
@@ -3186,7 +3159,6 @@ ast_node_is_rexpr(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
     case AST_NODE_TYPE_REXPR_FILTER:
-    case AST_NODE_TYPE_REXPR_ITEM:
         return TRUE;
     default:
         return FALSE;
@@ -3205,7 +3177,6 @@ ast_node_is_rexpr_filter(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_REXPR_OP_FILTER:
     case AST_NODE_TYPE_REXPR_FILTER:
-    case AST_NODE_TYPE_REXPR_ITEM:
         return TRUE;
     default:
         return FALSE;
@@ -3264,10 +3235,10 @@ ast_node_get_target_item(struct ast_node_hdl *node)
             node->ndat->u.rexpr_field.field->dpath.item);
     case AST_NODE_TYPE_REXPR_OP_FILTER:
         return ast_node_get_target_item(node->ndat->u.rexpr_op_filter.target);
-    case AST_NODE_TYPE_REXPR_ITEM:
     case AST_NODE_TYPE_REXPR_FILE:
+        return node->ndat->u.rexpr_file.item_type;
     case AST_NODE_TYPE_REXPR_SELF:
-        return node->ndat->u.rexpr_item.item_type;
+        return node->ndat->u.rexpr_self.item_type;
     case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
         return ast_node_get_target_item(node->ndat->u.rexpr_op.op.operands[0]);
     default:
@@ -3324,8 +3295,9 @@ ast_node_get_target_filter(struct ast_node_hdl *node)
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
+    case AST_NODE_TYPE_ARRAY_SLICE:
+    case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_REXPR_FILTER:
-    case AST_NODE_TYPE_REXPR_ITEM:
         return node;
     default:
         return NULL;
@@ -3438,8 +3410,7 @@ ast_node_is_type(const struct ast_node_hdl *node)
     if (NULL == node) {
         return FALSE;
     }
-    return ast_node_is_item(node)
-        || AST_NODE_TYPE_REXPR_ITEM == node->ndat->type;
+    return ast_node_is_item(node);
 }
 
 
@@ -3450,9 +3421,11 @@ ast_node_is_filter(const struct ast_node_hdl *node)
         return FALSE;
     }
     switch (node->ndat->type) {
+    case AST_NODE_TYPE_COMPOSITE:
+    case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE_ARRAY:
+    case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_REXPR_FILTER:
-    case AST_NODE_TYPE_REXPR_ITEM:
-    case AST_NODE_TYPE_REXPR_OP_FILTER:
         return TRUE;
     default:
         return FALSE;
@@ -3484,10 +3457,11 @@ ast_node_get_as_type__rexpr(const struct ast_node_hdl *expr)
         }
         return ast_node_get_as_type(expr->ndat->u.rexpr_op_filter.target);
 
-    case AST_NODE_TYPE_REXPR_ITEM:
     case AST_NODE_TYPE_REXPR_FILE:
+        return expr->ndat->u.rexpr_file.item_type;
+
     case AST_NODE_TYPE_REXPR_SELF:
-        return expr->ndat->u.rexpr_item.item_type;
+        return expr->ndat->u.rexpr_self.item_type;
 
     case AST_NODE_TYPE_REXPR_FIELD:
         if (NULL == expr->ndat->u.rexpr_field.field->dpath.filter) {
@@ -3549,6 +3523,8 @@ ast_node_get_min_span_size(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
+    // FIXME add REXPR_FILTER when ready
+    // case AST_NODE_TYPE_REXPR_FILTER:
         assert(SPAN_SIZE_UNDEF != node->ndat->u.item.min_span_size);
         return node->ndat->u.item.min_span_size;
     default:
@@ -4086,13 +4062,6 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         }
         break ;
     }
-    case AST_NODE_TYPE_REXPR_ITEM:
-        dump_ast_rexpr(node, out);
-        fprintf(out, "\n%*s\\_ item_type:\n",
-                (depth + 1) * INDENT_N_SPACES, "");
-        fdump_ast_recur(node->ndat->u.rexpr_item.item_type, depth + 2,
-                        visible_refs, out);
-        break ;
     case AST_NODE_TYPE_REXPR_OP_FILTER:
         dump_ast_rexpr(node, out);
         fprintf(out, "\n%*s\\_ target:\n",
@@ -4309,7 +4278,6 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT:
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE:
     case AST_NODE_TYPE_REXPR_OP_FCALL:
-    case AST_NODE_TYPE_REXPR_ITEM:
     case AST_NODE_TYPE_REXPR_OP_FILTER:
         /* intermediate node */
         fprintf(out, "%*s\\_ (%s) ", depth * INDENT_N_SPACES, "",

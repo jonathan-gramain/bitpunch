@@ -44,6 +44,7 @@ extern int tracker_debug_mode;
 #endif
 
 struct box;
+enum filter_kind;
 
 struct index_cache_mark_offset {
     int64_t item_offset;
@@ -308,8 +309,13 @@ bitpunch_status_t
 expr_dpath_get_size(expr_dpath_t dpath,
                     int64_t *dpath_sizep,
                     struct browse_state *bst);
-const struct ast_node_hdl *
-expr_dpath_get_item_node(expr_dpath_t dpath);
+bitpunch_status_t
+expr_dpath_evaluate_filter_type_internal(
+    expr_dpath_t dpath,
+    struct box *scope,
+    enum filter_kind kind,
+    struct ast_node_hdl **filter_typep,
+    struct browse_state *bst);
 int
 expr_dpath_contains_indexed_items(expr_dpath_t dpath);
 const struct ast_node_hdl *
@@ -467,6 +473,11 @@ tracker_get_abs_dpath_alloc(const struct tracker *tk);
 int
 tracker_dump_abs_dpath(const struct tracker *tk, FILE *stream);
 
+
+bitpunch_status_t
+tracker_get_item_filter(struct tracker *tk,
+                        struct ast_node_hdl **item_filterp,
+                        struct tracker_error **errp);
 
 bitpunch_status_t
 tracker_get_item_offset(struct tracker *tk, int64_t *item_offsetp,

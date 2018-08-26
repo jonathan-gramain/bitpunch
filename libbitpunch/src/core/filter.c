@@ -215,6 +215,8 @@ filter_instance_build(struct ast_node_hdl *node,
         return -1;
     }
     ndat->u.rexpr_filter.f_instance = f_instance;
+    // FIXME merge filter item with node item
+    //ndat->u.item = f_instance->item;
     return 0;
 }
 
@@ -233,30 +235,41 @@ filter_class_get_attr(const struct filter_class *filter_cls,
 }
 
 bitpunch_status_t
-filter_instance_read_value(struct ast_node_hdl *expr,
+filter_instance_read_value(struct ast_node_hdl *filter,
                            struct box *scope,
                            const char *item_data,
                            int64_t item_size,
                            expr_value_t *valuep,
                            struct browse_state *bst)
 {
+    struct filter_instance *f_instance;
     bitpunch_status_t bt_ret;
     int64_t span_size;
     int64_t used_size;
     expr_value_t value;
 
     value.type = EXPR_VALUE_TYPE_UNSET;
-    if (NULL == expr->ndat->u.rexpr_filter.f_instance->get_size_func) {
+    f_instance = filter->ndat->u.rexpr_filter.f_instance;
+    if (NULL == f_instance->get_size_func) {
         span_size = item_size;
         bt_ret = BITPUNCH_OK;
     } else {
-        bt_ret = expr->ndat->u.rexpr_filter.f_instance->get_size_func(
-            expr, scope, &span_size, &used_size, item_data, item_size, bst);
+        bt_ret = f_instance->get_size_func(filter, scope,
+                                           &span_size, &used_size,
+                                           item_data, item_size, bst);
     }
     if (BITPUNCH_OK == bt_ret) {
         memset(&value, 0, sizeof(value));
-        bt_ret = expr->ndat->u.rexpr_filter.f_instance->read_func(
-            expr, scope, &value, item_data, span_size, bst);
+        if (NULL != f_instance->read_func) {
+            bt_ret = f_instance->read_func(filter, scope,
+                                           &value, item_data, span_size, bst);
+        } else {
+            value.type = EXPR_VALUE_TYPE_BYTES;
+            value.bytes.buf = item_data;
+            value.bytes.len = span_size;
+            value.bytes.from_box = scope;
+            box_acquire(scope);
+        }
     }
     if (BITPUNCH_OK == bt_ret && NULL != valuep) {
         *valuep = value;

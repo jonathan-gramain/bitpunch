@@ -118,8 +118,8 @@ static void
 dbg_tracker_check_track_path(const struct tracker *tk,
                              int expect_is_set)
 {
-    assert(NULL != tk->box->dpath.item);
-    switch (tk->box->dpath.item->ndat->type) {
+    assert(NULL != tk->box->dpath.filter);
+    switch (tk->box->dpath.filter->ndat->type) {
     case AST_NODE_TYPE_COMPOSITE:
         assert(TRACK_PATH_COMPOSITE == tk->cur.type);
         if (expect_is_set) {
@@ -140,7 +140,7 @@ dbg_tracker_check_track_path(const struct tracker *tk,
         }
         break ;
     default:
-        assert(0);
+        break ;
     }
 }
 

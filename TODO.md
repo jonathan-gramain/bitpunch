@@ -264,3 +264,10 @@ correctly (b_filter is empty)
 
 - integrate "expr_transform_dpath_internal()" into generic operator
   evaluation (eval_fn())
+
+- add test for evaluating nested array slices (involving
+  box_array_slice_get_ancestor_array()
+
+- test index() builtin properly (especially go through
+  expr_dpath_evaluate_filter_type_internal() with CONTAINER dpath
+  type)

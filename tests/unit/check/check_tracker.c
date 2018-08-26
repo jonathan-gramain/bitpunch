@@ -93,6 +93,7 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
     bitpunch_status_t bt_ret;
     int cur_depth;
     int64_t n_items;
+    struct ast_node_hdl *item_filter;
 
     ret = bitpunch_load_binary_file_from_buffer(
         test_spec->contents, test_spec->contents_size, &file_hdl);
@@ -125,8 +126,10 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
                 bt_ret = tracker_read_item_value(tk, &dummy_value, NULL);
                 ck_assert_int_eq(bt_ret, expect_box->read_item_ret);
             }
-            if (ast_node_is_container(tk->dpath.item)
-                && AST_NODE_TYPE_BYTE_ARRAY != tk->dpath.item->ndat->type) {
+            bt_ret = tracker_get_item_filter(tk, &item_filter, NULL);
+            ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+            if (ast_node_is_container(item_filter)
+                && AST_NODE_TYPE_BYTE_ARRAY != item_filter->ndat->type) {
                 /* recurse in container */
                 bt_ret = tracker_enter_item(tk, NULL);
                 ck_assert(bt_ret == BITPUNCH_OK ||
@@ -163,8 +166,6 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
             bt_ret = tracker_return(tk, NULL);
             ck_assert_int_eq(bt_ret, BITPUNCH_NO_ITEM);
         }
-    } else {
-        ck_assert(bt_ret == BITPUNCH_OUT_OF_BOUNDS_ERROR);
     }
     tracker_delete(tk);
 
@@ -210,16 +211,22 @@ check_tracker_browse_sub_trackers_recur(struct tracker *tk,
         if (BITPUNCH_OK != expect_box->read_item_ret) {
             bt_ret = tracker_read_item_value(tk, NULL, NULL);
             ck_assert_int_eq(bt_ret, expect_box->read_item_ret);
-        } else if (ast_node_is_container(tk->dpath.item)
-                   && AST_NODE_TYPE_BYTE_ARRAY != tk->dpath.item->ndat->type) {
-            bt_ret = track_item_contents(tk, &sub_tk, NULL);
+        } else {
+            struct ast_node_hdl *item_filter;
+
+            bt_ret = tracker_get_item_filter(tk, &item_filter, NULL);
             ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-            ck_assert_ptr_ne(sub_tk, NULL);
+            if (ast_node_is_container(item_filter)
+                && AST_NODE_TYPE_BYTE_ARRAY != item_filter->ndat->type) {
+                bt_ret = track_item_contents(tk, &sub_tk, NULL);
+                ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+                ck_assert_ptr_ne(sub_tk, NULL);
         
-            check_tracker_browse_sub_trackers_recur(sub_tk, test_spec,
-                                                    box_idx,
-                                                    only_browse);
-            tracker_delete(sub_tk);
+                check_tracker_browse_sub_trackers_recur(sub_tk, test_spec,
+                                                        box_idx,
+                                                        only_browse);
+                tracker_delete(sub_tk);
+            }
         }
         bt_ret = tracker_goto_next_item(tk, NULL);
         if (BITPUNCH_OK != bt_ret) {
@@ -327,15 +334,21 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
                 if (! only_browse) {
                     check_tracker_item(tk, expect_box);
                 }
-                if (BITPUNCH_OK == expect_box->read_item_ret
-                    && ast_node_is_container(tk->dpath.item)
-                    && AST_NODE_TYPE_BYTE_ARRAY != tk->dpath.item->ndat->type) {
-                    bt_ret = tracker_enter_item(tk, NULL);
-                    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+                if (BITPUNCH_OK == expect_box->read_item_ret) {
+                    struct ast_node_hdl *item_filter;
 
-                    bt_ret = tracker_get_n_items(tk, &n_items, NULL);
+                    bt_ret = tracker_get_item_filter(tk, &item_filter, NULL);
                     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-                    ck_assert_int_eq(n_items, expect_box->n_items);
+                    if (ast_node_is_container(item_filter)
+                        && AST_NODE_TYPE_BYTE_ARRAY
+                        != item_filter->ndat->type) {
+                        bt_ret = tracker_enter_item(tk, NULL);
+                        ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+
+                        bt_ret = tracker_get_n_items(tk, &n_items, NULL);
+                        ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+                        ck_assert_int_eq(n_items, expect_box->n_items);
+                    }
                 }
             }
         }

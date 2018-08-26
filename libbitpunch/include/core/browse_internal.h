@@ -65,6 +65,7 @@ box_new_as_box(struct box *parent_box,
 struct box *
 box_new_filter_box(struct box *parent_box,
                    struct ast_node_hdl *filter,
+                   struct ast_node_hdl *item,
                    struct ast_node_hdl *filter_defining_used_size,
                    struct browse_state *bst);
 bitpunch_status_t
@@ -89,14 +90,6 @@ box_read_value_internal(struct box *box,
                         struct browse_state *bst);
 
 bitpunch_status_t
-tracker_create_item_box_internal(struct tracker *tk,
-                                 struct browse_state *bst);
-
-bitpunch_status_t
-tracker_create_item_box(struct tracker *tk,
-                        struct tracker_error **errp);
-
-bitpunch_status_t
 tracker_get_filtered_dpath_internal(struct tracker *tk,
                                     expr_dpath_t *filtered_dpathp,
                                     struct browse_state *bst);
@@ -104,6 +97,9 @@ bitpunch_status_t
 tracker_get_filtered_dpath(struct tracker *tk,
                            expr_dpath_t *filtered_dpathp,
                            struct tracker_error **errp);
+bitpunch_status_t
+tracker_create_item_box_internal(struct tracker *tk,
+                                 struct browse_state *bst);
 bitpunch_status_t
 tracker_get_filtered_item_box_internal(struct tracker *tk,
                                        struct box **filtered_boxp,
@@ -150,6 +146,10 @@ bitpunch_status_t
 tracker_return_internal(struct tracker *tk,
                         struct browse_state *bst);
 
+bitpunch_status_t
+tracker_get_item_filter_internal(struct tracker *tk,
+                                 struct ast_node_hdl **item_filterp,
+                                 struct browse_state *bst);
 bitpunch_status_t
 tracker_get_item_offset_internal(struct tracker *tk, int64_t *item_offsetp,
                                  struct browse_state *bst);

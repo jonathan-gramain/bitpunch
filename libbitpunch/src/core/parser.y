@@ -289,7 +289,6 @@
             AST_NODE_TYPE_REXPR_OP_ANCESTOR,
             AST_NODE_TYPE_REXPR_OP_FILTER,
             AST_NODE_TYPE_REXPR_FILTER,
-            AST_NODE_TYPE_REXPR_ITEM,
             AST_NODE_TYPE_REXPR_OP_MEMBER,
             AST_NODE_TYPE_REXPR_FIELD,
             AST_NODE_TYPE_REXPR_NAMED_EXPR,
@@ -352,15 +351,13 @@
                 struct ast_node_hdl *filter_expr;
                 struct ast_node_hdl *target;
             } rexpr_op_filter;
-            struct rexpr_item {
+            struct rexpr_file {
                 struct rexpr_filter rexpr_filter; /* inherits */
                 struct ast_node_hdl *item_type;
-            } rexpr_item;
-            struct rexpr_file {
-                struct rexpr_item rexpr_item; /* inherits */
             } rexpr_file;
             struct rexpr_self {
-                struct rexpr_item rexpr_item; /* inherits */
+                struct rexpr_filter rexpr_filter; /* inherits */
+                struct ast_node_hdl *item_type;
             } rexpr_self;
             struct rexpr_native {
                 struct rexpr rexpr; /* inherits */
@@ -1263,7 +1260,6 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_OP_FILTER:
     case AST_NODE_TYPE_REXPR_OP_FILTER: return "operator 'filter'";
     case AST_NODE_TYPE_REXPR_FILTER: return "filter";
-    case AST_NODE_TYPE_REXPR_ITEM: return "item";
     case AST_NODE_TYPE_OP_UPLUS:
     case AST_NODE_TYPE_REXPR_OP_UPLUS: return "unary 'plus'";
     case AST_NODE_TYPE_OP_UMINUS:
