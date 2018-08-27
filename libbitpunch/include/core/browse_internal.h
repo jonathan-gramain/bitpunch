@@ -117,6 +117,10 @@ bitpunch_status_t
 track_item_contents_internal(struct tracker *tk,
                              struct tracker **tkp,
                              struct browse_state *bst);
+bitpunch_status_t
+tracker_compute_item_filter_internal(struct tracker *tk,
+                                     struct browse_state *bst);
+
 struct tracker *
 track_box_contents(struct box *box,
                    struct tracker_error **errp);

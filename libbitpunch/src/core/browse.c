@@ -511,7 +511,7 @@ expr_dpath_evaluate_filter_type_internal(
             if (NULL == dpath.item.tk->dpath.item) {
                 bt_ret = expr_evaluate_filter_type_internal(
                     dpath.item.tk->dpath.filter, dpath.item.tk->box,
-                    kind, &dpath.item.tk->dpath.item, bst);
+                    FILTER_KIND_ITEM, &dpath.item.tk->dpath.item, bst);
                 if (BITPUNCH_OK != bt_ret) {
                     return bt_ret;
                 }
@@ -2840,13 +2840,9 @@ tracker_create_item_box_internal(struct tracker *tk,
             struct dpath_node box_dpath;
 
             dpath_node_reset(&box_dpath);
-            if (NULL == xtk->dpath.item) {
-                bt_ret = expr_evaluate_filter_type_internal(
-                    xtk->dpath.filter, xtk->box, FILTER_KIND_ITEM,
-                    &xtk->dpath.item, bst);
-                if (BITPUNCH_OK != bt_ret) {
-                    goto end;
-                }
+            bt_ret = tracker_compute_item_filter_internal(xtk, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                goto end;
             }
             box_dpath.item = xtk->dpath.item;
             // it's an item box, so the filter is also the item here
@@ -3357,7 +3353,7 @@ track_item_contents_internal(struct tracker *tk,
     return BITPUNCH_OK;
 }
 
-static bitpunch_status_t
+bitpunch_status_t
 tracker_compute_item_filter_internal(struct tracker *tk,
                                      struct browse_state *bst)
 {
