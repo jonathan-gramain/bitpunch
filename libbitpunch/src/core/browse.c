@@ -4375,6 +4375,10 @@ tracker_compute_item_size_internal(struct tracker *tk,
             return bt_ret;
         }
     }
+    bt_ret = tracker_compute_item_filter_internal(tk, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     f_instance = tk->dpath.item->ndat->u.rexpr_filter.f_instance;
     if (NULL == f_instance->b_tk.compute_item_size) {
         return tracker_error(
