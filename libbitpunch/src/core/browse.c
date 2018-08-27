@@ -1285,8 +1285,8 @@ box_setup_overlay_offsets(struct box *box, struct box *parent_box,
     if (-1 == boundary_offset) {
         assert(NULL != parent_box);
         boundary_offset = 0 != (box->flags & BOX_RALIGN) ?
-            box_get_offset(parent_box, BOX_END_OFFSET_USED) :
-            box_get_offset(parent_box, BOX_START_OFFSET_USED);
+            box_get_known_end_offset(parent_box) :
+            box_get_known_start_offset(parent_box);
     }
     box_set_boundary_offset(box, boundary_offset);
 }
