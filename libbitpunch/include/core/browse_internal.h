@@ -85,6 +85,10 @@ bitpunch_status_t
 box_get_slack_size(struct box *box, int64_t *slack_sizep,
                    struct browse_state *bst);
 bitpunch_status_t
+box_get_location_internal(struct box *box,
+                          int64_t *offsetp, int64_t *sizep,
+                          struct browse_state *bst);
+bitpunch_status_t
 box_read_value_internal(struct box *box,
                         expr_value_t *valuep,
                         struct browse_state *bst);

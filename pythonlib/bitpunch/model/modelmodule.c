@@ -1646,7 +1646,7 @@ DataItem_bf_getbuffer(DataItemObject *exporter,
     // TODO merge with Tracker_bf_getbuffer()
     struct tracker *tk;
     struct box *box;
-    int64_t end_offset;
+    expr_dpath_t filtered_dpath;
     int64_t data_offset;
     int64_t data_size;
     bitpunch_status_t bt_ret;
@@ -1657,18 +1657,16 @@ DataItem_bf_getbuffer(DataItemObject *exporter,
     switch (exporter->dpath.type) {
     case EXPR_DPATH_TYPE_CONTAINER:
         box = exporter->dpath.container.box;
-        bt_ret = box_compute_end_offset(box, BOX_END_OFFSET_USED, &end_offset,
-                                        &tk_err);
-        if (BITPUNCH_OK == bt_ret) {
-            data_offset = box_get_start_offset(box);
-            data_size = end_offset - data_offset;
-        }
+        bt_ret = box_get_location(box, &data_offset, &data_size, &tk_err);
         break ;
     case EXPR_DPATH_TYPE_ITEM:
         tk = exporter->dpath.item.tk;
-        // TODO consider using tracker_read_item_raw()
-        bt_ret = tracker_get_item_location(tk, &data_offset, &data_size,
-                                           &tk_err);
+        bt_ret = tracker_get_filtered_dpath(tk, &filtered_dpath, &tk_err);
+        if (BITPUNCH_OK == bt_ret) {
+            bt_ret = expr_dpath_get_location(filtered_dpath,
+                                             &data_offset, &data_size, &tk_err);
+            expr_dpath_destroy(filtered_dpath);
+        }
         box = tk->box;
         break ;
     default:

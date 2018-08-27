@@ -454,9 +454,9 @@ expr_dpath_get_parent_box(expr_dpath_t dpath)
 }
 
 bitpunch_status_t
-expr_dpath_get_size(expr_dpath_t dpath,
-                    int64_t *dpath_sizep,
-                    struct browse_state *bst)
+expr_dpath_get_size_internal(expr_dpath_t dpath,
+                             int64_t *dpath_sizep,
+                             struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
 
@@ -475,6 +475,23 @@ expr_dpath_get_size(expr_dpath_t dpath,
         return bt_ret;
     }
     return BITPUNCH_OK;
+}
+
+bitpunch_status_t
+expr_dpath_get_location_internal(expr_dpath_t dpath,
+                                 int64_t *offsetp, int64_t *sizep,
+                                 struct browse_state *bst)
+{
+    switch (dpath.type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        return tracker_get_item_location_internal(dpath.item.tk,
+                                                  offsetp, sizep, bst);
+    case EXPR_DPATH_TYPE_CONTAINER:
+        return box_get_location_internal(dpath.container.box,
+                                         offsetp, sizep, bst);
+    default:
+        assert(0);
+    }
 }
 
 bitpunch_status_t
@@ -3155,6 +3172,24 @@ box_get_n_items_internal(struct box *box, int64_t *n_itemsp,
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_box_context(
             box, bst, "when computing number of array items");
+    }
+    return bt_ret;
+}
+
+bitpunch_status_t
+box_get_location_internal(struct box *box,
+                          int64_t *offsetp, int64_t *sizep,
+                          struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+
+    bt_ret = box_apply_filter_internal(box, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    bt_ret = box_get_used_size(box, sizep, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        *offsetp = box_get_start_offset(box);
     }
     return bt_ret;
 }
@@ -8399,6 +8434,32 @@ expr_dpath_to_dpath(expr_dpath_t src_dpath,
 }
 
 bitpunch_status_t
+expr_dpath_get_size(expr_dpath_t dpath,
+                    int64_t *dpath_sizep,
+                    struct tracker_error **errp)
+{
+    struct browse_state bst;
+
+    browse_state_init(&bst);
+    return transmit_error(
+        expr_dpath_get_size_internal(dpath, dpath_sizep, &bst),
+        &bst, errp);
+}
+
+bitpunch_status_t
+expr_dpath_get_location(expr_dpath_t dpath,
+                        int64_t *offsetp, int64_t *sizep,
+                        struct tracker_error **errp)
+{
+    struct browse_state bst;
+
+    browse_state_init(&bst);
+    return transmit_error(
+        expr_dpath_get_location_internal(dpath, offsetp, sizep, &bst),
+        &bst, errp);
+}
+
+bitpunch_status_t
 box_get_n_items(struct box *box, int64_t *n_itemsp,
                 struct tracker_error **errp)
 {
@@ -8410,6 +8471,18 @@ box_get_n_items(struct box *box, int64_t *n_itemsp,
         &bst, errp);
 }
 
+bitpunch_status_t
+box_get_location(struct box *box,
+                 int64_t *offsetp, int64_t *sizep,
+                 struct tracker_error **errp)
+{
+    struct browse_state bst;
+
+    browse_state_init(&bst);
+    return transmit_error(
+        box_get_location_internal(box, offsetp, sizep, &bst),
+        &bst, errp);
+}
 
 bitpunch_status_t
 box_read_value(struct box *box,

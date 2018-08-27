@@ -1430,7 +1430,7 @@ expr_evaluate_sizeof(
             if (BITPUNCH_OK != bt_ret) {
                 return bt_ret;
             }
-            bt_ret = expr_dpath_get_size(dpath_eval, &item_size, bst);
+            bt_ret = expr_dpath_get_size_internal(dpath_eval, &item_size, bst);
             expr_dpath_destroy(dpath_eval);
             if (BITPUNCH_OK != bt_ret) {
                 return bt_ret;

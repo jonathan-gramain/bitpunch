@@ -306,9 +306,13 @@ expr_dpath_to_dpath_internal(expr_dpath_t src_dpath,
 struct box *
 expr_dpath_get_parent_box(expr_dpath_t dpath);
 bitpunch_status_t
-expr_dpath_get_size(expr_dpath_t dpath,
-                    int64_t *dpath_sizep,
-                    struct browse_state *bst);
+expr_dpath_get_size_internal(expr_dpath_t dpath,
+                             int64_t *dpath_sizep,
+                             struct browse_state *bst);
+bitpunch_status_t
+expr_dpath_get_location_internal(expr_dpath_t dpath,
+                                 int64_t *offsetp, int64_t *sizep,
+                                 struct browse_state *bst);
 bitpunch_status_t
 expr_dpath_evaluate_filter_type_internal(
     expr_dpath_t dpath,
@@ -386,6 +390,10 @@ track_file(const struct bitpunch_schema_hdl *def_hdl,
 bitpunch_status_t
 box_get_n_items(struct box *box, int64_t *n_itemsp,
                 struct tracker_error **errp);
+bitpunch_status_t
+box_get_location(struct box *box,
+                 int64_t *offsetp, int64_t *sizep,
+                 struct tracker_error **errp);
 bitpunch_status_t
 box_read_value(struct box *box,
                expr_value_t *valuep,
@@ -522,6 +530,16 @@ expr_dpath_to_dpath(expr_dpath_t src_dpath,
                     enum expr_dpath_type dst_type,
                     expr_dpath_t *dst_dpathp,
                     struct tracker_error **errp);
+
+bitpunch_status_t
+expr_dpath_get_size(expr_dpath_t dpath,
+                    int64_t *dpath_sizep,
+                    struct tracker_error **errp);
+
+bitpunch_status_t
+expr_dpath_get_location(expr_dpath_t dpath,
+                        int64_t *offsetp, int64_t *sizep,
+                        struct tracker_error **errp);
 
 /* error reporting */
 
