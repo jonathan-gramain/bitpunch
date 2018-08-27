@@ -270,10 +270,10 @@ struct tracker_error {
 
     union tracker_error_info { /** error-specific additional info */
         struct tracker_error_info_out_of_bounds {
-            enum box_offset_type registered_end_offset_type;
-            int64_t registered_end_offset;
-            enum box_offset_type requested_end_offset_type;
-            int64_t requested_end_offset;
+            enum box_offset_type registered_offset_type;
+            int64_t registered_offset;
+            enum box_offset_type requested_offset_type;
+            int64_t requested_offset;
         } out_of_bounds;
     } u;
 };

@@ -4770,9 +4770,9 @@ node_error(bitpunch_status_t bt_ret,
 bitpunch_status_t
 box_error_out_of_bounds(struct box *box,
                         const struct ast_node_hdl *node,
-                        enum box_offset_type requested_end_offset_type,
-                        int64_t requested_end_offset,
-                        enum box_offset_type registered_end_offset_type,
+                        enum box_offset_type requested_offset_type,
+                        int64_t requested_offset,
+                        enum box_offset_type registered_offset_type,
                         struct browse_state *bst)
 {
     struct tracker_error *tk_err;
@@ -4786,21 +4786,18 @@ box_error_out_of_bounds(struct box *box,
                      "request offset out of box bounds: "
                      "box %s space is [%"PRIi64"..%"PRIi64"[, "
                      "requested %s offset at %"PRIi64"",
-                     box_offset_type_str(registered_end_offset_type),
+                     box_offset_type_str(registered_offset_type),
                      box->start_offset_used,
-                     box_get_offset(box, registered_end_offset_type),
-                     box_offset_type_str(requested_end_offset_type),
-                     requested_end_offset);
+                     box_get_offset(box, registered_offset_type),
+                     box_offset_type_str(requested_offset_type),
+                     requested_offset);
     tk_err = bst->last_error;
     assert(NULL != tk_err);
-    tk_err->u.out_of_bounds.registered_end_offset_type =
-        registered_end_offset_type;
-    tk_err->u.out_of_bounds.registered_end_offset =
-        box_get_offset(box, registered_end_offset_type);
-    tk_err->u.out_of_bounds.requested_end_offset_type =
-        requested_end_offset_type;
-    tk_err->u.out_of_bounds.requested_end_offset =
-        requested_end_offset;
+    tk_err->u.out_of_bounds.registered_offset_type = registered_offset_type;
+    tk_err->u.out_of_bounds.registered_offset =
+        box_get_offset(box, registered_offset_type);
+    tk_err->u.out_of_bounds.requested_offset_type = requested_offset_type;
+    tk_err->u.out_of_bounds.requested_offset = requested_offset;
 
     return BITPUNCH_OUT_OF_BOUNDS_ERROR;
 }
@@ -4844,13 +4841,13 @@ tracker_error_item_out_of_bounds(struct tracker *tk,
         item_span_msg);
     tk_err = bst->last_error;
     assert(NULL != tk_err);
-    tk_err->u.out_of_bounds.registered_end_offset_type =
+    tk_err->u.out_of_bounds.registered_offset_type =
         box_get_known_end_offset_type(tk->box);
-    tk_err->u.out_of_bounds.registered_end_offset =
+    tk_err->u.out_of_bounds.registered_offset =
         box_get_known_end_offset(tk->box);
-    tk_err->u.out_of_bounds.requested_end_offset_type =
+    tk_err->u.out_of_bounds.requested_offset_type =
         BOX_END_OFFSET_USED;
-    tk_err->u.out_of_bounds.requested_end_offset =
+    tk_err->u.out_of_bounds.requested_offset =
         out_of_bounds_offset;
 
     return BITPUNCH_OUT_OF_BOUNDS_ERROR;
