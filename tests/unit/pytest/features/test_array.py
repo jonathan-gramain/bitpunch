@@ -75,6 +75,17 @@ def test_array_items(params_array_items):
         mapped_i = (i * 7) % 10
         assert dtree.integers[mapped_i].value == mapped_i
 
+    assert dtree.integers[4:8][1].value == 5
+    assert dtree.integers[:][4:8][1].value == 5
+    assert dtree.integers[2:][2:6][1].value == 5
+    assert dtree.integers[2:][:6][1].value == 3
+    assert model.make_python_object(dtree.integers[5:9]) == [
+        { 'value': 5 }, { 'value': 6 }, { 'value': 7 }, { 'value': 8 }]
+    assert model.make_python_object(dtree.integers[:][5:9]) == [
+        { 'value': 5 }, { 'value': 6 }, { 'value': 7 }, { 'value': 8 }]
+    assert model.make_python_object(dtree.integers[:9][5:]) == [
+        { 'value': 5 }, { 'value': 6 }, { 'value': 7 }, { 'value': 8 }]
+
 
 spec_file_array_bytes_as_integers_1 = """
 
@@ -141,6 +152,13 @@ def test_array_flat(params_array_flat):
         mapped_i = (i * 7) % 10
         assert dtree.integers[mapped_i] == mapped_i
 
+    assert dtree.integers[4:8][1] == 5
+    assert dtree.integers[:][4:8][1] == 5
+    assert dtree.integers[2:][2:6][1] == 5
+    assert dtree.integers[2:][:6][1] == 3
+    assert model.make_python_object(dtree.integers[5:9]) == [5, 6, 7, 8]
+    assert model.make_python_object(dtree.integers[:][5:9]) == [5, 6, 7, 8]
+    assert model.make_python_object(dtree.integers[:9][5:]) == [5, 6, 7, 8]
 
 
 spec_file_array_keyed_items = """
