@@ -260,8 +260,6 @@ correctly (b_filter is empty)
 
   - self == entries['abc']
 
-- add test for fix "do not recurse in anonymous fields to find attributes"
-
 - integrate "expr_transform_dpath_internal()" into generic operator
   evaluation (eval_fn())
 

@@ -16,6 +16,7 @@ file {
             struct {
                 b: u32;
                 c: u32;
+                @span = 8;
             };
             d: u32;
         };
@@ -35,6 +36,7 @@ let Foo = struct {
 let Bar = struct {
     b: u32;
     c: u32;
+    @span = 8;
 };
 
 file {
@@ -58,6 +60,7 @@ let Bar = struct {
     b: u8;
     [3] byte; // hidden field
     c: u32;
+    @span = 8;
 };
 
 file {
@@ -102,6 +105,7 @@ let Trailer = struct {
     [4] byte;
     struct {
         c: u32;
+        @span = 8;
     };
     d: u32;
 };
@@ -119,6 +123,7 @@ data_file_anonymous_in_trailer = """
 01 00 00 00
 02 00 00 00
 "some useless data"
+42 42 42 42
 03 00 00 00
 04 00 00 00
 """
@@ -149,3 +154,5 @@ def test_anonymous(params_anonymous):
     assert dtree.c == 3
     assert dtree.a == 1
     assert dtree.b == 2
+    with pytest.raises(IndexError):
+        assert dtree['@span'] == 42
