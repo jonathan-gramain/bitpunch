@@ -266,3 +266,5 @@ correctly (b_filter is empty)
 - test index() builtin properly (especially go through
   expr_dpath_evaluate_filter_type_internal() with CONTAINER dpath
   type)
+
+- inline docstrings (ala pydoc)
