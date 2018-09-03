@@ -1871,7 +1871,7 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
         filtered_data_hdl = create_data_hdl_from_buffer(
             filtered_data, filtered_size, TRUE, parent_file_hdl);
         box->file_hdl = filtered_data_hdl;
-        box->flags |= BOX_DATA_FILTER;
+        box->flags |= BOX_DATA_SOURCE;
         box_set_boundary_offset(box, 0);
     }
     expr_value_destroy(filtered_value);
@@ -1957,7 +1957,7 @@ box_free(struct box *box)
             break ;
         }
     }
-    if (0 != (box->flags & BOX_DATA_FILTER)) {
+    if (0 != (box->flags & BOX_DATA_SOURCE)) {
         (void)bitpunch_close_binary_file(
             (struct bitpunch_binary_file_hdl *)box->file_hdl);
         free((struct bitpunch_binary_file_hdl *)box->file_hdl);
@@ -5310,7 +5310,7 @@ box_compute_slack_size__as_bytes(struct box *box,
                                  struct browse_state *bst)
 {
     DBG_BOX_DUMP(box);
-    if (0 != (box->flags & BOX_DATA_FILTER)) {
+    if (0 != (box->flags & BOX_DATA_SOURCE)) {
         return box_compute_slack_size__from_file_hdl(box, bst);
     } else {
         return box_compute_slack_size__from_parent(box, bst);
@@ -6216,7 +6216,7 @@ filter_read_value__filter(struct ast_node_hdl *filter,
     // if box filter is a data filter, getting the value is simply
     // returning the box data bytes as-is since they come from the
     // filter output
-    if (0 != (scope->flags & BOX_DATA_FILTER)) {
+    if (0 != (scope->flags & BOX_DATA_SOURCE)) {
         return filter_read_value__bytes(filter, scope,
                                         item_offset, item_size,
                                         valuep, bst);
