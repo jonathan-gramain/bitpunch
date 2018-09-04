@@ -5068,61 +5068,6 @@ compute_item_size__static_size(struct ast_node_hdl *item_filter,
 }
 
 static bitpunch_status_t
-box_compute_item_used_size_internal__byte_array_filter_size(
-    struct box *box,
-    int64_t item_offset,
-    struct ast_node_hdl *used_filter,
-    int64_t *used_sizep,
-    struct browse_state *bst)
-{
-    const char *item_data;
-    int64_t used_size;
-    int64_t dummy_size;
-    bitpunch_status_t bt_ret;
-    int64_t max_slack_offset;
-
-    DBG_BOX_DUMP(box);
-    assert(NULL != used_filter);
-    assert(NULL != used_filter->ndat->u.rexpr_filter.f_instance->get_size_func);
-
-    bt_ret = box_apply_filter_internal(box, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    item_data = box->file_hdl->bf_data + item_offset;
-
-    if ((box->flags & (COMPUTING_SPAN_SIZE |
-                       COMPUTING_MAX_SLACK_OFFSET))) {
-        if (0 != (box->flags & BOX_RALIGN)) {
-            max_slack_offset = box_get_known_start_offset_mask(
-                box, (BOX_START_OFFSET_MAX_SPAN |
-                      BOX_START_OFFSET_SLACK |
-                      BOX_START_OFFSET_PARENT));
-        } else {
-            max_slack_offset = box_get_known_end_offset_mask(
-                box, (BOX_END_OFFSET_MAX_SPAN |
-                      BOX_END_OFFSET_SLACK |
-                      BOX_END_OFFSET_PARENT));
-        }
-    } else {
-        bt_ret = box_get_children_slack(box, FALSE, &max_slack_offset, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-    }
-    bt_ret = used_filter->ndat->u.rexpr_filter.f_instance->get_size_func(
-        used_filter, box, &dummy_size, &used_size, item_data,
-        max_slack_offset - item_offset, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return box_error(bt_ret, box, used_filter, bst,
-                         "filter couldn't return field's used size");
-    }
-    *used_sizep = used_size;
-    return BITPUNCH_OK;
-}
-
-
-static bitpunch_status_t
 box_compute_used_size__static_size(struct box *box,
                                    struct browse_state *bst)
 {
@@ -5235,19 +5180,7 @@ box_compute_used_size__as_bytes(struct box *box,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    if (NULL != box->dpath.filter_defining_used_size) {
-        int64_t used_size;
-
-        bt_ret = box_compute_item_used_size_internal__byte_array_filter_size(
-            box->parent_box, box_get_start_offset(box),
-            box->dpath.filter_defining_used_size, &used_size, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        return box_set_used_size(box, used_size, bst);
-    } else {
-        return box_compute_used_size__from_parent(box, bst);
-    }
+    return box_compute_used_size__from_parent(box, bst);
 }
 
 static bitpunch_status_t
@@ -6884,13 +6817,7 @@ box_compute_used_size__byte_array_dynamic_size(struct box *box,
     int64_t used_size;
 
     DBG_BOX_DUMP(box);
-    if (NULL != box->dpath.filter_defining_used_size) {
-        bt_ret = box_compute_item_used_size_internal__byte_array_filter_size(
-            box->parent_box, box_get_start_offset(box),
-            box->dpath.filter_defining_used_size, &used_size, bst);
-    } else {
-        bt_ret = box_get_n_items_internal(box, &used_size, bst);
-    }
+    bt_ret = box_get_n_items_internal(box, &used_size, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
