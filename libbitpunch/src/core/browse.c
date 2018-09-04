@@ -4404,10 +4404,7 @@ tracker_compute_item_size(struct tracker *tk,
     if (tracker_is_dangling(tk)) {
         return BITPUNCH_NO_ITEM;
     }
-    bt_ret = tracker_compute_item_filter_internal(tk, bst);
-    if (BITPUNCH_OK == bt_ret) {
-        bt_ret = tracker_compute_item_size_internal(tk, &item_size, bst);
-    }
+    bt_ret = tracker_compute_item_size_internal(tk, &item_size, bst);
     if (BITPUNCH_OK == bt_ret) {
         bt_ret = tracker_set_item_size(tk, item_size, bst);
     } else {
@@ -5029,12 +5026,6 @@ tracker_compute_item_size__static_size(struct tracker *tk,
                                        int64_t *item_sizep,
                                        struct browse_state *bst)
 {
-    bitpunch_status_t bt_ret;
-
-    bt_ret = tracker_compute_item_filter_internal(tk, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
     *item_sizep = tk->dpath.item->ndat->u.item.min_span_size;
     return BITPUNCH_OK;
 }
@@ -5746,10 +5737,6 @@ tracker_compute_item_size__array_static_item_size(struct tracker *tk,
     int64_t child_item_size;
     expr_value_t item_count;
 
-    bt_ret = tracker_compute_item_filter_internal(tk, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
     array = (struct filter_instance_array *)
         tk->dpath.item->ndat->u.rexpr_filter.f_instance;
     bt_ret = expr_evaluate_value_internal(array->item_count, tk->box,
@@ -6821,10 +6808,6 @@ tracker_compute_item_size__byte_array_dynamic_size(
     expr_value_t byte_count;
     bitpunch_status_t bt_ret;
 
-    bt_ret = tracker_compute_item_filter_internal(tk, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
     item = tk->dpath.item;
     array = (struct filter_instance_array *)
         item->ndat->u.rexpr_filter.f_instance;
