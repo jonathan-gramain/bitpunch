@@ -5040,59 +5040,6 @@ tracker_compute_item_size__static_size(struct tracker *tk,
 }
 
 static bitpunch_status_t
-tracker_compute_item_size__filter_span_size(
-    struct tracker *tk,
-    struct ast_node_hdl *span_filter,
-    int64_t *span_sizep,
-    struct browse_state *bst)
-{
-    const char *item_data;
-    int64_t span_size;
-    int64_t used_size;
-    bitpunch_status_t bt_ret;
-    int64_t max_slack_offset;
-
-    DBG_TRACKER_DUMP(tk);
-    assert(NULL != span_filter);
-    assert(NULL != span_filter->ndat->u.rexpr_filter.f_instance->get_size_func);
-
-    bt_ret = box_apply_filter_internal(tk->box, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    item_data = tk->box->file_hdl->bf_data + tk->item_offset;
-
-    if ((tk->box->flags & (COMPUTING_SPAN_SIZE |
-                       COMPUTING_MAX_SLACK_OFFSET))) {
-        if (0 != (tk->box->flags & BOX_RALIGN)) {
-            max_slack_offset = box_get_known_start_offset_mask(
-                tk->box, (BOX_START_OFFSET_MAX_SPAN |
-                      BOX_START_OFFSET_SLACK |
-                      BOX_START_OFFSET_PARENT));
-        } else {
-            max_slack_offset = box_get_known_end_offset_mask(
-                tk->box, (BOX_END_OFFSET_MAX_SPAN |
-                      BOX_END_OFFSET_SLACK |
-                      BOX_END_OFFSET_PARENT));
-        }
-    } else {
-        bt_ret = box_get_children_slack(tk->box, FALSE, &max_slack_offset, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-    }
-    bt_ret = span_filter->ndat->u.rexpr_filter.f_instance->get_size_func(
-        span_filter, tk->box, &span_size, &used_size, item_data,
-        max_slack_offset - tk->item_offset, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return tracker_error(bt_ret, tk, span_filter, bst,
-                             "filter couldn't return field's sizes");
-    }
-    *span_sizep = span_size;
-    return BITPUNCH_OK;
-}
-
-static bitpunch_status_t
 box_compute_item_used_size_internal__byte_array_filter_size(
     struct box *box,
     int64_t item_offset,
@@ -6916,37 +6863,66 @@ tracker_compute_item_size__byte_array_slack(
     struct ast_node_hdl *filter_defining_span_size;
     int64_t max_slack_offset;
 
+    DBG_TRACKER_DUMP(tk);
     bt_ret = expr_evaluate_filter_type_internal(
         tk->dpath.filter, tk->box, FILTER_KIND_DEFINING_SPAN_SIZE,
         &filter_defining_span_size, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    if (NULL != filter_defining_span_size) {
-        return tracker_compute_item_size__filter_span_size(
-            tk, filter_defining_span_size, item_sizep, bst);
+    bt_ret = box_apply_filter_internal(tk->box, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
     }
-    DBG_TRACKER_DUMP(tk);
-    if ((tk->box->flags & COMPUTING_MAX_SLACK_OFFSET)) {
-        bt_ret = box_compute_max_span_size(tk->box, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
+    if (0 != (tk->box->flags & (COMPUTING_SPAN_SIZE |
+                                COMPUTING_MAX_SLACK_OFFSET))) {
+        if (0 == (tk->box->flags & COMPUTING_SPAN_SIZE)) {
+            bt_ret = box_compute_max_span_size(tk->box, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                return bt_ret;
+            }
         }
-        max_slack_offset = 0 != (tk->box->flags & BOX_RALIGN) ?
-            tk->box->start_offset_max_span : tk->box->end_offset_max_span;
+        if (0 != (tk->box->flags & BOX_RALIGN)) {
+            max_slack_offset = box_get_known_start_offset_mask(
+                tk->box, (BOX_START_OFFSET_MAX_SPAN |
+                          BOX_START_OFFSET_SLACK |
+                          BOX_START_OFFSET_PARENT));
+        } else {
+            max_slack_offset = box_get_known_end_offset_mask(
+                tk->box, (BOX_END_OFFSET_MAX_SPAN |
+                          BOX_END_OFFSET_SLACK |
+                          BOX_END_OFFSET_PARENT));
+        }
     } else {
-        bt_ret = box_get_children_slack(
-            tk->box, 0 != (tk->flags & TRACKER_REVERSED),
-            &max_slack_offset, bst);
+        bt_ret = box_get_children_slack(tk->box,
+                                        0 != (tk->flags & TRACKER_REVERSED),
+                                        &max_slack_offset, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        /* slack byte arrays use the whole available slack space */
-        *item_sizep = 0 != (tk->flags & TRACKER_REVERSED) ?
-            tk->item_offset - max_slack_offset :
-            max_slack_offset - tk->item_offset;
-        assert(*item_sizep >= 0);
     }
+    if (NULL != filter_defining_span_size) {
+        const char *item_data;
+        int64_t span_size;
+        int64_t used_size;
+
+        item_data = tk->box->file_hdl->bf_data + tk->item_offset;
+        bt_ret = filter_defining_span_size->ndat->u.rexpr_filter.f_instance->get_size_func(
+            filter_defining_span_size, tk->box,
+            &span_size, &used_size, item_data,
+            max_slack_offset - tk->item_offset, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return tracker_error(bt_ret, tk, filter_defining_span_size, bst,
+                                 "filter couldn't return field's sizes");
+        }
+        *item_sizep = span_size;
+        return BITPUNCH_OK;
+    }
+    /* slack byte arrays use the whole available slack space */
+    *item_sizep = 0 != (tk->flags & TRACKER_REVERSED) ?
+        tk->item_offset - max_slack_offset :
+        max_slack_offset - tk->item_offset;
+    assert(*item_sizep >= 0);
     return BITPUNCH_OK;
 }
 
