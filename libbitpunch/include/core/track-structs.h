@@ -94,6 +94,12 @@ struct browse_state {
 
 
 struct item_backend {
+    bitpunch_status_t (*compute_item_size)(struct ast_node_hdl *item_filter,
+                                           struct box *scope,
+                                           int64_t item_offset,
+                                           int64_t max_span_offset,
+                                           int64_t *item_sizep,
+                                           struct browse_state *bst);
     bitpunch_status_t (*read_value)(struct ast_node_hdl *item_filter,
                                     struct box *scope,
                                     int64_t item_offset,

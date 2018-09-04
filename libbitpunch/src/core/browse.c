@@ -4360,13 +4360,32 @@ tracker_compute_item_size_internal(struct tracker *tk,
                                    int64_t *item_sizep,
                                    struct browse_state *bst)
 {
-    struct filter_instance *f_instance;
     bitpunch_status_t bt_ret;
+    int64_t max_span_offset;
+    struct ast_node_hdl *filter_defining_span_size;
+    struct filter_instance *f_instance;
 
-    /* If span size is being computed, skip this, it normally means an
-     * item is being read to know its container box size. */
-    if (0 == (tk->box->flags & COMPUTING_SPAN_SIZE)) {
-        bt_ret = box_compute_max_span_size(tk->box, bst);
+    bt_ret = box_apply_filter_internal(tk->box, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    if (0 != (tk->box->flags & (COMPUTING_SPAN_SIZE |
+                                COMPUTING_MAX_SLACK_OFFSET))) {
+        if (0 != (tk->flags & TRACKER_REVERSED)) {
+            max_span_offset = box_get_known_start_offset_mask(
+                tk->box, (BOX_START_OFFSET_MAX_SPAN |
+                          BOX_START_OFFSET_SLACK |
+                          BOX_START_OFFSET_PARENT));
+        } else {
+            max_span_offset = box_get_known_end_offset_mask(
+                tk->box, (BOX_END_OFFSET_MAX_SPAN |
+                          BOX_END_OFFSET_SLACK |
+                          BOX_END_OFFSET_PARENT));
+        }
+    } else {
+        bt_ret = box_get_children_slack(
+            tk->box, 0 != (tk->flags & TRACKER_REVERSED),
+            &max_span_offset, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
@@ -4376,12 +4395,37 @@ tracker_compute_item_size_internal(struct tracker *tk,
         return bt_ret;
     }
     f_instance = tk->dpath.item->ndat->u.rexpr_filter.f_instance;
-    if (NULL == f_instance->b_tk.compute_item_size) {
-        return tracker_error(
-            BITPUNCH_NOT_IMPLEMENTED, tk, tk->dpath.item, bst,
-            "filter does not implement compute_item_size() tracker backend function");
+    if (NULL != f_instance->b_tk.compute_item_size) {
+        return f_instance->b_tk.compute_item_size(tk, item_sizep, bst);
     }
-    return f_instance->b_tk.compute_item_size(tk, item_sizep, bst);
+    // FIXME change this to use tk->dpath.item
+    bt_ret = expr_evaluate_filter_type_internal(
+        tk->dpath.filter, tk->box, FILTER_KIND_DEFINING_SPAN_SIZE,
+        &filter_defining_span_size, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    if (NULL != filter_defining_span_size) {
+        f_instance = filter_defining_span_size->ndat->u.rexpr_filter.f_instance;
+        if (NULL != f_instance->b_item.compute_item_size) {
+            return f_instance->b_item.compute_item_size(
+                filter_defining_span_size, tk->box,
+                tk->item_offset, max_span_offset, item_sizep, bst);
+        }
+    }
+    f_instance = tk->dpath.item->ndat->u.rexpr_filter.f_instance;
+    if (NULL != f_instance->b_item.compute_item_size) {
+        return f_instance->b_item.compute_item_size(
+            tk->dpath.item, tk->box,
+            tk->item_offset, max_span_offset, item_sizep, bst);
+    }
+    /* use the whole available slack space when filter does not define
+     * its size */
+    *item_sizep = 0 != (tk->flags & TRACKER_REVERSED) ?
+        tk->item_offset - max_span_offset :
+        max_span_offset - tk->item_offset;
+    assert(*item_sizep >= 0);
+    return BITPUNCH_OK;
 }
 
 static bitpunch_status_t
@@ -5012,21 +5056,14 @@ tracker_compute_item_size__item_box(struct tracker *tk,
 
 
 static bitpunch_status_t
-tracker_compute_item_size__byte(struct tracker *tk,
-                                int64_t *item_sizep,
-                                struct browse_state *bst)
+compute_item_size__static_size(struct ast_node_hdl *item_filter,
+                               struct box *scope,
+                               int64_t item_offset,
+                               int64_t max_span_offset,
+                               int64_t *item_sizep,
+                               struct browse_state *bst)
 {
-    *item_sizep = 1;
-    return BITPUNCH_OK;
-}
-
-
-static bitpunch_status_t
-tracker_compute_item_size__static_size(struct tracker *tk,
-                                       int64_t *item_sizep,
-                                       struct browse_state *bst)
-{
-    *item_sizep = tk->dpath.item->ndat->u.item.min_span_size;
+    *item_sizep = item_filter->ndat->u.item.min_span_size;
     return BITPUNCH_OK;
 }
 
@@ -5728,9 +5765,12 @@ tracker_goto_next_key_match__composite(struct tracker *tk,
 
 
 static bitpunch_status_t
-tracker_compute_item_size__array_static_item_size(struct tracker *tk,
-                                                  int64_t *item_sizep,
-                                                  struct browse_state *bst)
+compute_item_size__array_static_item_size(struct ast_node_hdl *item_filter,
+                                          struct box *scope,
+                                          int64_t item_offset,
+                                          int64_t max_span_offset,
+                                          int64_t *item_sizep,
+                                          struct browse_state *bst)
 {
     struct filter_instance_array *array;
     bitpunch_status_t bt_ret;
@@ -5738,13 +5778,13 @@ tracker_compute_item_size__array_static_item_size(struct tracker *tk,
     expr_value_t item_count;
 
     array = (struct filter_instance_array *)
-        tk->dpath.item->ndat->u.rexpr_filter.f_instance;
-    bt_ret = expr_evaluate_value_internal(array->item_count, tk->box,
+        item_filter->ndat->u.rexpr_filter.f_instance;
+    bt_ret = expr_evaluate_value_internal(array->item_count, scope,
                                           &item_count, bst);
     if (BITPUNCH_OK != bt_ret) {
         // FIXME more appropriate context
         tracker_error_add_box_context(
-            tk->box, bst, "when evaluating array item count expression");
+            scope, bst, "when evaluating array item count expression");
         return bt_ret;
     }
     child_item_size = ast_node_get_min_span_size(array->item_type.item);
@@ -6798,114 +6838,41 @@ tracker_goto_nth_item_with_key__indexed_array(
 }
 
 static bitpunch_status_t
-tracker_compute_item_size__byte_array_dynamic_size(
-    struct tracker *tk,
-    int64_t *item_sizep,
-    struct browse_state *bst)
+compute_item_size__byte_array_dynamic_size(struct ast_node_hdl *item_filter,
+                                           struct box *scope,
+                                           int64_t item_offset,
+                                           int64_t max_span_offset,
+                                           int64_t *item_sizep,
+                                           struct browse_state *bst)
 {
-    struct ast_node_hdl *item;
     struct filter_instance_array *array;
     expr_value_t byte_count;
     bitpunch_status_t bt_ret;
 
-    item = tk->dpath.item;
     array = (struct filter_instance_array *)
-        item->ndat->u.rexpr_filter.f_instance;
+        item_filter->ndat->u.rexpr_filter.f_instance;
     bt_ret = expr_evaluate_value_internal(
-        array->item_count, tk->box, &byte_count, bst);
+        array->item_count, scope, &byte_count, bst);
     if (BITPUNCH_OK != bt_ret) {
         // FIXME more appropriate context
         tracker_error_add_box_context(
-            tk->box, bst, "when evaluating byte array size expression");
+            scope, bst, "when evaluating byte array size expression");
         return bt_ret;
     }
     if (EXPR_VALUE_TYPE_INTEGER != byte_count.type) {
         return box_error(
-            BITPUNCH_DATA_ERROR, tk->box, array->item_count, bst,
+            BITPUNCH_DATA_ERROR, scope, array->item_count, bst,
             "evaluation of byte array size returned a value-type "
             "'%s', expect an integer",
             expr_value_type_str(byte_count.type));
     }
     if (byte_count.integer < 0) {
         return box_error(
-            BITPUNCH_DATA_ERROR, tk->box, array->item_count, bst,
+            BITPUNCH_DATA_ERROR, scope, array->item_count, bst,
             "evaluation of byte array size gives negative value (%"PRIi64")",
             byte_count.integer);
     }
     *item_sizep = byte_count.integer;
-    return BITPUNCH_OK;
-}
-
-static bitpunch_status_t
-tracker_compute_item_size__byte_array_slack(
-    struct tracker *tk,
-    int64_t *item_sizep,
-    struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    struct ast_node_hdl *filter_defining_span_size;
-    int64_t max_slack_offset;
-
-    DBG_TRACKER_DUMP(tk);
-    bt_ret = expr_evaluate_filter_type_internal(
-        tk->dpath.filter, tk->box, FILTER_KIND_DEFINING_SPAN_SIZE,
-        &filter_defining_span_size, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    bt_ret = box_apply_filter_internal(tk->box, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    if (0 != (tk->box->flags & (COMPUTING_SPAN_SIZE |
-                                COMPUTING_MAX_SLACK_OFFSET))) {
-        if (0 == (tk->box->flags & COMPUTING_SPAN_SIZE)) {
-            bt_ret = box_compute_max_span_size(tk->box, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                return bt_ret;
-            }
-        }
-        if (0 != (tk->box->flags & BOX_RALIGN)) {
-            max_slack_offset = box_get_known_start_offset_mask(
-                tk->box, (BOX_START_OFFSET_MAX_SPAN |
-                          BOX_START_OFFSET_SLACK |
-                          BOX_START_OFFSET_PARENT));
-        } else {
-            max_slack_offset = box_get_known_end_offset_mask(
-                tk->box, (BOX_END_OFFSET_MAX_SPAN |
-                          BOX_END_OFFSET_SLACK |
-                          BOX_END_OFFSET_PARENT));
-        }
-    } else {
-        bt_ret = box_get_children_slack(tk->box,
-                                        0 != (tk->flags & TRACKER_REVERSED),
-                                        &max_slack_offset, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-    }
-    if (NULL != filter_defining_span_size) {
-        const char *item_data;
-        int64_t span_size;
-        int64_t used_size;
-
-        item_data = tk->box->file_hdl->bf_data + tk->item_offset;
-        bt_ret = filter_defining_span_size->ndat->u.rexpr_filter.f_instance->get_size_func(
-            filter_defining_span_size, tk->box,
-            &span_size, &used_size, item_data,
-            max_slack_offset - tk->item_offset, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return tracker_error(bt_ret, tk, filter_defining_span_size, bst,
-                                 "filter couldn't return field's sizes");
-        }
-        *item_sizep = span_size;
-        return BITPUNCH_OK;
-    }
-    /* slack byte arrays use the whole available slack space */
-    *item_sizep = 0 != (tk->flags & TRACKER_REVERSED) ?
-        tk->item_offset - max_slack_offset :
-        max_slack_offset - tk->item_offset;
-    assert(*item_sizep >= 0);
     return BITPUNCH_OK;
 }
 
@@ -7550,9 +7517,22 @@ browse_setup_backends__filter__filter(struct ast_node_hdl *filter)
     struct item_backend *b_item = NULL;
 
     b_item = &filter->ndat->u.rexpr_filter.f_instance->b_item;
-    memset(b_item, 0, sizeof (*b_item));
+    //memset(b_item, 0, sizeof (*b_item));
 
     b_item->read_value = filter_read_value__filter;
+}
+
+static void
+browse_setup_backends__item__generic(struct ast_node_hdl *item)
+{
+    struct item_backend *b_item;
+
+    browse_setup_backends__filter__filter(item);
+
+    b_item = &item->ndat->u.rexpr_filter.f_instance->b_item;
+    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+        b_item->compute_item_size = compute_item_size__static_size;
+    }
 }
 
 static void
@@ -7594,6 +7574,9 @@ item_filter_instance_build(struct ast_node_hdl *item)
     b_item = &filter->b_item;
     memset(b_item, 0, sizeof (*b_item));
 
+    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+        b_item->compute_item_size = compute_item_size__static_size;
+    }
     b_item->read_value = filter_read_value__bytes;
     return filter;
 }
@@ -7657,15 +7640,15 @@ browse_setup_backends__box__composite(struct ast_node_hdl *item)
 static void
 browse_setup_backends__tracker__composite(struct ast_node_hdl *item)
 {
-    struct tracker_backend *b_tk = NULL;
+    struct item_backend *b_item;
+    struct tracker_backend *b_tk;
 
+    b_item = &item->ndat->u.rexpr_filter.f_instance->b_item;
     b_tk = &item->ndat->u.rexpr_filter.f_instance->b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
     b_tk->get_item_key = tracker_get_item_key__composite;
-    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-        b_tk->compute_item_size = tracker_compute_item_size__static_size;
-    } else {
+    if (NULL == b_item->compute_item_size) {
         b_tk->compute_item_size = tracker_compute_item_size__item_box;
     }
     b_tk->goto_first_item = tracker_goto_first_item__composite;
@@ -7677,6 +7660,29 @@ browse_setup_backends__tracker__composite(struct ast_node_hdl *item)
         tracker_goto_next_item_with_key__composite;
     b_tk->goto_nth_item_with_key =
         tracker_goto_nth_item_with_key__composite;
+}
+
+static void
+browse_setup_backends__item__array(struct ast_node_hdl *item)
+{
+    struct filter_instance_array *array;
+    const struct ast_node_hdl *item_type;
+    struct item_backend *b_item;
+
+    browse_setup_backends__item__generic(item);
+
+    array = (struct filter_instance_array *)
+        item->ndat->u.rexpr_filter.f_instance;
+    item_type = array->item_type.item;
+    b_item = &array->filter.b_item;
+    if (NULL == b_item->compute_item_size) {
+        if (NULL != array->item_count
+            && 0 == (item_type->ndat->u.item.flags
+                     & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+            b_item->compute_item_size =
+                compute_item_size__array_static_item_size;
+        }
+    }
 }
 
 static void
@@ -7731,11 +7737,13 @@ static void
 browse_setup_backends__tracker__array(struct ast_node_hdl *item)
 {
     struct filter_instance_array *array;
-    struct tracker_backend *b_tk = NULL;
+    struct item_backend *b_item;
+    struct tracker_backend *b_tk;
     const struct ast_node_hdl *item_type;
 
     array = (struct filter_instance_array *)
         item->ndat->u.rexpr_filter.f_instance;
+    b_item = &array->filter.b_item;
     b_tk = &array->filter.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
     item_type = array->item_type.item;
@@ -7745,14 +7753,7 @@ browse_setup_backends__tracker__array(struct ast_node_hdl *item)
     } else {
         b_tk->get_item_key = tracker_get_item_key__array_generic;
     }
-    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-        b_tk->compute_item_size = tracker_compute_item_size__static_size;
-    } else if (NULL != array->item_count
-               && 0 == (item_type->ndat->u.item.flags
-                        & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-        b_tk->compute_item_size =
-            tracker_compute_item_size__array_static_item_size;
-    } else {
+    if (NULL == b_item->compute_item_size) {
         b_tk->compute_item_size = tracker_compute_item_size__item_box;
     }
     if (NULL != array->item_count) {
@@ -7784,18 +7785,6 @@ browse_setup_backends__tracker__array(struct ast_node_hdl *item)
             tracker_goto_nth_item_with_key__default;
     }
 }
-
-static void
-browse_setup_backends__tracker__byte(struct ast_node_hdl *item)
-{
-    struct tracker_backend *b_tk = NULL;
-
-    b_tk = &item->ndat->u.rexpr_filter.f_instance->b_tk;
-    memset(b_tk, 0, sizeof (*b_tk));
-
-    b_tk->compute_item_size = tracker_compute_item_size__byte;
-}
-
 
 static void
 browse_setup_backends__box__byte_array(struct ast_node_hdl *item)
@@ -7855,16 +7844,34 @@ browse_setup_backends__byte(struct ast_node_hdl *item)
 {
     item->ndat->u.rexpr_filter.f_instance = new_safe(struct filter_instance);
 
-    browse_setup_backends__filter__filter(item);
+    browse_setup_backends__item__generic(item);
     browse_setup_backends__box__byte(item);
-    browse_setup_backends__tracker__byte(item);
+}
+
+static void
+browse_setup_backends__item__byte_array(struct ast_node_hdl *item)
+{
+    struct filter_instance_array *array;
+    struct item_backend *b_item;
+
+    browse_setup_backends__item__generic(item);
+
+    array = (struct filter_instance_array *)
+        item->ndat->u.rexpr_filter.f_instance;
+    b_item = &array->filter.b_item;
+    if (NULL == b_item->compute_item_size) {
+        if (NULL != array->item_count) {
+            b_item->compute_item_size =
+                compute_item_size__byte_array_dynamic_size;
+        }
+    }
 }
 
 static void
 browse_setup_backends__tracker__byte_array(struct ast_node_hdl *item)
 {
     struct filter_instance_array *array;
-    struct tracker_backend *b_tk = NULL;
+    struct tracker_backend *b_tk;
 
     array = (struct filter_instance_array *)
         item->ndat->u.rexpr_filter.f_instance;
@@ -7872,13 +7879,6 @@ browse_setup_backends__tracker__byte_array(struct ast_node_hdl *item)
     memset(b_tk, 0, sizeof (*b_tk));
 
     b_tk->get_item_key = tracker_get_item_key__array_generic;
-    if (NULL != array->item_count) {
-        b_tk->compute_item_size =
-            tracker_compute_item_size__byte_array_dynamic_size;
-    } else {
-        b_tk->compute_item_size =
-            tracker_compute_item_size__byte_array_slack;
-    }
     if (NULL != array->item_count) {
         b_tk->goto_first_item =
             tracker_goto_first_item__array_non_slack;
@@ -8035,12 +8035,12 @@ browse_setup_backends_node(struct ast_node_hdl *node)
 {
     switch (node->ndat->type) {
     case AST_NODE_TYPE_COMPOSITE:
-        browse_setup_backends__filter__filter(node);
+        browse_setup_backends__item__generic(node);
         browse_setup_backends__box__composite(node);
         browse_setup_backends__tracker__composite(node);
         break ;
     case AST_NODE_TYPE_ARRAY:
-        browse_setup_backends__filter__filter(node);
+        browse_setup_backends__item__array(node);
         browse_setup_backends__box__array(node);
         browse_setup_backends__tracker__array(node);
         break ;
@@ -8048,7 +8048,7 @@ browse_setup_backends_node(struct ast_node_hdl *node)
         browse_setup_backends__byte(node);
         break ;
     case AST_NODE_TYPE_BYTE_ARRAY:
-        browse_setup_backends__filter__filter(node);
+        browse_setup_backends__item__byte_array(node);
         browse_setup_backends__box__byte_array(node);
         browse_setup_backends__tracker__byte_array(node);
         break ;

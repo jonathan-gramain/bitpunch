@@ -40,6 +40,28 @@
 #include "core/filter.h"
 
 static bitpunch_status_t
+compute_item_size__varint(struct ast_node_hdl *filter,
+                          struct box *scope,
+                          int64_t item_offset,
+                          int64_t max_span_offset,
+                          int64_t *item_sizep,
+                          struct browse_state *bst)
+{
+    const char *data;
+    size_t bytepos;
+
+    data = scope->file_hdl->bf_data + item_offset;
+    for (bytepos = 0; bytepos < max_span_offset - item_offset; ++bytepos) {
+        if (!(data[bytepos] & 0x80)) {
+            *item_sizep = bytepos + 1;
+            return BITPUNCH_OK;
+        }
+    }
+    // invalid varint
+    return BITPUNCH_DATA_ERROR;
+}
+
+static bitpunch_status_t
 varint_get_size(struct ast_node_hdl *filter,
                 struct box *scope,
                 int64_t *span_sizep,
@@ -100,6 +122,7 @@ varint_filter_instance_build(struct ast_node_hdl *filter)
     struct filter_instance *f_instance;
 
     f_instance = new_safe(struct filter_instance);
+    f_instance->b_item.compute_item_size = compute_item_size__varint;
     f_instance->get_size_func = varint_get_size;
     f_instance->read_func = varint_read;
     return f_instance;

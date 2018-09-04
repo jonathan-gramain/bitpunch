@@ -70,11 +70,35 @@ string_build_no_boundary(void)
 
     f_instance = new_safe(struct filter_instance);
     f_instance->b_box.init = string_box_init;
-    /* no get_size_func(): keep default byte array size */
     f_instance->read_func = string_read_no_boundary;
     return f_instance;
 }
 
+
+static bitpunch_status_t
+compute_item_size__string__single_char_constant_boundary(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    int64_t item_offset,
+    int64_t max_span_offset,
+    int64_t *item_sizep,
+    struct browse_state *bst)
+{
+    struct string_single_char_constant_boundary *f_instance;
+    const char *data;
+    const char *end;
+
+    f_instance = (struct string_single_char_constant_boundary *)
+        filter->ndat->u.rexpr_filter.f_instance;
+    data = scope->file_hdl->bf_data + item_offset;
+    end = memchr(data, f_instance->boundary, max_span_offset - item_offset);
+    if (NULL != end) {
+        *item_sizep = end - data + 1;
+    } else {
+        *item_sizep = max_span_offset - item_offset;
+    }
+    return BITPUNCH_OK;
+}
 
 static bitpunch_status_t
 string_get_size_single_char_constant_boundary(
@@ -130,13 +154,47 @@ string_build_single_char_constant_boundary(char boundary)
     struct string_single_char_constant_boundary *f_instance;
                     
     f_instance = new_safe(struct string_single_char_constant_boundary);
-    f_instance->p.b_box.init = string_box_init;
     f_instance->boundary = boundary;
+    f_instance->p.b_item.compute_item_size =
+        compute_item_size__string__single_char_constant_boundary;
+    f_instance->p.b_box.init = string_box_init;
     f_instance->p.get_size_func = string_get_size_single_char_constant_boundary;
     f_instance->p.read_func = string_read_single_char_constant_boundary;
     return (struct filter_instance *)f_instance;
 }
 
+
+static bitpunch_status_t
+compute_item_size__string__generic(struct ast_node_hdl *filter,
+                                   struct box *scope,
+                                   int64_t item_offset,
+                                   int64_t max_span_offset,
+                                   int64_t *item_sizep,
+                                   struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    expr_value_t attr_value;
+    const char *data;
+    const char *end;
+
+    bt_ret = filter_evaluate_attribute_internal(
+        filter, scope, "@boundary", NULL, &attr_value, NULL, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        data = scope->file_hdl->bf_data + item_offset;
+        end = memmem(data, max_span_offset - item_offset,
+                     attr_value.string.str, attr_value.string.len);
+        if (NULL != end) {
+            *item_sizep = end - data + attr_value.string.len;
+            expr_value_destroy(attr_value);
+            return BITPUNCH_OK;
+        }
+        expr_value_destroy(attr_value);
+    } else if (BITPUNCH_NO_ITEM != bt_ret) {
+        return bt_ret;
+    }
+    *item_sizep = max_span_offset - item_offset;
+    return BITPUNCH_OK;
+}
 
 static bitpunch_status_t
 string_get_size_generic(
@@ -210,6 +268,7 @@ string_build_generic(void)
     struct filter_instance *f_instance;
                     
     f_instance = new_safe(struct filter_instance);
+    f_instance->b_item.compute_item_size = compute_item_size__string__generic;
     f_instance->b_box.init = string_box_init;
     f_instance->get_size_func = string_get_size_generic;
     f_instance->read_func = string_read_generic;
