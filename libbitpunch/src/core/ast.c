@@ -1776,6 +1776,10 @@ compile_rexpr_filter(struct ast_node_hdl *expr,
     if (NULL != filter_cls->filter_instance_compile_func) {
         return filter_cls->filter_instance_compile_func(
             expr, expr->ndat->u.rexpr_filter.f_instance, tags, ctx);
+    } else {
+        if (0 != (tags & COMPILE_TAG_NODE_SPAN_SIZE)) {
+            expr->ndat->u.item.min_span_size = 0;
+        }
     }
     return 0;
 }
@@ -2303,8 +2307,17 @@ compile_expr_operator_sizeof(struct ast_node_hdl *expr,
                            RESOLVE_EXPECT_DPATH_EXPRESSION)) {
         return -1;
     }
+    // lookup target item type
     target = ast_node_get_named_expr_target(op.operands[0]);
-    if (ast_node_is_filter(target)) {
+    while (AST_NODE_TYPE_REXPR_OP_FILTER == target->ndat->type) {
+        target = ast_node_get_named_expr_target(
+            target->ndat->u.rexpr_op_filter.target);
+    }
+    switch (target->ndat->type) {
+    case AST_NODE_TYPE_BYTE:
+    case AST_NODE_TYPE_COMPOSITE:
+    case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE_ARRAY:
         if (0 != (target->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
@@ -2320,6 +2333,8 @@ compile_expr_operator_sizeof(struct ast_node_hdl *expr,
             expr_value_as_integer(target->ndat->u.item.min_span_size);
         expr->ndat = compiled_type;
         return 0;
+    default:
+        break ;
     }
     if (target->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_UNSET ||
         target->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
@@ -2568,7 +2583,6 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
                            RESOLVE_EXPECT_DPATH_EXPRESSION)) {
         return -1;
     }
-    //anchor_expr = ast_node_get_named_expr_target(op->operands[0]);
     anchor_expr = op->operands[0];
     anchor_target = ast_node_get_named_expr_target(anchor_expr);
     anchor_filter = ast_node_get_as_type(anchor_expr);
@@ -2611,13 +2625,13 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
                 switch (stmt_spec->stmt_type) {
                 case STATEMENT_TYPE_NAMED_EXPR:
                 case STATEMENT_TYPE_ATTRIBUTE:
-                    resolved_type = ast_node_get_as_type(
+                    resolved_type = ast_node_get_named_expr_target(
                         ((struct named_expr *)stmt_spec->nstmt)->expr)->ndat;
                     free(visible_statements);
                     expr->ndat = resolved_type;
                     break ;
                 case STATEMENT_TYPE_FIELD:
-                    resolved_type = ast_node_get_as_type(
+                    resolved_type = ast_node_get_named_expr_target(
                         ((struct field *)stmt_spec->nstmt)->dpath.filter)->ndat;
                     free(visible_statements);
                     expr->ndat = resolved_type;
@@ -3161,7 +3175,11 @@ ast_node_is_rexpr(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_OP_FCALL:
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
+    case AST_NODE_TYPE_COMPOSITE:
+    case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_REXPR_FILTER:
+    case AST_NODE_TYPE_SOURCE:
         return TRUE;
     default:
         return FALSE;
@@ -3180,6 +3198,7 @@ ast_node_is_rexpr_filter(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_REXPR_OP_FILTER:
     case AST_NODE_TYPE_REXPR_FILTER:
+    case AST_NODE_TYPE_SOURCE:
         return TRUE;
     default:
         return FALSE;
@@ -3328,6 +3347,7 @@ ast_node_is_container(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_SOURCE:
         return TRUE;
     default:
         return FALSE;
@@ -3341,6 +3361,7 @@ ast_node_is_origin_container(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
+    case AST_NODE_TYPE_SOURCE:
         return TRUE;
     default:
         return FALSE;
@@ -3354,6 +3375,7 @@ ast_node_is_byte_container(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_SOURCE:
         return TRUE;
     default:
         return FALSE;
@@ -3368,6 +3390,7 @@ ast_node_is_subscriptable_container(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
+    case AST_NODE_TYPE_SOURCE:
         return TRUE;
     default:
         return FALSE;
@@ -3401,6 +3424,26 @@ ast_node_is_item(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_SOURCE:
+    case AST_NODE_TYPE_REXPR_FILTER:
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
+int
+ast_node_is_trackable(const struct ast_node_hdl *node)
+{
+    if (NULL == node) {
+        return FALSE;
+    }
+    switch (node->ndat->type) {
+    case AST_NODE_TYPE_COMPOSITE:
+    case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE_ARRAY:
+    case AST_NODE_TYPE_ARRAY_SLICE:
+    case AST_NODE_TYPE_BYTE_SLICE:
         return TRUE;
     default:
         return FALSE;
@@ -3870,6 +3913,7 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_AS_BYTES:
+    case AST_NODE_TYPE_SOURCE:
         fprintf(out, "\n%*s\\_ static node (%s)\n",
                 (depth + 1) * INDENT_N_SPACES, "",
                 ast_node_type_str(node->ndat->type));
@@ -4201,6 +4245,7 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_IDENTIFIER:
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
+    case AST_NODE_TYPE_SOURCE:
     case AST_NODE_TYPE_EXPR_FILE:
     case AST_NODE_TYPE_EXPR_SELF:
     case AST_NODE_TYPE_REXPR_NATIVE:

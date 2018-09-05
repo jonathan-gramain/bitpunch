@@ -179,13 +179,108 @@ static const char check_struct_invalid_truncated1_contents[] = {
     0x0,0x0,0x0,0x4,0x5,0x0,0x0,0x0,0x6
 };
 
+static const struct test_tracker_expect_box
+check_struct_invalid_truncated1_expect[] = {
+    { "ms1", 0, 9,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "ms1", .len = 3 } },
+      .value_type = EXPR_VALUE_TYPE_UNSET,
+      .n_items = 3 },
+
+    { "ms1.field1_u32", 0, 4,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "field1_u32", .len = 10 } },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 1 } },
+
+    { "ms1.field2_byte", 4, 1,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "field2_byte", .len = 11 } },
+      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value = { .bytes = { .buf = "\x02", .len = 1 } } },
+
+    { "ms1.field3_u32", 5, 4,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "field3_u32", .len = 10 } },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 3 } },
+
+    { "ms2", 9, 9,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "ms2", .len = 3 } },
+      .value_type = EXPR_VALUE_TYPE_UNSET,
+      .n_items = 3 },
+
+    { "ms2.field1_u32", 9, 4,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "field1_u32", .len = 10 } },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 4 } },
+
+    { "ms2.field2_byte", 13, 1,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "field2_byte", .len = 11 } },
+      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value = { .bytes = { .buf = "\x05", .len = 1 } } },
+
+    { "ms2.field3_u32", 14, 4,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "field3_u32", .len = 10 } },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 6 } },
+
+    { "mu3", 18, 4,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "mu3", .len = 3 } },
+      .value_type = EXPR_VALUE_TYPE_UNSET,
+      .n_items = 4,
+      .read_item_ret = BITPUNCH_OUT_OF_BOUNDS_ERROR },
+
+    { "mu3.field1_u32", 18, 4,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "field1_u32", .len = 10 } },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 7 },
+      .read_item_ret = BITPUNCH_OUT_OF_BOUNDS_ERROR },
+
+    { "mu3.field2_byte", 18, 1,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "field2_byte", .len = 11 } },
+      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value = { .bytes = { .buf = "\x07", .len = 1 } },
+      .read_item_ret = BITPUNCH_OUT_OF_BOUNDS_ERROR },
+
+    { "mu3.field3_u16", 18, 2,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "field3_u16", .len = 10 } },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 7 },
+      .read_item_ret = BITPUNCH_OUT_OF_BOUNDS_ERROR },
+
+    { "mu3.field4_u8", 18, 1,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "field4_u8", .len = 9 } },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 7 },
+      .read_item_ret = BITPUNCH_OUT_OF_BOUNDS_ERROR },
+
+    { "u4", 22, 4,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "u4", .len = 2 } },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 8 },
+      .read_item_ret = BITPUNCH_OUT_OF_BOUNDS_ERROR },
+};
+
 static const struct test_tracker_spec
 check_struct_invalid_truncated1_spec = {
     .test_name = "struct.invalid_truncated1",
     .contents_def = &check_struct_def_hdl,
     .contents = check_struct_invalid_truncated1_contents,
     .contents_size = sizeof (check_struct_invalid_truncated1_contents),
-    .tracker_error = TRUE,
+    .expect_boxes = check_struct_invalid_truncated1_expect,
+    .n_expect_boxes = N_ELEM(check_struct_invalid_truncated1_expect),
+    .truncated = TRUE,
 };
 
 

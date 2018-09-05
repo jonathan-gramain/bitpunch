@@ -115,8 +115,44 @@ static const char check_sarray_invalid_truncated1_contents[] = {
 };
 
 static const struct test_tracker_expect_box
-check_sarray_invalid_truncated1_expect[] = {
-    /* error detected early because the array is of static size */
+check_sarray_invalid_truncated_expect[] = {
+    { "int_array", 0, 20,
+      .key_type = EXPR_VALUE_TYPE_STRING,
+      .key = { .string = { .str = "int_array", .len = 9 } },
+      .value_type = EXPR_VALUE_TYPE_UNSET,
+      .n_items = 5,
+      .read_item_ret = BITPUNCH_OUT_OF_BOUNDS_ERROR },
+
+    { "int_array[0]", 0, 4,
+      .key_type = EXPR_VALUE_TYPE_INTEGER,
+      .key = { .integer = 0 },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 1 } },
+
+    { "int_array[1]", 4, 4,
+      .key_type = EXPR_VALUE_TYPE_INTEGER,
+      .key = { .integer = 1 },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 2 } },
+
+    { "int_array[2]", 8, 4,
+      .key_type = EXPR_VALUE_TYPE_INTEGER,
+      .key = { .integer = 2 },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 3 } },
+
+    { "int_array[3]", 12, 4,
+      .key_type = EXPR_VALUE_TYPE_INTEGER,
+      .key = { .integer = 3 },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 4 } },
+
+    { "int_array[4]", 16, 4,
+      .key_type = EXPR_VALUE_TYPE_INTEGER,
+      .key = { .integer = 4 },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 5 },
+      .read_item_ret = BITPUNCH_OUT_OF_BOUNDS_ERROR },
 };
 
 static const struct test_tracker_spec check_sarray_invalid_truncated1_spec = {
@@ -124,9 +160,9 @@ static const struct test_tracker_spec check_sarray_invalid_truncated1_spec = {
     .contents_def = &check_sarray_def_hdl,
     .contents = check_sarray_invalid_truncated1_contents,
     .contents_size = sizeof (check_sarray_invalid_truncated1_contents),
-    .expect_boxes = check_sarray_invalid_truncated1_expect,
-    .n_expect_boxes = N_ELEM(check_sarray_invalid_truncated1_expect),
-    .tracker_error = BITPUNCH_OUT_OF_BOUNDS_ERROR,
+    .expect_boxes = check_sarray_invalid_truncated_expect,
+    .n_expect_boxes = N_ELEM(check_sarray_invalid_truncated_expect),
+    .truncated = TRUE,
 };
 
 
@@ -140,7 +176,9 @@ static const struct test_tracker_spec check_sarray_invalid_truncated2_spec = {
     .contents_def = &check_sarray_def_hdl,
     .contents = check_sarray_invalid_truncated2_contents,
     .contents_size = sizeof (check_sarray_invalid_truncated2_contents),
-    .tracker_error = TRUE,
+    .expect_boxes = check_sarray_invalid_truncated_expect,
+    .n_expect_boxes = N_ELEM(check_sarray_invalid_truncated_expect),
+    .truncated = TRUE,
 };
 
 
@@ -228,19 +266,56 @@ static const struct test_tracker_expect_box check_varray_invalid_truncated1_expe
       .value_type = EXPR_VALUE_TYPE_INTEGER,
       .value = { .integer = 5 } },
 
-    { "int_array", 4, 20,
+    { "int_array", 4, 28,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "int_array", .len = 9 } },
       .value_type = EXPR_VALUE_TYPE_UNSET,
       .n_items = 7,
-      /* error detected at read because of lazy evaluation of size */
       .read_item_ret = BITPUNCH_OUT_OF_BOUNDS_ERROR },
 
     { "int_array[0]", 4, 4,
       .key_type = EXPR_VALUE_TYPE_INTEGER,
       .key = { .integer = 0 },
       .value_type = EXPR_VALUE_TYPE_INTEGER,
-      .value = { .integer = 1 },
+      .value = { .integer = 1 } },
+
+    { "int_array[1]", 8, 4,
+      .key_type = EXPR_VALUE_TYPE_INTEGER,
+      .key = { .integer = 1 },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 2 } },
+
+    { "int_array[2]", 12, 4,
+      .key_type = EXPR_VALUE_TYPE_INTEGER,
+      .key = { .integer = 2 },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 3 } },
+
+    { "int_array[3]", 16, 4,
+      .key_type = EXPR_VALUE_TYPE_INTEGER,
+      .key = { .integer = 3 },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 4 } },
+
+    { "int_array[4]", 20, 4,
+      .key_type = EXPR_VALUE_TYPE_INTEGER,
+      .key = { .integer = 4 },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 5 },
+      .read_item_ret = BITPUNCH_OUT_OF_BOUNDS_ERROR },
+
+    { "int_array[5]", 24, 4,
+      .key_type = EXPR_VALUE_TYPE_INTEGER,
+      .key = { .integer = 5 },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 6 },
+      .read_item_ret = BITPUNCH_OUT_OF_BOUNDS_ERROR },
+
+    { "int_array[6]", 28, 4,
+      .key_type = EXPR_VALUE_TYPE_INTEGER,
+      .key = { .integer = 6 },
+      .value_type = EXPR_VALUE_TYPE_INTEGER,
+      .value = { .integer = 7 },
       .read_item_ret = BITPUNCH_OUT_OF_BOUNDS_ERROR },
 };
 

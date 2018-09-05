@@ -122,10 +122,12 @@ struct box_backend {
                                            struct browse_state *bst);
     bitpunch_status_t (*compute_min_span_size)(struct box *box,
                                               struct browse_state *bst);
-    bitpunch_status_t (*get_max_slack_offset)(struct box *box,
-                                              int get_left_offset,
-                                              int64_t *max_slack_offsetp,
-                                              struct browse_state *bst);
+    bitpunch_status_t (*compute_used_size)(struct box *box,
+                                           struct browse_state *bst);
+    bitpunch_status_t (*get_slack_child_allocation)(struct box *box,
+                                                    int get_left_offset,
+                                                    int64_t *max_slack_offsetp,
+                                                    struct browse_state *bst);
     bitpunch_status_t (*get_end_path)(struct box *box,
                                       struct track_path *end_pathp,
                                       struct browse_state *bst);

@@ -38,6 +38,7 @@ extern struct ast_node_hdl shared_ast_node_byte;
 extern struct ast_node_hdl shared_ast_node_array_slice;
 extern struct ast_node_hdl shared_ast_node_byte_slice;
 extern struct ast_node_hdl shared_ast_node_as_bytes;
+extern struct ast_node_hdl shared_ast_node_source;
 extern struct dpath_node shared_dpath_node_array_slice;
 extern struct dpath_node shared_dpath_node_byte_slice;
 
@@ -45,6 +46,7 @@ extern struct dpath_node shared_dpath_node_byte_slice;
 #define AST_NODE_ARRAY_SLICE &shared_ast_node_array_slice
 #define AST_NODE_BYTE_SLICE &shared_ast_node_byte_slice
 #define AST_NODE_AS_BYTES &shared_ast_node_as_bytes
+#define AST_NODE_SOURCE &shared_ast_node_source
 #define DPATH_NODE_ARRAY_SLICE &shared_dpath_node_array_slice
 #define DPATH_NODE_BYTE_SLICE &shared_dpath_node_byte_slice
 
@@ -69,6 +71,9 @@ box_new_filter_box(struct box *parent_box,
                    struct ast_node_hdl *filter_defining_used_size,
                    struct browse_state *bst);
 bitpunch_status_t
+box_apply_parent_filter_internal(struct box *box,
+                                 struct browse_state *bst);
+bitpunch_status_t
 box_apply_filter_internal(struct box *box,
                           struct browse_state *bst);
 
@@ -78,6 +83,9 @@ box_get_n_items_internal(struct box *box, int64_t *item_countp,
 bitpunch_status_t
 box_get_min_span_size(struct box *box, int64_t *min_span_sizep,
                       struct browse_state *bst);
+bitpunch_status_t
+box_get_used_size(struct box *box, int64_t *used_sizep,
+                  struct browse_state *bst);
 bitpunch_status_t
 box_get_span_size(struct box *box, int64_t *used_sizep,
                   struct browse_state *bst);
@@ -121,8 +129,9 @@ bitpunch_status_t
 tracker_compute_item_filter_internal(struct tracker *tk,
                                      struct browse_state *bst);
 
-struct tracker *
+bitpunch_status_t
 track_box_contents(struct box *box,
+                   struct tracker **tkp,
                    struct tracker_error **errp);
 
 bitpunch_status_t

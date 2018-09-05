@@ -1562,8 +1562,12 @@ expr_evaluate_file(struct ast_node_hdl *expr, struct box *scope,
     expr_dpath_t dpath;
     bitpunch_status_t bt_ret;
 
+    // TODO "file" expression should yield the source filter in the
+    // future, as containers should be declared as filters on top of
+    // the source.
     file_box = scope;
-    while (NULL != file_box->parent_box) {
+    while (AST_NODE_TYPE_SOURCE !=
+           file_box->parent_box->dpath.filter->ndat->type) {
         file_box = file_box->parent_box;
     }
     box_acquire(file_box);
@@ -1662,8 +1666,12 @@ expr_evaluate_subscript(
         }
         break ;
     case EXPR_DPATH_TYPE_CONTAINER:
-        tk = track_box_contents_internal(anchor_eval.container.box, bst);
+        bt_ret = track_box_contents_internal(anchor_eval.container.box,
+                                             &tk, bst);
         box_delete(anchor_eval.container.box);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
         break ;
     default:
         assert(0);
@@ -1719,8 +1727,12 @@ expr_evaluate_subscript_slice(
         }
         break ;
     case EXPR_DPATH_TYPE_CONTAINER:
-        tk_slice_start = track_box_contents_internal(anchor_eval.container.box, bst);
+        bt_ret = track_box_contents_internal(anchor_eval.container.box,
+                                             &tk_slice_start, bst);
         box_delete(anchor_eval.container.box);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
         break ;
     default:
         assert(0);
@@ -2039,8 +2051,11 @@ expr_transform_dpath_polymorphic(
                 "cannot evaluate filtered dpath: multiple sources");
         }
         field = (struct field *)nstmt;
-        tk = track_box_contents_internal(member_scope, bst);
+        bt_ret = track_box_contents_internal(member_scope, &tk, bst);
         box_delete(member_scope);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
         bt_ret = tracker_goto_field_internal(tk, field, FALSE, bst);
         if (BITPUNCH_OK != bt_ret) {
             tracker_delete(tk);
@@ -2340,7 +2355,10 @@ evaluate_scoped_statement_internal(
         const struct field *field;
 
         field = (const struct field *)named_stmt;
-        tk = track_box_contents_internal(scope, bst);
+        bt_ret = track_box_contents_internal(scope, &tk, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
         bt_ret = tracker_goto_field_internal(tk, field, FALSE, bst);
         if (BITPUNCH_OK == bt_ret && NULL != valuep) {
             bt_ret = tracker_read_item_value_internal(tk, valuep, bst);

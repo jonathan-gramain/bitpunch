@@ -268,3 +268,5 @@ correctly (b_filter is empty)
   type)
 
 - inline docstrings (ala pydoc)
+
+- check tests: change .key_type to .key: { .type }, same for .value_type

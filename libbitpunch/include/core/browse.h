@@ -57,25 +57,29 @@ enum box_offset_type {
     BOX_START_OFFSET_MAX_SPAN = (1<<3),
     BOX_START_OFFSET_SLACK    = (1<<4),
     BOX_START_OFFSET_PARENT   = (1<<5),
+    BOX_START_OFFSET_USED     = (1<<6),
     BOX_START_OFFSETS         = (BOX_START_OFFSET_HARD_MIN |
                                  BOX_START_OFFSET_MIN_SPAN |
                                  BOX_START_OFFSET_SPAN |
                                  BOX_START_OFFSET_MAX_SPAN |
                                  BOX_START_OFFSET_SLACK |
-                                 BOX_START_OFFSET_PARENT),
+                                 BOX_START_OFFSET_PARENT |
+                                 BOX_START_OFFSET_USED),
 
-    BOX_END_OFFSET_HARD_MIN   = (1<<6),
-    BOX_END_OFFSET_MIN_SPAN   = (1<<7),
-    BOX_END_OFFSET_SPAN       = (1<<8),
-    BOX_END_OFFSET_MAX_SPAN   = (1<<9),
-    BOX_END_OFFSET_SLACK      = (1<<10),
-    BOX_END_OFFSET_PARENT     = (1<<11),
+    BOX_END_OFFSET_HARD_MIN   = (1<<7),
+    BOX_END_OFFSET_MIN_SPAN   = (1<<8),
+    BOX_END_OFFSET_SPAN       = (1<<9),
+    BOX_END_OFFSET_MAX_SPAN   = (1<<10),
+    BOX_END_OFFSET_SLACK      = (1<<11),
+    BOX_END_OFFSET_PARENT     = (1<<12),
+    BOX_END_OFFSET_USED       = (1<<13),
     BOX_END_OFFSETS           = (BOX_END_OFFSET_HARD_MIN |
                                  BOX_END_OFFSET_MIN_SPAN |
                                  BOX_END_OFFSET_SPAN |
                                  BOX_END_OFFSET_MAX_SPAN |
                                  BOX_END_OFFSET_SLACK |
-                                 BOX_END_OFFSET_PARENT),
+                                 BOX_END_OFFSET_PARENT |
+                                 BOX_END_OFFSET_USED),
 
     BOX_SIZE_HARD_MIN         = (BOX_START_OFFSET_HARD_MIN |
                                  BOX_END_OFFSET_HARD_MIN),
@@ -89,6 +93,8 @@ enum box_offset_type {
                                  BOX_END_OFFSET_SLACK),
     BOX_SIZE_PARENT           = (BOX_START_OFFSET_PARENT |
                                  BOX_END_OFFSET_PARENT),
+    BOX_SIZE_USED             = (BOX_START_OFFSET_USED |
+                                 BOX_END_OFFSET_USED),
 };
 
 TAILQ_HEAD(box_tailq, box);
@@ -141,15 +147,18 @@ struct box {
 
     int use_count;          /**< reference counter */
 
-    /** internal box state */
+    /* internal box state */
+
+    /** box flags (don't forget to update box_dump_flags()) */
     enum box_flag {
         COMPUTING_SPAN_SIZE        = (1u<<0),
-        COMPUTING_MAX_SLACK_OFFSET = (1u<<1),
+        COMPUTING_SLACK_CHILD_ALLOCATION = (1u<<1),
         BOX_CACHED                 = (1u<<2),
         BOX_RALIGN                 = (1u<<3),
         BOX_FILTER                 = (1u<<4),
         BOX_DATA_SOURCE            = (1u<<5),
-        BOX_FILTER_APPLIED         = (1u<<6),
+        BOX_OVERLAY                = (1u<<6),
+        BOX_FILTER_APPLIED         = (1u<<7),
     } flags;
     union {
         struct box_composite {
@@ -419,8 +428,9 @@ box_compute_end_offset(struct box *box,
                        enum box_offset_type off_type,
                        int64_t *end_offsetp,
                        struct tracker_error **errp);
-struct tracker *
-track_box_contents_internal(struct box *box, struct browse_state *bst);
+bitpunch_status_t
+track_box_contents_internal(struct box *box,
+                            struct tracker **tkp, struct browse_state *bst);
 bitpunch_status_t
 box_apply_filter(struct box *box,
                  struct tracker_error **errp);

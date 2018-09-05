@@ -1710,10 +1710,8 @@ box_to_deep_PyDict(struct DataTreeObject *dtree, struct box *box)
     if (NULL == dict) {
         return NULL;
     }
-    tk = track_box_contents(box, &tk_err);
-    if (NULL == tk) {
-        assert(NULL != tk_err);
-        bt_ret = tk_err->bt_ret;
+    bt_ret = track_box_contents(box, &tk, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
         goto tk_error;
     }
     bt_ret = tracker_goto_next_item(tk, &tk_err);
@@ -1767,10 +1765,9 @@ box_get_attributes_dict(struct box *box)
     if (NULL == dict) {
         return NULL;
     }
-    tk = track_box_contents(box, &tk_err);
-    if (NULL == tk) {
-        assert(NULL != tk_err);
-        set_tracker_error(tk_err, tk_err->bt_ret);
+    bt_ret = track_box_contents(box, &tk, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
         Py_DECREF(dict);
         return NULL;
     }
@@ -1891,6 +1888,7 @@ DataItem_get_tracker_at_key(
 {
     struct tracker *tk;
     PyObject *key_obj;
+    bitpunch_status_t bt_ret;
     struct tracker_error *tk_err = NULL;
 
     if (PyObject_TypeCheck(key, &IndexKeyType)) {
@@ -1901,10 +1899,9 @@ DataItem_get_tracker_at_key(
     if (-1 == DataItem_convert_dpath_to_box(self)) {
         return NULL;
     }
-    tk = track_box_contents(self->dpath.container.box, &tk_err);
-    if (NULL == tk) {
-        assert(NULL != tk_err);
-        set_tracker_error(tk_err, tk_err->bt_ret);
+    bt_ret = track_box_contents(self->dpath.container.box, &tk, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
         return NULL;
     }
     if (-1 == tk_goto_item_by_key(tk, key_obj, keyp, all_twinsp)) {
@@ -2026,10 +2023,9 @@ DataItem_get_slice(DataItemObject *self, PyObject *key)
         // case, keep the same behavior instead of returning an error.
         slice_stop = slice_start;
     }
-    tk_start = track_box_contents(self->dpath.container.box, &tk_err);
-    if (NULL == tk_start) {
-        assert(NULL != tk_err);
-        set_tracker_error(tk_err, tk_err->bt_ret);
+    bt_ret = track_box_contents(self->dpath.container.box, &tk_start, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
         goto end;
     }
     bt_ret = tracker_goto_nth_position(tk_start, slice_start, &tk_err);
@@ -2037,10 +2033,9 @@ DataItem_get_slice(DataItemObject *self, PyObject *key)
         set_tracker_error(tk_err, bt_ret);
         goto end;
     }
-    tk_end = track_box_contents(self->dpath.container.box, &tk_err);
-    if (NULL == tk_end) {
-        assert(NULL != tk_err);
-        set_tracker_error(tk_err, tk_err->bt_ret);
+    bt_ret = track_box_contents(self->dpath.container.box, &tk_end, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        set_tracker_error(tk_err, bt_ret);
         goto end;
     }
     bt_ret = tracker_goto_nth_position(tk_end, slice_stop, &tk_err);
@@ -2078,10 +2073,8 @@ box_to_deep_PyList(struct DataTreeObject *dtree, struct box *box)
     int64_t index;
     struct tracker_error *tk_err = NULL;
 
-    tk = track_box_contents(box, &tk_err);
-    if (NULL == tk) {
-        assert(NULL != tk_err);
-        bt_ret = tk_err->bt_ret;
+    bt_ret = track_box_contents(box, &tk, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
         goto tk_error;
     }
     bt_ret = tracker_get_n_items(tk, &item_count, &tk_err);

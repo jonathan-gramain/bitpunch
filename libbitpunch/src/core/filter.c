@@ -260,7 +260,7 @@ filter_instance_read_value(struct ast_node_hdl *filter,
     }
     if (BITPUNCH_OK == bt_ret) {
         memset(&value, 0, sizeof(value));
-        item_data = scope->ds_in->ds_data + item_offset;
+        item_data = scope->ds_out->ds_data + item_offset;
         if (NULL != f_instance->read_func) {
             bt_ret = f_instance->read_func(filter, scope,
                                            &value, item_data, span_size, bst);
@@ -563,21 +563,22 @@ filter_lookup_statement_in_anonymous_field_recur(
     if (!cond_eval) {
         return BITPUNCH_NO_ITEM;
     }
-    tk = track_box_contents_internal(scope, bst);
+    bt_ret = track_box_contents_internal(scope, &tk, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     bt_ret = tracker_goto_field_internal(
         tk, field, TRUE, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
+    if (BITPUNCH_OK == bt_ret) {
+        bt_ret = tracker_get_filtered_item_box_internal(tk, &anon_scope, bst);
     }
-    bt_ret = tracker_get_filtered_item_box_internal(tk, &anon_scope, bst);
     tracker_delete(tk);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
+    if (BITPUNCH_OK == bt_ret) {
+        bt_ret = filter_lookup_statement_recur(
+            as_type, anon_scope,
+            &as_type->ndat->u.rexpr_filter.filter_def->block_stmt_list,
+            stmt_mask, identifier, stmt_typep, stmtp, scopep, bst);
     }
-    bt_ret = filter_lookup_statement_recur(
-        as_type, anon_scope,
-        &as_type->ndat->u.rexpr_filter.filter_def->block_stmt_list,
-        stmt_mask, identifier, stmt_typep, stmtp, scopep, bst);
     box_delete(anon_scope);
     return bt_ret;
 }

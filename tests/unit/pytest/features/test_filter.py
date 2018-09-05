@@ -215,7 +215,10 @@ let RawBlock = struct {
     [n] byte <> AsContents;
 };
 
-let Base64Block = [] byte <> string { @boundary = '\\n'; } <> base64 <> RawBlock;
+let Base64Block = [] byte
+    <> string { @boundary = '\\n'; }
+    <> base64
+    <> RawBlock;
 
 let AsContents = struct {
     data: [] byte;
@@ -306,6 +309,8 @@ def test_filter_2(params_filter_2):
 
     assert dtree.blocks[1].get_offset() == 0
     assert dtree.blocks[1].get_size() == 22
+    assert dtree.eval_expr('blocks[1]').get_offset() == 0
+    assert dtree.eval_expr('blocks[1]').get_size() == 22
     assert dtree.blocks[1].n == 18
     assert str(dtree.blocks[1].data) == 'more contents data'
     assert str(dtree.blocks[1]['?data_preview']) == 'more conte'
@@ -320,17 +325,30 @@ def test_filter_2(params_filter_2):
         'n': 23,
         'data': 'even more contents data'
     }
-    # up one ancestor, base64 filter still applies to the child buffer
-    assert dtree.eval_expr('^blocks[1]').get_offset() == 0
-    assert dtree.eval_expr('^blocks[1]').get_size() == 22
     assert dtree.eval_expr('blocks[1].?data_preview').get_size() == 10
-    # up two ancestors, back to the raw base64 string from main buffer
-    assert dtree.eval_expr('^^blocks[1]').get_offset() == 29
-    assert dtree.eval_expr('^^blocks[1]').get_size() == 32
+
+    # up one ancestor => input for base64 filter
+    daddy = dtree.eval_expr('^blocks[1]')
+    assert daddy.get_offset() == 29
+    assert daddy.get_size() == 32
+    # filtered output
+    assert daddy == '\x12\00\00\00more contents data'
+
+    # up two ancestors => input for newline-terminated string
+    grandpa = dtree.eval_expr('^^blocks[1]')
+    assert grandpa.get_offset() == 29
+    assert grandpa.get_size() == 33
+    # filtered output (i.e. without final newline)
+    assert str(grandpa) == 'EgAAAG1vcmUgY29udGVudHMgZGF0YQ=='
+
     # up three ancestors, back to the raw bytes block containing the
     # base64 contents ending with newline
-    assert dtree.eval_expr('^^^blocks[1]').get_offset() == 29
-    assert dtree.eval_expr('^^^blocks[1]').get_size() == 33
+    grandgrandpa = dtree.eval_expr('^^^blocks[1]')
+    assert grandgrandpa.get_offset() == 29
+    assert grandgrandpa.get_size() == 33
+    # this time with the final newline
+    assert str(grandgrandpa) == 'EgAAAG1vcmUgY29udGVudHMgZGF0YQ==\n'
+
     assert model.make_python_object(dtree.eval_expr('^blocks[2]')) == \
        '\x17\x00\x00\x00even more contents data'
     assert model.make_python_object(dtree.eval_expr('^(^blocks)[2]')) == \
@@ -408,16 +426,6 @@ def test_filter_in_field_expression(params_filter_in_field_expression):
     with pytest.raises(AttributeError):
         dtree.eval_expr('^?a_as_struct').value
 
-
-spec_file_filter_invalid_no_data_source_1 = """
-
-let UnsignedTemplate = integer { @signed = false; @endian = 'little'; };
-
-file {
-    value: UnsignedTemplate;
-}
-
-"""
 
 
 spec_file_filter_encoded_integer_field = """
@@ -601,7 +609,17 @@ def test_filter_messages(params_filter_messages):
 
 
 
-spec_file_filter_invalid_no_data_source_2 = """
+spec_file_filter_file_invalid_not_an_item_1 = """
+
+let UnsignedTemplate = integer { @signed = false; @endian = 'little'; };
+
+file {
+    value: UnsignedTemplate;
+}
+
+"""
+
+spec_file_filter_file_invalid_not_an_item_2 = """
 
 let UnsignedTemplate = integer { @signed = false; @endian = 'little'; };
 
@@ -612,6 +630,29 @@ file {
 }
 
 """
+
+data_file_filter_file_invalid_not_an_item = """
+2A 00 00 00
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_filter_file_invalid_not_an_item_1,
+        'data': data_file_filter_file_invalid_not_an_item,
+    }, {
+        'spec': spec_file_filter_file_invalid_not_an_item_2,
+        'data': data_file_filter_file_invalid_not_an_item,
+    }])
+def params_filter_file_invalid_not_an_item(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_filter_file_invalid_not_an_item(params_filter_file_invalid_not_an_item):
+    params = params_filter_file_invalid_not_an_item
+    dtree = params['dtree']
+    with pytest.raises(ValueError):
+        print dtree.value
 
 spec_file_filter_invalid_bad_filter_type = """
 
@@ -624,10 +665,6 @@ file {
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_file_filter_invalid_no_data_source_1,
-    }, {
-        'spec': spec_file_filter_invalid_no_data_source_2,
-    }, {
         'spec': spec_file_filter_invalid_bad_filter_type,
     }])
 def params_filter_invalid(request):

@@ -220,6 +220,7 @@
             AST_NODE_TYPE_ARRAY_SLICE,
             AST_NODE_TYPE_BYTE_SLICE,
             AST_NODE_TYPE_AS_BYTES,
+            AST_NODE_TYPE_SOURCE,
             AST_NODE_TYPE_CONDITIONAL,
             AST_NODE_TYPE_OP_EQ,
             AST_NODE_TYPE_OP_NE,
@@ -1205,6 +1206,7 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_ARRAY_SLICE: return "slice";
     case AST_NODE_TYPE_BYTE_SLICE: return "byte slice";
     case AST_NODE_TYPE_AS_BYTES: return "as bytes";
+    case AST_NODE_TYPE_SOURCE: return "source";
     case AST_NODE_TYPE_CONDITIONAL: return "conditional";
     case AST_NODE_TYPE_REXPR_NATIVE: return "native type";
     case AST_NODE_TYPE_OP_FCALL:

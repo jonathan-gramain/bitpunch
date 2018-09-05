@@ -54,7 +54,7 @@ struct test_tracker_spec {
     size_t contents_size;
     const struct test_tracker_expect_box *expect_boxes;
     int n_expect_boxes;
-    int tracker_error;
+    //int tracker_error;
     int truncated;
 };
 
