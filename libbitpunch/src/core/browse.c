@@ -1807,7 +1807,6 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
     const struct filter_class *filter_cls;
     const struct bitpunch_binary_file_hdl *parent_file_hdl;
     struct bitpunch_binary_file_hdl *filtered_data_hdl;
-    const char *unfiltered_data;
     int64_t unfiltered_size;
     expr_value_t filtered_value;
     const char *filtered_data;
@@ -1832,11 +1831,10 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    unfiltered_data = parent_file_hdl->bf_data
-        + box->parent_box->start_offset_used;
-    // FIXME check "box" is the right scope
+    // FIXME check "box->parent_box" is the right scope
     bt_ret = filter_instance_read_value(
-        box->dpath.filter, box, unfiltered_data, unfiltered_size,
+        box->dpath.filter, box->parent_box,
+        box->parent_box->start_offset_used, unfiltered_size,
         &filtered_value, bst);
     if (BITPUNCH_OK != bt_ret) {
         return box_error(bt_ret, box, box->dpath.filter, bst,
@@ -6117,9 +6115,6 @@ filter_read_value__filter(struct ast_node_hdl *filter,
                           expr_value_t *valuep,
                           struct browse_state *bst)
 {
-    const char *item_data;
-
-    item_data = scope->file_hdl->bf_data + item_offset;
     // if box filter is a data filter, getting the value is simply
     // returning the box data bytes as-is since they come from the
     // filter output
@@ -6129,7 +6124,7 @@ filter_read_value__filter(struct ast_node_hdl *filter,
                                         valuep, bst);
     }
     return filter_instance_read_value(filter, scope,
-                                      item_data, item_size,
+                                      item_offset, item_size,
                                       valuep, bst);
 }
 

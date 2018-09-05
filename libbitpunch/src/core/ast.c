@@ -2825,7 +2825,10 @@ get_filter_defining_size_status(struct ast_node_hdl *filter);
 static enum filter_defining_size_status
 get_filter_defining_size_status_filter(struct ast_node_hdl *filter)
 {
-    return NULL != filter->ndat->u.rexpr_filter.f_instance->get_size_func ?
+    struct filter_instance *f_instance;
+
+    f_instance = filter->ndat->u.rexpr_filter.f_instance;
+    return NULL != f_instance->b_item.compute_item_size ?
         FILTER_ALWAYS_DEFINES_SIZE : FILTER_NEVER_DEFINES_SIZE;
 }
         

@@ -58,7 +58,6 @@ struct filter_instance {
     struct box_backend b_box;
     struct tracker_backend b_tk;
     filter_read_func_t read_func;
-    filter_get_size_func_t get_size_func;
 };
 
 typedef struct filter_instance *
@@ -109,11 +108,11 @@ filter_instance_build(struct ast_node_hdl *node,
 
 bitpunch_status_t
 filter_instance_read_value(struct ast_node_hdl *filter,
-                             struct box *scope,
-                             const char *item_data,
-                             int64_t item_size,
-                             expr_value_t *valuep,
-                             struct browse_state *bst);
+                           struct box *scope,
+                           int64_t item_offset,
+                           int64_t item_size,
+                           expr_value_t *valuep,
+                           struct browse_state *bst);
 
 /* generic statement API */
 

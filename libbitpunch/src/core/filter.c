@@ -237,7 +237,7 @@ filter_class_get_attr(const struct filter_class *filter_cls,
 bitpunch_status_t
 filter_instance_read_value(struct ast_node_hdl *filter,
                            struct box *scope,
-                           const char *item_data,
+                           int64_t item_offset,
                            int64_t item_size,
                            expr_value_t *valuep,
                            struct browse_state *bst)
@@ -245,21 +245,22 @@ filter_instance_read_value(struct ast_node_hdl *filter,
     struct filter_instance *f_instance;
     bitpunch_status_t bt_ret;
     int64_t span_size;
-    int64_t used_size;
+    const char *item_data;
     expr_value_t value;
 
     value.type = EXPR_VALUE_TYPE_UNSET;
     f_instance = filter->ndat->u.rexpr_filter.f_instance;
-    if (NULL == f_instance->get_size_func) {
+    if (NULL == f_instance->b_item.compute_item_size) {
         span_size = item_size;
         bt_ret = BITPUNCH_OK;
     } else {
-        bt_ret = f_instance->get_size_func(filter, scope,
-                                           &span_size, &used_size,
-                                           item_data, item_size, bst);
+        bt_ret = f_instance->b_item.compute_item_size(
+            filter, scope, item_offset, item_offset + item_size,
+            &span_size, bst);
     }
     if (BITPUNCH_OK == bt_ret) {
         memset(&value, 0, sizeof(value));
+        item_data = scope->file_hdl->bf_data + item_offset;
         if (NULL != f_instance->read_func) {
             bt_ret = f_instance->read_func(filter, scope,
                                            &value, item_data, span_size, bst);

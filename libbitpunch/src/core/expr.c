@@ -2218,6 +2218,9 @@ expr_evaluate_filter_type_filter(struct ast_node_hdl *filter,
                                  struct ast_node_hdl **filter_typep,
                                  struct browse_state *bst)
 {
+    struct filter_instance *f_instance;
+
+    f_instance = filter->ndat->u.rexpr_filter.f_instance;
     switch (kind) {
     case FILTER_KIND_FILTER:
     case FILTER_KIND_ANCESTOR: // no ancestor filter, fall through to
@@ -2226,8 +2229,7 @@ expr_evaluate_filter_type_filter(struct ast_node_hdl *filter,
         return BITPUNCH_OK;
     case FILTER_KIND_DEFINING_SPAN_SIZE:
     case FILTER_KIND_DEFINING_USED_SIZE:
-        *filter_typep =
-            NULL != filter->ndat->u.rexpr_filter.f_instance->get_size_func ?
+        *filter_typep = NULL != f_instance->b_item.compute_item_size ?
             filter : NULL;
         return BITPUNCH_OK;
     case FILTER_KIND_ITEM:

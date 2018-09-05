@@ -101,31 +101,6 @@ compute_item_size__string__single_char_constant_boundary(
 }
 
 static bitpunch_status_t
-string_get_size_single_char_constant_boundary(
-    struct ast_node_hdl *filter,
-    struct box *scope,
-    int64_t *span_sizep,
-    int64_t *used_sizep,
-    const char *data, int64_t max_span_size,
-    struct browse_state *bst)
-{
-    struct string_single_char_constant_boundary *f_instance;
-    const char *end;
-
-    f_instance = (struct string_single_char_constant_boundary *)
-        filter->ndat->u.rexpr_filter.f_instance;
-    end = memchr(data, f_instance->boundary, max_span_size);
-    if (NULL != end) {
-        *span_sizep = end - data + 1;
-        *used_sizep = end - data;
-    } else {
-        *span_sizep = max_span_size;
-        *used_sizep = max_span_size;
-    }
-    return BITPUNCH_OK;
-}
-
-static bitpunch_status_t
 string_read_single_char_constant_boundary(
     struct ast_node_hdl *filter,
     struct box *scope,
@@ -158,7 +133,6 @@ string_build_single_char_constant_boundary(char boundary)
     f_instance->p.b_item.compute_item_size =
         compute_item_size__string__single_char_constant_boundary;
     f_instance->p.b_box.init = string_box_init;
-    f_instance->p.get_size_func = string_get_size_single_char_constant_boundary;
     f_instance->p.read_func = string_read_single_char_constant_boundary;
     return (struct filter_instance *)f_instance;
 }
@@ -193,39 +167,6 @@ compute_item_size__string__generic(struct ast_node_hdl *filter,
         return bt_ret;
     }
     *item_sizep = max_span_offset - item_offset;
-    return BITPUNCH_OK;
-}
-
-static bitpunch_status_t
-string_get_size_generic(
-    struct ast_node_hdl *filter,
-    struct box *scope,
-    int64_t *span_sizep,
-    int64_t *used_sizep,
-    const char *data, int64_t max_span_size,
-    struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    expr_value_t attr_value;
-    const char *end;
-
-    bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@boundary", NULL, &attr_value, NULL, bst);
-    if (BITPUNCH_OK == bt_ret) {
-        end = memmem(data, max_span_size,
-                     attr_value.string.str, attr_value.string.len);
-        if (NULL != end) {
-            *span_sizep = end - data + attr_value.string.len;
-            *used_sizep = end - data;
-            expr_value_destroy(attr_value);
-            return BITPUNCH_OK;
-        }
-        expr_value_destroy(attr_value);
-    } else if (BITPUNCH_NO_ITEM != bt_ret) {
-        return bt_ret;
-    }
-    *span_sizep = max_span_size;
-    *used_sizep = max_span_size;
     return BITPUNCH_OK;
 }
 
@@ -270,7 +211,6 @@ string_build_generic(void)
     f_instance = new_safe(struct filter_instance);
     f_instance->b_item.compute_item_size = compute_item_size__string__generic;
     f_instance->b_box.init = string_box_init;
-    f_instance->get_size_func = string_get_size_generic;
     f_instance->read_func = string_read_generic;
     return f_instance;
 }

@@ -62,27 +62,6 @@ compute_item_size__varint(struct ast_node_hdl *filter,
 }
 
 static bitpunch_status_t
-varint_get_size(struct ast_node_hdl *filter,
-                struct box *scope,
-                int64_t *span_sizep,
-                int64_t *used_sizep,
-                const char *data, int64_t max_span_size,
-                struct browse_state *bst)
-{
-    size_t bytepos;
-
-    for (bytepos = 0; bytepos < max_span_size; ++bytepos) {
-        if (!(data[bytepos] & 0x80)) {
-            *span_sizep = bytepos + 1;
-            *used_sizep = bytepos + 1;
-            return BITPUNCH_OK;
-        }
-    }
-    // invalid varint
-    return BITPUNCH_DATA_ERROR;
-}
-
-static bitpunch_status_t
 varint_read(struct ast_node_hdl *filter,
             struct box *scope,
             expr_value_t *read_value,
@@ -123,7 +102,6 @@ varint_filter_instance_build(struct ast_node_hdl *filter)
 
     f_instance = new_safe(struct filter_instance);
     f_instance->b_item.compute_item_size = compute_item_size__varint;
-    f_instance->get_size_func = varint_get_size;
     f_instance->read_func = varint_read;
     return f_instance;
 }
