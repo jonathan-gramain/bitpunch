@@ -175,12 +175,12 @@ dbg_tracker_check_state(const struct tracker *tk)
         assert(tk->item_offset >= 0);
         assert(-1 == tk->box->start_offset_max_span
                || tk->item_offset >= tk->box->start_offset_max_span);
-        assert(-1 == tk->box->start_offset_used
-               || tk->item_offset >= tk->box->start_offset_used);
+        assert(-1 == tk->box->start_offset_span
+               || tk->item_offset >= tk->box->start_offset_span);
         assert(-1 == tk->box->end_offset_max_span
                || tk->item_offset <= tk->box->end_offset_max_span);
-        assert(-1 == tk->box->end_offset_used
-               || tk->item_offset <= tk->box->end_offset_used);
+        assert(-1 == tk->box->end_offset_span
+               || tk->item_offset <= tk->box->end_offset_span);
         assert(-1 == tk->item_size);
         assert(NULL == tk->item_box);
         assert(0 == (tk->flags & TRACKER_AT_END));
@@ -195,12 +195,12 @@ dbg_tracker_check_state(const struct tracker *tk)
         assert(tk->item_size >= 0);
         assert(-1 == tk->box->start_offset_max_span
                || tk->item_offset >= tk->box->start_offset_max_span);
-        assert(-1 == tk->box->start_offset_used
-               || tk->item_offset >= tk->box->start_offset_used);
+        assert(-1 == tk->box->start_offset_span
+               || tk->item_offset >= tk->box->start_offset_span);
         assert(-1 == tk->box->end_offset_max_span
                || tk->item_offset <= tk->box->end_offset_max_span);
-        assert(-1 == tk->box->end_offset_used
-               || tk->item_offset <= tk->box->end_offset_used);
+        assert(-1 == tk->box->end_offset_span
+               || tk->item_offset <= tk->box->end_offset_span);
         if (reversed_iter) {
             item_end = tk->item_offset - tk->item_size;
         } else {
@@ -208,12 +208,12 @@ dbg_tracker_check_state(const struct tracker *tk)
         }
         assert(-1 == tk->box->start_offset_max_span
                || item_end >= tk->box->start_offset_max_span);
-        assert(-1 == tk->box->start_offset_used
-               || item_end >= tk->box->start_offset_used);
+        assert(-1 == tk->box->start_offset_span
+               || item_end >= tk->box->start_offset_span);
         assert(-1 == tk->box->end_offset_max_span
                || item_end <= tk->box->end_offset_max_span);
-        assert(-1 == tk->box->end_offset_used
-               || item_end <= tk->box->end_offset_used);
+        assert(-1 == tk->box->end_offset_span
+               || item_end <= tk->box->end_offset_span);
         assert(NULL == tk->item_box);
         dbg_tracker_check_track_path(tk,
                                      0 == (tk->flags & TRACKER_AT_END));
@@ -225,9 +225,9 @@ dbg_tracker_check_state(const struct tracker *tk)
         assert(-1 == tk->item_size);
         assert(NULL != tk->item_box);
         if (reversed_iter) {
-            assert(tk->item_box->end_offset_used == tk->item_offset);
+            assert(tk->item_box->end_offset_span == tk->item_offset);
         } else {
-            assert(tk->item_box->start_offset_used == tk->item_offset);
+            assert(tk->item_box->start_offset_span == tk->item_offset);
         }
         assert(0 == (tk->flags & TRACKER_AT_END));
         dbg_tracker_check_track_path(tk, TRUE);
@@ -250,11 +250,11 @@ dbg_tracker_check_state(const struct tracker *tk)
         assert(-1 == tk->box->end_offset_max_span
                || item_end <= tk->box->end_offset_max_span);
         if (reversed_iter) {
-            assert(tk->item_box->end_offset_used == tk->item_offset);
-            assert(tk->item_box->start_offset_used == item_end);
+            assert(tk->item_box->end_offset_span == tk->item_offset);
+            assert(tk->item_box->start_offset_span == item_end);
         } else {
-            assert(tk->item_box->start_offset_used == tk->item_offset);
-            assert(tk->item_box->end_offset_used == item_end);
+            assert(tk->item_box->start_offset_span == tk->item_offset);
+            assert(tk->item_box->end_offset_span == item_end);
         }
         assert(0 == (tk->flags & TRACKER_AT_END));
         dbg_tracker_check_track_path(tk, TRUE);

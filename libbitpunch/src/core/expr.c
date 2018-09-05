@@ -1474,7 +1474,7 @@ expr_evaluate_addrof(
             break ;
         case EXPR_DPATH_TYPE_CONTAINER:
             bt_ret = box_apply_filter_internal(dpath_eval.container.box, bst);
-            item_offset = dpath_eval.container.box->start_offset_used;
+            item_offset = dpath_eval.container.box->start_offset_span;
             break ;
         default:
             assert(0);

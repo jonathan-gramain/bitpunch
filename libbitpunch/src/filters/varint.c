@@ -50,7 +50,7 @@ compute_item_size__varint(struct ast_node_hdl *filter,
     const char *data;
     size_t bytepos;
 
-    data = scope->file_hdl->bf_data + item_offset;
+    data = scope->ds_in->ds_data + item_offset;
     for (bytepos = 0; bytepos < max_span_offset - item_offset; ++bytepos) {
         if (!(data[bytepos] & 0x80)) {
             *item_sizep = bytepos + 1;

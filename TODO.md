@@ -18,7 +18,7 @@ This can typically be used to access contents encapsulated in a
 transport stream.
 
 A view provides custom methods to access some range of bytes
-(generalizes the 'struct bintool_binary_file_hdl' type).
+(generalizes the 'struct bintool_data_source' type).
 
 BP syntax TBD (probably with one or more builtin functions).
 

@@ -1279,7 +1279,7 @@ DataItem_get_size(DataItemObject *self, PyObject *args)
     switch (self->dpath.type) {
     case EXPR_DPATH_TYPE_CONTAINER:
         bt_ret = box_compute_end_offset(self->dpath.container.box,
-                                        BOX_END_OFFSET_USED,
+                                        BOX_END_OFFSET_SPAN,
                                         &end_offset, &tk_err);
         if (BITPUNCH_OK != bt_ret) {
             set_tracker_error(tk_err, bt_ret);
@@ -1317,7 +1317,7 @@ DataItem_get_offset(DataItemObject *self, PyObject *args)
     switch (self->dpath.type) {
     case EXPR_DPATH_TYPE_CONTAINER:
         bt_ret = box_compute_end_offset(self->dpath.container.box,
-                                        BOX_END_OFFSET_USED, NULL, &tk_err);
+                                        BOX_END_OFFSET_SPAN, NULL, &tk_err);
         if (BITPUNCH_OK != bt_ret) {
             set_tracker_error(tk_err, bt_ret);
             return NULL;
@@ -1354,7 +1354,7 @@ DataItem_get_location(DataItemObject *self, PyObject *args)
     switch (self->dpath.type) {
     case EXPR_DPATH_TYPE_CONTAINER:
         bt_ret = box_compute_end_offset(self->dpath.container.box,
-                                        BOX_END_OFFSET_USED,
+                                        BOX_END_OFFSET_SPAN,
                                         &end_offset, &tk_err);
         if (BITPUNCH_OK != bt_ret) {
             set_tracker_error(tk_err, bt_ret);
@@ -1687,7 +1687,7 @@ DataItem_bf_getbuffer(DataItemObject *exporter,
         view->obj = NULL;
         return -1;
     }
-    buf = box->file_hdl->bf_data + data_offset;
+    buf = box->ds_in->ds_data + data_offset;
     len = data_size;
     return PyBuffer_FillInfo(view, (PyObject *)exporter,
                              (void *)buf, (Py_ssize_t)len,
@@ -2144,7 +2144,7 @@ PyDoc_STRVAR(DataTree__doc__,
 typedef struct DataTreeObject {
     DataItemObject item;
     FormatSpecObject *fmt;
-    struct bitpunch_binary_file_hdl *binary_file;
+    struct bitpunch_data_source *binary_file;
 } DataTreeObject;
 
 static PyTypeObject DataTreeType = {
@@ -2197,7 +2197,7 @@ DataTree_new(PyTypeObject *subtype,
     int ret;
     PyObject *bin;
     FormatSpecObject *fmt;
-    struct bitpunch_binary_file_hdl *binary_file;
+    struct bitpunch_data_source *binary_file;
     DataTreeObject *self;
     struct box *container_box;
 
@@ -3241,7 +3241,7 @@ Tracker_bf_getbuffer(TrackerObject *exporter,
         view->obj = NULL;
         return -1;
     }
-    buf = tk->box->file_hdl->bf_data + item_offset;
+    buf = tk->box->ds_in->ds_data + item_offset;
     len = item_size;
     return PyBuffer_FillInfo(view, (PyObject *)exporter,
                              (void *)buf, (Py_ssize_t)len,
@@ -3404,7 +3404,7 @@ eval_expr_as_python_object(DataItemObject *item, const char *expr)
 {
     DataTreeObject *dtree;
     struct bitpunch_schema_hdl *schema;
-    struct bitpunch_binary_file_hdl *binary_file;
+    struct bitpunch_data_source *binary_file;
     struct box *scope;
     int ret;
     expr_value_t expr_value;

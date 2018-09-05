@@ -53,26 +53,26 @@ struct index_cache_mark_offset {
 enum box_offset_type {
     BOX_START_OFFSET_HARD_MIN = (1<<0),
     BOX_START_OFFSET_MIN_SPAN = (1<<1),
-    BOX_START_OFFSET_USED     = (1<<2),
+    BOX_START_OFFSET_SPAN     = (1<<2),
     BOX_START_OFFSET_MAX_SPAN = (1<<3),
     BOX_START_OFFSET_SLACK    = (1<<4),
     BOX_START_OFFSET_PARENT   = (1<<5),
     BOX_START_OFFSETS         = (BOX_START_OFFSET_HARD_MIN |
                                  BOX_START_OFFSET_MIN_SPAN |
-                                 BOX_START_OFFSET_USED |
+                                 BOX_START_OFFSET_SPAN |
                                  BOX_START_OFFSET_MAX_SPAN |
                                  BOX_START_OFFSET_SLACK |
                                  BOX_START_OFFSET_PARENT),
 
     BOX_END_OFFSET_HARD_MIN   = (1<<6),
     BOX_END_OFFSET_MIN_SPAN   = (1<<7),
-    BOX_END_OFFSET_USED       = (1<<8),
+    BOX_END_OFFSET_SPAN       = (1<<8),
     BOX_END_OFFSET_MAX_SPAN   = (1<<9),
     BOX_END_OFFSET_SLACK      = (1<<10),
     BOX_END_OFFSET_PARENT     = (1<<11),
     BOX_END_OFFSETS           = (BOX_END_OFFSET_HARD_MIN |
                                  BOX_END_OFFSET_MIN_SPAN |
-                                 BOX_END_OFFSET_USED |
+                                 BOX_END_OFFSET_SPAN |
                                  BOX_END_OFFSET_MAX_SPAN |
                                  BOX_END_OFFSET_SLACK |
                                  BOX_END_OFFSET_PARENT),
@@ -81,8 +81,8 @@ enum box_offset_type {
                                  BOX_END_OFFSET_HARD_MIN),
     BOX_SIZE_MIN_SPAN         = (BOX_START_OFFSET_MIN_SPAN |
                                  BOX_END_OFFSET_MIN_SPAN),
-    BOX_SIZE_USED             = (BOX_START_OFFSET_USED |
-                                 BOX_END_OFFSET_USED),
+    BOX_SIZE_SPAN             = (BOX_START_OFFSET_SPAN |
+                                 BOX_END_OFFSET_SPAN),
     BOX_SIZE_MAX_SPAN         = (BOX_START_OFFSET_MAX_SPAN |
                                  BOX_END_OFFSET_MAX_SPAN),
     BOX_SIZE_SLACK            = (BOX_START_OFFSET_SLACK |
@@ -96,31 +96,45 @@ TAILQ_HEAD(box_tailq, box);
 struct box {
     struct box *parent_box;
     struct dpath_node dpath;
-    const struct bitpunch_binary_file_hdl *file_hdl;
+    const struct bitpunch_data_source *ds_in;
+    const struct bitpunch_data_source *ds_out;
 
-    int64_t start_offset_parent; /**< inherited parent's max offset */
+    /** [ds_in] inherited parent's max offset */
+    int64_t start_offset_parent;
 
-    int64_t start_offset_slack; /**< limit of space that box may use
-                                 * from its parent */
+    /** [ds_in] limit of space that box may use from its parent */
+    int64_t start_offset_slack;
 
-    int64_t start_offset_max_span; /**< defined span size available to box */
+    /** [ds_in] defined span size available to box */
+    int64_t start_offset_max_span;
 
-    int64_t start_offset_used;  /**< start offset actually used by box */
+    /** [ds_in] start offset actually spanned by box */
+    int64_t start_offset_span;
 
-    int64_t start_offset_min_span; /**< minimum start offset spanned
-                                    * by box' children */
+    /** [ds_in] minimum start offset spanned by box' children */
+    int64_t start_offset_min_span;
 
-    int64_t end_offset_parent; /**< inherited parent's max offset */
+    /** [ds_in] inherited parent's max offset */
+    int64_t end_offset_parent;
 
-    int64_t end_offset_slack; /**< limit of space that box may use
-                               * from its parent */
+    /** [ds_in] limit of space that box may use from its parent */
+    int64_t end_offset_slack;
 
-    int64_t end_offset_max_span; /**< defined span size available to box */
+    /** [ds_in] defined span size available to box */
+    int64_t end_offset_max_span;
 
-    int64_t end_offset_used;  /**< end offset actually used by box */
+    /** [ds_in] end offset actually spanned by box */
+    int64_t end_offset_span;
 
-    int64_t end_offset_min_span;   /**< minimum end offset spanned by box'
-                               * children */
+    /** [ds_in] minimum end offset spanned by box' children */
+    int64_t end_offset_min_span;
+
+
+    /** [ds_out] start offset actually used by box output data */
+    int64_t start_offset_used;
+
+    /** [ds_out] end offset actually used by box output data */
+    int64_t end_offset_used;
 
 #define BOX_MAX_DEPTH_LEVEL 4096
     int depth_level;        /**< number of container nesting levels */
@@ -348,7 +362,7 @@ struct ast_node_hdl *
 box_get_index_expr(const struct box *box);
 struct box *
 box_new_from_file(const struct bitpunch_schema_hdl *def_hdl,
-                  struct bitpunch_binary_file_hdl *file_hdl);
+                  struct bitpunch_data_source *ds_in);
 void
 box_dump(const struct box *box);
 void
@@ -385,7 +399,7 @@ tracker_is_dangling(const struct tracker *tk);
 
 struct tracker *
 track_file(const struct bitpunch_schema_hdl *def_hdl,
-           struct bitpunch_binary_file_hdl *file_hdl,
+           struct bitpunch_data_source *ds_in,
            struct tracker_error **errp);
 bitpunch_status_t
 box_get_n_items(struct box *box, int64_t *n_itemsp,
@@ -399,7 +413,7 @@ box_read_value(struct box *box,
                expr_value_t *valuep,
                struct tracker_error **errp);
 static inline int64_t
-box_get_start_offset(struct box *box) { return box->start_offset_used; }
+box_get_start_offset(struct box *box) { return box->start_offset_span; }
 bitpunch_status_t
 box_compute_end_offset(struct box *box,
                        enum box_offset_type off_type,

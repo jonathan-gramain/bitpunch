@@ -65,21 +65,21 @@ bitpunch_free_schema(struct bitpunch_schema_hdl *schema);
 
 int
 bitpunch_load_binary_file_from_path(const char *path,
-                                   struct bitpunch_binary_file_hdl **binary_filep);
+                                   struct bitpunch_data_source **binary_filep);
 
 int
 bitpunch_load_binary_file_from_fd(int fd,
-                                 struct bitpunch_binary_file_hdl **binary_filep);
+                                 struct bitpunch_data_source **binary_filep);
 
 int
 bitpunch_load_binary_file_from_buffer(const char *data, size_t data_size,
-                                     struct bitpunch_binary_file_hdl **binary_filep);
+                                     struct bitpunch_data_source **binary_filep);
 
 int
-bitpunch_close_binary_file(struct bitpunch_binary_file_hdl *bf);
+bitpunch_close_binary_file(struct bitpunch_data_source *bf);
 
 int
-bitpunch_free_binary_file(struct bitpunch_binary_file_hdl *bf);
+bitpunch_free_binary_file(struct bitpunch_data_source *bf);
 
 int
 bitpunch_parse_expr(const char *expr,
@@ -90,7 +90,7 @@ bitpunch_resolve_expr(struct ast_node_hdl *expr, struct box *scope);
 
 int
 bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
-                   struct bitpunch_binary_file_hdl *binary_file,
+                   struct bitpunch_data_source *binary_file,
                    const char *expr,
                    struct box *scope,
                    expr_value_t *valuep, expr_dpath_t *dpathp,

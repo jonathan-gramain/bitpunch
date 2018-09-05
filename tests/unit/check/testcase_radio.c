@@ -85,7 +85,7 @@ static const char *radio_codenames[] = {
 
 struct radio_source_info {
     struct bitpunch_schema_hdl *bp;
-    struct bitpunch_binary_file_hdl *bin;
+    struct bitpunch_data_source *bin;
     struct tracker *tk;
     int64_t codename_offset[N_ELEM(radio_codenames)];
     int codename_is_named_expr;
@@ -118,11 +118,11 @@ static void testcase_radio_setup(void)
 
         for (c = 0; c < N_ELEM(radio_codenames); ++c) {
             codename = radio_codenames[c];
-            location = memmem(info->bin->bf_data,
-                              info->bin->bf_data_length,
+            location = memmem(info->bin->ds_data,
+                              info->bin->ds_data_length,
                               codename, strlen(codename));
             assert(NULL != location);
-            info->codename_offset[c] = location - info->bin->bf_data;
+            info->codename_offset[c] = location - info->bin->ds_data;
         }
 
         if (memmem(info->bp->df_data,
@@ -183,7 +183,7 @@ static void check_codename_item(struct radio_source_info *info,
         ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     } else {
         assert(NULL != tk->box->dpath.item);
-        code_offset = tk->box->start_offset_used;
+        code_offset = tk->box->start_offset_span;
     }
     ck_assert_int_eq(code_offset, expect_offset);
 

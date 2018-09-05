@@ -86,16 +86,16 @@ struct bitpunch_schema_hdl {
     struct file_block df_file_block;
 };
 
-enum bf_open_type {
-    BF_OPEN_TYPE_UNSET = 0,
-    BF_OPEN_TYPE_FILEPATH,
-    BF_OPEN_TYPE_FILE_DESCRIPTOR,
-    BF_OPEN_TYPE_USER_BUFFER,
-    BF_OPEN_TYPE_OWN_BUFFER,
+enum ds_open_type {
+    DS_OPEN_TYPE_UNSET = 0,
+    DS_OPEN_TYPE_FILEPATH,
+    DS_OPEN_TYPE_FILE_DESCRIPTOR,
+    DS_OPEN_TYPE_USER_BUFFER,
+    DS_OPEN_TYPE_OWN_BUFFER,
 };
 
-struct bitpunch_binary_file_hdl {
-    enum bf_open_type bf_open_type;
+struct bitpunch_data_source {
+    enum ds_open_type ds_open_type;
     union {
         struct {
             char      *path;
@@ -105,9 +105,9 @@ struct bitpunch_binary_file_hdl {
         }             filepath;
         struct {
         }             buffer;
-    }                 bf_open_data;
-    const char        *bf_data;
-    size_t            bf_data_length;
+    }                 ds_open_data;
+    const char        *ds_data;
+    size_t            ds_data_length;
     struct box_cache  *box_cache;
 };
 

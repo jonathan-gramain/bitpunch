@@ -79,7 +79,7 @@ bitpunch_status_t
 box_get_min_span_size(struct box *box, int64_t *min_span_sizep,
                       struct browse_state *bst);
 bitpunch_status_t
-box_get_used_size(struct box *box, int64_t *used_sizep,
+box_get_span_size(struct box *box, int64_t *used_sizep,
                   struct browse_state *bst);
 bitpunch_status_t
 box_get_slack_size(struct box *box, int64_t *slack_sizep,

@@ -90,7 +90,7 @@ compute_item_size__string__single_char_constant_boundary(
 
     f_instance = (struct string_single_char_constant_boundary *)
         filter->ndat->u.rexpr_filter.f_instance;
-    data = scope->file_hdl->bf_data + item_offset;
+    data = scope->ds_in->ds_data + item_offset;
     end = memchr(data, f_instance->boundary, max_span_offset - item_offset);
     if (NULL != end) {
         *item_sizep = end - data + 1;
@@ -154,7 +154,7 @@ compute_item_size__string__generic(struct ast_node_hdl *filter,
     bt_ret = filter_evaluate_attribute_internal(
         filter, scope, "@boundary", NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK == bt_ret) {
-        data = scope->file_hdl->bf_data + item_offset;
+        data = scope->ds_in->ds_data + item_offset;
         end = memmem(data, max_span_offset - item_offset,
                      attr_value.string.str, attr_value.string.len);
         if (NULL != end) {

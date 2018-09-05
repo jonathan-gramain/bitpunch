@@ -85,7 +85,7 @@ void
 check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
                                  int only_browse)
 {
-    struct bitpunch_binary_file_hdl *file_hdl;
+    struct bitpunch_data_source *ds_in;
     struct tracker *tk;
     int ret;
     int box_idx;
@@ -96,10 +96,10 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
     struct ast_node_hdl *item_filter;
 
     ret = bitpunch_load_binary_file_from_buffer(
-        test_spec->contents, test_spec->contents_size, &file_hdl);
+        test_spec->contents, test_spec->contents_size, &ds_in);
     ck_assert_int_eq(ret, 0);
 
-    tk = track_file(*test_spec->contents_def, file_hdl, NULL);
+    tk = track_file(*test_spec->contents_def, ds_in, NULL);
     if (test_spec->tracker_error) {
         ck_assert_ptr_eq(tk, NULL);
         return ;
@@ -169,7 +169,7 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
     }
     tracker_delete(tk);
 
-    ret = bitpunch_free_binary_file(file_hdl);
+    ret = bitpunch_free_binary_file(ds_in);
     ck_assert_int_eq(ret, 0);
 }
 
@@ -250,15 +250,15 @@ void
 check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
                                   int only_browse)
 {
-    struct bitpunch_binary_file_hdl *file_hdl;
+    struct bitpunch_data_source *ds_in;
     struct tracker *tk;
     int ret;
 
     ret = bitpunch_load_binary_file_from_buffer(
-        test_spec->contents, test_spec->contents_size, &file_hdl);
+        test_spec->contents, test_spec->contents_size, &ds_in);
     ck_assert_int_eq(ret, 0);
 
-    tk = track_file(*test_spec->contents_def, file_hdl, NULL);
+    tk = track_file(*test_spec->contents_def, ds_in, NULL);
     if (test_spec->tracker_error) {
         ck_assert_ptr_eq(tk, NULL);
         return ;
@@ -270,7 +270,7 @@ check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
 
     tracker_delete(tk);
 
-    ret = bitpunch_free_binary_file(file_hdl);
+    ret = bitpunch_free_binary_file(ds_in);
     ck_assert_int_eq(ret, 0);
 }
 
@@ -278,7 +278,7 @@ void
 check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
                                   int only_browse)
 {
-    struct bitpunch_binary_file_hdl *file_hdl;
+    struct bitpunch_data_source *ds_in;
     struct tracker *tk;
     int ret;
     int box_idx;
@@ -292,10 +292,10 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
     int swap_idx;
 
     ret = bitpunch_load_binary_file_from_buffer(
-        test_spec->contents, test_spec->contents_size, &file_hdl);
+        test_spec->contents, test_spec->contents_size, &ds_in);
     ck_assert_int_eq(ret, 0);
 
-    tk = track_file(*test_spec->contents_def, file_hdl, NULL);
+    tk = track_file(*test_spec->contents_def, ds_in, NULL);
     if (test_spec->tracker_error) {
         ck_assert_ptr_eq(tk, NULL);
         return ;
@@ -357,7 +357,7 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
 
     tracker_delete(tk);
 
-    ret = bitpunch_free_binary_file(file_hdl);
+    ret = bitpunch_free_binary_file(ds_in);
     ck_assert_int_eq(ret, 0);
 }
 
@@ -407,9 +407,9 @@ check_tracker_item(struct tracker *tk,
     ck_assert_int_eq(item_offset, expect_box->offset);
     ck_assert_int_eq(item_size, expect_box->size);
     if (NULL != tk->item_box) {
-        ck_assert_int_ne(-1, tk->item_box->end_offset_used);
-        ck_assert_int_eq(tk->item_box->end_offset_used
-                         - tk->item_box->start_offset_used, item_size);
+        ck_assert_int_ne(-1, tk->item_box->end_offset_span);
+        ck_assert_int_eq(tk->item_box->end_offset_span
+                         - tk->item_box->start_offset_span, item_size);
     }
 }
 

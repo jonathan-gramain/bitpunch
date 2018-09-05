@@ -260,7 +260,7 @@ filter_instance_read_value(struct ast_node_hdl *filter,
     }
     if (BITPUNCH_OK == bt_ret) {
         memset(&value, 0, sizeof(value));
-        item_data = scope->file_hdl->bf_data + item_offset;
+        item_data = scope->ds_in->ds_data + item_offset;
         if (NULL != f_instance->read_func) {
             bt_ret = f_instance->read_func(filter, scope,
                                            &value, item_data, span_size, bst);
