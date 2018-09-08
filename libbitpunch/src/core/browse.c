@@ -1105,12 +1105,7 @@ box_set_start_offset(struct box *box, int64_t start_offset,
         box->start_offset_slack = start_offset;
         break ;
     case BOX_START_OFFSET_MAX_SPAN:
-        bt_ret = box_compute_slack_size(box, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        box->start_offset_max_span = MAX(start_offset,
-                                         box->start_offset_slack);
+        box->start_offset_max_span = start_offset;
         break ;
     case BOX_START_OFFSET_USED:
         box->start_offset_used = start_offset;
@@ -1150,11 +1145,7 @@ box_set_end_offset(struct box *box, int64_t end_offset,
         box->end_offset_slack = end_offset;
         break ;
     case BOX_END_OFFSET_MAX_SPAN:
-        bt_ret = box_compute_slack_size(box, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        box->end_offset_max_span = MIN(end_offset, box->end_offset_slack);
+        box->end_offset_max_span = end_offset;
         break ;
     case BOX_END_OFFSET_USED:
         box->end_offset_used = end_offset;
@@ -5272,6 +5263,7 @@ box_compute_max_span_size__span_expr(struct box *box,
     const struct named_expr *span_stmt;
     int span_expr_defines_min;
     expr_value_t span_size;
+    int64_t max_span_size;
 
     DBG_BOX_DUMP(box);
     span_expr_defines_min = FALSE;
@@ -5301,11 +5293,9 @@ box_compute_max_span_size__span_expr(struct box *box,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    if (span_size.integer <= box->end_offset_slack) {
-        bt_ret = box_set_max_span_size(box, span_size.integer, bst);
-    } else {
-        bt_ret = box_compute_max_span_size__as_slack(box, bst);
-    }
+    max_span_size = MIN(span_size.integer,
+                        box->end_offset_slack - box->start_offset_slack);
+    bt_ret = box_set_max_span_size(box, max_span_size, bst);
     if (span_expr_defines_min && BITPUNCH_OK == bt_ret) {
         bt_ret = box_set_min_span_size(box, span_size.integer, bst);
     }
