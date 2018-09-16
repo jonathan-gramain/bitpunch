@@ -185,7 +185,6 @@
     struct dpath_node {
         struct ast_node_hdl *item;
         struct ast_node_hdl *filter;
-        struct ast_node_hdl *filter_defining_used_size;
         struct dep_resolver_node dr_node;
     };
 

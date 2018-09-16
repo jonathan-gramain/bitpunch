@@ -2111,7 +2111,6 @@ expr_transform_dpath_filter(struct ast_node_hdl *expr,
 {
     bitpunch_status_t bt_ret;
     struct box *parent_box;
-    struct ast_node_hdl *filter_defining_used_size;
     struct box *filtered_data_box;
 
     switch (transformp->dpath.type) {
@@ -2126,16 +2125,9 @@ expr_transform_dpath_filter(struct ast_node_hdl *expr,
         break ;
 
     case EXPR_DPATH_TYPE_CONTAINER:
-        bt_ret = expr_evaluate_filter_type_internal(
-            expr, scope, FILTER_KIND_DEFINING_USED_SIZE,
-            &filter_defining_used_size, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
         parent_box = transformp->dpath.container.box;
-        filtered_data_box = box_new_filter_box(
-            parent_box, expr, parent_box->dpath.item,
-            filter_defining_used_size, bst);
+        filtered_data_box = box_new_filter_box(parent_box, expr,
+                                               parent_box->dpath.item, bst);
         if (NULL == filtered_data_box) {
             return BITPUNCH_DATA_ERROR;
         }
@@ -2184,9 +2176,6 @@ expr_evaluate_filter_type_op_filter(struct ast_node_hdl *filter,
                                     struct ast_node_hdl **filter_typep,
                                     struct browse_state *bst)
 {
-    bitpunch_status_t bt_ret;
-    struct ast_node_hdl *ordered_sub_filters[2];
-
     switch (kind) {
     case FILTER_KIND_ITEM:
         return expr_evaluate_filter_type_internal(
@@ -2196,52 +2185,11 @@ expr_evaluate_filter_type_op_filter(struct ast_node_hdl *filter,
         return expr_evaluate_filter_type_internal(
             filter->ndat->u.rexpr_op_filter.filter_expr, scope, kind,
             filter_typep, bst);
-    case FILTER_KIND_DEFINING_USED_SIZE:
-        // check filters from farthest to closest to item
-        ordered_sub_filters[0] = filter->ndat->u.rexpr_op_filter.filter_expr;
-        ordered_sub_filters[1] = filter->ndat->u.rexpr_op_filter.target;
-        break ;
     case FILTER_KIND_ANCESTOR:
         // skip filter to get ancestor, continue with the target
         return expr_evaluate_filter_type_internal(
             filter->ndat->u.rexpr_op_filter.target, scope,
             FILTER_KIND_FILTER, filter_typep, bst);
-    default:
-        assert(0);
-    }
-    bt_ret = expr_evaluate_filter_type_internal(
-        ordered_sub_filters[0], scope, kind, filter_typep, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    if (NULL != *filter_typep) {
-        return BITPUNCH_OK;
-    }
-    return expr_evaluate_filter_type_internal(
-        ordered_sub_filters[1], scope, kind, filter_typep, bst);
-}
-
-static bitpunch_status_t
-expr_evaluate_filter_type_filter(struct ast_node_hdl *filter,
-                                 struct box *scope,
-                                 enum filter_kind kind,
-                                 struct ast_node_hdl **filter_typep,
-                                 struct browse_state *bst)
-{
-    struct filter_instance *f_instance;
-
-    f_instance = filter->ndat->u.rexpr_filter.f_instance;
-    switch (kind) {
-    case FILTER_KIND_FILTER:
-    case FILTER_KIND_ITEM:
-    case FILTER_KIND_ANCESTOR: // no ancestor filter, fall through to
-                               // item filter
-        *filter_typep = filter;
-        return BITPUNCH_OK;
-    case FILTER_KIND_DEFINING_USED_SIZE:
-        *filter_typep = NULL != f_instance->b_item.compute_item_size ?
-            filter : NULL;
-        return BITPUNCH_OK;
     default:
         assert(0);
     }
@@ -2266,8 +2214,8 @@ expr_evaluate_filter_type_internal(struct ast_node_hdl *filter,
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
-        return expr_evaluate_filter_type_filter(filter, scope, kind,
-                                                filter_typep, bst);
+        *filter_typep = filter;
+        return BITPUNCH_OK;
     default:
         return node_error(BITPUNCH_INVALID_PARAM, filter, bst,
                           "cannot evaluate filter type on expression "

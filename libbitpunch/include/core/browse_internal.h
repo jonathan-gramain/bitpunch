@@ -68,7 +68,6 @@ struct box *
 box_new_filter_box(struct box *parent_box,
                    struct ast_node_hdl *filter,
                    struct ast_node_hdl *item,
-                   struct ast_node_hdl *filter_defining_used_size,
                    struct browse_state *bst);
 bitpunch_status_t
 box_apply_parent_filter_internal(struct box *box,

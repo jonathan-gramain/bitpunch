@@ -537,10 +537,6 @@ expr_dpath_evaluate_filter_type_internal(
         case FILTER_KIND_FILTER:
             *filter_typep = dpath.container.box->dpath.filter;
             break ;
-        case FILTER_KIND_DEFINING_USED_SIZE:
-            *filter_typep =
-                dpath.container.box->dpath.filter_defining_used_size;
-            break ;
         case FILTER_KIND_ANCESTOR:
         default:
             assert(0);
@@ -1804,7 +1800,6 @@ struct box *
 box_new_filter_box(struct box *parent_box,
                    struct ast_node_hdl *filter,
                    struct ast_node_hdl *item,
-                   struct ast_node_hdl *filter_defining_used_size,
                    struct browse_state *bst)
 {
     struct box *box;
@@ -1814,7 +1809,6 @@ box_new_filter_box(struct box *parent_box,
     dpath_node_reset(&dpath);
     dpath.item = item;
     dpath.filter = filter;
-    dpath.filter_defining_used_size = filter_defining_used_size;
     box = new_safe(struct box);
     bt_ret = box_construct(box, parent_box, &dpath, -1, BOX_FILTER, bst);
     if (BITPUNCH_OK != bt_ret) {
