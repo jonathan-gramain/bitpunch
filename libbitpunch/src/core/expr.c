@@ -2196,11 +2196,6 @@ expr_evaluate_filter_type_op_filter(struct ast_node_hdl *filter,
         return expr_evaluate_filter_type_internal(
             filter->ndat->u.rexpr_op_filter.filter_expr, scope, kind,
             filter_typep, bst);
-    case FILTER_KIND_DEFINING_SPAN_SIZE:
-        // check filters from closest to farthest from item
-        ordered_sub_filters[0] = filter->ndat->u.rexpr_op_filter.target;
-        ordered_sub_filters[1] = filter->ndat->u.rexpr_op_filter.filter_expr;
-        break ;
     case FILTER_KIND_DEFINING_USED_SIZE:
         // check filters from farthest to closest to item
         ordered_sub_filters[0] = filter->ndat->u.rexpr_op_filter.filter_expr;
@@ -2238,27 +2233,14 @@ expr_evaluate_filter_type_filter(struct ast_node_hdl *filter,
     f_instance = filter->ndat->u.rexpr_filter.f_instance;
     switch (kind) {
     case FILTER_KIND_FILTER:
+    case FILTER_KIND_ITEM:
     case FILTER_KIND_ANCESTOR: // no ancestor filter, fall through to
                                // item filter
         *filter_typep = filter;
         return BITPUNCH_OK;
-    case FILTER_KIND_DEFINING_SPAN_SIZE:
     case FILTER_KIND_DEFINING_USED_SIZE:
         *filter_typep = NULL != f_instance->b_item.compute_item_size ?
             filter : NULL;
-        return BITPUNCH_OK;
-    case FILTER_KIND_ITEM:
-        switch (filter->ndat->type) {
-        case AST_NODE_TYPE_BYTE:
-        case AST_NODE_TYPE_COMPOSITE:
-        case AST_NODE_TYPE_ARRAY:
-        case AST_NODE_TYPE_BYTE_ARRAY:
-            *filter_typep = filter;
-            break ;
-        default:
-            *filter_typep = NULL;
-            break ;
-        }
         return BITPUNCH_OK;
     default:
         assert(0);

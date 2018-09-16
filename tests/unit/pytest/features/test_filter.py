@@ -215,8 +215,7 @@ let RawBlock = struct {
     [n] byte <> AsContents;
 };
 
-let Base64Block = [] byte
-    <> string { @boundary = '\\n'; }
+let Base64Block = string { @boundary = '\\n'; }
     <> base64
     <> RawBlock;
 
@@ -236,8 +235,7 @@ spec_file_simple_filter_line_separated_base64_2 = """
 
 let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
 
-let Base64Block = [] byte
-   <> string { @boundary = '\\n'; }
+let Base64Block = string { @boundary = '\\n'; }
    <> base64
    <> struct {
     n: u32;
@@ -261,8 +259,7 @@ spec_file_simple_filter_line_separated_base64_template = """
 let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
 let CustomBase64Filter = base64 {};
 
-let Base64Block = [] byte
-   <> string { @boundary = '\\n'; }
+let Base64Block = string { @boundary = '\\n'; }
    <> CustomBase64Filter
    <> struct {
       n: u32;
@@ -335,19 +332,15 @@ def test_filter_2(params_filter_2):
     assert daddy == '\x12\00\00\00more contents data'
 
     # up two ancestors => input for newline-terminated string
-    grandpa = dtree.eval_expr('^^blocks[1]')
-    assert grandpa.get_offset() == 29
-    assert grandpa.get_size() == 33
-    # filtered output (i.e. without final newline)
-    assert str(grandpa) == 'EgAAAG1vcmUgY29udGVudHMgZGF0YQ=='
 
-    # up three ancestors, back to the raw bytes block containing the
-    # base64 contents ending with newline
-    grandgrandpa = dtree.eval_expr('^^^blocks[1]')
-    assert grandgrandpa.get_offset() == 29
-    assert grandgrandpa.get_size() == 33
-    # this time with the final newline
-    assert str(grandgrandpa) == 'EgAAAG1vcmUgY29udGVudHMgZGF0YQ==\n'
+    # there are only two ancestors, so up to three ancestors shall
+    # return identical results than up two ancestors
+    for grandpa in [dtree.eval_expr('^^blocks[1]'),
+                    dtree.eval_expr('^^^blocks[1]')]:
+        assert grandpa.get_offset() == 29
+        assert grandpa.get_size() == 33
+        # filtered output (i.e. without final newline)
+        assert str(grandpa) == 'EgAAAG1vcmUgY29udGVudHMgZGF0YQ=='
 
     assert model.make_python_object(dtree.eval_expr('^blocks[2]')) == \
        '\x17\x00\x00\x00even more contents data'
@@ -358,9 +351,9 @@ def test_filter_2(params_filter_2):
     assert model.make_python_object(dtree.eval_expr('^^blocks[1..][1]')) == \
        'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh'
     assert model.make_python_object(dtree.eval_expr('^^^blocks[2]')) == \
-        'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh\n'
+        'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh'
     assert model.make_python_object(dtree.eval_expr('^^^^blocks[2]')) == \
-       'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh\n'
+       'FwAAAGV2ZW4gbW9yZSBjb250ZW50cyBkYXRh'
 
 
 spec_file_filter_in_field_expression = """
@@ -432,7 +425,7 @@ spec_file_filter_encoded_integer_field = """
 
 let Int = integer { @signed = false; @endian = 'big'; };
 
-let Base64Line = [] byte <> string { @boundary = '\\n'; } <> base64 {};
+let Base64Line = string { @boundary = '\\n'; } <> base64 {};
 
 let Header = struct {
     nb_messages: [4] byte <> Int;
@@ -443,7 +436,7 @@ let Header = struct {
 let B64Header = Base64Line <> Header;
 
 let B64Message = Base64Line <> struct {
-    data: [] byte <> string;
+    data: string;
 
     let ?data = data;
     let ?data_as_split_strings = data <> struct {
@@ -475,7 +468,7 @@ spec_file_filter_nested_base64 = """
 
 let Int = integer { @signed = false; @endian = 'big'; };
 
-let Base64Line = [] byte <> string { @boundary = '\\n'; } <> base64 {};
+let Base64Line = string { @boundary = '\\n'; } <> base64 {};
 
 let Header = struct {
     nb_messages: [4] byte <> Int;
@@ -486,7 +479,7 @@ let Header = struct {
 let B64Header = Base64Line <> Header;
 
 let B64Message = Base64Line <> struct {
-    data: [] byte <> string;
+    data: string;
 
     let ?data = data;
     let ?data_as_split_strings = data <> struct {
@@ -496,7 +489,7 @@ let B64Message = Base64Line <> struct {
 };
 
 file {
-    [] byte <> base64 <> DecodedFile;
+    base64 <> DecodedFile;
 
     let ?first_message_data_3_chars = messages[0].data <> [3] byte <> string;
 }
@@ -519,7 +512,7 @@ spec_file_filter_base64_selector = """
 
 let Int = integer { @signed = false; @endian = 'big'; };
 
-let PlainLine = [] byte <> string { @boundary = '\\n'; };
+let PlainLine = string { @boundary = '\\n'; };
 let Base64Line = PlainLine <> base64 {};
 
 let Header = struct {
@@ -531,7 +524,7 @@ let Header = struct {
 let B64Header = Base64Line <> Header;
 
 let MessagePayload = struct {
-    data: [] byte <> string;
+    data: string;
 
     let ?data = data;
 };
@@ -609,7 +602,7 @@ def test_filter_messages(params_filter_messages):
 
 
 
-spec_file_filter_file_invalid_not_an_item_1 = """
+spec_file_filter_file_as_single_integer_1 = """
 
 let UnsignedTemplate = integer { @signed = false; @endian = 'little'; };
 
@@ -619,7 +612,7 @@ file {
 
 """
 
-spec_file_filter_file_invalid_not_an_item_2 = """
+spec_file_filter_file_as_single_integer_2 = """
 
 let UnsignedTemplate = integer { @signed = false; @endian = 'little'; };
 
@@ -631,28 +624,27 @@ file {
 
 """
 
-data_file_filter_file_invalid_not_an_item = """
+data_file_filter_file_as_single_integer = """
 2A 00 00 00
 """
 
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_file_filter_file_invalid_not_an_item_1,
-        'data': data_file_filter_file_invalid_not_an_item,
+        'spec': spec_file_filter_file_as_single_integer_1,
+        'data': data_file_filter_file_as_single_integer,
     }, {
-        'spec': spec_file_filter_file_invalid_not_an_item_2,
-        'data': data_file_filter_file_invalid_not_an_item,
+        'spec': spec_file_filter_file_as_single_integer_2,
+        'data': data_file_filter_file_as_single_integer,
     }])
-def params_filter_file_invalid_not_an_item(request):
+def params_filter_file_as_single_integer(request):
     return conftest.make_testcase(request.param)
 
 
-def test_filter_file_invalid_not_an_item(params_filter_file_invalid_not_an_item):
-    params = params_filter_file_invalid_not_an_item
+def test_filter_file_as_single_integer(params_filter_file_as_single_integer):
+    params = params_filter_file_as_single_integer
     dtree = params['dtree']
-    with pytest.raises(ValueError):
-        print dtree.value
+    assert dtree.value == 42
 
 spec_file_filter_invalid_bad_filter_type = """
 
@@ -830,8 +822,7 @@ def test_non_slack_array_filtered(params_non_slack_array_filtered):
 spec_file_nested_filter_defining_size = """
 
 let Base64 = base64 {};
-let Base64LS = string { @boundary = '\\n'; } <> Base64;
-let Base64Line = [] byte <> Base64LS;
+let Base64Line = string { @boundary = '\\n'; } <> Base64;
 
 let Item = Base64Line <> string { @boundary = ' '; };
 

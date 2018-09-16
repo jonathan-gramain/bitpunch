@@ -112,7 +112,17 @@ data_file_array_bytes_as_integers = """
 """
 
 
-spec_file_array_bytes_as_integers_filtered = """
+spec_file_array_bytes_as_integers_filtered_1 = """
+
+let u8 = byte <> integer { @signed = false; };
+
+file {
+    integers: base64 <> [] u8;
+}
+
+"""
+
+spec_file_array_bytes_as_integers_filtered_2 = """
 
 let u8 = byte <> integer { @signed = false; };
 
@@ -136,7 +146,10 @@ data_file_array_bytes_as_integers_filtered = """
         'spec': spec_file_array_bytes_as_integers_2,
         'data': data_file_array_bytes_as_integers,
     }, {
-        'spec': spec_file_array_bytes_as_integers_filtered,
+        'spec': spec_file_array_bytes_as_integers_filtered_1,
+        'data': data_file_array_bytes_as_integers_filtered,
+    }, {
+        'spec': spec_file_array_bytes_as_integers_filtered_2,
         'data': data_file_array_bytes_as_integers_filtered,
     }])
 def params_array_flat(request):
@@ -166,7 +179,7 @@ spec_file_array_keyed_items = """
 let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
 
 let Item = struct {
-    name: [] byte <> string { @boundary = '\\0'; };
+    name: string { @boundary = '\\0'; };
     value: u32;
     @key = name;
 };
@@ -188,7 +201,7 @@ spec_file_array_keyed_filtered_keys = """
 let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
 
 let Item = struct {
-    name: [] byte <> string { @boundary = '\\0'; } <> base64 <> string;
+    name: string { @boundary = '\\0'; } <> base64 <> string;
     value: u32;
     @key = name;
 };
@@ -209,8 +222,8 @@ spec_file_array_keyed_filtered_items = """
 
 let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
 
-let Item = [] byte <> string { @boundary = '\\n'; } <> base64 <> struct {
-    name: [] byte <> string { @boundary = '\\0'; };
+let Item = string { @boundary = '\\n'; } <> base64 <> struct {
+    name: string { @boundary = '\\0'; };
     value: u32;
     @key = name;
 };

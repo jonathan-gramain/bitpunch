@@ -15,7 +15,7 @@ let FixInt = integer {
 };
 let FixInt8  = byte     <> FixInt;
 let FixInt32 = [4] byte <> FixInt;
-let VarInt   = [] byte  <> varint;
+let VarInt   = varint;
 
 
 // Describe LDB file structure
@@ -72,4 +72,4 @@ let DataBlock = struct {
     nb_restarts: FixInt32;
 };
 
-let CompressedDataBlock = [] byte <> snappy <> DataBlock;
+let CompressedDataBlock = snappy <> DataBlock;

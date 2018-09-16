@@ -183,9 +183,9 @@ def spec_ldb():
     let FixInt   = integer { @signed = false; @endian = 'little'; };
     let FixInt8  = byte <> FixInt;
     let FixInt32 = [4] byte <> FixInt;
-    let VarInt   = [] byte <> varint;
+    let VarInt   = varint;
 
-    let CompressedDataBlock = [] byte <> snappy <> DataBlock;
+    let CompressedDataBlock = snappy <> DataBlock;
 
     let DataBlock = struct {
         entries:     [] KeyValue;

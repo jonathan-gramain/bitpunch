@@ -11,7 +11,7 @@ import conftest
 
 
 spec_string_table = """
-let cstr = [] byte <> string { @boundary = '\\0'; };
+let cstr = string { @boundary = '\\0'; };
 
 file {
     string_table: [] cstr;
@@ -25,7 +25,7 @@ data_string_table_1 = """
 
 
 spec_string_table_multi_char_boundary = """
-let cstr = [] byte <> string { @boundary = '--delimiter--'; };
+let cstr = string { @boundary = '--delimiter--'; };
 
 file {
     string_table: [] cstr;
@@ -47,9 +47,9 @@ data_string_table_multi_char_boundary = """
 
 spec_string_table_dynamic_boundary_1 = """
 file {
-    let cstr = [] byte <> string { @boundary = delimiter; };
+    let cstr = string { @boundary = delimiter; };
 
-    delimiter: [] byte <> string { @boundary = "\\0"; };
+    delimiter: string { @boundary = "\\0"; };
     string_table: [] cstr;
 }
 """
@@ -69,7 +69,7 @@ data_string_table_dynamic_boundary_1 = """
 
 spec_string_table_conditional_boundary = """
 file {
-    let cstr = [] byte <> string {
+    let cstr = string {
         if (is_multichar == 1) {
             @boundary = "|---|";
         } else {
@@ -97,7 +97,7 @@ spec_file_string_table_dynamic_boundary_2 = """
 let u8 = byte <> integer { @signed = false; };
 
 file {
-    let BoundedString = [] byte <> string { @boundary = boundary; };
+    let BoundedString = string { @boundary = boundary; };
 
     boundary_size: u8;
     boundary: [boundary_size] byte <> string;

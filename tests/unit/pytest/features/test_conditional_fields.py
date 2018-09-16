@@ -15,7 +15,7 @@ let IntegerItem = struct {
 };
 
 let StringItem = struct {
-    value: [] byte <> string { @boundary = '...'; };
+    value: string { @boundary = '...'; };
 };
 
 let RawItem = struct {

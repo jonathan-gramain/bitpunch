@@ -1771,14 +1771,25 @@ compile_rexpr_filter(struct ast_node_hdl *expr,
                      struct compile_ctx *ctx)
 {
     const struct filter_class *filter_cls;
+    struct filter_instance *f_instance;
 
     filter_cls = expr->ndat->u.rexpr_filter.filter_cls;
+    f_instance = expr->ndat->u.rexpr_filter.f_instance;
     if (NULL != filter_cls->filter_instance_compile_func) {
         return filter_cls->filter_instance_compile_func(
             expr, expr->ndat->u.rexpr_filter.f_instance, tags, ctx);
     } else {
         if (0 != (tags & COMPILE_TAG_NODE_SPAN_SIZE)) {
-            expr->ndat->u.item.min_span_size = 0;
+            if (SPAN_SIZE_UNDEF == expr->ndat->u.item.min_span_size) {
+                expr->ndat->u.item.min_span_size = 0;
+                expr->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_DYNAMIC |
+                                             ITEMFLAG_IS_USED_SIZE_DYNAMIC);
+            }
+            if (NULL == f_instance->b_item.compute_item_size) {
+                expr->ndat->u.item.flags |= (ITEMFLAG_USES_SLACK |
+                                             ITEMFLAG_SPREADS_SLACK |
+                                             ITEMFLAG_FILLS_SLACK);
+            }
         }
     }
     return 0;
@@ -2893,7 +2904,6 @@ compile_span_size_rexpr_op_filter(struct ast_node_hdl *filter,
 {
     struct ast_node_hdl *target;
     struct ast_node_hdl *filter_expr;
-    struct ast_node_hdl *target_item;
 
     target = filter->ndat->u.rexpr_op_filter.target;
     filter_expr = filter->ndat->u.rexpr_op_filter.filter_expr;
@@ -2909,49 +2919,6 @@ compile_span_size_rexpr_op_filter(struct ast_node_hdl *filter,
                  RESOLVE_EXPECT_FILTER);
     if (!compile_continue(ctx)) {
         return -1;
-    }
-    target_item = ast_node_get_target_item(target);
-    if (NULL != target_item
-        && 0 != (target_item->ndat->u.item.flags & ITEMFLAG_SPREADS_SLACK)) {
-        switch (get_filter_defining_size_status(filter_expr)) {
-        case FILTER_ALWAYS_DEFINES_SIZE:
-            // this filter always defines the span size of its
-            // item, so the item is always using the
-            // filter-defined space, nevertheless it claims some
-            // slack space and needs to know how much is available
-            // so keeps ITEMFLAG_USES_SLACK flag
-            target_item->ndat->u.item.flags
-                &= ~(ITEMFLAG_SPREADS_SLACK |
-                     ITEMFLAG_CONDITIONALLY_SPREADS_SLACK |
-                     ITEMFLAG_FILLS_SLACK |
-                     ITEMFLAG_CONDITIONALLY_FILLS_SLACK);
-            break ;
-        case FILTER_CONDITIONALLY_DEFINES_SIZE:
-            // filter defines the span size conditionally, the
-            // target item may or not spread on or fill the slack
-            // space
-            if (0 != (target_item->ndat->u.item.flags
-                      & ITEMFLAG_SPREADS_SLACK)) {
-                target_item->ndat->u.item.flags
-                    &= ~ITEMFLAG_SPREADS_SLACK;
-                target_item->ndat->u.item.flags
-                    |= ITEMFLAG_CONDITIONALLY_SPREADS_SLACK;
-            }
-            if (0 != (target_item->ndat->u.item.flags
-                      & ITEMFLAG_FILLS_SLACK)) {
-                target_item->ndat->u.item.flags
-                    &= ~ITEMFLAG_FILLS_SLACK;
-                target_item->ndat->u.item.flags
-                    |= ITEMFLAG_CONDITIONALLY_FILLS_SLACK;
-            }
-            break ;
-        case FILTER_NEVER_DEFINES_SIZE:
-            // keep slack flags as is since filters do not alter
-            // the item spread behavior
-            break ;
-        default:
-            assert(0);
-        }
     }
     return 0;
 }

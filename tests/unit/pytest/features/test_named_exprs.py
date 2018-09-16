@@ -322,7 +322,7 @@ let T = struct {
     };
 
     let Message = struct {
-        value: [] byte <> string { @boundary = '\\n'; };
+        value: string { @boundary = '\\n'; };
         let ?my_type = ?type;
     };
 
@@ -364,7 +364,7 @@ let SubT = struct {
     };
 
     let Message = struct {
-        value: [] byte <> string { @boundary = '\\n'; };
+        value: string { @boundary = '\\n'; };
         let ?my_type = ?type;
     };
 

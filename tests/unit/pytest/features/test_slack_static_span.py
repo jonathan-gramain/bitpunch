@@ -37,7 +37,7 @@ file {
 }
 
 let VarBlock = struct {
-    contents: [] byte <> string { @boundary = '\x42'; };
+    contents: string { @boundary = '\x42'; };
     padding:  [] byte;
     @span = 10;
 };
@@ -54,7 +54,7 @@ file {
 
 let VarBlock = struct {
     let BlockContents = struct {
-        data: [] byte <> string { @boundary = '\x42'; };
+        data: string { @boundary = '\x42'; };
     };
     contents: BlockContents;
     padding:  [] byte;

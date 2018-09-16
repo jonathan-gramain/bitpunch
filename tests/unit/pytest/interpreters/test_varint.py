@@ -11,7 +11,7 @@ import conftest
 
 spec_varint = """
 file {
-    value:   [] byte <> varint;
+    value:   varint;
     trailer: [] byte;
 }
 """
@@ -48,7 +48,7 @@ let v8 = [1] byte <> varint;
 let v16 = [2] byte <> varint;
 let v32 = [4] byte <> varint;
 let v64 = [8] byte <> varint;
-let vx = [] byte <> varint;
+let vx = varint;
 
 file {
     v8_count:  u8;
@@ -126,7 +126,7 @@ def test_varint_pools(params_varint_pools):
 
 
 spec_varint_in_blocks = """
-let VarInt = [] byte <> varint;
+let VarInt = varint;
 
 file {
     blocks: [] Block;
