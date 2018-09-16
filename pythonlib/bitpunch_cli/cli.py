@@ -445,7 +445,11 @@ class CLI(NestedCmd):
 
     Usage: dump raw <output_file> <dpath_expression>
 """
-        self._do_dump_generic(args, 'raw', lambda obj, out: out.write(obj))
+        def dump_raw_to_file(obj, out):
+            buf = bytearray(memoryview(obj))
+            out.write(buf)
+
+        self._do_dump_generic(args, 'raw', dump_raw_to_file)
 
     def complete_dump_raw(self, text, begin, end):
         logging.debug('complete_dump_raw text=%s begin=%d end=%d'
