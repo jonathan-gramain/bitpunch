@@ -2126,8 +2126,7 @@ expr_transform_dpath_filter(struct ast_node_hdl *expr,
 
     case EXPR_DPATH_TYPE_CONTAINER:
         parent_box = transformp->dpath.container.box;
-        filtered_data_box = box_new_filter_box(parent_box, expr,
-                                               parent_box->dpath.item, bst);
+        filtered_data_box = box_new_filter_box(parent_box, expr, bst);
         if (NULL == filtered_data_box) {
             return BITPUNCH_DATA_ERROR;
         }

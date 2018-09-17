@@ -1791,7 +1791,7 @@ box_get_attributes_dict(struct box *box)
         bt_ret = tracker_goto_next_item(tk, NULL);
     }
     tracker_delete(tk);
-    attr_iter = filter_iter_statements(box->dpath.item, box,
+    attr_iter = filter_iter_statements(box->dpath.filter, box,
                                        STATEMENT_TYPE_NAMED_EXPR |
                                        STATEMENT_TYPE_ATTRIBUTE, NULL);
     bt_ret = filter_iter_statements_next(

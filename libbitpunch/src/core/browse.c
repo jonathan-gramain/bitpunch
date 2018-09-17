@@ -1431,11 +1431,9 @@ box_dump_internal(const struct box *box, FILE *out, int indent)
             box->end_offset_parent,
             box->start_offset_used, box->end_offset_used);
     fprintf(out,
-            "%*stype: %s ftype: %s flags: ",
+            "%*sftype: %s flags: ",
             (indent + box->depth_level) * 4, "",
-            ast_node_type_str(box->dpath.item->ndat->type),
-            (NULL != box->dpath.filter ?
-             ast_node_type_str(box->dpath.filter->ndat->type) : "N/A"));
+            ast_node_type_str(box->dpath.filter->ndat->type));
     box_dump_flags(box, out);
     fprintf(out,
             "\n%*sinternals: use_count=%d n_cached_children=%d\n",
@@ -1772,7 +1770,6 @@ create_data_source_from_buffer(
 struct box *
 box_new_filter_box(struct box *parent_box,
                    struct ast_node_hdl *filter,
-                   struct ast_node_hdl *item,
                    struct browse_state *bst)
 {
     struct box *box;
@@ -1780,7 +1777,6 @@ box_new_filter_box(struct box *parent_box,
     struct dpath_node dpath;
 
     dpath_node_reset(&dpath);
-    dpath.item = item;
     dpath.filter = filter;
     box = new_safe(struct box);
     bt_ret = box_construct(box, parent_box, &dpath, -1, BOX_FILTER, bst);
@@ -3879,7 +3875,7 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
     root_box = tk->box;
-    while (0 == (root_box->dpath.item->flags & ASTFLAG_IS_ROOT_BLOCK)) {
+    while (0 == (root_box->dpath.filter->flags & ASTFLAG_IS_ROOT_BLOCK)) {
         root_box = root_box->parent_box;
     }
     if (-1 == bitpunch_resolve_expr(expr_node, root_box)) {
@@ -4187,7 +4183,7 @@ tracker_return_internal(struct tracker *tk,
         item_box = tracked_box;
         tracked_box = tracked_box->parent_box;
     } while (NULL != tracked_box &&
-             !ast_node_is_trackable(tracked_box->dpath.item));
+             !ast_node_is_trackable(tracked_box->dpath.filter));
     if (NULL == tracked_box) {
         return BITPUNCH_NO_ITEM;
     }
@@ -4310,7 +4306,7 @@ box_get_abs_dpath(const struct box *box,
     n_out += track_path_elem_dump_to_buf(
         box->track_path,
         /* dump separator? */
-        0 == (box->parent_box->dpath.item->flags & ASTFLAG_IS_ROOT_BLOCK),
+        0 == (box->parent_box->dpath.filter->flags & ASTFLAG_IS_ROOT_BLOCK),
         dpath_expr_buf, buf_size);
     return n_out;
 }
@@ -4376,7 +4372,7 @@ tracker_get_abs_dpath(const struct tracker *tk,
     n_out += track_path_elem_dump_to_buf(
         tk->cur,
         /* dump separator? */
-        0 == (tk->box->dpath.item->flags & ASTFLAG_IS_ROOT_BLOCK),
+        0 == (tk->box->dpath.filter->flags & ASTFLAG_IS_ROOT_BLOCK),
         dpath_expr_buf, buf_size);
     return n_out;
 }
