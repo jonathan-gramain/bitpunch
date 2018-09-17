@@ -49,7 +49,7 @@ struct test_tracker_expect_box {
 
 struct test_tracker_spec {
     const char *test_name;
-    struct bitpunch_schema_hdl **contents_def;
+    struct bitpunch_schema **contents_def;
     const char *contents;
     size_t contents_size;
     const struct test_tracker_expect_box *expect_boxes;

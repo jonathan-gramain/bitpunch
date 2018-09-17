@@ -314,7 +314,7 @@ PyDoc_STRVAR(FormatSpec__doc__,
 
 typedef struct FormatSpecObject {
     PyObject_HEAD
-    struct bitpunch_schema_hdl *schema;
+    struct bitpunch_schema *schema;
 } FormatSpecObject;
 
 static PyMethodDef FormatSpec_methods[] = {
@@ -385,14 +385,14 @@ FormatSpec_new(PyTypeObject *subtype,
 
         /* compile the provided text contents */
         contents = PyString_AsString(arg);
-        ret = bitpunch_load_schema_from_string(contents, &self->schema);
+        ret = bitpunch_schema_create_from_string(contents, &self->schema);
     } else if (PyFile_Check(arg)) {
         FILE *file;
 
         /* compile the contents from the file object */
         file = PyFile_AsFile(arg);
         //PyFile_IncUseCount((PyFileObject *)arg);
-        ret = bitpunch_load_schema_from_fd(fileno(file), &self->schema);
+        ret = bitpunch_schema_create_from_file_descriptor(fileno(file), &self->schema);
     } else {
         Py_DECREF((PyObject *)self);
         PyErr_SetString(PyExc_TypeError,
@@ -413,7 +413,7 @@ static void
 FormatSpec_clear(FormatSpecObject *self)
 {
     if (NULL != self->schema) {
-        bitpunch_free_schema(self->schema);
+        bitpunch_schema_free(self->schema);
         self->schema = NULL;
     }
 }
@@ -2123,7 +2123,7 @@ PyDoc_STRVAR(DataTree__doc__,
 typedef struct DataTreeObject {
     DataItemObject item;
     FormatSpecObject *fmt;
-    struct bitpunch_data_source *binary_file;
+    struct bitpunch_data_source *ds;
 } DataTreeObject;
 
 static PyTypeObject DataTreeType = {
@@ -2176,7 +2176,7 @@ DataTree_new(PyTypeObject *subtype,
     int ret;
     PyObject *bin;
     FormatSpecObject *fmt;
-    struct bitpunch_data_source *binary_file;
+    struct bitpunch_data_source *ds;
     DataTreeObject *self;
     struct box *container_box;
 
@@ -2207,8 +2207,8 @@ DataTree_new(PyTypeObject *subtype,
         /* load the provided text contents */
         ret = PyString_AsStringAndSize(bin, &contents, &length);
         assert(-1 != ret);
-        ret = bitpunch_load_binary_file_from_buffer(contents, length,
-                                                   &binary_file);
+        ret = bitpunch_data_source_create_from_memory(contents, length,
+                                                   &ds);
     } else if (PyByteArray_Check(bin)) {
         char *contents;
         Py_ssize_t length;
@@ -2216,15 +2216,15 @@ DataTree_new(PyTypeObject *subtype,
         /* load the provided text contents */
         contents = PyByteArray_AS_STRING(bin);
         length = PyByteArray_GET_SIZE(bin);
-        ret = bitpunch_load_binary_file_from_buffer(contents, length,
-                                                   &binary_file);
+        ret = bitpunch_data_source_create_from_memory(contents, length,
+                                                   &ds);
     } else if (PyFile_Check(bin)) {
         FILE *file;
 
         /* load the contents from the file object */
         file = PyFile_AsFile(bin);
         //PyFile_IncUseCount((PyFileObject *)bin);
-        ret = bitpunch_load_binary_file_from_fd(fileno(file), &binary_file);
+        ret = bitpunch_data_source_create_from_file_descriptor(fileno(file), &ds);
     } else {
         PyErr_SetString(PyExc_TypeError,
                         "The first argument must be a string or a file object");
@@ -2237,19 +2237,19 @@ DataTree_new(PyTypeObject *subtype,
 
     self = (DataTreeObject *)DataItem_new(subtype, NULL, NULL);
     if (NULL == self) {
-        (void) bitpunch_close_binary_file(binary_file);
+        (void) bitpunch_data_source_close(ds);
         return NULL;
     }
-    container_box = box_new_from_file(fmt->schema, binary_file);
+    container_box = box_new_from_file(fmt->schema, ds);
     if (NULL == container_box) {
         PyErr_SetString(PyExc_OSError, "Error creating top-level box");
         Py_DECREF((PyObject *)self);
-        (void) bitpunch_close_binary_file(binary_file);
+        (void) bitpunch_data_source_close(ds);
         return NULL;
     }
     DataItem_construct(&self->item, self);
     self->item.dpath = expr_dpath_as_container(container_box);
-    self->binary_file = binary_file;
+    self->ds = ds;
     self->fmt = fmt;
 
     return (PyObject *)self;
@@ -2262,9 +2262,9 @@ DataTree_clear(DataTreeObject *self)
 
     DataItem_clear(&self->item);
 
-    if (NULL != self->binary_file) {
-        bitpunch_free_binary_file(self->binary_file);
-        self->binary_file = NULL;
+    if (NULL != self->ds) {
+        bitpunch_data_source_free(self->ds);
+        self->ds = NULL;
     }
     tmp = (PyObject *)self->fmt;
     self->fmt = NULL;
@@ -3382,8 +3382,8 @@ static PyObject *
 eval_expr_as_python_object(DataItemObject *item, const char *expr)
 {
     DataTreeObject *dtree;
-    struct bitpunch_schema_hdl *schema;
-    struct bitpunch_data_source *binary_file;
+    struct bitpunch_schema *schema;
+    struct bitpunch_data_source *ds;
     struct box *scope;
     int ret;
     expr_value_t expr_value;
@@ -3396,16 +3396,16 @@ eval_expr_as_python_object(DataItemObject *item, const char *expr)
         }
         dtree = item->dtree;
         schema = dtree->fmt->schema;
-        binary_file = dtree->binary_file;
+        ds = dtree->ds;
         scope = item->dpath.container.box;
     } else {
         dtree = NULL;
         schema = NULL;
-        binary_file = NULL;
+        ds = NULL;
         scope = NULL;
     }
 
-    ret = bitpunch_eval_expr(schema, binary_file, expr, scope,
+    ret = bitpunch_eval_expr(schema, ds, expr, scope,
                              &expr_value, &expr_dpath, &tk_err);
     if (-1 == ret) {
         if (NULL != tk_err) {

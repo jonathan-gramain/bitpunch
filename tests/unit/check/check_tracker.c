@@ -95,7 +95,7 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
     int64_t n_items;
     struct ast_node_hdl *item_filter;
 
-    ret = bitpunch_load_binary_file_from_buffer(
+    ret = bitpunch_data_source_create_from_memory(
         test_spec->contents, test_spec->contents_size, &ds_in);
     ck_assert_int_eq(ret, 0);
 
@@ -167,7 +167,7 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
     }
     tracker_delete(tk);
 
-    ret = bitpunch_free_binary_file(ds_in);
+    ret = bitpunch_data_source_free(ds_in);
     ck_assert_int_eq(ret, 0);
 }
 
@@ -252,7 +252,7 @@ check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
     struct tracker *tk;
     int ret;
 
-    ret = bitpunch_load_binary_file_from_buffer(
+    ret = bitpunch_data_source_create_from_memory(
         test_spec->contents, test_spec->contents_size, &ds_in);
     ck_assert_int_eq(ret, 0);
 
@@ -264,7 +264,7 @@ check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
 
     tracker_delete(tk);
 
-    ret = bitpunch_free_binary_file(ds_in);
+    ret = bitpunch_data_source_free(ds_in);
     ck_assert_int_eq(ret, 0);
 }
 
@@ -285,7 +285,7 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
     int j;
     int swap_idx;
 
-    ret = bitpunch_load_binary_file_from_buffer(
+    ret = bitpunch_data_source_create_from_memory(
         test_spec->contents, test_spec->contents_size, &ds_in);
     ck_assert_int_eq(ret, 0);
 
@@ -347,7 +347,7 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
 
     tracker_delete(tk);
 
-    ret = bitpunch_free_binary_file(ds_in);
+    ret = bitpunch_data_source_free(ds_in);
     ck_assert_int_eq(ret, 0);
 }
 

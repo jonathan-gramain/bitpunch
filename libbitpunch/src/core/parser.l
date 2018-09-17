@@ -271,13 +271,13 @@ sizeof        { return OP_SIZEOF; }
 %%
 
 int
-bitpunch_parse_schema(struct bitpunch_schema_hdl *schema)
+bitpunch_parse_schema(struct bitpunch_schema *schema)
 {
     yyscan_t scanner;
     int ret;
 
     memset(&schema->df_parser_ctx, 0, sizeof (schema->df_parser_ctx));
-    if (DF_OPEN_TYPE_FILEPATH == schema->df_open_type) {
+    if (BITPUNCH_SCHEMA_TYPE_FILEPATH == schema->schema_type) {
         schema->df_parser_ctx.parser_filepath =
             schema->df_open_data.filepath.path;
     } else {

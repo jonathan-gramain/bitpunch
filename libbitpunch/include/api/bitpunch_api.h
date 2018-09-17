@@ -39,47 +39,54 @@
 extern int tracker_debug_mode;
 #endif
 
-struct bitpunch_schema_hdl;
+struct bitpunch_schema;
 
 int
 bitpunch_init(void);
 void
 bitpunch_cleanup(void);
 int
-bitpunch_load_schema_from_path(const char *path,
-                                struct bitpunch_schema_hdl **schema);
+bitpunch_schema_create_from_path(
+    const char *path,
+    struct bitpunch_schema **schema);
 int
-bitpunch_load_schema_from_fd(int fd,
-                              struct bitpunch_schema_hdl **schemap);
+bitpunch_schema_create_from_file_descriptor(
+    int fd,
+    struct bitpunch_schema **schemap);
 int
-bitpunch_load_schema_from_buffer(const char *buf, size_t buf_size,
-                                  struct bitpunch_schema_hdl **schemap);
+bitpunch_schema_create_from_buffer(
+    const char *buf, size_t buf_size,
+    struct bitpunch_schema **schemap);
 int
-bitpunch_load_schema_from_string(const char *str,
-                                  struct bitpunch_schema_hdl **schemap);
+bitpunch_schema_create_from_string(
+    const char *str,
+    struct bitpunch_schema **schemap);
 void
-bitpunch_close_schema(struct bitpunch_schema_hdl *schema);
+bitpunch_schema_close(struct bitpunch_schema *schema);
 
 void
-bitpunch_free_schema(struct bitpunch_schema_hdl *schema);
+bitpunch_schema_free(struct bitpunch_schema *schema);
 
 int
-bitpunch_load_binary_file_from_path(const char *path,
-                                   struct bitpunch_data_source **binary_filep);
+bitpunch_data_source_create_from_file_path(
+    const char *path,
+    struct bitpunch_data_source **dsp);
 
 int
-bitpunch_load_binary_file_from_fd(int fd,
-                                 struct bitpunch_data_source **binary_filep);
+bitpunch_data_source_create_from_file_descriptor(
+    int fd,
+    struct bitpunch_data_source **dsp);
 
 int
-bitpunch_load_binary_file_from_buffer(const char *data, size_t data_size,
-                                     struct bitpunch_data_source **binary_filep);
+bitpunch_data_source_create_from_memory(
+    const char *data, size_t data_size,
+    struct bitpunch_data_source **dsp);
 
 int
-bitpunch_close_binary_file(struct bitpunch_data_source *bf);
+bitpunch_data_source_close(struct bitpunch_data_source *ds);
 
 int
-bitpunch_free_binary_file(struct bitpunch_data_source *bf);
+bitpunch_data_source_free(struct bitpunch_data_source *ds);
 
 int
 bitpunch_parse_expr(const char *expr,
@@ -89,8 +96,8 @@ int
 bitpunch_resolve_expr(struct ast_node_hdl *expr, struct box *scope);
 
 int
-bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
-                   struct bitpunch_data_source *binary_file,
+bitpunch_eval_expr(struct bitpunch_schema *schema,
+                   struct bitpunch_data_source *ds,
                    const char *expr,
                    struct box *scope,
                    expr_value_t *valuep, expr_dpath_t *dpathp,

@@ -369,7 +369,7 @@ box_get_index_type(const struct box *box);
 struct ast_node_hdl *
 box_get_index_expr(const struct box *box);
 struct box *
-box_new_from_file(const struct bitpunch_schema_hdl *def_hdl,
+box_new_from_file(const struct bitpunch_schema *def_hdl,
                   struct bitpunch_data_source *ds_in);
 void
 box_dump(const struct box *box);
@@ -406,7 +406,7 @@ static inline int
 tracker_is_dangling(const struct tracker *tk);
 
 struct tracker *
-track_file(const struct bitpunch_schema_hdl *def_hdl,
+track_file(const struct bitpunch_schema *def_hdl,
            struct bitpunch_data_source *ds_in,
            struct tracker_error **errp);
 bitpunch_status_t

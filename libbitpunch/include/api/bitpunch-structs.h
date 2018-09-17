@@ -60,15 +60,15 @@ struct file_block {
     struct dpath_node *root;
 };
 
-enum df_open_type {
-    DF_OPEN_TYPE_UNSET = 0,
-    DF_OPEN_TYPE_FILEPATH,
-    DF_OPEN_TYPE_FILE_DESCRIPTOR,
-    DF_OPEN_TYPE_BUFFER,
+enum bitpunch_schema_type {
+    BITPUNCH_SCHEMA_TYPE_UNSET = 0,
+    BITPUNCH_SCHEMA_TYPE_FILEPATH,
+    BITPUNCH_SCHEMA_TYPE_FILE_DESCRIPTOR,
+    BITPUNCH_SCHEMA_TYPE_BUFFER,
 };
 
-struct bitpunch_schema_hdl {
-    enum df_open_type df_open_type;
+struct bitpunch_schema {
+    enum bitpunch_schema_type schema_type;
     union {
         struct {
             char      *path;
@@ -86,16 +86,16 @@ struct bitpunch_schema_hdl {
     struct file_block df_file_block;
 };
 
-enum ds_open_type {
-    DS_OPEN_TYPE_UNSET = 0,
-    DS_OPEN_TYPE_FILEPATH,
-    DS_OPEN_TYPE_FILE_DESCRIPTOR,
-    DS_OPEN_TYPE_USER_BUFFER,
-    DS_OPEN_TYPE_OWN_BUFFER,
+enum bitpunch_data_source_type {
+    BITPUNCH_DATA_SOURCE_TYPE_UNSET = 0,
+    BITPUNCH_DATA_SOURCE_TYPE_FILEPATH,
+    BITPUNCH_DATA_SOURCE_TYPE_FILE_DESCRIPTOR,
+    BITPUNCH_DATA_SOURCE_TYPE_USER_BUFFER,
+    BITPUNCH_DATA_SOURCE_TYPE_OWN_BUFFER,
 };
 
 struct bitpunch_data_source {
-    enum ds_open_type ds_open_type;
+    enum bitpunch_data_source_type ds_type;
     union {
         struct {
             char      *path;

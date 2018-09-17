@@ -40,7 +40,7 @@ struct ast_node_data;
 struct ast_node_hdl;
 struct block_stmt_list;
 struct dpath_node;
-struct bitpunch_schema_hdl;
+struct bitpunch_schema;
 struct box;
 struct field;
 struct parser_location;
@@ -77,7 +77,7 @@ struct compile_ctx {
 };
 
 int
-bitpunch_compile_schema(struct bitpunch_schema_hdl *schema);
+bitpunch_compile_schema(struct bitpunch_schema *schema);
 
 int
 identifier_is_visible_in_block_stmt_lists(
@@ -190,7 +190,7 @@ void
 dump_composite(const struct ast_node_hdl *filter, FILE *stream);
 void
 dump_ast_node_input_text(const struct ast_node_hdl *node,
-                         struct bitpunch_schema_hdl *schema,
+                         struct bitpunch_schema *schema,
                          FILE *stream);
 
 #endif /* defined __AST_H__ */

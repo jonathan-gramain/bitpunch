@@ -68,7 +68,7 @@ static const char *check_struct_def =
     "    u4: u32;\n"
     "}\n";
 
-static struct bitpunch_schema_hdl *check_struct_def_hdl;
+static struct bitpunch_schema *check_struct_def_hdl;
 
 
 static const char check_struct_valid1_contents[] = {
@@ -308,7 +308,7 @@ static const char *check_vstruct_def =
     "    u4: u32;\n"
     "}\n";
 
-static struct bitpunch_schema_hdl *check_vstruct_def_hdl;
+static struct bitpunch_schema *check_vstruct_def_hdl;
 
 
 static const char check_vstruct_valid1_contents[] = {
@@ -420,19 +420,19 @@ static void struct_setup(void)
 {
     int ret;
 
-    ret = bitpunch_load_schema_from_string(check_struct_def,
+    ret = bitpunch_schema_create_from_string(check_struct_def,
                                            &check_struct_def_hdl);
     assert(0 == ret);
 
-    ret = bitpunch_load_schema_from_string(check_vstruct_def,
+    ret = bitpunch_schema_create_from_string(check_vstruct_def,
                                            &check_vstruct_def_hdl);
     assert(0 == ret);
 }
 
 static void struct_teardown(void)
 {
-    bitpunch_free_schema(check_struct_def_hdl);
-    bitpunch_free_schema(check_vstruct_def_hdl);
+    bitpunch_schema_free(check_struct_def_hdl);
+    bitpunch_schema_free(check_vstruct_def_hdl);
 }
 
 

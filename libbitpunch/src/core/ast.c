@@ -130,7 +130,7 @@ compile_subscript_index_cb(struct compile_ctx *ctx,
                            void *arg);
 
 int
-bitpunch_compile_schema(struct bitpunch_schema_hdl *schema)
+bitpunch_compile_schema(struct bitpunch_schema *schema)
 {
     struct dpath_node *ast_root;
 
@@ -4395,7 +4395,7 @@ dump_block_stmt_list_recur(const struct ast_node_hdl *filter,
 
 void
 dump_ast_node_input_text(const struct ast_node_hdl *node,
-                         struct bitpunch_schema_hdl *schema,
+                         struct bitpunch_schema *schema,
                          FILE *out)
 {
     const char *text_start;

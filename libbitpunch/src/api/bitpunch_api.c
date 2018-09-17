@@ -68,19 +68,19 @@ bitpunch_cleanup(void)
 {
 }
 
-static struct bitpunch_schema_hdl *
-bitpunch_schema_hdl_new(enum df_open_type open_type)
+static struct bitpunch_schema *
+bitpunch_schema_new(enum bitpunch_schema_type open_type)
 {
-    struct bitpunch_schema_hdl *schema;
+    struct bitpunch_schema *schema;
 
-    schema = new_safe(struct bitpunch_schema_hdl);
-    schema->df_open_type = open_type;
+    schema = new_safe(struct bitpunch_schema);
+    schema->schema_type = open_type;
     switch (open_type) {
-    case DF_OPEN_TYPE_FILEPATH:
-    case DF_OPEN_TYPE_FILE_DESCRIPTOR:
+    case BITPUNCH_SCHEMA_TYPE_FILEPATH:
+    case BITPUNCH_SCHEMA_TYPE_FILE_DESCRIPTOR:
         schema->df_open_data.filepath.fd = -1;
         break ;
-    case DF_OPEN_TYPE_BUFFER:
+    case BITPUNCH_SCHEMA_TYPE_BUFFER:
         break ;
     default:
         assert(0);
@@ -89,7 +89,7 @@ bitpunch_schema_hdl_new(enum df_open_type open_type)
 }
 
 static int
-load_schema_common(struct bitpunch_schema_hdl *schema)
+load_schema_common(struct bitpunch_schema *schema)
 {
     schema->df_fstream = fmemopen((char *)schema->df_data,
                                     schema->df_data_length, "r");
@@ -110,7 +110,7 @@ load_schema_common(struct bitpunch_schema_hdl *schema)
 
 static int
 open_schema_from_fd(int fd,
-                      struct bitpunch_schema_hdl *schema)
+                    struct bitpunch_schema *schema)
 {
     char *map;
     size_t map_length;
@@ -133,7 +133,7 @@ open_schema_from_fd(int fd,
 
 static int
 open_schema_from_path(const char *path,
-                        struct bitpunch_schema_hdl *schema)
+                      struct bitpunch_schema *schema)
 {
     char *path_dup;
     int fd;
@@ -159,21 +159,22 @@ open_schema_from_path(const char *path,
 }
 
 int
-bitpunch_load_schema_from_path(const char *path,
-                                struct bitpunch_schema_hdl **schemap)
+bitpunch_schema_create_from_path(
+    const char *path,
+    struct bitpunch_schema **schemap)
 {
-    struct bitpunch_schema_hdl *schema;
+    struct bitpunch_schema *schema;
 
     assert(NULL != path);
     assert(NULL != schemap);
 
-    schema = bitpunch_schema_hdl_new(DF_OPEN_TYPE_FILEPATH);
+    schema = bitpunch_schema_new(BITPUNCH_SCHEMA_TYPE_FILEPATH);
     if (-1 == open_schema_from_path(path, schema)) {
-        bitpunch_free_schema(schema);
+        bitpunch_schema_free(schema);
         return -1;
     }
     if (-1 == load_schema_common(schema)) {
-        bitpunch_free_schema(schema);
+        bitpunch_schema_free(schema);
         return -1;
     }
     *schemap = schema;
@@ -181,21 +182,22 @@ bitpunch_load_schema_from_path(const char *path,
 }
 
 int
-bitpunch_load_schema_from_fd(int fd,
-                              struct bitpunch_schema_hdl **schemap)
+bitpunch_schema_create_from_file_descriptor(
+    int fd,
+    struct bitpunch_schema **schemap)
 {
-    struct bitpunch_schema_hdl *schema;
+    struct bitpunch_schema *schema;
 
     assert(-1 != fd);
     assert(NULL != schemap);
 
-    schema = bitpunch_schema_hdl_new(DF_OPEN_TYPE_FILE_DESCRIPTOR);
+    schema = bitpunch_schema_new(BITPUNCH_SCHEMA_TYPE_FILE_DESCRIPTOR);
     if (-1 == open_schema_from_fd(fd, schema)) {
-        bitpunch_free_schema(schema);
+        bitpunch_schema_free(schema);
         return -1;
     }
     if (-1 == load_schema_common(schema)) {
-        bitpunch_free_schema(schema);
+        bitpunch_schema_free(schema);
         return -1;
     }
     *schemap = schema;
@@ -203,18 +205,19 @@ bitpunch_load_schema_from_fd(int fd,
 }
 
 int
-bitpunch_load_schema_from_buffer(const char *buf, size_t buf_size,
-                                 struct bitpunch_schema_hdl **schemap)
+bitpunch_schema_create_from_buffer(
+    const char *buf, size_t buf_size,
+    struct bitpunch_schema **schemap)
 {
-    struct bitpunch_schema_hdl *schema;
+    struct bitpunch_schema *schema;
 
     assert(NULL != schemap);
 
-    schema = bitpunch_schema_hdl_new(DF_OPEN_TYPE_BUFFER);
+    schema = bitpunch_schema_new(BITPUNCH_SCHEMA_TYPE_BUFFER);
     schema->df_data = buf;
     schema->df_data_length = buf_size;
     if (-1 == load_schema_common(schema)) {
-        bitpunch_free_schema(schema);
+        bitpunch_schema_free(schema);
         return -1;
     }
     *schemap = schema;
@@ -222,22 +225,23 @@ bitpunch_load_schema_from_buffer(const char *buf, size_t buf_size,
 }
 
 int
-bitpunch_load_schema_from_string(const char *str,
-                                 struct bitpunch_schema_hdl **schemap)
+bitpunch_schema_create_from_string(
+    const char *str,
+    struct bitpunch_schema **schemap)
 {
-    return bitpunch_load_schema_from_buffer(str, strlen(str), schemap);
+    return bitpunch_schema_create_from_buffer(str, strlen(str), schemap);
 }
 
 void
-bitpunch_close_schema(struct bitpunch_schema_hdl *schema)
+bitpunch_schema_close(struct bitpunch_schema *schema)
 {
     if (NULL == schema) {
         return ;
     }
-    switch (schema->df_open_type) {
-    case DF_OPEN_TYPE_UNSET:
+    switch (schema->schema_type) {
+    case BITPUNCH_SCHEMA_TYPE_UNSET:
         break ;
-    case DF_OPEN_TYPE_FILEPATH:
+    case BITPUNCH_SCHEMA_TYPE_FILEPATH:
         if (NULL != schema->df_fstream) {
             fclose(schema->df_fstream);
         }
@@ -250,7 +254,7 @@ bitpunch_close_schema(struct bitpunch_schema_hdl *schema)
         }
         free(schema->df_open_data.filepath.path);
         break ;
-    case DF_OPEN_TYPE_FILE_DESCRIPTOR:
+    case BITPUNCH_SCHEMA_TYPE_FILE_DESCRIPTOR:
         if (NULL != schema->df_fstream) {
             fclose(schema->df_fstream);
         }
@@ -259,7 +263,7 @@ bitpunch_close_schema(struct bitpunch_schema_hdl *schema)
                          schema->df_open_data.filepath.map_length);
         }
         break ;
-    case DF_OPEN_TYPE_BUFFER:
+    case BITPUNCH_SCHEMA_TYPE_BUFFER:
         if (NULL != schema->df_fstream) {
             fclose(schema->df_fstream);
         }
@@ -267,19 +271,19 @@ bitpunch_close_schema(struct bitpunch_schema_hdl *schema)
     default:
         assert(0);
     }
-    schema->df_open_type = DF_OPEN_TYPE_UNSET;
+    schema->schema_type = BITPUNCH_SCHEMA_TYPE_UNSET;
 }
 
 void
-bitpunch_free_schema(struct bitpunch_schema_hdl *schema)
+bitpunch_schema_free(struct bitpunch_schema *schema)
 {
-    bitpunch_close_schema(schema);
+    bitpunch_schema_close(schema);
     free(schema);
 }
 
 static int
-open_binary_file_from_fd(int fd,
-                         struct bitpunch_data_source *bf)
+open_data_source_from_fd(int fd,
+                         struct bitpunch_data_source *ds)
 {
     char *map;
     size_t map_length;
@@ -291,25 +295,26 @@ open_binary_file_from_fd(int fd,
                 strerror(errno));
         return -1;
     }
-    bf->ds_open_data.filepath.fd = fd;
-    bf->ds_open_data.filepath.map = map;
-    bf->ds_open_data.filepath.map_length = map_length;
+    ds->ds_open_data.filepath.fd = fd;
+    ds->ds_open_data.filepath.map = map;
+    ds->ds_open_data.filepath.map_length = map_length;
 
-    bf->ds_data = map;
-    bf->ds_data_length = map_length;
+    ds->ds_data = map;
+    ds->ds_data_length = map_length;
 
     return 0;
 }
 
 int
-bitpunch_load_binary_file_from_path(const char *path,
-                                   struct bitpunch_data_source **binary_filep)
+bitpunch_data_source_create_from_file_path(
+    const char *path,
+    struct bitpunch_data_source **dsp)
 {
-    struct bitpunch_data_source *bf;
+    struct bitpunch_data_source *ds;
     int fd;
 
     assert(NULL != path);
-    assert(NULL != binary_filep);
+    assert(NULL != dsp);
 
     fd = open(path, O_RDONLY);
     if (-1 == fd) {
@@ -317,107 +322,110 @@ bitpunch_load_binary_file_from_path(const char *path,
                 path, strerror(errno));
         return -1;
     }
-    bf = new_safe(struct bitpunch_data_source);
-    bf->ds_open_type = DS_OPEN_TYPE_FILEPATH;
+    ds = new_safe(struct bitpunch_data_source);
+    ds->ds_type = BITPUNCH_DATA_SOURCE_TYPE_FILEPATH;
 
-    if (-1 == open_binary_file_from_fd(fd, bf)) {
+    if (-1 == open_data_source_from_fd(fd, ds)) {
         fprintf(stderr, "Error loading binary file %s\n", path);
         (void)close(fd);
-        free(bf);
+        free(ds);
         return -1;
     }
-    bf->ds_open_data.filepath.path = strdup_safe(path);
+    ds->ds_open_data.filepath.path = strdup_safe(path);
 
-    *binary_filep = bf;
+    *dsp = ds;
     return 0;
 }
 
 int
-bitpunch_load_binary_file_from_fd(int fd,
-                                 struct bitpunch_data_source **binary_filep)
+bitpunch_data_source_create_from_file_descriptor(
+    int fd,
+    struct bitpunch_data_source **dsp)
 {
-    struct bitpunch_data_source *bf;
+    struct bitpunch_data_source *ds;
 
     assert(-1 != fd);
-    assert(NULL != binary_filep);
+    assert(NULL != dsp);
 
-    bf = new_safe(struct bitpunch_data_source);
-    bf->ds_open_type = DS_OPEN_TYPE_FILE_DESCRIPTOR;
+    ds = new_safe(struct bitpunch_data_source);
+    ds->ds_type = BITPUNCH_DATA_SOURCE_TYPE_FILE_DESCRIPTOR;
 
-    if (-1 == open_binary_file_from_fd(fd, bf)) {
-        fprintf(stderr, "Error loading binary file from file descriptor fd=%d\n",
+    if (-1 == open_data_source_from_fd(fd, ds)) {
+        fprintf(stderr,
+                "Error loading binary file from file descriptor fd=%d\n",
                 fd);
-        free(bf);
+        free(ds);
         return -1;
     }
-    *binary_filep = bf;
+    *dsp = ds;
     return 0;
 }
 
 int
-bitpunch_load_binary_file_from_buffer(const char *data, size_t data_size,
-                                     struct bitpunch_data_source **binary_filep)
+bitpunch_data_source_create_from_memory(
+    const char *data, size_t data_size,
+    struct bitpunch_data_source **dsp)
 {
-    struct bitpunch_data_source *bf;
+    struct bitpunch_data_source *ds;
 
-    assert(NULL != binary_filep);
+    assert(NULL != dsp);
 
-    bf = new_safe(struct bitpunch_data_source);
-    bf->ds_open_type = DS_OPEN_TYPE_USER_BUFFER;
+    ds = new_safe(struct bitpunch_data_source);
+    ds->ds_type = BITPUNCH_DATA_SOURCE_TYPE_USER_BUFFER;
 
-    bf->ds_data = data;
-    bf->ds_data_length = data_size;
+    ds->ds_data = data;
+    ds->ds_data_length = data_size;
 
-    *binary_filep = bf;
+    *dsp = ds;
     return 0;
 }
 
 int
-bitpunch_close_binary_file(struct bitpunch_data_source *bf)
+bitpunch_data_source_close(struct bitpunch_data_source *ds)
 {
-    if (NULL == bf) {
+    if (NULL == ds) {
         return 0;
     }
-    switch (bf->ds_open_type) {
-    case DS_OPEN_TYPE_UNSET:
+    switch (ds->ds_type) {
+    case BITPUNCH_DATA_SOURCE_TYPE_UNSET:
         break ;
-    case DS_OPEN_TYPE_FILEPATH:
-        if (-1 == munmap(bf->ds_open_data.filepath.map,
-                         bf->ds_open_data.filepath.map_length)) {
+    case BITPUNCH_DATA_SOURCE_TYPE_FILEPATH:
+        if (-1 == munmap(ds->ds_open_data.filepath.map,
+                         ds->ds_open_data.filepath.map_length)) {
             return -1;
         }
-        if (-1 == close(bf->ds_open_data.filepath.fd)) {
+        if (-1 == close(ds->ds_open_data.filepath.fd)) {
             return -1;
         }
-        free(bf->ds_open_data.filepath.path);
+        free(ds->ds_open_data.filepath.path);
         break ;
-    case DS_OPEN_TYPE_FILE_DESCRIPTOR:
-        if (-1 == munmap(bf->ds_open_data.filepath.map,
-                         bf->ds_open_data.filepath.map_length)) {
+    case BITPUNCH_DATA_SOURCE_TYPE_FILE_DESCRIPTOR:
+        if (-1 == munmap(ds->ds_open_data.filepath.map,
+                         ds->ds_open_data.filepath.map_length)) {
             return -1;
         }
         break ;
-    case DS_OPEN_TYPE_USER_BUFFER:
+    case BITPUNCH_DATA_SOURCE_TYPE_USER_BUFFER:
         break ;
-    case DS_OPEN_TYPE_OWN_BUFFER:
-        free((char *)bf->ds_data);
+    case BITPUNCH_DATA_SOURCE_TYPE_OWN_BUFFER:
+        free((char *)ds->ds_data);
         break ;
     default:
         assert(0);
     }
-    bf->ds_open_type = DS_OPEN_TYPE_UNSET;
+    ds->ds_type = BITPUNCH_DATA_SOURCE_TYPE_UNSET;
     return 0;
 }
 
 int
-bitpunch_free_binary_file(struct bitpunch_data_source *bf)
+bitpunch_data_source_free(struct bitpunch_data_source *ds)
 {
-    if (-1 == bitpunch_close_binary_file(bf))
+    if (-1 == bitpunch_data_source_close(ds))
         return -1;
-    if (NULL != bf->box_cache) {
-        box_cache_free(bf->box_cache);
+    if (NULL != ds->box_cache) {
+        box_cache_free(ds->box_cache);
     }
-    free(bf);
+    free(ds);
     return 0;
 }
 
@@ -428,8 +436,8 @@ bitpunch_resolve_expr(struct ast_node_hdl *expr, struct box *scope)
 }
 
 int
-bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
-                   struct bitpunch_data_source *binary_file,
+bitpunch_eval_expr(struct bitpunch_schema *schema,
+                   struct bitpunch_data_source *ds,
                    const char *expr,
                    struct box *scope,
                    expr_value_t *valuep, expr_dpath_t *dpathp,
@@ -445,9 +453,9 @@ bitpunch_eval_expr(struct bitpunch_schema_hdl *schema,
     if (-1 == bitpunch_parse_expr(expr, &expr_node, &parser_ctx)) {
         return -1;
     }
-    if (NULL != schema && NULL != binary_file) {
+    if (NULL != schema && NULL != ds) {
         if (NULL == scope) {
-            scope = box_new_from_file(schema, binary_file);
+            scope = box_new_from_file(schema, ds);
             if (NULL == scope) {
                 goto end;
             }

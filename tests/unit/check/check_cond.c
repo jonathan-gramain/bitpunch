@@ -67,7 +67,7 @@ static const char *check_cond_def =
     "    ifs: [2] IfStruct;\n"
     "}\n";
 
-static struct bitpunch_schema_hdl *check_cond_def_hdl;
+static struct bitpunch_schema *check_cond_def_hdl;
 
 
 static const char check_cond_valid1_contents[] = {
@@ -175,14 +175,14 @@ static void cond_setup(void)
 {
     int ret;
 
-    ret = bitpunch_load_schema_from_string(check_cond_def,
+    ret = bitpunch_schema_create_from_string(check_cond_def,
                                             &check_cond_def_hdl);
     assert(0 == ret);
 }
 
 static void cond_teardown(void)
 {
-    bitpunch_free_schema(check_cond_def_hdl);
+    bitpunch_schema_free(check_cond_def_hdl);
 }
 
 

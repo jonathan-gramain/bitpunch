@@ -84,7 +84,7 @@ static const char *radio_codenames[] = {
 };
 
 struct radio_source_info {
-    struct bitpunch_schema_hdl *bp;
+    struct bitpunch_schema *bp;
     struct bitpunch_data_source *bin;
     struct tracker *tk;
     int64_t codename_offset[N_ELEM(radio_codenames)];
@@ -108,12 +108,12 @@ static void testcase_radio_setup(void)
 
         snprintf(filepath, sizeof (filepath),
                  "tests/common/radio/radio_%s.bp", radio_sources[i]);
-        ret = bitpunch_load_schema_from_path(filepath, &info->bp);
+        ret = bitpunch_schema_create_from_path(filepath, &info->bp);
         assert(0 == ret);
 
         snprintf(filepath, sizeof (filepath),
                  "tests/common/radio/radio_%s.bin", radio_sources[i]);
-        ret = bitpunch_load_binary_file_from_path(filepath, &info->bin);
+        ret = bitpunch_data_source_create_from_file_path(filepath, &info->bin);
         assert(0 == ret);
 
         for (c = 0; c < N_ELEM(radio_codenames); ++c) {
@@ -140,8 +140,8 @@ static void testcase_radio_teardown(void)
 
     for (i = 0; i < N_ELEM(radio_sources); ++i) {
         info = &radio_source_info[i];
-        bitpunch_free_schema(info->bp);
-        bitpunch_free_binary_file(info->bin);
+        bitpunch_schema_free(info->bp);
+        bitpunch_data_source_free(info->bin);
     }
 }
 

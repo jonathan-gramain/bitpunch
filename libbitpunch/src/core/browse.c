@@ -1588,7 +1588,7 @@ box_lookup_cached_child(struct box *box, struct track_path path,
 }
 
 static struct box *
-box_new_from_file_internal(const struct bitpunch_schema_hdl *def_hdl,
+box_new_from_file_internal(const struct bitpunch_schema *def_hdl,
                            struct bitpunch_data_source *ds_in,
                            struct browse_state *bst)
 {
@@ -1628,7 +1628,7 @@ box_new_from_file_internal(const struct bitpunch_schema_hdl *def_hdl,
 }
 
 struct box *
-box_new_from_file(const struct bitpunch_schema_hdl *def_hdl,
+box_new_from_file(const struct bitpunch_schema *def_hdl,
                   struct bitpunch_data_source *ds_in)
 {
     struct browse_state bst;
@@ -1727,9 +1727,9 @@ create_data_source_from_buffer(
     struct bitpunch_data_source *ds_out;
 
     ds_out = new_safe(struct bitpunch_data_source);
-    ds_out->ds_open_type = (own_buffer ?
-                            DS_OPEN_TYPE_OWN_BUFFER :
-                            DS_OPEN_TYPE_USER_BUFFER);
+    ds_out->ds_type = (own_buffer ?
+                            BITPUNCH_DATA_SOURCE_TYPE_OWN_BUFFER :
+                            BITPUNCH_DATA_SOURCE_TYPE_USER_BUFFER);
     ds_out->ds_data = data;
     ds_out->ds_data_length = data_size;
     ds_out->box_cache = ds_in->box_cache;
@@ -1924,7 +1924,7 @@ box_free(struct box *box)
         }
     }
     if (0 != (box->flags & BOX_DATA_SOURCE)) {
-        (void)bitpunch_close_binary_file(
+        (void)bitpunch_data_source_close(
             (struct bitpunch_data_source *)box->ds_out);
         free((struct bitpunch_data_source *)box->ds_out);
     }
@@ -3305,7 +3305,7 @@ track_box_contents_internal(struct box *box,
 }
 
 struct tracker *
-track_file(const struct bitpunch_schema_hdl *def_hdl,
+track_file(const struct bitpunch_schema *def_hdl,
            struct bitpunch_data_source *ds_in,
            struct tracker_error **errp)
 {

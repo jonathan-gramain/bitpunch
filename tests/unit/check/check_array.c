@@ -55,7 +55,7 @@ static const char *check_sarray_contents_def =
     "    int_array: [5] u32;"
     "}\n";
 
-static struct bitpunch_schema_hdl *check_sarray_def_hdl;
+static struct bitpunch_schema *check_sarray_def_hdl;
 
 static const char check_sarray_valid1_contents[] = {
     0x0,0x0,0x0,0x1,0x0,0x0,0x0,0x2,0x0,0x0,0x0,0x3,0x0,0x0,0x0,0x4,
@@ -192,7 +192,7 @@ static const char *check_varray_contents_def =
     "    int_array: [(2 + int_array_size)] u32;\n"
     "}\n";
 
-static struct bitpunch_schema_hdl *check_varray_def_hdl;
+static struct bitpunch_schema *check_varray_def_hdl;
 
 static const char check_varray_valid1_contents[] = {
     0x0,0x0,0x0,0x3, /* 2 + size=3 -> 5 elements */
@@ -334,19 +334,19 @@ static void array_setup(void)
 {
     int ret;
 
-    ret = bitpunch_load_schema_from_string(check_sarray_contents_def,
+    ret = bitpunch_schema_create_from_string(check_sarray_contents_def,
                                             &check_sarray_def_hdl);
     assert(0 == ret);
 
-    ret = bitpunch_load_schema_from_string(check_varray_contents_def,
+    ret = bitpunch_schema_create_from_string(check_varray_contents_def,
                                             &check_varray_def_hdl);
     assert(0 == ret);
 }
 
 static void array_teardown(void)
 {
-    bitpunch_free_schema(check_sarray_def_hdl);
-    bitpunch_free_schema(check_varray_def_hdl);
+    bitpunch_schema_free(check_sarray_def_hdl);
+    bitpunch_schema_free(check_varray_def_hdl);
 }
 
 START_TEST(sarray_ast)
