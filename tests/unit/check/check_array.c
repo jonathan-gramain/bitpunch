@@ -360,7 +360,7 @@ START_TEST(sarray_ast)
     const struct ast_node_hdl *item_count;
     struct filter_instance_array *item_f_instance;
 
-    root = check_sarray_def_hdl->df_file_block.root->item;
+    root = check_sarray_def_hdl->file_block.root->item;
     ck_assert_int_eq(root->ndat->type, AST_NODE_TYPE_COMPOSITE);
     stmt_lists = &root->ndat->u.rexpr_filter.filter_def->block_stmt_list;
 
@@ -430,7 +430,7 @@ START_TEST(varray_ast)
     const struct ast_node_hdl *op1;
     const struct ast_node_hdl *op2;
 
-    root = check_varray_def_hdl->df_file_block.root->item;
+    root = check_varray_def_hdl->file_block.root->item;
     ck_assert_int_eq(root->ndat->type, AST_NODE_TYPE_COMPOSITE);
     stmt_lists = &root->ndat->u.rexpr_filter.filter_def->block_stmt_list;
 

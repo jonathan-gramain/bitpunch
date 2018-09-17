@@ -134,7 +134,7 @@ bitpunch_compile_schema(struct bitpunch_schema *schema)
 {
     struct dpath_node *ast_root;
 
-    ast_root = schema->df_file_block.root;
+    ast_root = schema->file_block.root;
     if (-1 == resolve_identifiers_dpath_node(
             ast_root, NULL, RESOLVE_TYPE_IDENTIFIERS)) {
         return -1;
@@ -4401,8 +4401,8 @@ dump_ast_node_input_text(const struct ast_node_hdl *node,
     const char *text_start;
     const char *text_end;
 
-    text_start = schema->df_data + node->loc.start_offset;
-    text_end = schema->df_data + node->loc.end_offset;
+    text_start = schema->data + node->loc.start_offset;
+    text_end = schema->data + node->loc.end_offset;
 
     fwrite(text_start, 1, text_end - text_start, out);
     fputs("\n", out);

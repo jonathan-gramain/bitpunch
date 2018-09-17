@@ -125,8 +125,7 @@ static void testcase_radio_setup(void)
             info->codename_offset[c] = location - info->bin->ds_data;
         }
 
-        if (memmem(info->bp->df_data,
-                   info->bp->df_data_length,
+        if (memmem(info->bp->data, info->bp->data_length,
                    "let codename", strlen("let codename")) != 0) {
             info->codename_is_named_expr = TRUE;
         }

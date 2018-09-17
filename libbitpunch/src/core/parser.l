@@ -274,24 +274,25 @@ int
 bitpunch_parse_schema(struct bitpunch_schema *schema)
 {
     yyscan_t scanner;
+    FILE *fstream;
     int ret;
 
-    memset(&schema->df_parser_ctx, 0, sizeof (schema->df_parser_ctx));
-    if (BITPUNCH_SCHEMA_TYPE_FILEPATH == schema->schema_type) {
-        schema->df_parser_ctx.parser_filepath =
-            schema->df_open_data.filepath.path;
-    } else {
-        schema->df_parser_ctx.parser_filepath = NULL;
-    }
-    schema->df_parser_ctx.parser_data = schema->df_data;
-    schema->df_parser_ctx.parser_data_length = schema->df_data_length;
-    schema->df_parser_ctx.start_token = START_DEF_FILE;
+    memset(&schema->parser_ctx, 0, sizeof (schema->parser_ctx));
+    schema->parser_ctx.parser_filepath = schema->file_path;
+    schema->parser_ctx.parser_data = schema->data;
+    schema->parser_ctx.parser_data_length = schema->data_length;
+    schema->parser_ctx.start_token = START_DEF_FILE;
 
+    fstream = fmemopen((char *)schema->data, schema->data_length, "r");
+    if (NULL == fstream) {
+        return -1;
+    }
     yylex_init(&scanner);
-    yyset_in(schema->df_fstream, scanner);
-    ret = yyparse(scanner, &schema->df_parser_ctx,
-                  &schema->df_file_block);
+    yyset_in(fstream, scanner);
+    ret = yyparse(scanner, &schema->parser_ctx,
+                  &schema->file_block);
     yylex_destroy(scanner);
+    fclose(fstream);
     if (0 != ret) {
         return -1;
     }

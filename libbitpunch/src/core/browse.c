@@ -1602,7 +1602,7 @@ box_new_from_file_internal(const struct bitpunch_schema *def_hdl,
     // dpath, which can be chained with a composite or other type of
     // (usually trackable) filter
 
-    root_filter = def_hdl->df_file_block.root->filter;
+    root_filter = def_hdl->file_block.root->filter;
     assert(NULL != root_filter);
     source_box = new_safe(struct box);
     bt_ret = box_construct(source_box, NULL, AST_NODE_SOURCE, 0, 0u, bst);

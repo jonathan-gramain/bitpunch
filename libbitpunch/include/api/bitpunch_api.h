@@ -61,8 +61,6 @@ int
 bitpunch_schema_create_from_string(
     const char *str,
     struct bitpunch_schema **schemap);
-void
-bitpunch_schema_close(struct bitpunch_schema *schema);
 
 void
 bitpunch_schema_free(struct bitpunch_schema *schema);

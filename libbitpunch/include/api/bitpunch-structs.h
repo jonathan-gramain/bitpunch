@@ -34,6 +34,8 @@
 
 #include <stdio.h>
 
+#define BITPUNCH_SCHEMA_MAX_LENGTH   1048576
+
 struct box_cache;
 
 typedef enum bitpunch_status {
@@ -68,22 +70,11 @@ enum bitpunch_schema_type {
 };
 
 struct bitpunch_schema {
-    enum bitpunch_schema_type schema_type;
-    union {
-        struct {
-            char      *path;
-            int       fd;
-            char      *map;
-            size_t    map_length;
-        }             filepath;
-        struct {
-        }             buffer;
-    }                 df_open_data;
-    const char        *df_data;
-    size_t            df_data_length;
-    FILE              *df_fstream;
-    struct parser_ctx df_parser_ctx;
-    struct file_block df_file_block;
+    char *data;
+    size_t data_length;
+    char *file_path;
+    struct parser_ctx parser_ctx;
+    struct file_block file_block;
 };
 
 struct bitpunch_data_source;
