@@ -363,19 +363,17 @@ bitpunch_data_source_create_from_file_descriptor(
 
 int
 bitpunch_data_source_create_from_memory(
-    const char *data, size_t data_size,
+    const char *data, size_t data_size, int managed_buffer,
     struct bitpunch_data_source **dsp)
 {
     struct bitpunch_data_source *ds;
 
-    assert(NULL != dsp);
-
     ds = new_safe(struct bitpunch_data_source);
-    ds->ds_type = BITPUNCH_DATA_SOURCE_TYPE_USER_BUFFER;
-
+    ds->ds_type = (managed_buffer ?
+                   BITPUNCH_DATA_SOURCE_TYPE_MANAGED_BUFFER :
+                   BITPUNCH_DATA_SOURCE_TYPE_UNMANAGED_BUFFER);
     ds->ds_data = data;
     ds->ds_data_length = data_size;
-
     *dsp = ds;
     return 0;
 }
@@ -405,9 +403,9 @@ bitpunch_data_source_close(struct bitpunch_data_source *ds)
             return -1;
         }
         break ;
-    case BITPUNCH_DATA_SOURCE_TYPE_USER_BUFFER:
+    case BITPUNCH_DATA_SOURCE_TYPE_UNMANAGED_BUFFER:
         break ;
-    case BITPUNCH_DATA_SOURCE_TYPE_OWN_BUFFER:
+    case BITPUNCH_DATA_SOURCE_TYPE_MANAGED_BUFFER:
         free((char *)ds->ds_data);
         break ;
     default:

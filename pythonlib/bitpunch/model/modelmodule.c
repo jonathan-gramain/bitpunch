@@ -2207,8 +2207,8 @@ DataTree_new(PyTypeObject *subtype,
         /* load the provided text contents */
         ret = PyString_AsStringAndSize(bin, &contents, &length);
         assert(-1 != ret);
-        ret = bitpunch_data_source_create_from_memory(contents, length,
-                                                   &ds);
+        ret = bitpunch_data_source_create_from_memory(
+            contents, length, FALSE, &ds);
     } else if (PyByteArray_Check(bin)) {
         char *contents;
         Py_ssize_t length;
@@ -2216,8 +2216,8 @@ DataTree_new(PyTypeObject *subtype,
         /* load the provided text contents */
         contents = PyByteArray_AS_STRING(bin);
         length = PyByteArray_GET_SIZE(bin);
-        ret = bitpunch_data_source_create_from_memory(contents, length,
-                                                   &ds);
+        ret = bitpunch_data_source_create_from_memory(
+            contents, length, FALSE, &ds);
     } else if (PyFile_Check(bin)) {
         FILE *file;
 

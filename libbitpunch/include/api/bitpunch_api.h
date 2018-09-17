@@ -79,7 +79,7 @@ bitpunch_data_source_create_from_file_descriptor(
 
 int
 bitpunch_data_source_create_from_memory(
-    const char *data, size_t data_size,
+    const char *data, size_t data_size, int managed_buffer,
     struct bitpunch_data_source **dsp);
 
 int

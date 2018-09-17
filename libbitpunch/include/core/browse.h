@@ -102,8 +102,8 @@ TAILQ_HEAD(box_tailq, box);
 struct box {
     struct box *parent_box;
     struct ast_node_hdl *filter;
-    const struct bitpunch_data_source *ds_in;
-    const struct bitpunch_data_source *ds_out;
+    struct bitpunch_data_source *ds_in;
+    struct bitpunch_data_source *ds_out;
 
     /** [ds_in] inherited parent's max offset */
     int64_t start_offset_parent;

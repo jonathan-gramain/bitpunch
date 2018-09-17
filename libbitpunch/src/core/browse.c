@@ -1719,23 +1719,6 @@ box_new_slice_box(struct tracker *slice_start,
     return slice_box;
 }
 
-static struct bitpunch_data_source *
-create_data_source_from_buffer(
-    const char *data, size_t data_size, int own_buffer,
-    const struct bitpunch_data_source *ds_in)
-{
-    struct bitpunch_data_source *ds_out;
-
-    ds_out = new_safe(struct bitpunch_data_source);
-    ds_out->ds_type = (own_buffer ?
-                            BITPUNCH_DATA_SOURCE_TYPE_OWN_BUFFER :
-                            BITPUNCH_DATA_SOURCE_TYPE_USER_BUFFER);
-    ds_out->ds_data = data;
-    ds_out->ds_data_length = data_size;
-    ds_out->box_cache = ds_in->box_cache;
-    return ds_out;
-}
-
 struct box *
 box_new_filter_box(struct box *parent_box,
                    struct ast_node_hdl *filter,
@@ -1812,8 +1795,8 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
         box->end_offset_used =
             (filtered_data + filtered_size) - box->ds_out->ds_data;
     } else {
-        box->ds_out = create_data_source_from_buffer(
-            filtered_data, filtered_size, TRUE, box->ds_in);
+        (void) bitpunch_data_source_create_from_memory(
+            filtered_data, filtered_size, TRUE, &box->ds_out);
         box->flags |= BOX_DATA_SOURCE;
         box->start_offset_used = 0;
         box->end_offset_used = filtered_size;
