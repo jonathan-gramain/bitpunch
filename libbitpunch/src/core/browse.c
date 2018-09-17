@@ -1620,7 +1620,7 @@ box_new_from_file_internal(const struct bitpunch_schema_hdl *def_hdl,
         ds_in->box_cache = box_cache_new(BOX_CACHE_MAX_N_BOXES,
                                          BOX_CACHE_MAX_N_CACHED_CHILDREN);
     }
-    composite_box = box_new_as_box(source_box, root_filter, bst);
+    composite_box = box_new_filter_box(source_box, root_filter, bst);
     if (NULL == composite_box) {
         box_delete_non_null(source_box);
     }
@@ -1719,24 +1719,6 @@ box_new_slice_box(struct tracker *slice_start,
     return slice_box;
 }
 
-struct box *
-box_new_as_box(struct box *parent_box,
-               struct ast_node_hdl *as_filter,
-               struct browse_state *bst)
-{
-    struct box *as_box;
-    bitpunch_status_t bt_ret;
-
-    as_box = new_safe(struct box);
-    bt_ret = box_construct(as_box, parent_box, as_filter, -1, 0u, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        box_delete_non_null(as_box);
-        return NULL;
-    }
-    as_box->track_path = TRACK_PATH_NONE;
-    return as_box;
-}
-
 static struct bitpunch_data_source *
 create_data_source_from_buffer(
     const char *data, size_t data_size, int own_buffer,
@@ -1768,6 +1750,7 @@ box_new_filter_box(struct box *parent_box,
         box_delete_non_null(box);
         return NULL;
     }
+    box->track_path = TRACK_PATH_NONE;
     return box;
 }
 

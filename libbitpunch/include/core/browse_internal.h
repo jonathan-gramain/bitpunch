@@ -57,10 +57,6 @@ box_new_slice_box(struct tracker *slice_start,
                   struct browse_state *bst);
 
 struct box *
-box_new_as_box(struct box *parent_box,
-               struct ast_node_hdl *as_filter,
-               struct browse_state *bst);
-struct box *
 box_new_filter_box(struct box *parent_box,
                    struct ast_node_hdl *filter,
                    struct browse_state *bst);
