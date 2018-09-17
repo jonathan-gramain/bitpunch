@@ -283,7 +283,7 @@ bitpunch_schema_free(struct bitpunch_schema *schema)
 
 static int
 open_data_source_from_fd(int fd,
-                         struct bitpunch_data_source *ds)
+                         struct bitpunch_file_source *fs)
 {
     char *map;
     size_t map_length;
@@ -295,13 +295,29 @@ open_data_source_from_fd(int fd,
                 strerror(errno));
         return -1;
     }
-    ds->ds_open_data.filepath.fd = fd;
-    ds->ds_open_data.filepath.map = map;
-    ds->ds_open_data.filepath.map_length = map_length;
+    fs->fd = fd;
+    fs->map = map;
+    fs->map_length = map_length;
 
-    ds->ds_data = map;
-    ds->ds_data_length = map_length;
+    fs->ds.ds_data = map;
+    fs->ds.ds_data_length = map_length;
 
+    return 0;
+}
+
+static int
+data_source_close_file_path(struct bitpunch_data_source *ds)
+{
+    struct bitpunch_file_source *fs;
+
+    fs = (struct bitpunch_file_source *)ds;
+    if (-1 == munmap(fs->map, fs->map_length)) {
+        return -1;
+    }
+    if (-1 == close(fs->fd)) {
+        return -1;
+    }
+    free(fs->path);
     return 0;
 }
 
@@ -310,7 +326,7 @@ bitpunch_data_source_create_from_file_path(
     const char *path,
     struct bitpunch_data_source **dsp)
 {
-    struct bitpunch_data_source *ds;
+    struct bitpunch_file_source *fs;
     int fd;
 
     assert(NULL != path);
@@ -322,19 +338,28 @@ bitpunch_data_source_create_from_file_path(
                 path, strerror(errno));
         return -1;
     }
-    ds = new_safe(struct bitpunch_data_source);
-    ds->ds_type = BITPUNCH_DATA_SOURCE_TYPE_FILEPATH;
+    fs = new_safe(struct bitpunch_file_source);
+    fs->ds.backend.close = data_source_close_file_path;
 
-    if (-1 == open_data_source_from_fd(fd, ds)) {
+    if (-1 == open_data_source_from_fd(fd, fs)) {
         fprintf(stderr, "Error loading binary file %s\n", path);
         (void)close(fd);
-        free(ds);
+        free(fs);
         return -1;
     }
-    ds->ds_open_data.filepath.path = strdup_safe(path);
+    fs->path = strdup_safe(path);
 
-    *dsp = ds;
+    *dsp = &fs->ds;
     return 0;
+}
+
+static int
+data_source_close_file_descriptor(struct bitpunch_data_source *ds)
+{
+    struct bitpunch_file_source *fs;
+
+    fs = (struct bitpunch_file_source *)ds;
+    return munmap(fs->map, fs->map_length);
 }
 
 int
@@ -342,36 +367,43 @@ bitpunch_data_source_create_from_file_descriptor(
     int fd,
     struct bitpunch_data_source **dsp)
 {
-    struct bitpunch_data_source *ds;
+    struct bitpunch_file_source *fs;
 
     assert(-1 != fd);
     assert(NULL != dsp);
 
-    ds = new_safe(struct bitpunch_data_source);
-    ds->ds_type = BITPUNCH_DATA_SOURCE_TYPE_FILE_DESCRIPTOR;
+    fs = new_safe(struct bitpunch_file_source);
+    fs->ds.backend.close = data_source_close_file_descriptor;
 
-    if (-1 == open_data_source_from_fd(fd, ds)) {
+    if (-1 == open_data_source_from_fd(fd, fs)) {
         fprintf(stderr,
                 "Error loading binary file from file descriptor fd=%d\n",
                 fd);
-        free(ds);
+        free(fs);
         return -1;
     }
-    *dsp = ds;
+    *dsp = &fs->ds;
+    return 0;
+}
+
+static int
+data_source_close_managed_memory(struct bitpunch_data_source *ds)
+{
+    free((char *)ds->ds_data);
     return 0;
 }
 
 int
 bitpunch_data_source_create_from_memory(
-    const char *data, size_t data_size, int managed_buffer,
+    const char *data, size_t data_size, int manage_buffer,
     struct bitpunch_data_source **dsp)
 {
     struct bitpunch_data_source *ds;
 
     ds = new_safe(struct bitpunch_data_source);
-    ds->ds_type = (managed_buffer ?
-                   BITPUNCH_DATA_SOURCE_TYPE_MANAGED_BUFFER :
-                   BITPUNCH_DATA_SOURCE_TYPE_UNMANAGED_BUFFER);
+    if (manage_buffer) {
+        ds->backend.close = data_source_close_managed_memory;
+    }
     ds->ds_data = data;
     ds->ds_data_length = data_size;
     *dsp = ds;
@@ -381,37 +413,14 @@ bitpunch_data_source_create_from_memory(
 int
 bitpunch_data_source_close(struct bitpunch_data_source *ds)
 {
-    if (NULL == ds) {
+    if (NULL == ds || NULL == ds->backend.close) {
         return 0;
     }
-    switch (ds->ds_type) {
-    case BITPUNCH_DATA_SOURCE_TYPE_UNSET:
-        break ;
-    case BITPUNCH_DATA_SOURCE_TYPE_FILEPATH:
-        if (-1 == munmap(ds->ds_open_data.filepath.map,
-                         ds->ds_open_data.filepath.map_length)) {
-            return -1;
-        }
-        if (-1 == close(ds->ds_open_data.filepath.fd)) {
-            return -1;
-        }
-        free(ds->ds_open_data.filepath.path);
-        break ;
-    case BITPUNCH_DATA_SOURCE_TYPE_FILE_DESCRIPTOR:
-        if (-1 == munmap(ds->ds_open_data.filepath.map,
-                         ds->ds_open_data.filepath.map_length)) {
-            return -1;
-        }
-        break ;
-    case BITPUNCH_DATA_SOURCE_TYPE_UNMANAGED_BUFFER:
-        break ;
-    case BITPUNCH_DATA_SOURCE_TYPE_MANAGED_BUFFER:
-        free((char *)ds->ds_data);
-        break ;
-    default:
-        assert(0);
+    if (0 != ds->backend.close(ds)) {
+        return -1;
     }
-    ds->ds_type = BITPUNCH_DATA_SOURCE_TYPE_UNSET;
+    ds->ds_data = NULL;
+    ds->ds_data_length = 0;
     return 0;
 }
 

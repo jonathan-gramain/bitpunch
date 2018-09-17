@@ -86,29 +86,28 @@ struct bitpunch_schema {
     struct file_block df_file_block;
 };
 
-enum bitpunch_data_source_type {
-    BITPUNCH_DATA_SOURCE_TYPE_UNSET = 0,
-    BITPUNCH_DATA_SOURCE_TYPE_FILEPATH,
-    BITPUNCH_DATA_SOURCE_TYPE_FILE_DESCRIPTOR,
-    BITPUNCH_DATA_SOURCE_TYPE_UNMANAGED_BUFFER,
-    BITPUNCH_DATA_SOURCE_TYPE_MANAGED_BUFFER,
+struct bitpunch_data_source;
+
+typedef int (*bitpunch_data_source_close_func_t)(
+    struct bitpunch_data_source *ds);
+
+struct bitpunch_data_source_backend {
+    bitpunch_data_source_close_func_t close;
 };
 
 struct bitpunch_data_source {
-    enum bitpunch_data_source_type ds_type;
-    union {
-        struct {
-            char      *path;
-            int       fd;
-            char      *map;
-            size_t    map_length;
-        }             filepath;
-        struct {
-        }             buffer;
-    }                 ds_open_data;
+    struct bitpunch_data_source_backend backend;
     const char        *ds_data;
     size_t            ds_data_length;
     struct box_cache  *box_cache;
+};
+
+struct bitpunch_file_source {
+    struct bitpunch_data_source ds; /* inherits */
+    char      *path;
+    int       fd;
+    char      *map;
+    size_t    map_length;
 };
 
 #endif
