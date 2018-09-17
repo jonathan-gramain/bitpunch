@@ -101,7 +101,7 @@ TAILQ_HEAD(box_tailq, box);
 
 struct box {
     struct box *parent_box;
-    struct dpath_node dpath;
+    struct ast_node_hdl *filter;
     const struct bitpunch_data_source *ds_in;
     const struct bitpunch_data_source *ds_out;
 

@@ -39,16 +39,12 @@ extern struct ast_node_hdl shared_ast_node_array_slice;
 extern struct ast_node_hdl shared_ast_node_byte_slice;
 extern struct ast_node_hdl shared_ast_node_as_bytes;
 extern struct ast_node_hdl shared_ast_node_source;
-extern struct dpath_node shared_dpath_node_array_slice;
-extern struct dpath_node shared_dpath_node_byte_slice;
 
 #define AST_NODE_BYTE &shared_ast_node_byte
 #define AST_NODE_ARRAY_SLICE &shared_ast_node_array_slice
 #define AST_NODE_BYTE_SLICE &shared_ast_node_byte_slice
 #define AST_NODE_AS_BYTES &shared_ast_node_as_bytes
 #define AST_NODE_SOURCE &shared_ast_node_source
-#define DPATH_NODE_ARRAY_SLICE &shared_dpath_node_array_slice
-#define DPATH_NODE_BYTE_SLICE &shared_dpath_node_byte_slice
 
 void
 browse_state_init(struct browse_state *bst);
@@ -62,7 +58,7 @@ box_new_slice_box(struct tracker *slice_start,
 
 struct box *
 box_new_as_box(struct box *parent_box,
-               struct dpath_node *as_dpath,
+               struct ast_node_hdl *as_filter,
                struct browse_state *bst);
 struct box *
 box_new_filter_box(struct box *parent_box,

@@ -1223,16 +1223,16 @@ resolve_user_expr_scoped_recur(struct ast_node_hdl *expr,
     struct list_of_visible_refs visible_refs;
 
     while (NULL != cur_scope
-           && AST_NODE_TYPE_COMPOSITE != cur_scope->dpath.filter->ndat->type) {
+           && AST_NODE_TYPE_COMPOSITE != cur_scope->filter->ndat->type) {
         cur_scope = cur_scope->parent_box;
     }
     if (NULL == cur_scope) {
         return resolve_user_expr_internal(expr, inmost_refs);
     }
     visible_refs.outer_refs = NULL;
-    visible_refs.cur_filter = cur_scope->dpath.filter;
+    visible_refs.cur_filter = cur_scope->filter;
     visible_refs.cur_lists =
-        &cur_scope->dpath.filter->ndat->u.rexpr_filter.filter_def->block_stmt_list;
+        &cur_scope->filter->ndat->u.rexpr_filter.filter_def->block_stmt_list;
     if (NULL != inner_refs) {
         inner_refs->outer_refs = &visible_refs;
     }

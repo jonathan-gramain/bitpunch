@@ -78,20 +78,6 @@ dpath_is_complex_type(const struct dpath_node *dpath)
         ast_node_get_target_filter(dpath->filter)->ndat->type;
 }
 
-static int __attribute__((unused))
-expr_dpath_is_complex_type(expr_dpath_t dpath)
-{
-    switch (dpath.type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        return dpath_is_complex_type(&dpath.item.tk->dpath);
-    case EXPR_DPATH_TYPE_CONTAINER:
-        return dpath_is_complex_type(&dpath.container.box->dpath);
-    default:
-        assert(0);
-    }
-    return -1;
-}
-
 static PyObject *
 tracker_info_to_python(struct tracker *tk)
 {
@@ -1791,7 +1777,7 @@ box_get_attributes_dict(struct box *box)
         bt_ret = tracker_goto_next_item(tk, NULL);
     }
     tracker_delete(tk);
-    attr_iter = filter_iter_statements(box->dpath.filter, box,
+    attr_iter = filter_iter_statements(box->filter, box,
                                        STATEMENT_TYPE_NAMED_EXPR |
                                        STATEMENT_TYPE_ATTRIBUTE, NULL);
     bt_ret = filter_iter_statements_next(
@@ -1822,7 +1808,7 @@ DataItem_eval_attr(DataItemObject *self, const char *attr_str,
         return NULL;
     }
     bt_ret = filter_evaluate_identifier(
-        self->dpath.container.box->dpath.filter, self->dpath.container.box,
+        self->dpath.container.box->filter, self->dpath.container.box,
         STATEMENT_TYPE_FIELD |
         STATEMENT_TYPE_NAMED_EXPR |
         STATEMENT_TYPE_ATTRIBUTE, attr_str,
@@ -2117,7 +2103,7 @@ box_to_native_PyObject(struct DataTreeObject *dtree, struct box *box)
     expr_value_t value_eval;
     struct tracker_error *tk_err = NULL;
 
-    assert(ast_node_is_item(box->dpath.filter));
+    assert(ast_node_is_item(box->filter));
 
     bt_ret = box_read_value(box, &value_eval, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
@@ -2347,7 +2333,7 @@ box_to_deep_PyObject(struct DataTreeObject *dtree, struct box *box)
 {
     struct ast_node_hdl *node;
 
-    node = dpath_node_get_as_type(&box->dpath);
+    node = ast_node_get_as_type(box->filter);
     switch (node->ndat->type) {
     case AST_NODE_TYPE_COMPOSITE:
         return box_to_deep_PyDict(dtree, box);
@@ -2371,7 +2357,7 @@ box_to_deep_PyObject(struct DataTreeObject *dtree, struct box *box)
     default:
         PyErr_Format(PyExc_ValueError,
                      "Cannot convert container type '%s' to python object",
-                     ast_node_type_str(box->dpath.filter->ndat->type));
+                     ast_node_type_str(box->filter->ndat->type));
         return NULL;
     }
     /*NOT REACHED*/
@@ -2420,7 +2406,7 @@ Tracker_set_default_iter_mode(TrackerObject *self)
 {
     struct ast_node_hdl *node;
 
-    node = self->tk->box->dpath.filter;
+    node = self->tk->box->filter;
     switch (node->ndat->type) {
     case AST_NODE_TYPE_COMPOSITE:
         self->iter_mode = TRACKER_ITER_FIELD_NAMES;
@@ -2443,7 +2429,7 @@ Tracker_set_default_iter_mode(TrackerObject *self)
     default:
         PyErr_Format(PyExc_TypeError,
                      "container of type '%s' cannot be iterated",
-                     ast_node_type_str(self->tk->box->dpath.filter->ndat->type));
+                     ast_node_type_str(self->tk->box->filter->ndat->type));
         return -1;
     }
     self->current_iter_mode = self->iter_mode;
@@ -3120,7 +3106,7 @@ Tracker_iter(TrackerObject *self)
     self->current_iter_mode = self->iter_mode;
     if (TRACKER_ITER_ATTRIBUTE_NAMES == self->iter_mode) {
         self->attr_iter = filter_iter_statements(
-            self->tk->box->dpath.filter, self->tk->box,
+            self->tk->box->filter, self->tk->box,
             STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_ATTRIBUTE, NULL);
     }
     return (PyObject *)self;
@@ -3136,7 +3122,7 @@ Tracker_iternext(TrackerObject *self)
                 if (TRACKER_ITER_MEMBER_NAMES == self->current_iter_mode) {
                     self->current_iter_mode = TRACKER_ITER_ATTRIBUTE_NAMES;
                     self->attr_iter = filter_iter_statements(
-                        self->tk->box->dpath.filter, self->tk->box,
+                        self->tk->box->filter, self->tk->box,
                         STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_ATTRIBUTE,
                         NULL);
                 } else {

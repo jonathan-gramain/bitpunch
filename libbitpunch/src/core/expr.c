@@ -1184,7 +1184,7 @@ expr_evaluate_dpath_anchor_common(struct ast_node_hdl *expr,
     /* find the closest dpath's field in the scope, browsing boxes
      * from inner to outer scope */
     anchor_box = scope;
-    while (anchor_box->dpath.filter->ndat != anchor_filter->ndat) {
+    while (anchor_box->filter->ndat != anchor_filter->ndat) {
         anchor_box = anchor_box->parent_box;
         if (NULL == anchor_box) {
             // no dpath associated to anchor (i.e. anchor is a
@@ -1231,7 +1231,7 @@ expr_evaluate_named_expr_internal(
         struct box *direct_scope;
 
         bt_ret = filter_lookup_statement_internal(
-            member_scope->dpath.filter, member_scope, STATEMENT_TYPE_NAMED_EXPR,
+            member_scope->filter, member_scope, STATEMENT_TYPE_NAMED_EXPR,
             named_expr->nstmt.name, NULL, NULL, &direct_scope, bst);
         box_delete(member_scope);
         if (BITPUNCH_OK != bt_ret) {
@@ -1290,7 +1290,7 @@ expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
             goto error;
         }
         bt_ret = filter_lookup_statement_internal(
-            anchor_box->dpath.filter, anchor_box, lookup_mask,
+            anchor_box->filter, anchor_box, lookup_mask,
             expr->ndat->u.rexpr_polymorphic.identifier,
             stmt_typep, nstmtp, member_scopep, bst);
         if (BITPUNCH_OK != bt_ret) {
@@ -1311,7 +1311,7 @@ expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
     anchor_box = scope;
     while (TRUE) {
         bt_ret = filter_lookup_statement_internal(
-            anchor_box->dpath.filter, anchor_box, lookup_mask,
+            anchor_box->filter, anchor_box, lookup_mask,
             expr->ndat->u.rexpr_polymorphic.identifier,
             stmt_typep, nstmtp, member_scopep, bst);
         if (BITPUNCH_OK == bt_ret) {
@@ -1567,7 +1567,7 @@ expr_evaluate_file(struct ast_node_hdl *expr, struct box *scope,
     // the source.
     file_box = scope;
     while (AST_NODE_TYPE_SOURCE !=
-           file_box->parent_box->dpath.filter->ndat->type) {
+           file_box->parent_box->filter->ndat->type) {
         file_box = file_box->parent_box;
     }
     box_acquire(file_box);
