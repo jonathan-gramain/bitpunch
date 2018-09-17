@@ -832,8 +832,8 @@ expr_eval_builtin_index(struct ast_node_hdl *object,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    bt_ret = expr_dpath_evaluate_filter_type_internal(
-        array_dpath_eval, scope, FILTER_KIND_FILTER, &array_item, bst);
+    bt_ret = expr_dpath_evaluate_filter_internal(
+        array_dpath_eval, scope, &array_item, bst);
     if (BITPUNCH_OK != bt_ret) {
         expr_dpath_destroy(array_dpath_eval);
         return bt_ret;

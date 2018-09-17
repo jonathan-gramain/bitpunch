@@ -337,10 +337,9 @@ expr_dpath_get_location_internal(expr_dpath_t dpath,
                                  int64_t *offsetp, int64_t *sizep,
                                  struct browse_state *bst);
 bitpunch_status_t
-expr_dpath_evaluate_filter_type_internal(
+expr_dpath_evaluate_filter_internal(
     expr_dpath_t dpath,
     struct box *scope,
-    enum filter_kind kind,
     struct ast_node_hdl **filter_typep,
     struct browse_state *bst);
 int

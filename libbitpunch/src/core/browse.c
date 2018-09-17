@@ -500,47 +500,20 @@ expr_dpath_get_location_internal(expr_dpath_t dpath,
 }
 
 bitpunch_status_t
-expr_dpath_evaluate_filter_type_internal(
+expr_dpath_evaluate_filter_internal(
     expr_dpath_t dpath,
     struct box *scope,
-    enum filter_kind kind,
     struct ast_node_hdl **filter_typep,
     struct browse_state *bst)
 {
-    bitpunch_status_t bt_ret;
-
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        switch (kind) {
-        case FILTER_KIND_ITEM:
-            if (NULL == dpath.item.tk->dpath.item) {
-                bt_ret = expr_evaluate_filter_type_internal(
-                    dpath.item.tk->dpath.filter, dpath.item.tk->box,
-                    FILTER_KIND_ITEM, &dpath.item.tk->dpath.item, bst);
-                if (BITPUNCH_OK != bt_ret) {
-                    return bt_ret;
-                }
-            }
-            *filter_typep = dpath.item.tk->dpath.item;
-            return BITPUNCH_OK;
-        default:
-            return expr_evaluate_filter_type_internal(
-                dpath.item.tk->dpath.filter, dpath.item.tk->box,
-                kind, filter_typep, bst);
-        }
+        return expr_evaluate_filter_type_internal(
+            dpath.item.tk->dpath.filter, dpath.item.tk->box,
+            FILTER_KIND_FILTER, filter_typep, bst);
 
     case EXPR_DPATH_TYPE_CONTAINER:
-        switch (kind) {
-        case FILTER_KIND_ITEM:
-            *filter_typep = dpath.container.box->dpath.item;
-            break ;
-        case FILTER_KIND_FILTER:
-            *filter_typep = dpath.container.box->dpath.filter;
-            break ;
-        case FILTER_KIND_ANCESTOR:
-        default:
-            assert(0);
-        }
+        *filter_typep = dpath.container.box->dpath.filter;
         return BITPUNCH_OK;
 
     default:
