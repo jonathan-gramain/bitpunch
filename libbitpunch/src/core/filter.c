@@ -248,6 +248,8 @@ filter_instance_read_value(struct ast_node_hdl *filter,
     const char *item_data;
     expr_value_t value;
 
+    assert(-1 != item_offset);
+
     value.type = EXPR_VALUE_TYPE_UNSET;
     f_instance = filter->ndat->u.rexpr_filter.f_instance;
     if (NULL == f_instance->b_item.compute_item_size) {

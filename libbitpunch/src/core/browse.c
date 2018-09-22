@@ -818,12 +818,6 @@ box_set_size(struct box *box, int64_t box_size,
              enum box_offset_type size_type,
              struct browse_state *bst)
 {
-    bitpunch_status_t bt_ret;
-
-    bt_ret = box_apply_parent_filter_internal(box, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
     if (0 != (box->flags & BOX_RALIGN)) {
         assert(-1 != box->end_offset_span);
         return box_set_start_offset(box, box->end_offset_span - box_size,
@@ -1408,7 +1402,7 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
         box_setup_overlay(box);
         return BITPUNCH_OK;
     }
-    bt_ret = box_get_span_size(box, &unfiltered_size, bst);
+    bt_ret = box_get_max_span_size(box, &unfiltered_size, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -2198,7 +2192,7 @@ tracker_reset_track_path(struct tracker *tk)
         }
         break ;
     default:
-        assert(0);
+        break ;
     }
 }
 
@@ -2667,6 +2661,22 @@ box_get_span_size(struct box *box, int64_t *span_sizep,
 }
 
 bitpunch_status_t
+box_get_max_span_size(struct box *box, int64_t *max_span_sizep,
+                      struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+
+    bt_ret = box_compute_max_span_size(box, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    if (NULL != max_span_sizep) {
+        *max_span_sizep = box->end_offset_max_span - box->start_offset_max_span;
+    }
+    return BITPUNCH_OK;
+}
+
+bitpunch_status_t
 box_get_slack_size(struct box *box, int64_t *slack_sizep,
                    struct browse_state *bst)
 {
@@ -2748,7 +2758,7 @@ box_get_slack_child_allocation(struct box *box,
         box->flags |= COMPUTING_SLACK_CHILD_ALLOCATION;
         flag_set = TRUE;
     }
-    bt_ret = box_apply_filter_internal(box, bst);
+    bt_ret = box_apply_parent_filter_internal(box, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -2779,11 +2789,8 @@ box_get_n_items_internal(struct box *box, int64_t *n_itemsp,
 {
     bitpunch_status_t bt_ret;
 
-    bt_ret = box_apply_filter_internal(box, bst);
-    if (BITPUNCH_OK == bt_ret) {
-        bt_ret = box->filter->ndat->u.rexpr_filter.f_instance->b_box.get_n_items(
-            box, n_itemsp, bst);
-    }
+    bt_ret = box->filter->ndat->u.rexpr_filter.f_instance->b_box.get_n_items(
+        box, n_itemsp, bst);
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_box_context(
             box, bst, "when computing number of array items");
@@ -2798,10 +2805,6 @@ box_get_location_internal(struct box *box,
 {
     bitpunch_status_t bt_ret;
 
-    bt_ret = box_apply_filter_internal(box, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
     bt_ret = box_get_span_size(box, sizep, bst);
     if (BITPUNCH_OK == bt_ret) {
         *offsetp = box_get_start_offset(box);
@@ -2817,7 +2820,7 @@ box_read_value_internal(struct box *box,
     bitpunch_status_t bt_ret;
     struct item_backend *b_item = NULL;
 
-    bt_ret = box_apply_filter_internal(box, bst);
+    bt_ret = box_apply_parent_filter_internal(box, bst);
     if (BITPUNCH_OK == bt_ret) {
         bt_ret = box_compute_span_size(box, bst);
     }
@@ -4013,10 +4016,6 @@ tracker_compute_item_size_internal(struct tracker *tk,
     int64_t max_span_offset;
     struct filter_instance *f_instance;
 
-    bt_ret = box_apply_filter_internal(tk->box, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
     bt_ret = tracker_compute_item_filter_internal(tk, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
