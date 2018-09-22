@@ -2427,13 +2427,27 @@ expr_transform_dpath_filter(struct ast_node_hdl *expr,
                             struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
+    struct tracker *tk;
+    const struct filter_class *filter_cls;
     struct box *parent_box;
     struct box *filtered_data_box;
 
     switch (transformp->dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        bt_ret = tracker_create_item_box_internal(transformp->dpath.item.tk,
-                                                  bst);
+        tk = transformp->dpath.item.tk;
+        bt_ret = tracker_compute_item_filter_internal(tk, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
+        // FIXME: this check should not rely on the filter returning
+        // an integer value, but on the fact that the filter does not
+        // change the dpath. For now it's just for convenience.
+        filter_cls = tk->dpath.item->ndat->u.rexpr_filter.filter_cls;
+        if (NULL != filter_cls
+            && EXPR_VALUE_TYPE_INTEGER == filter_cls->value_type_mask) {
+            return BITPUNCH_OK;
+        }
+        bt_ret = tracker_create_item_box_internal(tk, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
