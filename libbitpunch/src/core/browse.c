@@ -6047,6 +6047,10 @@ tracker_goto_nth_item__array_static_item_size(struct tracker *tk,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
+    bt_ret = box_apply_filter_internal(xtk->box, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     item_size = ast_node_get_min_span_size(xtk->dpath.item);
     /* no item cleanup, transform item info instead */
     xtk->item_offset = xtk->box->start_offset_span
