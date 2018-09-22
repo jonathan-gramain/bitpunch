@@ -34,10 +34,10 @@
 
 #include <alloca.h>
 
+#include "api/bitpunch-structs.h"
+#include "utils/queue.h"
 #include "utils/dynarray.h"
-#include "core/parser.h"
 #include PATH_TO_PARSER_TAB_H
-#include "core/track-structs.h"
 
 #if defined DEBUG
 extern int tracker_debug_mode;
@@ -45,6 +45,11 @@ extern int tracker_debug_mode;
 
 struct box;
 enum filter_kind;
+
+struct browse_state {
+    struct tracker_error_slist *expected_errors;
+    struct tracker_error *last_error;
+};
 
 struct index_cache_mark_offset {
     int64_t item_offset;
@@ -98,6 +103,36 @@ enum box_offset_type {
 };
 
 TAILQ_HEAD(box_tailq, box);
+
+struct track_path {
+    enum track_path_type {
+        TRACK_PATH_NOTYPE,
+        TRACK_PATH_COMPOSITE,
+        TRACK_PATH_ARRAY,
+        TRACK_PATH_ARRAY_SLICE,
+    } type;
+    enum track_path_flags {
+        TRACK_PATH_IS_ANCESTOR = (1u<<0),
+        TRACK_PATH_HEADER      = (1u<<1),
+        TRACK_PATH_TRAILER     = (1u<<2),
+    } flags;
+    union {
+        struct {
+            const struct field *field;
+        } block;
+        struct track_path_array {
+            int64_t index;
+        } array;
+        struct {
+            struct track_path_array array; /* inherits */
+            int64_t index_end;
+        } array_slice;
+    } u;
+};
+
+static const struct track_path TRACK_PATH_NONE = {
+    .type = TRACK_PATH_NOTYPE
+};
 
 struct box {
     struct box *parent_box;
@@ -300,63 +335,6 @@ struct tracker_error {
         } out_of_bounds;
     } u;
 };
-
-bitpunch_status_t
-expr_dpath_to_tracker_internal(expr_dpath_t dpath,
-                               struct tracker **tkp,
-                               struct browse_state *bst);
-bitpunch_status_t
-expr_dpath_to_box_internal(expr_dpath_t dpath,
-                           struct box **boxp,
-                           struct browse_state *bst);
-bitpunch_status_t
-expr_dpath_to_box_direct(expr_dpath_t dpath,
-                         struct box **boxp,
-                         struct browse_state *bst);
-bitpunch_status_t
-expr_dpath_to_container_internal(expr_dpath_t dpath,
-                                 expr_dpath_t *dpathp,
-                                 struct browse_state *bst);
-bitpunch_status_t
-expr_dpath_to_item_internal(expr_dpath_t dpath,
-                            expr_dpath_t *dpathp,
-                            struct browse_state *bst);
-bitpunch_status_t
-expr_dpath_to_dpath_internal(expr_dpath_t src_dpath,
-                             enum expr_dpath_type dst_type,
-                             expr_dpath_t *dst_dpathp,
-                             struct browse_state *bst);
-struct box *
-expr_dpath_get_parent_box(expr_dpath_t dpath);
-bitpunch_status_t
-expr_dpath_get_size_internal(expr_dpath_t dpath,
-                             int64_t *dpath_sizep,
-                             struct browse_state *bst);
-bitpunch_status_t
-expr_dpath_get_location_internal(expr_dpath_t dpath,
-                                 int64_t *offsetp, int64_t *sizep,
-                                 struct browse_state *bst);
-bitpunch_status_t
-expr_dpath_evaluate_filter_internal(
-    expr_dpath_t dpath,
-    struct box *scope,
-    struct ast_node_hdl **filter_typep,
-    struct browse_state *bst);
-int
-expr_dpath_contains_indexed_items(expr_dpath_t dpath);
-const struct ast_node_hdl *
-expr_dpath_get_as_type(expr_dpath_t dpath);
-const struct ast_node_hdl *
-expr_dpath_get_target_filter(expr_dpath_t dpath);
-struct track_path
-expr_dpath_get_track_path(expr_dpath_t dpath);
-int
-expr_dpath_is(expr_dpath_t dpath1, expr_dpath_t dpath2);
-void
-expr_dpath_find_common_ancestor(expr_dpath_t dpath1,
-                                expr_dpath_t dpath2,
-                                expr_dpath_t *ancestor1_dpathp,
-                                expr_dpath_t *ancestor2_dpathp);
 
 void
 box_acquire(struct box *box);
@@ -572,60 +550,6 @@ tracker_error_dump(struct tracker_error *tk_err, FILE *out);
 void
 tracker_error_destroy(struct tracker_error *tk_err);
 
-bitpunch_status_t
-tracker_error(bitpunch_status_t bt_ret, struct tracker *tk,
-              const struct ast_node_hdl *node,
-              struct browse_state *bst,
-              const char *message_fmt, ...)
-    __attribute__((format(printf, 5, 6)));
-bitpunch_status_t
-box_error(bitpunch_status_t bt_ret, struct box *box,
-          const struct ast_node_hdl *node,
-          struct browse_state *bst,
-          const char *message_fmt, ...)
-    __attribute__((format(printf, 5, 6)));
-bitpunch_status_t
-node_error(bitpunch_status_t bt_ret,
-           const struct ast_node_hdl *node,
-           struct browse_state *bst,
-           const char *message_fmt, ...)
-    __attribute__((format(printf, 4, 5)));
-bitpunch_status_t
-box_error_out_of_bounds(struct box *box,
-                        const struct ast_node_hdl *node,
-                        enum box_offset_type requested_end_offset_type,
-                        int64_t requested_end_offset,
-                        enum box_offset_type registered_end_offset_type,
-                        struct browse_state *bst);
-bitpunch_status_t
-tracker_error_item_out_of_bounds(struct tracker *tk,
-                                 struct browse_state *bst);
-void
-tracker_error_add_context_message(struct browse_state *bst,
-                                  const char *context_fmt, ...)
-    __attribute__((format(printf, 2, 3), unused));
-void
-tracker_error_add_tracker_context(struct tracker *tk,
-                                  struct browse_state *bst,
-                                  const char *context_fmt, ...)
-    __attribute__((format(printf, 3, 4), unused));
-void
-tracker_error_add_box_context(struct box *box,
-                              struct browse_state *bst,
-                              const char *context_fmt, ...)
-    __attribute__((format(printf, 3, 4), unused));
-void
-tracker_error_add_node_context(const struct ast_node_hdl *node,
-                               struct browse_state *bst,
-                               const char *context_fmt, ...)
-    __attribute__((format(printf, 3, 4), unused));
-
-int
-browse_setup_global_backends(void);
-int
-browse_setup_backends_dpath(struct dpath_node *dpath);
-int
-browse_setup_backends_expr(struct ast_node_hdl *expr);
 
 #include "core/browse_inlines.h"
 

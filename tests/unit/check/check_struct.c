@@ -420,12 +420,12 @@ static void struct_setup(void)
 {
     int ret;
 
-    ret = bitpunch_schema_create_from_string(check_struct_def,
-                                           &check_struct_def_hdl);
+    ret = bitpunch_schema_create_from_string(
+        &check_struct_def_hdl, check_struct_def);
     assert(0 == ret);
 
-    ret = bitpunch_schema_create_from_string(check_vstruct_def,
-                                           &check_vstruct_def_hdl);
+    ret = bitpunch_schema_create_from_string(
+        &check_vstruct_def_hdl, check_vstruct_def);
     assert(0 == ret);
 }
 

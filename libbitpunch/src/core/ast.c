@@ -1198,8 +1198,8 @@ op_type_ast2rexpr(enum ast_node_type type)
 }
 
 static int
-resolve_user_expr_internal(struct ast_node_hdl *expr,
-                           struct list_of_visible_refs *inmost_refs)
+resolve_expr_internal(struct ast_node_hdl *expr,
+                      struct list_of_visible_refs *inmost_refs)
 {
     if (-1 == resolve_identifiers_in_expression(expr, inmost_refs,
                                                 RESOLVE_ALL_IDENTIFIERS)) {
@@ -1215,10 +1215,10 @@ resolve_user_expr_internal(struct ast_node_hdl *expr,
 }
 
 static int
-resolve_user_expr_scoped_recur(struct ast_node_hdl *expr,
-                               struct box *cur_scope,
-                               struct list_of_visible_refs *inner_refs,
-                               struct list_of_visible_refs *inmost_refs)
+resolve_expr_scoped_recur(struct ast_node_hdl *expr,
+                          struct box *cur_scope,
+                          struct list_of_visible_refs *inner_refs,
+                          struct list_of_visible_refs *inmost_refs)
 {
     struct list_of_visible_refs visible_refs;
 
@@ -1227,7 +1227,7 @@ resolve_user_expr_scoped_recur(struct ast_node_hdl *expr,
         cur_scope = cur_scope->parent_box;
     }
     if (NULL == cur_scope) {
-        return resolve_user_expr_internal(expr, inmost_refs);
+        return resolve_expr_internal(expr, inmost_refs);
     }
     visible_refs.outer_refs = NULL;
     visible_refs.cur_filter = cur_scope->filter;
@@ -1236,19 +1236,19 @@ resolve_user_expr_scoped_recur(struct ast_node_hdl *expr,
     if (NULL != inner_refs) {
         inner_refs->outer_refs = &visible_refs;
     }
-    return resolve_user_expr_scoped_recur(expr, cur_scope->parent_box,
-                                          &visible_refs,
-                                          (NULL != inmost_refs ?
-                                           inmost_refs : &visible_refs));
+    return resolve_expr_scoped_recur(expr, cur_scope->parent_box,
+                                     &visible_refs,
+                                     (NULL != inmost_refs ?
+                                      inmost_refs : &visible_refs));
 }
 
 int
-resolve_user_expr(struct ast_node_hdl *expr, struct box *scope)
+bitpunch_resolve_expr(struct ast_node_hdl *expr, struct box *scope)
 {
     if (NULL != scope) {
-        return resolve_user_expr_scoped_recur(expr, scope, NULL, NULL);
+        return resolve_expr_scoped_recur(expr, scope, NULL, NULL);
     }
-    return resolve_user_expr_internal(expr, NULL);
+    return resolve_expr_internal(expr, NULL);
 }
 
 __attribute__((unused))
@@ -1766,30 +1766,39 @@ compile_filter_def(struct ast_node_hdl *filter,
 }
 
 static int
+compile_rexpr_filter_span_size(struct ast_node_hdl *expr,
+                               struct compile_ctx *ctx)
+{
+    struct filter_instance *f_instance;
+
+    f_instance = expr->ndat->u.rexpr_filter.f_instance;
+    if (SPAN_SIZE_UNDEF == expr->ndat->u.item.min_span_size) {
+        expr->ndat->u.item.min_span_size = 0;
+        expr->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_DYNAMIC |
+                                     ITEMFLAG_IS_USED_SIZE_DYNAMIC);
+    }
+    if (NULL == f_instance->b_item.compute_item_size) {
+        expr->ndat->u.item.flags |= (ITEMFLAG_USES_SLACK |
+                                     ITEMFLAG_SPREADS_SLACK |
+                                     ITEMFLAG_FILLS_SLACK);
+    }
+    return 0;
+}
+
+static int
 compile_rexpr_filter(struct ast_node_hdl *expr,
                      dep_resolver_tagset_t tags,
                      struct compile_ctx *ctx)
 {
     const struct filter_class *filter_cls;
-    struct filter_instance *f_instance;
 
     filter_cls = expr->ndat->u.rexpr_filter.filter_cls;
-    f_instance = expr->ndat->u.rexpr_filter.f_instance;
     if (NULL != filter_cls->filter_instance_compile_func) {
         return filter_cls->filter_instance_compile_func(
             expr, expr->ndat->u.rexpr_filter.f_instance, tags, ctx);
     } else {
         if (0 != (tags & COMPILE_TAG_NODE_SPAN_SIZE)) {
-            if (SPAN_SIZE_UNDEF == expr->ndat->u.item.min_span_size) {
-                expr->ndat->u.item.min_span_size = 0;
-                expr->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_DYNAMIC |
-                                             ITEMFLAG_IS_USED_SIZE_DYNAMIC);
-            }
-            if (NULL == f_instance->b_item.compute_item_size) {
-                expr->ndat->u.item.flags |= (ITEMFLAG_USES_SLACK |
-                                             ITEMFLAG_SPREADS_SLACK |
-                                             ITEMFLAG_FILLS_SLACK);
-            }
+            return compile_rexpr_filter_span_size(expr, ctx);
         }
     }
     return 0;

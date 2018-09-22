@@ -96,7 +96,7 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
     struct ast_node_hdl *item_filter;
 
     ret = bitpunch_data_source_create_from_memory(
-        test_spec->contents, test_spec->contents_size, FALSE, &ds_in);
+        &ds_in, test_spec->contents, test_spec->contents_size, FALSE);
     ck_assert_int_eq(ret, 0);
 
     tk = track_file(*test_spec->contents_def, ds_in, NULL);
@@ -253,7 +253,7 @@ check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
     int ret;
 
     ret = bitpunch_data_source_create_from_memory(
-        test_spec->contents, test_spec->contents_size, FALSE, &ds_in);
+        &ds_in, test_spec->contents, test_spec->contents_size, FALSE);
     ck_assert_int_eq(ret, 0);
 
     tk = track_file(*test_spec->contents_def, ds_in, NULL);
@@ -286,7 +286,7 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
     int swap_idx;
 
     ret = bitpunch_data_source_create_from_memory(
-        test_spec->contents, test_spec->contents_size, FALSE, &ds_in);
+        &ds_in, test_spec->contents, test_spec->contents_size, FALSE);
     ck_assert_int_eq(ret, 0);
 
     tk = track_file(*test_spec->contents_def, ds_in, NULL);

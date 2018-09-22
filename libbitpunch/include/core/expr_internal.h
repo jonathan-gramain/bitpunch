@@ -86,4 +86,62 @@ evaluate_scoped_statement_internal(
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst);
 
+bitpunch_status_t
+expr_dpath_to_tracker_internal(expr_dpath_t dpath,
+                               struct tracker **tkp,
+                               struct browse_state *bst);
+bitpunch_status_t
+expr_dpath_to_box_internal(expr_dpath_t dpath,
+                           struct box **boxp,
+                           struct browse_state *bst);
+bitpunch_status_t
+expr_dpath_to_box_direct(expr_dpath_t dpath,
+                         struct box **boxp,
+                         struct browse_state *bst);
+bitpunch_status_t
+expr_dpath_to_container_internal(expr_dpath_t dpath,
+                                 expr_dpath_t *dpathp,
+                                 struct browse_state *bst);
+bitpunch_status_t
+expr_dpath_to_item_internal(expr_dpath_t dpath,
+                            expr_dpath_t *dpathp,
+                            struct browse_state *bst);
+bitpunch_status_t
+expr_dpath_to_dpath_internal(expr_dpath_t src_dpath,
+                             enum expr_dpath_type dst_type,
+                             expr_dpath_t *dst_dpathp,
+                             struct browse_state *bst);
+struct box *
+expr_dpath_get_parent_box(expr_dpath_t dpath);
+
+bitpunch_status_t
+expr_dpath_get_size_internal(expr_dpath_t dpath,
+                             int64_t *dpath_sizep,
+                             struct browse_state *bst);
+bitpunch_status_t
+expr_dpath_get_location_internal(expr_dpath_t dpath,
+                                 int64_t *offsetp, int64_t *sizep,
+                                 struct browse_state *bst);
+bitpunch_status_t
+expr_dpath_evaluate_filter_internal(
+    expr_dpath_t dpath,
+    struct box *scope,
+    struct ast_node_hdl **filter_typep,
+    struct browse_state *bst);
+int
+expr_dpath_contains_indexed_items(expr_dpath_t dpath);
+const struct ast_node_hdl *
+expr_dpath_get_as_type(expr_dpath_t dpath);
+const struct ast_node_hdl *
+expr_dpath_get_target_filter(expr_dpath_t dpath);
+struct track_path
+expr_dpath_get_track_path(expr_dpath_t dpath);
+int
+expr_dpath_is(expr_dpath_t dpath1, expr_dpath_t dpath2);
+void
+expr_dpath_find_common_ancestor(expr_dpath_t dpath1,
+                                expr_dpath_t dpath2,
+                                expr_dpath_t *ancestor1_dpathp,
+                                expr_dpath_t *ancestor2_dpathp);
+
 #endif /* __EXPR_INTERNAL_H__ */

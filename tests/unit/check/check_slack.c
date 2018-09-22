@@ -533,20 +533,21 @@ static void slack_setup(void)
 {
     int ret;
 
-    ret = bitpunch_schema_create_from_string(check_slack_def,
-                                            &check_slack_def_hdl);
+    ret = bitpunch_schema_create_from_string(
+        &check_slack_def_hdl, check_slack_def);
     assert(0 == ret);
 
-    ret = bitpunch_schema_create_from_string(check_slack_trailing_field_def,
-                                            &check_slack_trailing_field_def_hdl);
+    ret = bitpunch_schema_create_from_string(
+        &check_slack_trailing_field_def_hdl, check_slack_trailing_field_def);
     assert(0 == ret);
 
-    ret = bitpunch_schema_create_from_string(check_slack_byte_array_def,
-                                            &check_slack_byte_array_def_hdl);
+    ret = bitpunch_schema_create_from_string(
+        &check_slack_byte_array_def_hdl, check_slack_byte_array_def);
     assert(0 == ret);
 
-    ret = bitpunch_schema_create_from_string(check_slack_trailing_field_recur_def,
-                                            &check_slack_trailing_field_recur_def_hdl);
+    ret = bitpunch_schema_create_from_string(
+        &check_slack_trailing_field_recur_def_hdl,
+        check_slack_trailing_field_recur_def);
     assert(0 == ret);
 }
 

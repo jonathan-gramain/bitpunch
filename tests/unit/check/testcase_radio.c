@@ -108,12 +108,12 @@ static void testcase_radio_setup(void)
 
         snprintf(filepath, sizeof (filepath),
                  "tests/common/radio/radio_%s.bp", radio_sources[i]);
-        ret = bitpunch_schema_create_from_path(filepath, &info->bp);
+        ret = bitpunch_schema_create_from_path(&info->bp, filepath);
         assert(0 == ret);
 
         snprintf(filepath, sizeof (filepath),
                  "tests/common/radio/radio_%s.bin", radio_sources[i]);
-        ret = bitpunch_data_source_create_from_file_path(filepath, &info->bin);
+        ret = bitpunch_data_source_create_from_file_path(&info->bin, filepath);
         assert(0 == ret);
 
         for (c = 0; c < N_ELEM(radio_codenames); ++c) {

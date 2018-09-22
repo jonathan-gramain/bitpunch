@@ -41,4 +41,10 @@ struct bitpunch_schema;
 int
 bitpunch_parse_schema(struct bitpunch_schema *schema);
 
+
+int
+bitpunch_parse_expr(const char *expr,
+                    struct ast_node_hdl **expr_nodep,
+                    struct parser_ctx **parser_ctxp);
+
 #endif /*__PARSER_H__*/

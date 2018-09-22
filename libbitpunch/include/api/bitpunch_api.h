@@ -47,38 +47,32 @@ void
 bitpunch_cleanup(void);
 int
 bitpunch_schema_create_from_path(
-    const char *path,
-    struct bitpunch_schema **schema);
+    struct bitpunch_schema **schemap, const char *path);
 int
 bitpunch_schema_create_from_file_descriptor(
-    int fd,
-    struct bitpunch_schema **schemap);
+    struct bitpunch_schema **schemap, int fd);
 int
 bitpunch_schema_create_from_buffer(
-    const char *buf, size_t buf_size,
-    struct bitpunch_schema **schemap);
+    struct bitpunch_schema **schemap, const char *buf, size_t buf_size);
 int
 bitpunch_schema_create_from_string(
-    const char *str,
-    struct bitpunch_schema **schemap);
+    struct bitpunch_schema **schemap, const char *str);
 
 void
 bitpunch_schema_free(struct bitpunch_schema *schema);
 
 int
 bitpunch_data_source_create_from_file_path(
-    const char *path,
-    struct bitpunch_data_source **dsp);
+    struct bitpunch_data_source **dsp, const char *path);
 
 int
 bitpunch_data_source_create_from_file_descriptor(
-    int fd,
-    struct bitpunch_data_source **dsp);
+    struct bitpunch_data_source **dsp, int fd);
 
 int
 bitpunch_data_source_create_from_memory(
-    const char *data, size_t data_size, int manage_buffer,
-    struct bitpunch_data_source **dsp);
+    struct bitpunch_data_source **dsp,
+    const char *data, size_t data_size, int manage_buffer);
 
 int
 bitpunch_data_source_close(struct bitpunch_data_source *ds);
@@ -86,12 +80,6 @@ bitpunch_data_source_close(struct bitpunch_data_source *ds);
 int
 bitpunch_data_source_free(struct bitpunch_data_source *ds);
 
-int
-bitpunch_parse_expr(const char *expr,
-                    struct ast_node_hdl **expr_node_p,
-                    struct parser_ctx **parser_ctxp);
-int
-bitpunch_resolve_expr(struct ast_node_hdl *expr, struct box *scope);
 
 int
 bitpunch_eval_expr(struct bitpunch_schema *schema,

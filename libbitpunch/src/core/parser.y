@@ -49,7 +49,6 @@
 #include "api/bitpunch-structs.h"
 #include "core/ast.h"
 #include "core/expr.h"
-#include "core/track-structs.h"
 #include "utils/dep_resolver.h"
 
 #define YYLTYPE struct parser_location

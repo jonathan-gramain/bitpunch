@@ -72,6 +72,7 @@ struct tracker_error_slist {
         bst->expected_errors = __expected_error.next;           \
 } while (0)
 
+
 static struct tracker_error *
 error_get_expected(bitpunch_status_t bt_err,
                    struct browse_state *bst)
@@ -130,6 +131,11 @@ struct ast_node_hdl shared_ast_node_source = {
     .ndat = &shared_ast_node_data_source,
 };
 
+#define AST_NODE_BYTE &shared_ast_node_byte
+#define AST_NODE_ARRAY_SLICE &shared_ast_node_array_slice
+#define AST_NODE_BYTE_SLICE &shared_ast_node_byte_slice
+#define AST_NODE_AS_BYTES &shared_ast_node_as_bytes
+#define AST_NODE_SOURCE &shared_ast_node_source
 
 static struct track_path
 track_path_from_composite_field(const struct field *field)
@@ -171,6 +177,27 @@ track_path_from_array_slice(int64_t index_start, int64_t index_end)
     ret.u.array.index = index_start;
     ret.u.array_slice.index_end = index_end;
     return ret;
+}
+
+int
+track_path_eq(struct track_path p1, struct track_path p2)
+{
+    if (p1.type != p2.type) {
+        return FALSE;
+    }
+    switch (p1.type) {
+    case TRACK_PATH_NOTYPE:
+        return TRUE;
+    case TRACK_PATH_COMPOSITE:
+        return p1.u.block.field == p2.u.block.field;
+    case TRACK_PATH_ARRAY:
+        return p1.u.array.index == p2.u.array.index;
+    case TRACK_PATH_ARRAY_SLICE:
+        return (p1.u.array.index == p2.u.array.index &&
+                p1.u.array_slice.index_end == p2.u.array_slice.index_end);
+    default:
+        return FALSE;
+    }
 }
 
 
@@ -317,383 +344,6 @@ browse_state_get_last_error_status(struct browse_state *bst)
         return BITPUNCH_OK;
     } else {
         return bst->last_error->bt_ret;
-    }
-}
-
-/*
- * dpath
- */
-
-bitpunch_status_t
-expr_dpath_to_tracker_internal(expr_dpath_t dpath,
-                               struct tracker **tkp, struct browse_state *bst)
-{
-    switch (dpath.type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        *tkp = tracker_dup(dpath.item.tk);
-        return BITPUNCH_OK;
-
-    case EXPR_DPATH_TYPE_CONTAINER:
-        return track_box_contents_internal(dpath.container.box, tkp, bst);
-
-    default:
-        assert(0);
-    }
-}
-
-bitpunch_status_t
-expr_dpath_to_box_internal(expr_dpath_t dpath,
-                           struct box **boxp,
-                           struct browse_state *bst)
-{
-    switch (dpath.type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        return tracker_get_filtered_item_box_internal(dpath.item.tk, boxp,
-                                                      bst);
-    case EXPR_DPATH_TYPE_CONTAINER:
-        box_acquire(dpath.container.box);
-        *boxp = dpath.container.box;
-        return BITPUNCH_OK;
-    default:
-        assert(0);
-    }
-}
-
-bitpunch_status_t
-expr_dpath_to_box_direct(expr_dpath_t dpath,
-                         struct box **boxp,
-                         struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    struct box *box;
-
-    switch (dpath.type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        bt_ret = tracker_create_item_box_internal(dpath.item.tk, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        box = dpath.item.tk->item_box;
-        break ;
-    case EXPR_DPATH_TYPE_CONTAINER:
-        box = dpath.container.box;
-        break ;
-    default:
-        assert(0);
-    }
-    box_acquire(box);
-    *boxp = box;
-    return BITPUNCH_OK;
-}
-
-bitpunch_status_t
-expr_dpath_to_container_internal(expr_dpath_t dpath,
-                                 expr_dpath_t *dpathp,
-                                 struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    struct box *box;
-
-    bt_ret = expr_dpath_to_box_internal(dpath, &box, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    dpathp->type = EXPR_DPATH_TYPE_CONTAINER;
-    dpathp->container.box = box;
-    return BITPUNCH_OK;
-}
-
-bitpunch_status_t
-expr_dpath_to_item_internal(expr_dpath_t dpath,
-                            expr_dpath_t *dpathp,
-                            struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    struct tracker *tk;
-
-    bt_ret = expr_dpath_to_tracker_internal(dpath, &tk, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    dpathp->type = EXPR_DPATH_TYPE_ITEM;
-    dpathp->item.tk = tk;
-    return BITPUNCH_OK;
-}
-
-bitpunch_status_t
-expr_dpath_to_dpath_internal(expr_dpath_t src_dpath,
-                             enum expr_dpath_type dst_type,
-                             expr_dpath_t *dst_dpathp,
-                             struct browse_state *bst)
-{
-    switch (dst_type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        return expr_dpath_to_item_internal(src_dpath, dst_dpathp, bst);
-    case EXPR_DPATH_TYPE_CONTAINER:
-        return expr_dpath_to_container_internal(src_dpath, dst_dpathp, bst);
-    default:
-        assert(0);
-    }
-}
-
-struct box *
-expr_dpath_get_parent_box(expr_dpath_t dpath)
-{
-    switch (dpath.type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        return dpath.item.tk->box;
-    case EXPR_DPATH_TYPE_CONTAINER:
-        return dpath.container.box->parent_box;
-    default:
-        assert(0);
-    }
-}
-
-bitpunch_status_t
-expr_dpath_get_size_internal(expr_dpath_t dpath,
-                             int64_t *dpath_sizep,
-                             struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-
-    switch (dpath.type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        bt_ret = tracker_get_item_size_internal(dpath.item.tk,
-                                                dpath_sizep, bst);
-        break ;
-    case EXPR_DPATH_TYPE_CONTAINER:
-        bt_ret = box_get_span_size(dpath.container.box, dpath_sizep, bst);
-        break ;
-    default:
-        assert(0);
-    }
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    return BITPUNCH_OK;
-}
-
-bitpunch_status_t
-expr_dpath_get_location_internal(expr_dpath_t dpath,
-                                 int64_t *offsetp, int64_t *sizep,
-                                 struct browse_state *bst)
-{
-    switch (dpath.type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        return tracker_get_item_location_internal(dpath.item.tk,
-                                                  offsetp, sizep, bst);
-    case EXPR_DPATH_TYPE_CONTAINER:
-        return box_get_location_internal(dpath.container.box,
-                                         offsetp, sizep, bst);
-    default:
-        assert(0);
-    }
-}
-
-bitpunch_status_t
-expr_dpath_evaluate_filter_internal(
-    expr_dpath_t dpath,
-    struct box *scope,
-    struct ast_node_hdl **filter_typep,
-    struct browse_state *bst)
-{
-    switch (dpath.type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        return expr_evaluate_filter_type_internal(
-            dpath.item.tk->dpath.filter, dpath.item.tk->box,
-            FILTER_KIND_FILTER, filter_typep, bst);
-
-    case EXPR_DPATH_TYPE_CONTAINER:
-        *filter_typep = dpath.container.box->filter;
-        return BITPUNCH_OK;
-
-    default:
-        assert(0);
-    }
-}
-
-int
-expr_dpath_contains_indexed_items(expr_dpath_t dpath)
-{
-    switch (dpath.type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        return ast_node_is_indexed(dpath.item.tk->dpath.item);
-    case EXPR_DPATH_TYPE_CONTAINER:
-        return box_contains_indexed_items(dpath.container.box);
-    default:
-        assert(0);
-    }
-}
-
-const struct ast_node_hdl *
-expr_dpath_get_as_type(expr_dpath_t dpath)
-{
-    switch (dpath.type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        return dpath_node_get_as_type(&dpath.item.tk->dpath);
-    case EXPR_DPATH_TYPE_CONTAINER:
-        return ast_node_get_as_type(dpath.container.box->filter);
-    default:
-        assert(0);
-    }
-}
-
-const struct ast_node_hdl *
-expr_dpath_get_target_filter(expr_dpath_t dpath)
-{
-    switch (dpath.type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        return dpath_node_get_target_filter(&dpath.item.tk->dpath);
-    case EXPR_DPATH_TYPE_CONTAINER:
-        return ast_node_get_target_filter(dpath.container.box->filter);
-    default:
-        assert(0);
-    }
-}
-
-struct track_path
-expr_dpath_get_track_path(expr_dpath_t dpath)
-{
-    switch (dpath.type) {
-    case EXPR_DPATH_TYPE_ITEM:
-        return dpath.item.tk->cur;
-    case EXPR_DPATH_TYPE_CONTAINER:
-        return dpath.container.box->track_path;
-    default:
-        assert(0);
-    }
-}
-
-int
-expr_dpath_is(expr_dpath_t dpath1, expr_dpath_t dpath2)
-{
-    if (dpath1.type != dpath2.type) {
-        return FALSE;
-    }
-    switch (dpath1.type) {
-    case EXPR_DPATH_TYPE_CONTAINER:
-        return dpath1.container.box == dpath2.container.box;
-    case EXPR_DPATH_TYPE_ITEM:
-        return dpath1.item.tk == dpath2.item.tk;
-    default:
-        return FALSE;
-    }
-}
-
-/**
- * @brief find the common ancestor box of two dpath expressions
- *
- * @param[out] ancestor1_typep dpath type of closest common ancestor
- * (from dpath1's ancestors)
- * @param[out] ancestor1_dpathp dpath of closest common ancestor (from
- * dpath1's ancestors)
- * @param[out] ancestor2_typep dpath type of closest common ancestor
- * (from dpath2's ancestors)
- * @param[out] ancestor2_dpathp dpath of closest common ancestor (from
- * dpath2's ancestors)
- */
-void
-expr_dpath_find_common_ancestor(expr_dpath_t dpath1,
-                                expr_dpath_t dpath2,
-                                expr_dpath_t *ancestor1_dpathp,
-                                expr_dpath_t *ancestor2_dpathp)
-{
-    struct track_path path1, path2;
-    struct box *pbox1, *pbox2;
-    struct box *box1, *box2;
-    struct box **ancestors1, **ancestors2;
-    int path_eq;
-    expr_dpath_t ancestor1_dpath, ancestor2_dpath;
-
-    pbox1 = expr_dpath_get_parent_box(dpath1);
-    pbox2 = expr_dpath_get_parent_box(dpath2);
-
-    if (NULL != pbox1) {
-        ancestors1 = alloca((pbox1->depth_level + 1) * sizeof(*ancestors1));
-        box1 = pbox1;
-        while (NULL != box1) {
-            *ancestors1 = box1;
-            ++ancestors1;
-            box1 = box1->parent_box;
-        }
-    }
-    if (NULL != pbox2) {
-        ancestors2 = alloca((pbox2->depth_level + 1) * sizeof(*ancestors2));
-        box2 = pbox2;
-        while (NULL != box2) {
-            *ancestors2 = box2;
-            ++ancestors2;
-            box2 = box2->parent_box;
-        }
-    }
-    if (NULL == pbox1) {
-        ancestor1_dpath = dpath1;
-        if (NULL == pbox2) {
-            ancestor2_dpath = dpath2;
-        } else {
-            ancestor2_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-            ancestor2_dpath.container.box = ancestors2[-1];
-        }
-        goto end;
-    }
-    if (NULL == pbox2) {
-        ancestor1_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        ancestor1_dpath.container.box = ancestors1[-1];
-        ancestor2_dpath = dpath2;
-        goto end;
-    }
-    do {
-        --ancestors1;
-        --ancestors2;
-        path_eq = track_path_eq((*ancestors1)->track_path,
-                                (*ancestors2)->track_path);
-    }
-    while (path_eq && *ancestors1 != pbox1 && *ancestors2 != pbox2);
-
-    if (!path_eq) {
-        ancestor1_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        ancestor1_dpath.container.box = ancestors1[1];
-        ancestor2_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        ancestor2_dpath.container.box = ancestors2[1];
-        goto end;
-    }
-    if (*ancestors1 == pbox1) {
-        path1 = expr_dpath_get_track_path(dpath1);
-    } else {
-        path1 = ancestors1[-1]->track_path;
-    }
-    if (*ancestors2 == pbox2) {
-        path2 = expr_dpath_get_track_path(dpath2);
-    } else {
-        path2 = ancestors2[-1]->track_path;
-    }
-    path_eq = track_path_eq(path1, path2);
-    if (!path_eq) {
-        ancestor1_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        ancestor1_dpath.container.box = *ancestors1;
-        ancestor2_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        ancestor2_dpath.container.box = *ancestors2;
-        goto end;
-    }
-    if (*ancestors1 == pbox1) {
-        ancestor1_dpath = dpath1;
-    } else {
-        ancestor1_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        ancestor1_dpath.container.box = ancestors1[-1];
-    }
-    if (*ancestors2 == pbox2) {
-        ancestor2_dpath = dpath2;
-    } else {
-        ancestor2_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        ancestor2_dpath.container.box = ancestors2[-1];
-    }
-
-  end:
-    if (NULL != ancestor1_dpathp) {
-        *ancestor1_dpathp = ancestor1_dpath;
-    }
-    if (NULL != ancestor2_dpathp) {
-        *ancestor2_dpathp = ancestor2_dpath;
     }
 }
 
@@ -1796,7 +1446,7 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
             (filtered_data + filtered_size) - box->ds_out->ds_data;
     } else {
         (void) bitpunch_data_source_create_from_memory(
-            filtered_data, filtered_size, TRUE, &box->ds_out);
+            &box->ds_out, filtered_data, filtered_size, TRUE);
         box->flags |= BOX_DATA_SOURCE;
         box->start_offset_used = 0;
         box->end_offset_used = filtered_size;
@@ -5188,8 +4838,7 @@ box_compute_span_size__from_item_size(struct box *box,
     }
     bt_ret = b_item->compute_item_size(
         box->filter, box,
-        box_get_offset(box, BOX_START_OFFSET_MAX_SPAN),
-        box_get_offset(box, BOX_END_OFFSET_MAX_SPAN),
+        box->start_offset_max_span, box->end_offset_max_span,
         &span_size, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;

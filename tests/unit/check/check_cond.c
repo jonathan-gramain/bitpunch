@@ -175,8 +175,8 @@ static void cond_setup(void)
 {
     int ret;
 
-    ret = bitpunch_schema_create_from_string(check_cond_def,
-                                            &check_cond_def_hdl);
+    ret = bitpunch_schema_create_from_string(
+        &check_cond_def_hdl, check_cond_def);
     assert(0 == ret);
 }
 

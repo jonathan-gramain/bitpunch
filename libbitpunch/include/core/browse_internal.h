@@ -34,22 +34,95 @@
 
 #include "core/browse.h"
 
-extern struct ast_node_hdl shared_ast_node_byte;
-extern struct ast_node_hdl shared_ast_node_array_slice;
-extern struct ast_node_hdl shared_ast_node_byte_slice;
-extern struct ast_node_hdl shared_ast_node_as_bytes;
-extern struct ast_node_hdl shared_ast_node_source;
+struct item_backend {
+    bitpunch_status_t (*compute_item_size)(struct ast_node_hdl *item_filter,
+                                           struct box *scope,
+                                           int64_t item_offset,
+                                           int64_t max_span_offset,
+                                           int64_t *item_sizep,
+                                           struct browse_state *bst);
+    bitpunch_status_t (*read_value)(struct ast_node_hdl *item_filter,
+                                    struct box *scope,
+                                    int64_t item_offset,
+                                    int64_t item_size,
+                                    expr_value_t *valuep,
+                                    struct browse_state *bst);
+};
 
-#define AST_NODE_BYTE &shared_ast_node_byte
-#define AST_NODE_ARRAY_SLICE &shared_ast_node_array_slice
-#define AST_NODE_BYTE_SLICE &shared_ast_node_byte_slice
-#define AST_NODE_AS_BYTES &shared_ast_node_as_bytes
-#define AST_NODE_SOURCE &shared_ast_node_source
+struct box_backend {
+    bitpunch_status_t (*init)(struct box *box);
+    void              (*destroy)(struct box *box);
+    bitpunch_status_t (*get_n_items)(struct box *box,
+                                    int64_t *item_countp,
+                                    struct browse_state *bst);
+    bitpunch_status_t (*compute_slack_size)(struct box *box,
+                                           struct browse_state *bst);
+    bitpunch_status_t (*compute_max_span_size)(struct box *box,
+                                          struct browse_state *bst);
+    bitpunch_status_t (*compute_span_size)(struct box *box,
+                                           struct browse_state *bst);
+    bitpunch_status_t (*compute_min_span_size)(struct box *box,
+                                              struct browse_state *bst);
+    bitpunch_status_t (*compute_used_size)(struct box *box,
+                                           struct browse_state *bst);
+    bitpunch_status_t (*get_slack_child_allocation)(struct box *box,
+                                                    int get_left_offset,
+                                                    int64_t *max_slack_offsetp,
+                                                    struct browse_state *bst);
+    bitpunch_status_t (*get_end_path)(struct box *box,
+                                      struct track_path *end_pathp,
+                                      struct browse_state *bst);
+};
+
+struct tracker_backend {
+    bitpunch_status_t (*get_item_key)(struct tracker *tk,
+                                     expr_value_t *keyp,
+                                     int *nth_twinp,
+                                     struct browse_state *bst);
+    bitpunch_status_t (*compute_item_size)(struct tracker *tk,
+                                          int64_t *item_sizep,
+                                          struct browse_state *bst);
+    bitpunch_status_t (*goto_first_item)(struct tracker *tk,
+                                        struct browse_state *bst);
+    bitpunch_status_t (*goto_next_item)(struct tracker *tk,
+                                       struct browse_state *bst);
+    bitpunch_status_t (*goto_nth_item)(struct tracker *tk,
+                                      int64_t index,
+                                      struct browse_state *bst);
+    bitpunch_status_t (*goto_named_item)(struct tracker *tk,
+                                        const char *name,
+                                        struct browse_state *bst);
+    bitpunch_status_t (*goto_next_key_match)(struct tracker *tk,
+                                            expr_value_t index,
+                                            struct track_path search_boundary,
+                                            struct browse_state *bst);
+    bitpunch_status_t (*goto_next_item_with_key)(struct tracker *tk,
+                                                expr_value_t item_key,
+                                                struct browse_state *bst);
+    bitpunch_status_t (*goto_nth_item_with_key)(struct tracker *tk,
+                                               expr_value_t item_key,
+                                               int nth_twin,
+                                               struct browse_state *bst);
+    bitpunch_status_t (*goto_track_path)(struct tracker *tk,
+                                         struct track_path path,
+                                         struct browse_state *bst);
+    void              (*reset_track_path)(struct tracker *tk);
+};
+
+int
+track_path_eq(struct track_path p1, struct track_path p2);
 
 void
 browse_state_init(struct browse_state *bst);
 void
 browse_state_cleanup(struct browse_state *bst);
+
+int
+browse_setup_global_backends(void);
+int
+browse_setup_backends_dpath(struct dpath_node *dpath);
+int
+browse_setup_backends_expr(struct ast_node_hdl *expr);
 
 struct box *
 box_new_slice_box(struct tracker *slice_start,
@@ -189,5 +262,54 @@ tracker_reverse_direction_internal(struct tracker *tk,
 bitpunch_status_t
 transmit_error(bitpunch_status_t bt_ret, struct browse_state *bst,
                struct tracker_error **errp);
+
+bitpunch_status_t
+tracker_error(bitpunch_status_t bt_ret, struct tracker *tk,
+              const struct ast_node_hdl *node,
+              struct browse_state *bst,
+              const char *message_fmt, ...)
+    __attribute__((format(printf, 5, 6)));
+bitpunch_status_t
+box_error(bitpunch_status_t bt_ret, struct box *box,
+          const struct ast_node_hdl *node,
+          struct browse_state *bst,
+          const char *message_fmt, ...)
+    __attribute__((format(printf, 5, 6)));
+bitpunch_status_t
+node_error(bitpunch_status_t bt_ret,
+           const struct ast_node_hdl *node,
+           struct browse_state *bst,
+           const char *message_fmt, ...)
+    __attribute__((format(printf, 4, 5)));
+bitpunch_status_t
+box_error_out_of_bounds(struct box *box,
+                        const struct ast_node_hdl *node,
+                        enum box_offset_type requested_end_offset_type,
+                        int64_t requested_end_offset,
+                        enum box_offset_type registered_end_offset_type,
+                        struct browse_state *bst);
+bitpunch_status_t
+tracker_error_item_out_of_bounds(struct tracker *tk,
+                                 struct browse_state *bst);
+void
+tracker_error_add_context_message(struct browse_state *bst,
+                                  const char *context_fmt, ...)
+    __attribute__((format(printf, 2, 3), unused));
+void
+tracker_error_add_tracker_context(struct tracker *tk,
+                                  struct browse_state *bst,
+                                  const char *context_fmt, ...)
+    __attribute__((format(printf, 3, 4), unused));
+void
+tracker_error_add_box_context(struct box *box,
+                              struct browse_state *bst,
+                              const char *context_fmt, ...)
+    __attribute__((format(printf, 3, 4), unused));
+void
+tracker_error_add_node_context(const struct ast_node_hdl *node,
+                               struct browse_state *bst,
+                               const char *context_fmt, ...)
+    __attribute__((format(printf, 3, 4), unused));
+
 
 #endif /* __BROWSE_INTERNAL_H__ */

@@ -385,14 +385,15 @@ FormatSpec_new(PyTypeObject *subtype,
 
         /* compile the provided text contents */
         contents = PyString_AsString(arg);
-        ret = bitpunch_schema_create_from_string(contents, &self->schema);
+        ret = bitpunch_schema_create_from_string(&self->schema, contents);
     } else if (PyFile_Check(arg)) {
         FILE *file;
 
         /* compile the contents from the file object */
         file = PyFile_AsFile(arg);
         //PyFile_IncUseCount((PyFileObject *)arg);
-        ret = bitpunch_schema_create_from_file_descriptor(fileno(file), &self->schema);
+        ret = bitpunch_schema_create_from_file_descriptor(
+            &self->schema, fileno(file));
     } else {
         Py_DECREF((PyObject *)self);
         PyErr_SetString(PyExc_TypeError,
@@ -2208,7 +2209,7 @@ DataTree_new(PyTypeObject *subtype,
         ret = PyString_AsStringAndSize(bin, &contents, &length);
         assert(-1 != ret);
         ret = bitpunch_data_source_create_from_memory(
-            contents, length, FALSE, &ds);
+            &ds, contents, length, FALSE);
     } else if (PyByteArray_Check(bin)) {
         char *contents;
         Py_ssize_t length;
@@ -2217,14 +2218,15 @@ DataTree_new(PyTypeObject *subtype,
         contents = PyByteArray_AS_STRING(bin);
         length = PyByteArray_GET_SIZE(bin);
         ret = bitpunch_data_source_create_from_memory(
-            contents, length, FALSE, &ds);
+            &ds, contents, length, FALSE);
     } else if (PyFile_Check(bin)) {
         FILE *file;
 
         /* load the contents from the file object */
         file = PyFile_AsFile(bin);
         //PyFile_IncUseCount((PyFileObject *)bin);
-        ret = bitpunch_data_source_create_from_file_descriptor(fileno(file), &ds);
+        ret = bitpunch_data_source_create_from_file_descriptor(
+            &ds, fileno(file));
     } else {
         PyErr_SetString(PyExc_TypeError,
                         "The first argument must be a string or a file object");

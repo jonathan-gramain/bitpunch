@@ -34,6 +34,7 @@
 
 #include <stdio.h>
 
+#include "api/bitpunch-structs.h"
 #include "utils/dep_resolver.h"
 
 struct ast_node_data;
@@ -80,6 +81,9 @@ int
 bitpunch_compile_schema(struct bitpunch_schema *schema);
 
 int
+bitpunch_resolve_expr(struct ast_node_hdl *expr, struct box *scope);
+
+int
 identifier_is_visible_in_block_stmt_lists(
     enum statement_type stmt_mask,
     const char *identifier,
@@ -112,8 +116,6 @@ ast_node_new_rexpr_native(struct expr_value value);
 int
 compile_continue(struct compile_ctx *ctx);
 
-int
-resolve_user_expr(struct ast_node_hdl *expr, struct box *scope);
 void
 dpath_node_reset(struct dpath_node *dpath);
 int

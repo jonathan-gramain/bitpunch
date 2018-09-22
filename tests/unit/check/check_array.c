@@ -334,12 +334,12 @@ static void array_setup(void)
 {
     int ret;
 
-    ret = bitpunch_schema_create_from_string(check_sarray_contents_def,
-                                            &check_sarray_def_hdl);
+    ret = bitpunch_schema_create_from_string(
+        &check_sarray_def_hdl, check_sarray_contents_def);
     assert(0 == ret);
 
-    ret = bitpunch_schema_create_from_string(check_varray_contents_def,
-                                            &check_varray_def_hdl);
+    ret = bitpunch_schema_create_from_string(
+        &check_varray_def_hdl, check_varray_contents_def);
     assert(0 == ret);
 }
 
