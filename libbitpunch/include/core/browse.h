@@ -255,8 +255,6 @@ struct tracker {
 
     int64_t item_size;       /**< cached item size (-1 if unset) */
 
-    struct box *item_box;    /**< cached item box (NULL if unset) */
-
     enum tracker_flags {
         /* internal flags */
         TRACKER_AT_END           = (1u<<0), /**< positioned at end of
@@ -277,8 +275,6 @@ enum tracker_state {
     TRACKER_STATE_ITEM = 2,
     TRACKER_STATE_ITEM_OFFSET = 3,
     TRACKER_STATE_ITEM_SIZE = 4,
-    TRACKER_STATE_ITEM_BOX = 5,
-    TRACKER_STATE_ITEM_BOX_SIZE = 6,
     TRACKER_STATE_AT_END = 7,
     TRACKER_STATE_COUNT = 8
 };

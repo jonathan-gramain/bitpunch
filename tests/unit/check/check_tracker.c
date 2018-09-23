@@ -396,11 +396,6 @@ check_tracker_item(struct tracker *tk,
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     ck_assert_int_eq(item_offset, expect_box->offset);
     ck_assert_int_eq(item_size, expect_box->size);
-    if (NULL != tk->item_box) {
-        ck_assert_int_ne(-1, tk->item_box->end_offset_span);
-        ck_assert_int_eq(tk->item_box->end_offset_span
-                         - tk->item_box->start_offset_span, item_size);
-    }
 }
 
 void

@@ -1094,26 +1094,16 @@ expr_dpath_to_box_direct(expr_dpath_t dpath,
                          struct box **boxp,
                          struct browse_state *bst)
 {
-    bitpunch_status_t bt_ret;
-    struct box *box;
-
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        bt_ret = tracker_create_item_box_internal(dpath.item.tk, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        box = dpath.item.tk->item_box;
-        break ;
+        return tracker_create_item_box_internal(dpath.item.tk, boxp, bst);
     case EXPR_DPATH_TYPE_CONTAINER:
-        box = dpath.container.box;
-        break ;
+        box_acquire(dpath.container.box);
+        *boxp = dpath.container.box;
+        return BITPUNCH_OK;
     default:
         assert(0);
     }
-    box_acquire(box);
-    *boxp = box;
-    return BITPUNCH_OK;
 }
 
 bitpunch_status_t
@@ -2406,10 +2396,6 @@ expr_transform_dpath_operator_filter(
     struct ast_node_hdl *target;
     struct ast_node_hdl *filter_expr;
 
-    // Implementation of filter op is straightforward; the important
-    // thing is to apply operands in order (left then right) so that
-    // chained filters are applied in order to the current dpath.
-
     target = expr->ndat->u.rexpr_op_filter.target;
     filter_expr = expr->ndat->u.rexpr_op_filter.filter_expr;
 
@@ -2432,13 +2418,11 @@ expr_transform_dpath_filter(struct ast_node_hdl *expr,
 
     switch (transformp->dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        bt_ret = tracker_create_item_box_internal(transformp->dpath.item.tk,
-                                                  bst);
+        bt_ret = tracker_create_item_box_internal(
+            transformp->dpath.item.tk, &filtered_data_box, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        filtered_data_box = transformp->dpath.item.tk->item_box;
-        box_acquire(filtered_data_box);
         break ;
 
     case EXPR_DPATH_TYPE_CONTAINER:

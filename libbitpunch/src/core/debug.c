@@ -59,8 +59,6 @@ dbg_tracker_state_str(enum tracker_state state)
         MAP(ITEM);
         MAP(ITEM_OFFSET);
         MAP(ITEM_SIZE);
-        MAP(ITEM_BOX);
-        MAP(ITEM_BOX_SIZE);
         MAP(AT_END);
     default:
         return "unknown state";
@@ -94,10 +92,6 @@ dbg_tracker_dump(const char *tk_str, const struct tracker *tk)
         dbg_tracker_dump_flags(tk);
         printf(") ");
         tracker_fdump(tk, stdout);
-        if (NULL != tk->item_box) {
-            printf("    ITEM ");
-            box_fdump(tk->item_box, stdout);
-        }
     } else {
         printf("%s: null", tk_str);
     }
@@ -156,7 +150,6 @@ dbg_tracker_check_state(const struct tracker *tk)
         assert(tracker_is_dangling(tk));
         // tk->item_offset may not be -1, and track_path may be set,
         // if pointing at end of slice
-        assert(NULL == tk->item_box);
         assert(-1 == tk->item_size);
         assert(0 == (tk->flags & TRACKER_AT_END));
         break ;
@@ -165,7 +158,6 @@ dbg_tracker_check_state(const struct tracker *tk)
         assert(!tracker_is_dangling(tk));
         assert(-1 == tk->item_offset);
         assert(-1 == tk->item_size);
-        assert(NULL == tk->item_box);
         assert(0 == (tk->flags & TRACKER_AT_END));
         dbg_tracker_check_track_path(tk, TRUE);
         break ;
@@ -182,7 +174,6 @@ dbg_tracker_check_state(const struct tracker *tk)
         assert(-1 == tk->box->end_offset_span
                || tk->item_offset <= tk->box->end_offset_span);
         assert(-1 == tk->item_size);
-        assert(NULL == tk->item_box);
         assert(0 == (tk->flags & TRACKER_AT_END));
         dbg_tracker_check_track_path(tk, TRUE);
         break ;
@@ -214,50 +205,8 @@ dbg_tracker_check_state(const struct tracker *tk)
                || item_end <= tk->box->end_offset_max_span);
         assert(-1 == tk->box->end_offset_span
                || item_end <= tk->box->end_offset_span);
-        assert(NULL == tk->item_box);
         dbg_tracker_check_track_path(tk,
                                      0 == (tk->flags & TRACKER_AT_END));
-        break ;
-    }
-    case TRACKER_STATE_ITEM_BOX:
-        assert(!tracker_is_dangling(tk));
-        assert(tk->item_offset >= 0);
-        assert(-1 == tk->item_size);
-        assert(NULL != tk->item_box);
-        if (reversed_iter) {
-            assert(tk->item_box->end_offset_span == tk->item_offset);
-        } else {
-            assert(tk->item_box->start_offset_span == tk->item_offset);
-        }
-        assert(0 == (tk->flags & TRACKER_AT_END));
-        dbg_tracker_check_track_path(tk, TRUE);
-        break ;
-
-    case TRACKER_STATE_ITEM_BOX_SIZE: {
-        int64_t item_end;
-
-        assert(!tracker_is_dangling(tk));
-        assert(tk->item_offset >= 0);
-        assert(tk->item_size >= 0);
-        assert(NULL != tk->item_box);
-        if (reversed_iter) {
-            item_end = tk->item_offset - tk->item_size;
-        } else {
-            item_end = tk->item_offset + tk->item_size;
-        }
-        assert(-1 == tk->box->start_offset_max_span
-               || item_end >= tk->box->start_offset_max_span);
-        assert(-1 == tk->box->end_offset_max_span
-               || item_end <= tk->box->end_offset_max_span);
-        if (reversed_iter) {
-            assert(tk->item_box->end_offset_span == tk->item_offset);
-            assert(tk->item_box->start_offset_span == item_end);
-        } else {
-            assert(tk->item_box->start_offset_span == tk->item_offset);
-            assert(tk->item_box->end_offset_span == item_end);
-        }
-        assert(0 == (tk->flags & TRACKER_AT_END));
-        dbg_tracker_check_track_path(tk, TRUE);
         break ;
     }
     case TRACKER_STATE_AT_END:
@@ -267,7 +216,6 @@ dbg_tracker_check_state(const struct tracker *tk)
         assert(-1 == tk->item_size);
         assert(0 != (tk->flags & TRACKER_AT_END));
         assert(tracker_is_dangling(tk));
-        assert(NULL == tk->item_box);
         break ;
 
     default:

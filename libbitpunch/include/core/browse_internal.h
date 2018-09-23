@@ -177,6 +177,7 @@ tracker_get_filtered_dpath(struct tracker *tk,
                            struct tracker_error **errp);
 bitpunch_status_t
 tracker_create_item_box_internal(struct tracker *tk,
+                                 struct box **item_boxp,
                                  struct browse_state *bst);
 bitpunch_status_t
 tracker_get_filtered_item_box_internal(struct tracker *tk,

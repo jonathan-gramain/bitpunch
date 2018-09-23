@@ -1372,7 +1372,9 @@ box_new_filter_box(struct box *parent_box,
     bitpunch_status_t bt_ret;
 
     box = new_safe(struct box);
-    bt_ret = box_construct(box, parent_box, filter, -1, BOX_FILTER, bst);
+    bt_ret = box_construct(
+        box, parent_box, filter, -1,
+        BOX_FILTER | (parent_box->flags & BOX_RALIGN), bst);
     if (BITPUNCH_OK != bt_ret) {
         box_delete_non_null(box);
         return NULL;
@@ -2083,8 +2085,6 @@ tracker_goto_last_cached_item_internal(struct tracker *tk,
             tk->item_size = -1;
         }
         tk->item_offset = tk->box->u.array.last_cached_item_offset;
-        box_delete(tk->item_box);
-        tk->item_box = NULL;
         tk->flags &= ~TRACKER_AT_END;
         tk->cur.u.array.index = tk->box->u.array.last_cached_index;
     } else {
@@ -2128,19 +2128,13 @@ tracker_get_state(const struct tracker *tk)
     } else if (-1 == tk->item_size) {
         if (0 != (tk->flags & TRACKER_AT_END)) {
             return TRACKER_STATE_AT_END;
-        } else if (NULL != tk->item_box) {
-            return TRACKER_STATE_ITEM_BOX;
         } else if (-1 != tk->item_offset) {
             return TRACKER_STATE_ITEM_OFFSET;
         } else {
             return TRACKER_STATE_ITEM;
         }
     } else {
-        if (NULL != tk->item_box) {
-            return TRACKER_STATE_ITEM_BOX_SIZE;
-        } else {
-            return TRACKER_STATE_ITEM_SIZE;
-        }
+        return TRACKER_STATE_ITEM_SIZE;
     }
     /*NOT REACHED*/
 }
@@ -2156,8 +2150,6 @@ static void
 tracker_reset_item_cache_internal(struct tracker *tk)
 {
     tk->item_size = -1;
-    box_delete(tk->item_box);
-    tk->item_box = NULL;
     tk->dpath.item = NULL;
 }
 
@@ -2228,7 +2220,6 @@ static void
 tracker_destroy(struct tracker *tk)
 {
     box_delete_non_null(tk->box);
-    box_delete(tk->item_box);
 }
 
 static struct tracker *
@@ -2245,9 +2236,6 @@ void
 tracker_set(struct tracker *tk, const struct tracker *src_tk)
 {
     box_acquire(src_tk->box);
-    if (NULL != src_tk->item_box) {
-        box_acquire(src_tk->item_box);
-    }
     tracker_destroy(tk);
     memcpy(tk, src_tk, sizeof (*tk));
 }
@@ -2259,9 +2247,6 @@ tracker_dup_raw(struct tracker *tk)
 
     tk_dup = dup_safe(tk);
     box_acquire(tk_dup->box);
-    if (NULL != tk_dup->item_box) {
-        box_acquire(tk_dup->item_box);
-    }
     return tk_dup;
 }
 
@@ -2341,12 +2326,6 @@ tracker_set_item_size(struct tracker *tk, int64_t item_size,
 
     assert(-1 != tk->item_offset);
     assert(item_size >= 0);
-    if (NULL != tk->item_box) {
-        bt_ret = box_set_span_size(tk->item_box, item_size, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-    }
     tk->item_size = item_size;
     bt_ret = tracker_check_item(tk, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -2374,6 +2353,7 @@ tracker_set_end(struct tracker *tk, struct browse_state *bst)
 
 bitpunch_status_t
 tracker_create_item_box_internal(struct tracker *tk,
+                                 struct box **item_boxp,
                                  struct browse_state *bst)
 {
     struct tracker *xtk;
@@ -2406,66 +2386,57 @@ tracker_create_item_box_internal(struct tracker *tk,
     }
     box_flags = 0 != (xtk->flags & TRACKER_REVERSED) ?
         BOX_RALIGN | BOX_OVERLAY : BOX_OVERLAY;
-    if (NULL == xtk->item_box) {
-        if (tracker_is_dangling(xtk)) {
-            bt_ret = BITPUNCH_NO_ITEM;
+    if (tracker_is_dangling(xtk)) {
+        bt_ret = BITPUNCH_NO_ITEM;
+        goto end;
+    }
+    if (-1 == xtk->item_offset) {
+        bt_ret = tracker_compute_item_offset(xtk, bst);
+        if (BITPUNCH_OK != bt_ret) {
             goto end;
         }
-        if (-1 == xtk->item_offset) {
-            bt_ret = tracker_compute_item_offset(xtk, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                goto end;
-            }
-            assert(xtk->item_offset >= 0);
+        assert(xtk->item_offset >= 0);
+    }
+    item_box = box_lookup_cached_child(xtk->box, xtk->cur, box_flags);
+    if (NULL != item_box) {
+#ifdef DEBUG
+        if (tracker_debug_mode) {
+            printf("found box in cache: ");
+            DBG_BOX_DUMP(item_box);
+        }
+#endif
+        box_acquire(item_box);
+    } else {
+        bt_ret = tracker_compute_item_filter_internal(xtk, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            goto end;
+        }
+        item_box = new_safe(struct box);
+        // it's an item box, so the filter is the item here
+        bt_ret = box_construct(item_box, xtk->box, xtk->dpath.item,
+                               xtk->item_offset, box_flags, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            box_delete_non_null(item_box);
+            DBG_TRACKER_CHECK_STATE(xtk);
+            goto end;
         }
     }
-    // need to re-check because tracker_compute_item_offset() may have
-    // set the item box
-    if (NULL == xtk->item_box) {
-        item_box = box_lookup_cached_child(xtk->box, xtk->cur, box_flags);
-        if (NULL != item_box) {
-#ifdef DEBUG
-            if (tracker_debug_mode) {
-                printf("found box in cache: ");
-                DBG_BOX_DUMP(item_box);
-            }
-#endif
-            box_acquire(item_box);
-        } else {
-            bt_ret = tracker_compute_item_filter_internal(xtk, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                goto end;
-            }
-            item_box = new_safe(struct box);
-            // it's an item box, so the filter is the item here
-            bt_ret = box_construct(item_box, xtk->box, xtk->dpath.item,
-                                   xtk->item_offset, box_flags, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                box_delete_non_null(item_box);
-                DBG_TRACKER_CHECK_STATE(xtk);
-                goto end;
-            }
+    item_box->track_path = xtk->cur;
+    if (-1 != item_box->start_offset_span
+        && -1 != item_box->end_offset_span) {
+        xtk->item_size =
+            item_box->end_offset_span - item_box->start_offset_span;
+    } else if (-1 != xtk->item_size) {
+        bt_ret = box_set_span_size(item_box, xtk->item_size, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            box_delete_non_null(item_box);
+            DBG_TRACKER_CHECK_STATE(xtk);
+            goto end;
         }
-        item_box->track_path = xtk->cur;
-        if (-1 != item_box->start_offset_span
-            && -1 != item_box->end_offset_span) {
-            xtk->item_size =
-                item_box->end_offset_span - item_box->start_offset_span;
-        } else if (-1 != xtk->item_size) {
-            bt_ret = box_set_span_size(item_box, xtk->item_size, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                box_delete_non_null(item_box);
-                DBG_TRACKER_CHECK_STATE(xtk);
-                goto end;
-            }
-        }
-        xtk->item_box = item_box;
-    } else {
-        item_box = xtk->item_box;
     }
     box_update_cache(item_box, bst);
     if (-1 != xtk->item_size) {
-        box_set_span_size(xtk->item_box, xtk->item_size, bst);
+        box_set_span_size(item_box, xtk->item_size, bst);
     }
     if (BITPUNCH_OK == bt_ret && reverse_tracker) {
         bt_ret = tracker_reverse_direction_internal(xtk, bst);
@@ -2477,6 +2448,9 @@ tracker_create_item_box_internal(struct tracker *tk,
     DBG_TRACKER_CHECK_STATE(tk);
     if (reverse_tracker) {
         tracker_delete(xtk);
+    }
+    if (BITPUNCH_OK == bt_ret) {
+        *item_boxp = item_box;
     }
     return bt_ret;
 }
@@ -3667,10 +3641,8 @@ tracker_enter_item_internal(struct tracker *tk,
     DBG_TRACKER_DUMP(tk);
     bt_ret = tracker_get_filtered_item_box_internal(tk, &filtered_box, bst);
     if (BITPUNCH_OK == bt_ret) {
-        box_delete(tk->item_box);
         box_delete_non_null(tk->box);
         tk->box = filtered_box;
-        tk->item_box = NULL;
         tracker_rewind_internal(tk);
         bt_ret = box_apply_filter_internal(tk->box, bst);
     }
@@ -3764,7 +3736,6 @@ bitpunch_status_t
 tracker_return_internal(struct tracker *tk,
                         struct browse_state *bst)
 {
-    struct box *orig_box;
     struct box *tracked_box;
     struct box *item_box;
 
@@ -3775,7 +3746,6 @@ tracker_return_internal(struct tracker *tk,
         return BITPUNCH_OK;
     }
     tracker_set_dangling(tk);
-    orig_box = tk->box;
     tracked_box = tk->box;
     do {
         item_box = tracked_box;
@@ -3785,23 +3755,18 @@ tracker_return_internal(struct tracker *tk,
     if (NULL == tracked_box) {
         return BITPUNCH_NO_ITEM;
     }
-    tk->item_box = item_box;
-    if (item_box != orig_box) {
-        box_acquire(item_box);
-        box_delete(orig_box);
-    }
     tk->flags |= TRACKER_NEED_ITEM_OFFSET;
-    tracker_set_item_offset_at_box(tk, tk->item_box, bst);
-    if (-1 != tk->item_box->end_offset_span) {
-        tk->item_size =
-            tk->item_box->end_offset_span - tk->item_box->start_offset_span;
+    tracker_set_item_offset_at_box(tk, item_box, bst);
+    if (-1 != item_box->start_offset_span && -1 != item_box->end_offset_span) {
+        tk->item_size = item_box->end_offset_span - item_box->start_offset_span;
     } else {
         tk->item_size = -1;
     }
-    tk->box = tk->item_box->parent_box;
+    tk->box = item_box->parent_box;
     box_acquire(tk->box);
-    tk->cur = tk->item_box->track_path;
+    tk->cur = item_box->track_path;
     tracker_set_dpath_from_cur_internal(tk);
+    box_delete(item_box);
     DBG_TRACKER_CHECK_STATE(tk);
     return BITPUNCH_OK;
 }
@@ -4072,14 +4037,6 @@ tracker_compute_item_size(struct tracker *tk,
 
     DBG_TRACKER_DUMP(tk);
     assert(-1 != tk->item_offset);
-    if (NULL != tk->item_box
-        && -1 != tk->item_box->start_offset_span
-        && -1 != tk->item_box->end_offset_span) {
-        tk->item_size =
-            tk->item_box->end_offset_span - tk->item_box->start_offset_span;
-        DBG_TRACKER_CHECK_STATE(tk);
-        return BITPUNCH_OK;
-    }
     if (tracker_is_dangling(tk)) {
         return BITPUNCH_NO_ITEM;
     }
@@ -4673,18 +4630,20 @@ tracker_compute_item_size__item_box(struct tracker *tk,
                                     struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
+    struct box *item_box;
 
     DBG_TRACKER_DUMP(tk);
-    bt_ret = tracker_create_item_box_internal(tk, bst);
+    bt_ret = tracker_create_item_box_internal(tk, &item_box, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    bt_ret = box_compute_span_size(tk->item_box, bst);
+    bt_ret = box_compute_span_size(item_box, bst);
     if (BITPUNCH_OK == bt_ret) {
-        assert(tk->item_box->end_offset_span >= 0);
+        assert(item_box->end_offset_span >= 0);
         *item_sizep =
-            tk->item_box->end_offset_span - tk->item_box->start_offset_span;
+            item_box->end_offset_span - item_box->start_offset_span;
     }
+    box_delete(item_box);
     DBG_TRACKER_CHECK_STATE(tk);
     return bt_ret;
 }
@@ -5952,8 +5911,6 @@ tracker_goto_next_item__array(struct tracker *tk,
             return bt_ret;
         }
         item_size = tk->item_size;
-        box_delete(tk->item_box);
-        tk->item_box = NULL;
         tk->item_offset += (0 != (tk->flags & TRACKER_REVERSED) ?
                             -tk->item_size : tk->item_size);
         if (0 != (tk->dpath.item->ndat->u.item.flags
