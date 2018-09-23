@@ -98,7 +98,7 @@ def test_string_literals():
 
 
 
-spec_file_illegal_expr = """
+spec_file_expr_parsing = """
 
 let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
 
@@ -113,23 +113,27 @@ file {
 
 """
 
-data_file_illegal_expr = """
+data_file_expr_parsing = """
 01 00 00 00 02 00 00 00
 """
 
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_file_illegal_expr,
-        'data': data_file_illegal_expr,
+        'spec': spec_file_expr_parsing,
+        'data': data_file_expr_parsing,
     }])
-def params_illegal_expr(request):
+def params_expr_parsing(request):
     return conftest.make_testcase(request.param)
 
 
-def test_illegal_expr(params_illegal_expr):
-    params = params_illegal_expr
+def test_expr_parsing(params_expr_parsing):
+    params = params_expr_parsing
     dtree = params['dtree']
+
+    assert dtree.eval_expr('contents_struct.a') == 1
+    assert dtree.eval_expr('contents_struct.a <> [] byte') == \
+        '\x01\x00\x00\x00'
 
     with pytest.raises(ValueError):
         dtree.eval_expr('this_field_does_not_exist')

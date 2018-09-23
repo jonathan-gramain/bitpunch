@@ -7174,7 +7174,14 @@ browse_setup_backends__box__filter(struct ast_node_hdl *item)
         b_box->compute_span_size = box_compute_span_size__as_slack;
     }
     b_box->get_n_items = box_get_n_items__as_used;
-    b_box->compute_used_size = box_compute_used_size__from_apply_filter;
+    // FIXME should check for non-dpath filter only instead of
+    // specific value-type (i.e. output dpath == input dpath)
+    if (EXPR_VALUE_TYPE_INTEGER ==
+        item->ndat->u.rexpr_filter.filter_cls->value_type_mask) {
+        b_box->compute_used_size = box_compute_used_size__as_span;
+    } else {
+        b_box->compute_used_size = box_compute_used_size__from_apply_filter;
+    }
 }
 
 static void
