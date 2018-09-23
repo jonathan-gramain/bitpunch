@@ -134,6 +134,8 @@ def test_expr_parsing(params_expr_parsing):
     assert dtree.eval_expr('contents_struct.a') == 1
     assert dtree.eval_expr('contents_struct.a <> [] byte') == \
         '\x01\x00\x00\x00'
+    assert dtree.eval_expr('(contents_struct.a <> [] byte)[..]') == \
+        '\x01\x00\x00\x00'
 
     with pytest.raises(ValueError):
         dtree.eval_expr('this_field_does_not_exist')

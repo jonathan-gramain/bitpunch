@@ -2948,6 +2948,18 @@ compile_span_size_rexpr_named_expr(struct ast_node_hdl *filter,
 }
 
 static int
+compile_span_size_rexpr_op_subscript_common(
+    struct ast_node_hdl *expr,
+    struct compile_ctx *ctx)
+{
+    struct ast_node_hdl *anchor_expr;
+
+    anchor_expr = expr->ndat->u.rexpr_op_subscript_common.anchor_expr;
+    return compile_node(anchor_expr, ctx, COMPILE_TAG_NODE_SPAN_SIZE, 0u,
+                        RESOLVE_EXPECT_EXPRESSION);
+}
+
+static int
 compile_node_span_size(struct ast_node_hdl *node,
                        struct compile_ctx *ctx)
 {
@@ -2963,6 +2975,10 @@ compile_node_span_size(struct ast_node_hdl *node,
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_REXPR_FILTER:
         return compile_rexpr_filter(node, COMPILE_TAG_NODE_SPAN_SIZE, ctx);
+    case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT:
+    case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE:
+        return compile_span_size_rexpr_op_subscript_common(
+            node, ctx);
     default:
         return 0;
     }
