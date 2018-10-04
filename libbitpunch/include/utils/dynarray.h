@@ -86,4 +86,49 @@
     __ARRAY_ALLOC_SIZE((array)->n_item * sizeof (type))
 #define ARRAY_DESTROY(array) do { free((array)->data); } while (0)
 
+
+
+#define ARRAY_GENERATE_API_DECLS(name, type)            \
+    ARRAY_HEAD(name, type);                             \
+                                                        \
+    void name##_init(                                   \
+        struct name *array,                             \
+        size_t initial_n_items);                        \
+    void name##_destroy(                                \
+        struct name *array);                            \
+    void name##_append(                                 \
+        struct name *array,                             \
+        type item);                                     \
+    void name##_appendp(                                \
+        struct name *array,                             \
+        type *item);                                    \
+    void name##_pop(                                    \
+        struct name *array);                            \
+
+#define ARRAY_GENERATE_API_DEFS(name, type)             \
+    void name##_init(                                   \
+        struct name *array,                             \
+        size_t initial_n_items) {                       \
+        ARRAY_INIT(array, initial_n_items, type);       \
+    }                                                   \
+    void name##_destroy(                                \
+        struct name *array) {                           \
+        ARRAY_DESTROY(array);                           \
+    }                                                   \
+    void name##_append(                                 \
+        struct name *array,                             \
+        type item) {                                    \
+        ARRAY_APPEND(array, item, type);                \
+    }                                                   \
+    void name##_appendp(                                \
+        struct name *array,                             \
+        type *item) {                                   \
+        ARRAY_APPEND(array, *item, type);               \
+    }                                                   \
+    void name##_pop(                                    \
+        struct name *array) {                           \
+        ARRAY_POP(array, type);                         \
+    }                                                   \
+
+
 #endif // __DYNARRAY_H__

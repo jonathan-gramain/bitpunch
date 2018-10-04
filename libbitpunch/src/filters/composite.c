@@ -69,7 +69,8 @@ compile_span_size_composite(struct ast_node_hdl *item,
     struct ast_node_hdl *max_span_expr;
     const struct statement_list *field_list;
     struct field *field;
-    struct dpath_node *field_type;
+    struct ast_node_hdl_array field_items;
+    struct ast_node_hdl *field_item;
     int64_t min_span_size;
     int dynamic_span;
     int dynamic_used;
@@ -80,6 +81,7 @@ compile_span_size_composite(struct ast_node_hdl *item,
     int child_fills_slack;
     int child_conditionally_fills_slack;
     struct field *first_trailer_field;
+    bitpunch_status_t bt_ret;
 
     /* - Compute the minimum span size from the sum (struct) or
        max (union) of fields' minimum span sizes. If size is
@@ -143,68 +145,83 @@ compile_span_size_composite(struct ast_node_hdl *item,
         return -1;
     }
     STATEMENT_FOREACH(field, field, field_list, list) {
-        field_type = &field->dpath;
-        if (0 != (field_type->item->ndat->u.item.flags
-                  & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+        bt_ret = ast_node_filter_get_items(field->filter, &field_items);
+        if (BITPUNCH_OK != bt_ret) {
+            return -1;
+        }
+        assert(ARRAY_SIZE(&field_items) >= 1);
+        field_item = ARRAY_ITEM(&field_items, 0);
+        if (ARRAY_SIZE(&field_items) > 1) {
             dynamic_used = TRUE;
-        } else if (NULL == field->nstmt.stmt.cond) {
-            /* only update min span size if field is not conditional */
-            assert(SPAN_SIZE_UNDEF != field_type->item->ndat->u.item.min_span_size);
-            if (COMPOSITE_TYPE_UNION == composite->type) {
-                min_span_size = MAX(min_span_size,
-                                    field_type->item->ndat->u.item.min_span_size);
-            } else /* struct */ {
-                min_span_size += field_type->item->ndat->u.item.min_span_size;
-            }
         } else {
-            // if at least one conditional field is present, the
-            // used size is dynamic
-            dynamic_used = TRUE;
-        }
-        if (0 != (field_type->item->ndat->u.item.flags & ITEMFLAG_USES_SLACK)) {
-            child_uses_slack = TRUE;
-        }
-        if (0 != (field_type->item->ndat->u.item.flags & ITEMFLAG_SPREADS_SLACK)) {
-            if (NULL != field->nstmt.stmt.cond) {
+            if (0 != (field_item->ndat->u.item.flags
+                      & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+                dynamic_used = TRUE;
+            } else if (NULL == field->nstmt.stmt.cond) {
+                /* only update min span size if field is not conditional */
+                assert(SPAN_SIZE_UNDEF != field_item->ndat->u.item.min_span_size);
+                if (COMPOSITE_TYPE_UNION == composite->type) {
+                    min_span_size = MAX(min_span_size,
+                                        field_item->ndat->u.item.min_span_size);
+                } else /* struct */ {
+                    min_span_size += field_item->ndat->u.item.min_span_size;
+                }
+            } else {
+                // if at least one conditional field is present, the
+                // used size is dynamic
+                dynamic_used = TRUE;
+            }
+            if (0 != (field_item->ndat->u.item.flags & ITEMFLAG_USES_SLACK)) {
+                child_uses_slack = TRUE;
+            }
+            if (0 != (field_item->ndat->u.item.flags & ITEMFLAG_SPREADS_SLACK)) {
+                if (NULL != field->nstmt.stmt.cond) {
+                    child_conditionally_spreads_slack = TRUE;
+                } else {
+                    child_spreads_slack = TRUE;
+                }
+            }
+            if (0 != (field_item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
+                if (NULL != field->nstmt.stmt.cond) {
+                    child_conditionally_fills_slack = TRUE;
+                } else {
+                    child_fills_slack = TRUE;
+                }
+            }
+            if (0 != (field_item->ndat->u.item.flags
+                      & ITEMFLAG_CONDITIONALLY_SPREADS_SLACK)) {
                 child_conditionally_spreads_slack = TRUE;
-            } else {
-                child_spreads_slack = TRUE;
             }
-        }
-        if (0 != (field_type->item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
-            if (NULL != field->nstmt.stmt.cond) {
+            if (0 != (field_item->ndat->u.item.flags
+                      & ITEMFLAG_CONDITIONALLY_FILLS_SLACK)) {
                 child_conditionally_fills_slack = TRUE;
-            } else {
-                child_fills_slack = TRUE;
+            }
+            if (0 != (field_item->ndat->u.item.flags
+                      & (ITEMFLAG_SPREADS_SLACK |
+                         ITEMFLAG_CONDITIONALLY_SPREADS_SLACK))
+                || NULL != field->nstmt.stmt.cond) {
+                first_trailer_field = NULL;
+            } else if (COMPOSITE_TYPE_STRUCT == composite->type
+                       && (child_spreads_slack ||
+                           child_conditionally_spreads_slack)
+                       && NULL == first_trailer_field
+                       && 0 == (field_item->ndat->u.item.flags
+                                & (ITEMFLAG_SPREADS_SLACK |
+                                   ITEMFLAG_CONDITIONALLY_SPREADS_SLACK))) {
+                first_trailer_field = field;
             }
         }
-        if (0 != (field_type->item->ndat->u.item.flags
-                  & ITEMFLAG_CONDITIONALLY_SPREADS_SLACK)) {
-            child_conditionally_spreads_slack = TRUE;
-        }
-        if (0 != (field_type->item->ndat->u.item.flags
-                  & ITEMFLAG_CONDITIONALLY_FILLS_SLACK)) {
-            child_conditionally_fills_slack = TRUE;
-        }
-        if (0 != (field_type->item->ndat->u.item.flags
-                  & (ITEMFLAG_SPREADS_SLACK |
-                     ITEMFLAG_CONDITIONALLY_SPREADS_SLACK))
-            || NULL != field->nstmt.stmt.cond) {
-            first_trailer_field = NULL;
-        } else if (COMPOSITE_TYPE_STRUCT == composite->type
-                   && (child_spreads_slack ||
-                       child_conditionally_spreads_slack)
-                   && NULL == first_trailer_field
-                   && 0 == (field_type->item->ndat->u.item.flags
-                            & (ITEMFLAG_SPREADS_SLACK |
-                               ITEMFLAG_CONDITIONALLY_SPREADS_SLACK))) {
-            first_trailer_field = field;
-        }
+        ast_node_hdl_array_destroy(&field_items);
     }
     if (child_spreads_slack) {
         STATEMENT_FOREACH(field, field, field_list, list) {
-            field_type = &field->dpath;
-            if (0 == (field_type->item->ndat->u.item.flags
+            bt_ret = ast_node_filter_get_items(field->filter, &field_items);
+            if (BITPUNCH_OK != bt_ret) {
+                return -1;
+            }
+            field_item = ARRAY_ITEM(&field_items, 0);
+            ast_node_hdl_array_destroy(&field_items);
+            if (0 == (field_item->ndat->u.item.flags
                       & (ITEMFLAG_SPREADS_SLACK |
                          ITEMFLAG_CONDITIONALLY_SPREADS_SLACK))) {
                 field->nstmt.stmt.stmt_flags |= FIELD_FLAG_HEADER;

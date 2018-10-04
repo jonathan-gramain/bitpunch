@@ -3165,7 +3165,7 @@ tracker_set_dpath_from_cur_internal(struct tracker *tk)
     switch (tk->cur.type) {
     case TRACK_PATH_COMPOSITE:
         if (NULL != tk->cur.u.block.field) {
-            tk->dpath.filter = tk->cur.u.block.field->dpath.filter;
+            tk->dpath.filter = tk->cur.u.block.field->filter;
             tk->dpath.item = NULL;
         } else {
             tracker_reset_dpath_internal(tk);
@@ -3384,7 +3384,7 @@ tracker_set_field_internal__composite(struct tracker *tk,
     DBG_TRACKER_DUMP(tk);
     tracker_set_dangling_internal(tk);
     tk->cur = track_path_from_composite_field(field);
-    tk->dpath.filter = field->dpath.filter;
+    tk->dpath.filter = field->filter;
     DBG_TRACKER_CHECK_STATE(tk);
 }
 
@@ -3832,7 +3832,7 @@ track_path_elem_dump(struct track_path tp, int dump_separator,
             return fprintf(stream, "%s<ANON:%s>",
                            (dump_separator ? "." : ""),
                            ast_node_type_str(
-                               tp.u.block.field->dpath.item->ndat->type));
+                               tp.u.block.field->filter->ndat->type));
         }
         break ;
     case TRACK_PATH_ARRAY:
@@ -7736,8 +7736,7 @@ browse_setup_backends_recur_composite(struct ast_node_hdl *filter)
         }
     }
     STATEMENT_FOREACH(field, field, stmt_lists->field_list, list) {
-        if (-1 == browse_setup_backends_dpath(
-                (struct dpath_node *)&field->dpath)) {
+        if (-1 == browse_setup_backends_node_recur(field->filter)) {
             return -1;
         }
     }
@@ -7877,8 +7876,8 @@ browse_setup_backends_node_recur(struct ast_node_hdl *node)
         }
         break ;
     case AST_NODE_TYPE_REXPR_FIELD:
-        return browse_setup_backends_dpath(
-            (struct dpath_node *)&node->ndat->u.rexpr_field.field->dpath);
+        return browse_setup_backends_node_recur(
+            node->ndat->u.rexpr_field.field->filter);
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
         // XXX is it useful?
         return browse_setup_backends_node_recur(

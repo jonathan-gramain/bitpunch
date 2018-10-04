@@ -129,6 +129,9 @@ compile_subscript_index_cb(struct compile_ctx *ctx,
                            dep_resolver_tagset_t tags,
                            void *arg);
 
+ARRAY_GENERATE_API_DEFS(ast_node_hdl_array, struct ast_node_hdl *)
+
+
 int
 bitpunch_compile_schema(struct bitpunch_schema *schema)
 {
@@ -277,16 +280,16 @@ lookup_visible_statements_in_anonymous_field(
     struct named_statement_spec **visible_statementsp,
     int *visible_statements_indexp)
 {
-    const struct ast_node_hdl *field_type;
+    const struct ast_node_hdl *filter;
     int ret;
     struct block_stmt_list *stmt_lists;
 
-    field_type = dpath_node_get_as_type__pre_compile_stage(&field->dpath);
-    if (NULL != field_type) {
-        if (AST_NODE_TYPE_FILTER_DEF == field_type->ndat->type) {
-            stmt_lists = &field_type->ndat->u.filter_def.block_stmt_list;
-        } else if (ast_node_is_rexpr_filter(field_type)) {
-            stmt_lists = &field_type->ndat->u.rexpr_filter
+    filter = ast_node_get_as_type(field->filter);
+    if (NULL != filter) {
+        if (AST_NODE_TYPE_FILTER_DEF == filter->ndat->type) {
+            stmt_lists = &filter->ndat->u.filter_def.block_stmt_list;
+        } else if (ast_node_is_rexpr_filter(filter)) {
+            stmt_lists = &filter->ndat->u.rexpr_filter
                 .filter_def->block_stmt_list;
         } else {
             stmt_lists = NULL;
@@ -664,8 +667,9 @@ resolve_identifiers_field(
     const struct list_of_visible_refs *visible_refs,
     enum resolve_identifiers_tag resolve_tags)
 {
-    return resolve_identifiers_dpath_node(&field->dpath,
-                                          visible_refs, resolve_tags);
+    return resolve_identifiers(field->filter, visible_refs,
+                               RESOLVE_EXPECT_TYPE |
+                               RESOLVE_EXPECT_FILTER, resolve_tags);
 }
 
 static int
@@ -1267,8 +1271,7 @@ dep_resolver_node_to_ast_node(struct dep_resolver_node *node,
         return (NULL != dpath->filter ? dpath->filter : dpath->item);
     }
     if (req->compile_cb == compile_field_cb) {
-        dpath = &container_of(node, struct field, dr_node)->dpath;
-        return (NULL != dpath->filter ? dpath->filter : dpath->item);
+        return container_of(node, struct field, dr_node)->filter;
     }
     assert(req->compile_cb == compile_subscript_index_cb);
     subscript = container_of(node, struct subscript_index, dr_node);
@@ -1568,25 +1571,17 @@ compile_field_cb(struct compile_ctx *ctx,
                  void *arg)
 {
     struct field *field;
-    struct dpath_node *dpath;
-    struct ast_node_hdl *target_item;
+    struct ast_node_hdl_array field_items;
+    struct ast_node_hdl *field_item;
+    bitpunch_status_t bt_ret;
 
     field = container_of(_node, struct field, dr_node);
-    dpath = &field->dpath;
 
-    if (-1 == compile_dpath(&field->dpath, ctx, tags, 0u)) {
+    if (-1 == compile_node(field->filter, ctx,
+                           tags, 0u, RESOLVE_EXPECT_FILTER)) {
         return 0u;
     }
     // XXX support named expr polymorphism
-    target_item = ast_node_get_target_item(dpath->item);
-    if (NULL == target_item) {
-        assert(NULL != dpath->filter);
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &dpath->filter->loc,
-                       "expect an item type as field type, not '%s'",
-                       ast_node_type_str(dpath->filter->ndat->type));
-        return 0u;
-    }
-
     if (0 != (tags & COMPILE_TAG_NODE_TYPE) && NULL == field->nstmt.name) {
         const struct ast_node_hdl *as_type;
 
@@ -1600,8 +1595,7 @@ compile_field_cb(struct compile_ctx *ctx,
         // XXX only set flag if all polymorphic named expr targets are
         // hidden fields
         as_type = ast_node_get_named_expr_target(
-            (struct ast_node_hdl *)
-            dpath_node_get_as_type__pre_compile_stage(dpath));
+            ast_node_get_as_type(field->filter));
         if (ast_node_is_rexpr_filter(as_type)) {
             struct filter_def *filter_def;
 
@@ -1615,13 +1609,19 @@ compile_field_cb(struct compile_ctx *ctx,
         }
     }
     if (NULL != field->nstmt.stmt.cond) {
-        if (0 != (dpath->item->ndat->u.item.flags & ITEMFLAG_SPREADS_SLACK)) {
-            dpath->item->ndat->u.item.flags &= ~ITEMFLAG_SPREADS_SLACK;
-            dpath->item->ndat->u.item.flags |= ITEMFLAG_CONDITIONALLY_SPREADS_SLACK;
+        bt_ret = ast_node_filter_get_items(field->filter, &field_items);
+        if (BITPUNCH_OK != bt_ret) {
+            return -1;
         }
-        if (0 != (dpath->item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
-            dpath->item->ndat->u.item.flags &= ~ITEMFLAG_FILLS_SLACK;
-            dpath->item->ndat->u.item.flags |= ITEMFLAG_CONDITIONALLY_FILLS_SLACK;
+        field_item = ARRAY_ITEM(&field_items, 0);
+        ast_node_hdl_array_destroy(&field_items);
+        if (0 != (field_item->ndat->u.item.flags & ITEMFLAG_SPREADS_SLACK)) {
+            field_item->ndat->u.item.flags &= ~ITEMFLAG_SPREADS_SLACK;
+            field_item->ndat->u.item.flags |= ITEMFLAG_CONDITIONALLY_SPREADS_SLACK;
+        }
+        if (0 != (field_item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
+            field_item->ndat->u.item.flags &= ~ITEMFLAG_FILLS_SLACK;
+            field_item->ndat->u.item.flags |= ITEMFLAG_CONDITIONALLY_FILLS_SLACK;
         }
     }
     return tags;
@@ -2541,7 +2541,7 @@ compile_rexpr_polymorphic(struct ast_node_hdl *expr,
             break ;
         case STATEMENT_TYPE_FIELD:
             field = (struct field *)stmt_spec->nstmt;
-            target_expr = field->dpath.filter;
+            target_expr = field->filter;
             assert(ast_node_is_rexpr(expr));
             break ;
         default:
@@ -2569,11 +2569,12 @@ compile_rexpr_field(struct ast_node_hdl *expr, struct compile_ctx *ctx)
 
     field = (struct field *)expr->ndat->u.rexpr_field.field;
 
-    if (-1 == compile_dpath(&field->dpath, ctx, COMPILE_TAG_NODE_TYPE, 0u)) {
+    if (-1 == compile_node(field->filter, ctx, COMPILE_TAG_NODE_TYPE, 0u,
+                           RESOLVE_EXPECT_FILTER)) {
         return -1;
     }
     expr->ndat->u.rexpr.value_type_mask =
-        expr_value_type_mask_from_dpath_node(&field->dpath);
+        expr_value_type_mask_from_node(field->filter);
     expr->ndat->u.rexpr.dpath_type_mask = (EXPR_DPATH_TYPE_ITEM |
                                            EXPR_DPATH_TYPE_CONTAINER);
     return 0;
@@ -2652,7 +2653,7 @@ compile_rexpr_member(struct ast_node_hdl *expr, struct compile_ctx *ctx)
                     break ;
                 case STATEMENT_TYPE_FIELD:
                     resolved_type = ast_node_get_named_expr_target(
-                        ((struct field *)stmt_spec->nstmt)->dpath.filter)->ndat;
+                        ((struct field *)stmt_spec->nstmt)->filter)->ndat;
                     free(visible_statements);
                     expr->ndat = resolved_type;
                     break ;
@@ -3244,9 +3245,21 @@ ast_node_get_target_item(struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
         return ast_node_get_target_item(
             node->ndat->u.rexpr_named_expr.named_expr->expr);
-    case AST_NODE_TYPE_REXPR_FIELD:
-        return ast_node_get_target_item(
-            node->ndat->u.rexpr_field.field->dpath.item);
+    case AST_NODE_TYPE_REXPR_FIELD: {
+        struct ast_node_hdl_array field_items;
+        struct ast_node_hdl *field_item;
+        bitpunch_status_t bt_ret;
+
+        bt_ret = ast_node_filter_get_items(
+            node->ndat->u.rexpr_field.field->filter, &field_items);
+        if (BITPUNCH_OK != bt_ret) {
+            return NULL;
+        }
+        assert(ARRAY_SIZE(&field_items) >= 1);
+        field_item = ARRAY_ITEM(&field_items, 0);
+        ast_node_hdl_array_destroy(&field_items);
+        return ast_node_get_target_item(field_item);
+    }
     case AST_NODE_TYPE_REXPR_OP_FILTER:
         return ast_node_get_target_item(node->ndat->u.rexpr_op_filter.target);
     case AST_NODE_TYPE_REXPR_FILE:
@@ -3271,13 +3284,8 @@ ast_node_get_target_filter(struct ast_node_hdl *node)
         return ast_node_get_target_filter(
             node->ndat->u.rexpr_named_expr.named_expr->expr);
     case AST_NODE_TYPE_REXPR_FIELD:
-        if (NULL != node->ndat->u.rexpr_field.field->dpath.filter) {
-            return ast_node_get_target_filter(
-                node->ndat->u.rexpr_field.field->dpath.filter);
-        } else {
-            return ast_node_get_target_filter(
-                node->ndat->u.rexpr_field.field->dpath.item);
-        }
+        return ast_node_get_target_filter(
+            node->ndat->u.rexpr_field.field->filter);
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT: {
         struct ast_node_hdl *anchor_target;
         struct filter_instance_array *array;
@@ -3327,6 +3335,90 @@ ast_node_get_named_expr_target(struct ast_node_hdl *node)
     }
     return ast_node_get_named_expr_target(
         node->ndat->u.rexpr_named_expr.named_expr->expr);
+}
+
+
+
+static bitpunch_status_t
+ast_node_filter_get_items_int(
+    struct ast_node_hdl *filter,
+    struct ast_node_hdl_array *itemsp);
+
+static bitpunch_status_t
+ast_node_filter_get_items__named_expr(
+    struct ast_node_hdl *filter,
+    struct ast_node_hdl_array *itemsp)
+{
+    const struct named_expr *named_expr;
+
+    named_expr = filter->ndat->u.rexpr_named_expr.named_expr;
+    return ast_node_filter_get_items_int(named_expr->expr, itemsp);
+}
+
+static bitpunch_status_t
+ast_node_filter_get_items__polymorphic(
+    struct ast_node_hdl *filter,
+    struct ast_node_hdl_array *itemsp)
+{
+    // TODO
+    semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
+                   "polymorphic fields not supported");
+    return BITPUNCH_NOT_IMPLEMENTED;
+}
+
+static bitpunch_status_t
+ast_node_filter_get_items__op_filter(
+    struct ast_node_hdl *filter,
+    struct ast_node_hdl_array *itemsp)
+{
+    return ast_node_filter_get_items_int(
+        filter->ndat->u.rexpr_op_filter.target, itemsp);
+}
+
+static bitpunch_status_t
+ast_node_filter_get_items_int(
+    struct ast_node_hdl *filter,
+    struct ast_node_hdl_array *itemsp)
+{
+    switch (filter->ndat->type) {
+    case AST_NODE_TYPE_REXPR_NAMED_EXPR:
+        return ast_node_filter_get_items__named_expr(filter, itemsp);
+    case AST_NODE_TYPE_REXPR_POLYMORPHIC:
+        return ast_node_filter_get_items__polymorphic(filter, itemsp);
+    case AST_NODE_TYPE_REXPR_OP_FILTER:
+        return ast_node_filter_get_items__op_filter(filter, itemsp);
+    case AST_NODE_TYPE_REXPR_FILTER:
+    case AST_NODE_TYPE_BYTE:
+    case AST_NODE_TYPE_COMPOSITE:
+    case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE_ARRAY:
+        ast_node_hdl_array_append(itemsp, filter);
+        return BITPUNCH_OK;
+    default:
+        return BITPUNCH_INVALID_PARAM;
+    }
+}
+
+bitpunch_status_t
+ast_node_filter_get_items(struct ast_node_hdl *filter,
+                          struct ast_node_hdl_array *itemsp)
+{
+    struct ast_node_hdl_array items;
+    bitpunch_status_t bt_ret;
+
+    if (NULL == filter) {
+        return BITPUNCH_INVALID_PARAM;
+    }
+    ast_node_hdl_array_init(&items, 0);
+    bt_ret = ast_node_filter_get_items_int(filter, &items);
+    if (BITPUNCH_OK == bt_ret) {
+        if (NULL != itemsp) {
+            *itemsp = items;
+        } else {
+            ast_node_hdl_array_destroy(&items);
+        }
+    }
+    return bt_ret;
 }
 
 int
@@ -3502,11 +3594,8 @@ ast_node_get_as_type__rexpr(const struct ast_node_hdl *expr)
         return expr->ndat->u.rexpr_self.item_type;
 
     case AST_NODE_TYPE_REXPR_FIELD:
-        if (NULL == expr->ndat->u.rexpr_field.field->dpath.filter) {
-            return expr->ndat->u.rexpr_field.field->dpath.item;
-        }
         return ast_node_get_as_type(
-            expr->ndat->u.rexpr_field.field->dpath.filter);
+            expr->ndat->u.rexpr_field.field->filter);
 
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT: {
         struct ast_node_hdl *anchor_target;
@@ -4131,15 +4220,10 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         dump_ast_rexpr_member(node, depth, visible_refs, out);
         fprintf(out, "%*s\\_ field:\n",
                 (depth + 1) * INDENT_N_SPACES, "");
-        fprintf(out, "%*s\\_ item:\n",
-                (depth + 2) * INDENT_N_SPACES, "");
-        dump_ast_type(node->ndat->u.rexpr_field.field->dpath.item, depth + 3,
-                      visible_refs, out);
-        fprintf(out, "\n");
-        if (NULL != node->ndat->u.rexpr_field.field->dpath.filter) {
+        if (NULL != node->ndat->u.rexpr_field.field->filter) {
             fprintf(out, "%*s\\_ filter:\n",
                     (depth + 2) * INDENT_N_SPACES, "");
-            dump_ast_type(node->ndat->u.rexpr_field.field->dpath.filter, depth + 3,
+            dump_ast_type(node->ndat->u.rexpr_field.field->filter, depth + 3,
                           visible_refs, out);
             fprintf(out, "\n");
         }
@@ -4407,14 +4491,9 @@ dump_block_stmt_list_recur(const struct ast_node_hdl *filter,
         fprintf(out, "%*s\\_ name \"%s\"\n",
                 (depth + 1) * INDENT_N_SPACES, "",
                 (NULL != field->nstmt.name ? field->nstmt.name : "N/A"));
-        fprintf(out, "%*s\\_ field type:\n",
+        fprintf(out, "%*s\\_ field filter:\n",
                 (depth + 2) * INDENT_N_SPACES, "");
-        fdump_ast_recur(field->dpath.item, depth + 3, &visible_refs, out);
-        if (NULL != field->dpath.filter) {
-            fprintf(out, "%*s\\_ field filter:\n",
-                    (depth + 2) * INDENT_N_SPACES, "");
-            fdump_ast_recur(field->dpath.filter, depth + 3, &visible_refs, out);
-        }
+        fdump_ast_recur(field->filter, depth + 3, &visible_refs, out);
     }
 }
 

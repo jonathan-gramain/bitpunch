@@ -441,7 +441,7 @@
 
     struct field {
         struct named_statement nstmt; // inherits
-        struct dpath_node dpath;
+        struct ast_node_hdl *filter;
         struct dep_resolver_node dr_node;
     };
 
@@ -1032,8 +1032,7 @@ block_stmt_list:
 
         field = new_safe(struct field);
         field->nstmt = $field_stmt->nstmt;
-        dpath_node_reset(&field->dpath);
-        field->dpath.item = $field_stmt->expr;
+        field->filter = $field_stmt->expr;
         TAILQ_INSERT_TAIL($$.field_list, (struct statement *)field, list);
     }
 

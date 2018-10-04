@@ -366,11 +366,11 @@ START_TEST(sarray_ast)
 
     field = STATEMENT_FIRST(field, stmt_lists->field_list);
     ck_assert_str_eq(field->nstmt.name, "int_array");
-    ck_assert_ptr_ne(field->dpath.item, NULL);
-    ck_assert_int_eq(field->dpath.item->ndat->type, AST_NODE_TYPE_ARRAY);
+    ck_assert_ptr_ne(field->filter, NULL);
+    ck_assert_int_eq(field->filter->ndat->type, AST_NODE_TYPE_ARRAY);
 
     array = (struct filter_instance_array *)
-        field->dpath.item->ndat->u.rexpr_filter.f_instance;
+        field->filter->ndat->u.rexpr_filter.f_instance;
     item_type = &array->item_type;
     ck_assert_ptr_ne(item_type->filter, NULL);
     ck_assert_ptr_ne(item_type->item, NULL);
@@ -419,6 +419,7 @@ START_TEST(varray_ast)
     const struct ast_node_hdl *root;
     const struct block_stmt_list *stmt_lists;
     const struct field *field;
+    const struct field *int_array_size_field;
     struct filter_instance_array *array;
     const struct ast_node_hdl *int_array_size_item;
     struct filter_instance_array *item_f_instance;
@@ -436,12 +437,17 @@ START_TEST(varray_ast)
 
     field = STATEMENT_FIRST(field, stmt_lists->field_list);
     ck_assert_str_eq(field->nstmt.name, "int_array_size");
-    int_array_size_item = field->dpath.item;
-    ck_assert_ptr_ne(field->dpath.item, NULL);
-    ck_assert_int_eq(field->dpath.item->ndat->type, AST_NODE_TYPE_BYTE_ARRAY);
-    ck_assert_ptr_ne(field->dpath.filter, NULL);
+    int_array_size_field = field;
+    ck_assert_ptr_ne(field->filter, NULL);
+    ck_assert_int_eq(field->filter->ndat->type,
+                     AST_NODE_TYPE_REXPR_NAMED_EXPR);
+    field_type = ast_node_get_named_expr_target(field->filter);
+    ck_assert_ptr_ne(field_type, NULL);
+    ck_assert_int_eq(field_type->ndat->type, AST_NODE_TYPE_REXPR_OP_FILTER);
+    int_array_size_item = field_type->ndat->u.rexpr_op_filter.target;
+    ck_assert_int_eq(int_array_size_item->ndat->type, AST_NODE_TYPE_BYTE_ARRAY);
     array = (struct filter_instance_array *)
-        field->dpath.item->ndat->u.rexpr_filter.f_instance;
+        int_array_size_item->ndat->u.rexpr_filter.f_instance;
     int_array_size = array->item_count;
     ck_assert_ptr_ne(int_array_size, NULL);
     ck_assert_int_eq(int_array_size->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
@@ -451,12 +457,12 @@ START_TEST(varray_ast)
 
     field = STATEMENT_NEXT(field, field, list);
     ck_assert_str_eq(field->nstmt.name, "int_array");
-    field_type = field->dpath.item;
+    field_type = field->filter;
     ck_assert_ptr_ne(field_type, NULL);
     ck_assert_int_eq(field_type->ndat->type, AST_NODE_TYPE_ARRAY);
 
     array = (struct filter_instance_array *)
-        field->dpath.item->ndat->u.rexpr_filter.f_instance;
+        field->filter->ndat->u.rexpr_filter.f_instance;
     item_type = &array->item_type;
     ck_assert_ptr_ne(item_type->filter, NULL);
     ck_assert_int_eq(item_type->item->ndat->type, AST_NODE_TYPE_BYTE_ARRAY);
@@ -485,8 +491,8 @@ START_TEST(varray_ast)
     ck_assert_int_eq(op2->ndat->type, AST_NODE_TYPE_REXPR_FIELD);
     ck_assert_int_eq(op2->ndat->u.rexpr.value_type_mask,
                      EXPR_VALUE_TYPE_INTEGER);
-    field_type = op2->ndat->u.rexpr_field.field->dpath.item;
-    ck_assert_ptr_eq(field_type, int_array_size_item);
+    field_type = op2->ndat->u.rexpr_field.field->filter;
+    ck_assert_ptr_eq(field_type, int_array_size_field->filter);
 
     field = STATEMENT_NEXT(field, field, list);
     ck_assert_ptr_eq(field, NULL);

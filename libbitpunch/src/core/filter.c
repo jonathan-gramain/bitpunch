@@ -546,7 +546,7 @@ filter_lookup_statement_in_anonymous_field_recur(
     // table for identifiers for fast lookup)
 
     field = (const struct field *)stmt;
-    as_type = dpath_node_get_as_type(&field->dpath);
+    as_type = ast_node_get_as_type(field->filter);
     assert(ast_node_is_rexpr_filter(as_type));
     if (!identifier_is_visible_in_block_stmt_lists(
             STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD,

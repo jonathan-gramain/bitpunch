@@ -36,6 +36,7 @@
 
 #include "api/bitpunch-structs.h"
 #include "utils/dep_resolver.h"
+#include "utils/dynarray.h"
 
 struct ast_node_data;
 struct ast_node_hdl;
@@ -76,6 +77,8 @@ struct compile_ctx {
     const char *current_node_family;
     FILE *deps_dot;
 };
+
+ARRAY_GENERATE_API_DECLS(ast_node_hdl_array, struct ast_node_hdl *)
 
 int
 bitpunch_compile_schema(struct bitpunch_schema *schema);
@@ -130,6 +133,9 @@ struct ast_node_hdl *
 ast_node_get_target_filter(struct ast_node_hdl *node);
 struct ast_node_hdl *
 ast_node_get_named_expr_target(struct ast_node_hdl *node);
+bitpunch_status_t
+ast_node_filter_get_items(struct ast_node_hdl *filter,
+                          struct ast_node_hdl_array *itemsp);
 int
 ast_node_is_container(const struct ast_node_hdl *node);
 int
