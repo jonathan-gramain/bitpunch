@@ -32,7 +32,7 @@
 #ifndef __FILTER_COMPOSITE_H__
 #define __FILTER_COMPOSITE_H__
 
-#include "core/filter.h"
+#include "filters/container.h"
 
 struct filter_instance_composite {
     struct filter_instance filter; /* inherits */
@@ -42,5 +42,10 @@ struct filter_instance_composite {
         COMPOSITE_TYPE_UNION,
     } type;
 };
+
+bitpunch_status_t
+tracker_goto_field_internal(struct tracker *tk,
+                            const struct field *to_field, int flat,
+                            struct browse_state *bst);
 
 #endif

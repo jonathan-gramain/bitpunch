@@ -39,6 +39,7 @@
 #include "core/filter.h"
 #include "core/browse_internal.h"
 #include "core/expr_internal.h"
+#include "filters/composite.h"
 
 #define MAX_FILTER_COUNT           256
 

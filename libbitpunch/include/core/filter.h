@@ -208,4 +208,8 @@ filter_attach_native_attribute(
     struct ast_node_hdl *filter,
     const char *attr_name, expr_value_t value);
 
+
+void
+browse_setup_backends__filter__filter(struct ast_node_hdl *filter);
+
 #endif

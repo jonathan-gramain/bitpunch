@@ -29,46 +29,45 @@
  * DAMAGE.
  */
 
-#ifndef __FILTER_ARRAY_H__
-#define __FILTER_ARRAY_H__
+#ifndef __FILTER_ARRAY_SLICE_H__
+#define __FILTER_ARRAY_SLICE_H__
 
-#include "filters/container.h"
+#include "filters/item.h"
 
-struct filter_instance_array {
-    struct filter_instance filter; /* inherits */
-    struct dpath_node item_type;
-    struct ast_node_hdl *item_count;
-};
+struct box *
+box_array_slice_get_ancestor_array(struct box *box);
+
+struct box *
+box_new_slice_box(struct tracker *slice_start,
+                  struct tracker *slice_end,
+                  struct browse_state *bst);
 
 bitpunch_status_t
-tracker_goto_first_item__array_generic(struct tracker *tk,
-                                       struct ast_node_hdl *item_filter,
-                                       struct browse_state *bst);
+box_get_n_items__slice_generic(struct box *box, int64_t *item_countp,
+                               struct browse_state *bst);
+
 bitpunch_status_t
-tracker_get_item_key__array_generic(struct tracker *tk,
-                                    expr_value_t *keyp,
-                                    int *nth_twinp,
+tracker_goto_first_item__array_slice(struct tracker *tk,
+                                     struct browse_state *bst);
+bitpunch_status_t
+tracker_goto_next_item__array_slice(struct tracker *tk,
                                     struct browse_state *bst);
 bitpunch_status_t
-tracker_goto_next_item_with_key__indexed_array_internal(
-    struct tracker *tk,
-    expr_value_t item_key,
-    int64_t end_index,
-    struct browse_state *bst);
+tracker_goto_nth_item__array_slice(struct tracker *tk, int64_t index,
+                                   struct browse_state *bst);
 bitpunch_status_t
-tracker_goto_nth_item_with_key__indexed_array_internal(
-    struct tracker *tk,
-    expr_value_t item_key,
-    int nth_twin,
-    int64_t from_index,
-    int64_t end_index,
-    struct browse_state *bst);
+tracker_goto_named_item__array_slice(struct tracker *tk, const char *name,
+                                     struct browse_state *bst);
 bitpunch_status_t
-tracker_get_item_key__indexed_array_internal(
-    struct tracker *tk,
-    int64_t from_index,
-    expr_value_t *keyp,
-    int *nth_twinp,
-    struct browse_state *bst);
+tracker_goto_next_key_match__array_slice(struct tracker *tk,
+                                         expr_value_t index,
+                                         struct track_path search_boundary,
+                                         struct browse_state *bst);
+
+void
+browse_setup_backends__array_slice(struct ast_node_hdl *filter);
+
+int
+browse_setup_global_backends__array_slice(void);
 
 #endif

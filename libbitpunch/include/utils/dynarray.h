@@ -32,6 +32,8 @@
 #ifndef __DYNARRAY_H__
 #define __DYNARRAY_H__
 
+#include <stdlib.h>
+
 #include "utils/port.h"
 
 #ifndef __unused

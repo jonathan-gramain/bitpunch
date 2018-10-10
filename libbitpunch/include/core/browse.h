@@ -336,6 +336,8 @@ void
 box_acquire(struct box *box);
 void
 box_delete(struct box *box);
+void
+box_delete_non_null(struct box *box);
 int
 box_contains_indexed_items(const struct box *box);
 enum expr_value_type
@@ -376,6 +378,8 @@ tracker_fdump(const struct tracker *tk, FILE *out);
 
 enum tracker_state
 tracker_get_state(const struct tracker *tk);
+void
+tracker_set_dangling(struct tracker *tk);
 static inline int
 tracker_is_dangling(const struct tracker *tk);
 

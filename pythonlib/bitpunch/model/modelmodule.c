@@ -34,7 +34,7 @@
 
 #include "api/bitpunch-structs.h"
 #include "api/bitpunch_api.h"
-#include "core/browse_internal.h"
+#include "filters/array_slice.h"
 #include "core/expr_internal.h"
 #include "core/filter.h"
 #include "core/print.h"

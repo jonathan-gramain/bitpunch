@@ -67,6 +67,7 @@ enum resolve_identifiers_tag {
 enum compile_tag {
     COMPILE_TAG_NODE_TYPE = (1u<<0),
     COMPILE_TAG_NODE_SPAN_SIZE = (1u<<1),
+    COMPILE_TAG_BROWSE_BACKENDS = (1u<<2),
 };
 
 struct compile_ctx {

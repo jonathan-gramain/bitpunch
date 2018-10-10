@@ -41,10 +41,12 @@
 struct tracker_error;
 
 enum ast_node_type;
+enum statement_type;
 struct ast_node_hdl;
 struct browse_state;
 struct box;
 struct statement_list;
+struct named_statement;
 struct named_expr;
 
 enum expr_dpath_type {

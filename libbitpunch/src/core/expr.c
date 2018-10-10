@@ -41,6 +41,8 @@
 #include "core/filter.h"
 #include "core/browse_internal.h"
 #include "core/expr_internal.h"
+#include "filters/composite.h"
+#include "filters/array_slice.h"
 
 
 expr_dpath_t shared_expr_dpath_none = {
