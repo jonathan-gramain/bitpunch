@@ -834,7 +834,8 @@ box_construct(struct box *o_box,
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_ARRAY:
         if (NULL != filter->ndat->u.rexpr_filter.f_instance->b_box.init) {
-            bt_ret = filter->ndat->u.rexpr_filter.f_instance->b_box.init(o_box);
+            bt_ret = filter->ndat->u.rexpr_filter.f_instance->b_box.init(
+                o_box, bst);
             if (BITPUNCH_OK != bt_ret) {
                 return bt_ret;
             }
@@ -2412,7 +2413,7 @@ tracker_set_dpath_from_cur_internal(struct tracker *tk)
         assert(AST_NODE_TYPE_ARRAY == tk->box->filter->ndat->type);
         array = (struct filter_instance_array *)
             tk->box->filter->ndat->u.rexpr_filter.f_instance;
-        tk->dpath.filter = array->item_type.filter;
+        tk->dpath.filter = array->item_type;
         tk->dpath.item = NULL;
         break ;
     default:

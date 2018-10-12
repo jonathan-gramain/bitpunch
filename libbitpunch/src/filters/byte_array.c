@@ -209,7 +209,7 @@ tracker_goto_first_item__byte_array_non_slack(struct tracker *tk,
     array = (struct filter_instance_array *)
         tk->box->filter->ndat->u.rexpr_filter.f_instance;
     return tracker_goto_first_item__array_generic(
-        tk, array->item_type.filter, bst);
+        tk, array->item_type, bst);
 }
 
 static bitpunch_status_t

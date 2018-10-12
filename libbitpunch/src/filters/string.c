@@ -37,7 +37,7 @@
 #include "core/filter.h"
 
 static bitpunch_status_t
-string_box_init(struct box *box)
+string_box_init(struct box *box, struct browse_state *bst)
 {
     box->u.array_generic.n_items = -1;
     return BITPUNCH_OK;

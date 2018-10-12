@@ -32,31 +32,49 @@
 #include <assert.h>
 
 #include "utils/bloom.h"
+#include "core/expr_internal.h"
 #include "core/debug.h"
 #include "filters/array_index_cache.h"
+
+static bitpunch_status_t
+box_mark_offsets_repo_should_exist(struct box *box, int *should_existp,
+                                   struct browse_state *bst)
+{
+    struct filter_instance_array *array;
+    bitpunch_status_t bt_ret;
+    struct ast_node_hdl *item_type;
+
+    array = (struct filter_instance_array *)
+        box->filter->ndat->u.rexpr_filter.f_instance;
+    bt_ret = expr_evaluate_filter_type_internal(
+        array->item_type, box, FILTER_KIND_ITEM, &item_type, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    *should_existp = 0 != (item_type->ndat->u.item.flags
+                           & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC);
+    return BITPUNCH_OK;
+}
 
 void
 box_init_mark_offsets_repo(struct box *box)
 {
+    box->u.array.mark_offsets_exists = TRUE;
     ARRAY_INIT(&box->u.array.mark_offsets, 0,
                struct index_cache_mark_offset);
 }
 
 static int
-box_mark_offsets_repo_exists(const struct box *box)
+box_mark_offsets_repo_exists(struct box *box)
 {
-    struct filter_instance_array *array;
-
-    array = (struct filter_instance_array *)
-        box->filter->ndat->u.rexpr_filter.f_instance;
-    return 0 != (array->item_type.item->ndat->u.item.flags
-                 & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC);
+    return box->u.array.mark_offsets_exists;
 }
 
 static void
 box_destroy_mark_offsets_repo(struct box *box)
 {
     ARRAY_DESTROY(&box->u.array.mark_offsets);
+    box->u.array.mark_offsets_exists = FALSE;
 }
 
 static int
@@ -126,30 +144,32 @@ box_destroy_index_cache_by_key(struct box *box)
     box->u.array.cache_by_key = NULL;
 }
 
-void
-array_box_init_index_cache(struct box *box)
+bitpunch_status_t
+array_box_init_index_cache(struct box *box, struct browse_state *bst)
 {
-    struct ast_node_hdl *filter;
-    struct filter_instance_array *array;
+    bitpunch_status_t bt_ret;
+    int mark_offsets_should_exist;
 
-    filter = box->filter;
-    array = (struct filter_instance_array *)
-        filter->ndat->u.rexpr_filter.f_instance;
+    bt_ret = box_mark_offsets_repo_should_exist(
+        box, &mark_offsets_should_exist, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     box->u.array.last_cached_index = -1;
+    box->u.array.last_cached_item = NULL;
     box->u.array.last_cached_item_offset = -1;
-    if (0 != ((ast_node_get_target_item(
-                   array->item_type.item)->ndat->u.item.flags)
-              & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+    if (mark_offsets_should_exist) {
         box_init_mark_offsets_repo(box);
         box->u.array.cache_log2_n_keys_per_mark =
             BOX_INDEX_CACHE_DEFAULT_LOG2_N_KEYS_PER_MARK;
     }
-    if (ast_node_is_indexed(filter)) {
+    if (ast_node_is_indexed(box->filter)) {
         box_init_index_cache_by_key(box);
         box->u.array.cache_log2_n_keys_per_mark =
             log2_i(bloom_book_suggested_n_words_per_mark(
                        box->u.array.cache_by_key));
     }
+    return BITPUNCH_OK;
 }
 
 void
@@ -161,8 +181,9 @@ array_box_destroy_index_cache(struct box *box)
     box_destroy_mark_offsets_repo(box);
 }
 
-void
-tracker_index_cache_add_item(struct tracker *tk, expr_value_t item_key)
+bitpunch_status_t
+tracker_index_cache_add_item(struct tracker *tk, expr_value_t item_key,
+                             struct browse_state *bst)
 {
     const char *key_buf;
     int64_t key_len;
@@ -192,7 +213,9 @@ tracker_index_cache_add_item(struct tracker *tk, expr_value_t item_key)
         }
     }
     tk->box->u.array.last_cached_index = tk->cur.u.array.index;
+    tk->box->u.array.last_cached_item = tk->dpath.item;
     tk->box->u.array.last_cached_item_offset = tk->item_offset;
+    return BITPUNCH_OK;
 }
 
 
@@ -216,7 +239,6 @@ box_index_cache_lookup_key_twins(struct box *box,
                                  struct browse_state *bst)
 {
     struct filter_instance_array *array;
-    struct dpath_node *item_dpath;
     const char *key_buf;
     int64_t key_len;
     bloom_book_mark_t from_mark;
@@ -250,8 +272,11 @@ box_index_cache_lookup_key_twins(struct box *box,
     iterp->mark = bloom_book_lookup_word_get_next_candidate(
         box->u.array.cache_by_key, &iterp->bloom_cookie);
     if (BLOOM_BOOK_MARK_NONE != iterp->mark) {
-        item_dpath = &array->item_type;
-        tracker_goto_mark_internal(iterp->xtk, item_dpath, iterp->mark, bst);
+        bt_ret = tracker_goto_mark_internal(iterp->xtk, array->item_type,
+                                            iterp->mark, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
     }
     iterp->first = TRUE;
     return BITPUNCH_OK;
@@ -282,7 +307,7 @@ index_cache_iterator_next_twin(struct index_cache_iterator *iter,
     struct filter_instance_array *array;
     struct tracker *xtk;
     bitpunch_status_t bt_ret;
-    struct dpath_node *item_dpath;
+    struct ast_node_hdl *item_type;
     int64_t index_end;
 
     xtk = iter->xtk;
@@ -297,7 +322,7 @@ index_cache_iterator_next_twin(struct index_cache_iterator *iter,
     }
     array = (struct filter_instance_array *)
         xtk->box->filter->ndat->u.rexpr_filter.f_instance;
-    item_dpath = &array->item_type;
+    item_type = array->item_type;
     index_end = iter->in_slice_path.u.array_slice.index_end;
     while (TRUE) {
         bt_ret = tracker_goto_next_key_match_in_mark(
@@ -327,7 +352,10 @@ index_cache_iterator_next_twin(struct index_cache_iterator *iter,
         if (BLOOM_BOOK_MARK_NONE == iter->mark) {
             return BITPUNCH_NO_ITEM;
         }
-        tracker_goto_mark_internal(xtk, item_dpath, iter->mark, bst);
+        bt_ret = tracker_goto_mark_internal(xtk, item_type, iter->mark, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            break ;
+        }
     }
     if (BITPUNCH_OK == bt_ret) {
         *item_pathp = xtk->cur;
@@ -440,25 +468,26 @@ tracker_index_cache_lookup_current_twin_index(
 
 static void
 tracker_jump_to_item_internal(struct tracker *tk,
-                              struct dpath_node *item_dpath,
+                              struct ast_node_hdl *item_type,
                               struct track_path item_path,
                               int64_t item_offset,
                               struct browse_state *bst)
 {
     DBG_TRACKER_DUMP(tk);
-    assert(NULL != item_dpath);
+    assert(NULL != item_type);
     assert(-1 != item_offset);
     tracker_set_dangling(tk);
     tk->flags |= TRACKER_NEED_ITEM_OFFSET;
-    tk->dpath.filter = item_dpath->filter;
+    tk->dpath.filter = item_type;
+    tk->dpath.item = item_type;
     tk->cur = item_path;
     tk->item_offset = item_offset;
     DBG_TRACKER_CHECK_STATE(tk);
 }
 
-void
+bitpunch_status_t
 tracker_goto_mark_internal(struct tracker *tk,
-                           struct dpath_node *item_dpath,
+                           struct ast_node_hdl *item_type,
                            int64_t mark,
                            struct browse_state *bst)
 {
@@ -473,14 +502,15 @@ tracker_goto_mark_internal(struct tracker *tk,
         item_offset = box_array_get_mark_offset_at_index(
             tk->box, item_path.u.array.index);
     } else {
-        assert(0 == (item_dpath->item->ndat->u.item.flags
+        assert(0 == (item_type->ndat->u.item.flags
                      & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC));
         item_offset = tk->box->start_offset_span
             + (item_path.u.array.index
-               * ast_node_get_min_span_size(item_dpath->item));
+               * ast_node_get_min_span_size(item_type));
     }
-    tracker_jump_to_item_internal(tk, item_dpath, item_path, item_offset,
+    tracker_jump_to_item_internal(tk, item_type, item_path, item_offset,
                                   bst);
+    return BITPUNCH_OK;
 }
 
 void
@@ -494,9 +524,8 @@ tracker_goto_last_cached_item_internal(struct tracker *tk,
         tk->box->filter->ndat->u.rexpr_filter.f_instance;
     assert(AST_NODE_TYPE_ARRAY == tk->box->filter->ndat->type);
     if (-1 != tk->box->u.array.last_cached_index) {
-        tk->dpath.filter = array->item_type.filter;
-        // FIXME should reset item to NULL if filter is dynamic
-        tk->dpath.item = array->item_type.item;
+        tk->dpath.filter = array->item_type;
+        tk->dpath.item = tk->box->u.array.last_cached_item;
         if (0 != (tk->dpath.item->ndat->u.item.flags
                   & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
             tk->item_size = -1;

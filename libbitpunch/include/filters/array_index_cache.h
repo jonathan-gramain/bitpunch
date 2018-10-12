@@ -47,8 +47,8 @@ struct index_cache_iterator {
     int first;
 };
 
-void
-array_box_init_index_cache(struct box *box);
+bitpunch_status_t
+array_box_init_index_cache(struct box *box, struct browse_state *bst);
 void
 array_box_destroy_index_cache(struct box *box);
 
@@ -70,8 +70,9 @@ index_cache_iterator_done(struct index_cache_iterator *iter);
 int64_t
 box_array_get_index_mark(struct box *box, int64_t index);
 
-void
-tracker_index_cache_add_item(struct tracker *tk, expr_value_t item_key);
+bitpunch_status_t
+tracker_index_cache_add_item(struct tracker *tk, expr_value_t item_key,
+                             struct browse_state *bst);
 bitpunch_status_t
 tracker_index_cache_lookup_current_twin_index(
     struct tracker *tk,
@@ -89,9 +90,9 @@ tracker_index_cache_goto_twin(struct tracker *tk,
 void
 tracker_goto_last_cached_item_internal(struct tracker *tk,
                                        struct browse_state *bst);
-void
+bitpunch_status_t
 tracker_goto_mark_internal(struct tracker *tk,
-                           struct dpath_node *item_dpath,
+                           struct ast_node_hdl *item_type,
                            int64_t mark,
                            struct browse_state *bst);
 

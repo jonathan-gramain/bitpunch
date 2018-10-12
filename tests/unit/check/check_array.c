@@ -356,7 +356,7 @@ START_TEST(sarray_ast)
     const struct field *field;
     struct filter_instance_array *array;
     const struct ast_node_hdl *int_size;
-    const struct dpath_node *item_type;
+    const struct ast_node_hdl *item_type;
     const struct ast_node_hdl *item_count;
     struct filter_instance_array *item_f_instance;
 
@@ -371,12 +371,11 @@ START_TEST(sarray_ast)
 
     array = (struct filter_instance_array *)
         field->filter->ndat->u.rexpr_filter.f_instance;
-    item_type = &array->item_type;
-    ck_assert_ptr_ne(item_type->filter, NULL);
-    ck_assert_ptr_ne(item_type->item, NULL);
-    ck_assert_int_eq(item_type->item->ndat->type, AST_NODE_TYPE_BYTE_ARRAY);
+    item_type = ast_node_get_target_item(array->item_type);
+    ck_assert_ptr_ne(item_type, NULL);
+    ck_assert_int_eq(item_type->ndat->type, AST_NODE_TYPE_BYTE_ARRAY);
     item_f_instance = (struct filter_instance_array *)
-        item_type->item->ndat->u.rexpr_filter.f_instance;
+        item_type->ndat->u.rexpr_filter.f_instance;
     int_size = item_f_instance->item_count;
     ck_assert_ptr_ne(int_size, NULL);
     ck_assert_int_eq(int_size->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
@@ -426,7 +425,7 @@ START_TEST(varray_ast)
     const struct ast_node_hdl *int_array_size;
     const struct ast_node_hdl *field_type;
     const struct ast_node_hdl *int_size;
-    const struct dpath_node *item_type;
+    const struct ast_node_hdl *item_type;
     const struct ast_node_hdl *item_count;
     const struct ast_node_hdl *op1;
     const struct ast_node_hdl *op2;
@@ -463,11 +462,11 @@ START_TEST(varray_ast)
 
     array = (struct filter_instance_array *)
         field->filter->ndat->u.rexpr_filter.f_instance;
-    item_type = &array->item_type;
-    ck_assert_ptr_ne(item_type->filter, NULL);
-    ck_assert_int_eq(item_type->item->ndat->type, AST_NODE_TYPE_BYTE_ARRAY);
+    item_type = ast_node_get_target_item(array->item_type);
+    ck_assert_ptr_ne(item_type, NULL);
+    ck_assert_int_eq(item_type->ndat->type, AST_NODE_TYPE_BYTE_ARRAY);
     item_f_instance = (struct filter_instance_array *)
-        item_type->item->ndat->u.rexpr_filter.f_instance;
+        item_type->ndat->u.rexpr_filter.f_instance;
     int_size = item_f_instance->item_count;
     ck_assert_ptr_ne(int_size, NULL);
     ck_assert_int_eq(int_size->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);

@@ -36,7 +36,7 @@
 
 struct filter_instance_array {
     struct filter_instance filter; /* inherits */
-    struct dpath_node item_type;
+    struct ast_node_hdl *item_type;
     struct ast_node_hdl *item_count;
 };
 

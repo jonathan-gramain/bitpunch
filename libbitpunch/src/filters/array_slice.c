@@ -171,9 +171,12 @@ box_compute_span_size__array_slice(struct box *box,
     array_node = array_box->filter;
     array = (struct filter_instance_array *)
         array_node->ndat->u.rexpr_filter.f_instance;
-    item_type = ast_node_get_target_item(array->item_type.item);
-    if (0 == (array->item_type.item->ndat->u.item.flags
-              & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+    bt_ret = expr_evaluate_filter_type_internal(
+        array->item_type, box, FILTER_KIND_ITEM, &item_type, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    if (0 == (item_type->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
         int64_t n_elems;
         int64_t item_size;
 

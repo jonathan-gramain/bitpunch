@@ -67,7 +67,7 @@ struct item_backend {
 };
 
 struct box_backend {
-    bitpunch_status_t (*init)(struct box *box);
+    bitpunch_status_t (*init)(struct box *box, struct browse_state *bst);
     void              (*destroy)(struct box *box);
     bitpunch_status_t (*get_n_items)(struct box *box,
                                     int64_t *item_countp,

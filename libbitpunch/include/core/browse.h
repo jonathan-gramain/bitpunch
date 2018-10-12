@@ -206,7 +206,9 @@ struct box {
             struct bloom_book *cache_by_key;
             ARRAY_HEAD(index_cache_mark_offset_repo,
                        struct index_cache_mark_offset) mark_offsets;
+            int mark_offsets_exists;
             int64_t last_cached_index;
+            struct ast_node_hdl *last_cached_item;
             int64_t last_cached_item_offset;
             int cache_log2_n_keys_per_mark;
         } array;

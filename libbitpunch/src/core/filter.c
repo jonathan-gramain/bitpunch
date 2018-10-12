@@ -401,6 +401,7 @@ filter_iter_statements(
     struct statement_iterator it;
     struct filter_def *filter_def;
 
+    assert(ast_node_is_rexpr_filter(filter));
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
     filter_def = filter->ndat->u.rexpr_filter.filter_def;
@@ -436,6 +437,7 @@ filter_riter_statements(
     struct statement_iterator it;
     struct filter_def *filter_def;
 
+    assert(ast_node_is_rexpr_filter(filter));
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
     it.it_flags = STATEMENT_ITERATOR_FLAG_REVERSE;
@@ -654,6 +656,7 @@ filter_lookup_statement_internal(
 {
     struct filter_def *filter_def;
 
+    assert(ast_node_is_rexpr_filter(filter));
     filter_def = filter->ndat->u.rexpr_filter.filter_def;
     if (NULL == filter_def) {
         return BITPUNCH_NO_ITEM;
