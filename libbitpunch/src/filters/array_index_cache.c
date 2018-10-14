@@ -238,7 +238,6 @@ box_index_cache_lookup_key_twins(struct box *box,
                                  struct index_cache_iterator *iterp,
                                  struct browse_state *bst)
 {
-    struct filter_instance_array *array;
     const char *key_buf;
     int64_t key_len;
     bloom_book_mark_t from_mark;
@@ -247,8 +246,6 @@ box_index_cache_lookup_key_twins(struct box *box,
     DBG_BOX_DUMP(box);
     assert(AST_NODE_TYPE_ARRAY == box->filter->ndat->type);
     assert(box_index_cache_exists(box));
-    array = (struct filter_instance_array *)
-        box->filter->ndat->u.rexpr_filter.f_instance;
 
     expr_value_to_hashable(item_key, &key_buf, &key_len);
 
@@ -272,8 +269,7 @@ box_index_cache_lookup_key_twins(struct box *box,
     iterp->mark = bloom_book_lookup_word_get_next_candidate(
         box->u.array.cache_by_key, &iterp->bloom_cookie);
     if (BLOOM_BOOK_MARK_NONE != iterp->mark) {
-        bt_ret = tracker_goto_mark_internal(iterp->xtk, array->item_type,
-                                            iterp->mark, bst);
+        bt_ret = tracker_goto_mark_internal(iterp->xtk, iterp->mark, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
@@ -304,10 +300,8 @@ index_cache_iterator_next_twin(struct index_cache_iterator *iter,
                                struct track_path *item_pathp,
                                struct browse_state *bst)
 {
-    struct filter_instance_array *array;
     struct tracker *xtk;
     bitpunch_status_t bt_ret;
-    struct ast_node_hdl *item_type;
     int64_t index_end;
 
     xtk = iter->xtk;
@@ -320,9 +314,6 @@ index_cache_iterator_next_twin(struct index_cache_iterator *iter,
             return bt_ret;
         }
     }
-    array = (struct filter_instance_array *)
-        xtk->box->filter->ndat->u.rexpr_filter.f_instance;
-    item_type = array->item_type;
     index_end = iter->in_slice_path.u.array_slice.index_end;
     while (TRUE) {
         bt_ret = tracker_goto_next_key_match_in_mark(
@@ -352,7 +343,7 @@ index_cache_iterator_next_twin(struct index_cache_iterator *iter,
         if (BLOOM_BOOK_MARK_NONE == iter->mark) {
             return BITPUNCH_NO_ITEM;
         }
-        bt_ret = tracker_goto_mark_internal(xtk, item_type, iter->mark, bst);
+        bt_ret = tracker_goto_mark_internal(xtk, iter->mark, bst);
         if (BITPUNCH_OK != bt_ret) {
             break ;
         }
@@ -466,35 +457,25 @@ tracker_index_cache_lookup_current_twin_index(
     return bt_ret;
 }
 
-static void
-tracker_jump_to_item_internal(struct tracker *tk,
-                              struct ast_node_hdl *item_type,
-                              struct track_path item_path,
-                              int64_t item_offset,
-                              struct browse_state *bst)
-{
-    DBG_TRACKER_DUMP(tk);
-    assert(NULL != item_type);
-    assert(-1 != item_offset);
-    tracker_set_dangling(tk);
-    tk->flags |= TRACKER_NEED_ITEM_OFFSET;
-    tk->dpath.filter = item_type;
-    tk->dpath.item = item_type;
-    tk->cur = item_path;
-    tk->item_offset = item_offset;
-    DBG_TRACKER_CHECK_STATE(tk);
-}
-
 bitpunch_status_t
 tracker_goto_mark_internal(struct tracker *tk,
-                           struct ast_node_hdl *item_type,
                            int64_t mark,
                            struct browse_state *bst)
 {
+    struct filter_instance_array *array;
     struct track_path item_path;
+    struct ast_node_hdl *array_item;
     int64_t item_offset;
+    bitpunch_status_t bt_ret;
 
     DBG_TRACKER_DUMP(tk);
+    array = (struct filter_instance_array *)
+        tk->box->filter->ndat->u.rexpr_filter.f_instance;
+    bt_ret = expr_evaluate_filter_type_internal(
+        array->item_type, tk->box, FILTER_KIND_ITEM, &array_item, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     memset(&item_path, 0, sizeof (item_path));
     item_path = track_path_from_array_index(
         box_array_get_mark_start_index(tk->box, mark));
@@ -502,14 +483,19 @@ tracker_goto_mark_internal(struct tracker *tk,
         item_offset = box_array_get_mark_offset_at_index(
             tk->box, item_path.u.array.index);
     } else {
-        assert(0 == (item_type->ndat->u.item.flags
+        assert(0 == (array_item->ndat->u.item.flags
                      & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC));
         item_offset = tk->box->start_offset_span
             + (item_path.u.array.index
-               * ast_node_get_min_span_size(item_type));
+               * ast_node_get_min_span_size(array_item));
     }
-    tracker_jump_to_item_internal(tk, item_type, item_path, item_offset,
-                                  bst);
+    tracker_set_dangling(tk);
+    tk->flags |= TRACKER_NEED_ITEM_OFFSET;
+    tk->dpath.filter = array->item_type;
+    tk->dpath.item = array_item;
+    tk->cur = item_path;
+    tk->item_offset = item_offset;
+    DBG_TRACKER_CHECK_STATE(tk);
     return BITPUNCH_OK;
 }
 

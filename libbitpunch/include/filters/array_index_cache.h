@@ -92,7 +92,6 @@ tracker_goto_last_cached_item_internal(struct tracker *tk,
                                        struct browse_state *bst);
 bitpunch_status_t
 tracker_goto_mark_internal(struct tracker *tk,
-                           struct ast_node_hdl *item_type,
                            int64_t mark,
                            struct browse_state *bst);
 

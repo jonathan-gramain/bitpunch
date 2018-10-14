@@ -786,6 +786,8 @@ box_construct(struct box *o_box,
                          "reached maximum box nesting level %d",
                          BOX_MAX_DEPTH_LEVEL);
     }
+    assert(ast_node_is_rexpr_filter(filter));
+    assert(AST_NODE_TYPE_REXPR_OP_FILTER != filter->ndat->type);
     o_box->filter = filter;
     o_box->flags = box_flags;
     o_box->start_offset_parent = -1;
@@ -2203,6 +2205,7 @@ tracker_compute_item_filter_internal(struct tracker *tk,
             BITPUNCH_INVALID_PARAM, tk, tk->dpath.filter, bst,
             "cannot compute item filter: not an item type");
     }
+    assert(AST_NODE_TYPE_REXPR_OP_FILTER != tk->dpath.item->ndat->type);
     return BITPUNCH_OK;
 }
 

@@ -827,21 +827,16 @@ tracker_goto_nth_item__array_dynamic_item_size(
     struct tracker *tk, int64_t index,
     struct browse_state *bst)
 {
-    struct filter_instance_array *array;
     struct tracker *xtk;
-    struct ast_node_hdl *item_type;
     bitpunch_status_t bt_ret;
 
     DBG_TRACKER_DUMP(tk);
-    array = (struct filter_instance_array *)
-        tk->box->filter->ndat->u.rexpr_filter.f_instance;
-    item_type = array->item_type;
     xtk = tracker_dup(tk);
     if (index < tk->box->u.array.last_cached_index) {
         int64_t mark;
 
         mark = box_array_get_index_mark(xtk->box, index);
-        bt_ret = tracker_goto_mark_internal(xtk, item_type, mark, bst);
+        bt_ret = tracker_goto_mark_internal(xtk, mark, bst);
     } else {
         tracker_goto_last_cached_item_internal(xtk, bst);
         if (tracker_is_dangling(xtk)) {

@@ -3331,8 +3331,10 @@ ast_node_is_rexpr_filter(const struct ast_node_hdl *node)
     switch (node->ndat->type) {
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
+    case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_REXPR_OP_FILTER:
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_SOURCE:
