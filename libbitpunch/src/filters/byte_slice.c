@@ -36,6 +36,7 @@
 
 #include "core/expr_internal.h"
 #include "core/debug.h"
+#include "filters/array.h"
 #include "filters/byte_slice.h"
 
 struct ast_node_data shared_ast_node_data_byte_slice = {
@@ -95,6 +96,8 @@ byte_slice_filter_instance_build(struct ast_node_hdl *item)
         tracker_goto_next_item_with_key__not_impl;
     b_tk->goto_nth_item_with_key =
         tracker_goto_nth_item_with_key__not_impl;
+    b_tk->goto_end_path = tracker_goto_end_path__array_slice;
+    b_tk->goto_nil = tracker_goto_nil__array_generic;
 
     return slice;
 }

@@ -211,6 +211,10 @@ filter_attach_native_attribute(
     struct ast_node_hdl *filter,
     const char *attr_name, expr_value_t value);
 
+struct ast_node_hdl *
+filter_get_first_declared_attribute(
+    const struct ast_node_hdl *filter,
+    const char *attr_name);
 
 void
 compile_node_backends__filter__filter(struct ast_node_hdl *filter);

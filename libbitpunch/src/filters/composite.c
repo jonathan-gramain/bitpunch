@@ -830,6 +830,20 @@ tracker_goto_field_internal(struct tracker *tk,
     return bt_ret;
 }
 
+static bitpunch_status_t
+tracker_goto_end_path__composite(struct tracker *tk,
+                                 struct browse_state *bst)
+{
+    tk->cur = track_path_from_composite_field(NULL);
+    return BITPUNCH_OK;
+}
+
+static void
+tracker_goto_nil__composite(struct tracker *tk)
+{
+    tk->cur = track_path_from_composite_field(NULL);
+}
+
 static void
 compile_node_backends__box__composite(struct ast_node_hdl *item)
 {
@@ -851,9 +865,9 @@ compile_node_backends__box__composite(struct ast_node_hdl *item)
     } else /* union */ {
         b_box->compute_span_size = box_compute_span_size__union_dynamic_size;
     }
-    if (NULL != block_get_first_attribute(item, "@span") ||
-        NULL != block_get_first_attribute(item, "@minspan") ||
-        NULL != block_get_first_attribute(item, "@maxspan")) {
+    if (NULL != filter_get_first_declared_attribute(item, "@span") ||
+        NULL != filter_get_first_declared_attribute(item, "@minspan") ||
+        NULL != filter_get_first_declared_attribute(item, "@maxspan")) {
         b_box->compute_min_span_size = box_compute_min_span_size__span_expr;
         b_box->compute_max_span_size = box_compute_max_span_size__span_expr;
     } else {
@@ -898,6 +912,8 @@ compile_node_backends__tracker__composite(struct ast_node_hdl *item)
         tracker_goto_next_item_with_key__composite;
     b_tk->goto_nth_item_with_key =
         tracker_goto_nth_item_with_key__composite;
+    b_tk->goto_end_path = tracker_goto_end_path__composite;
+    b_tk->goto_nil = tracker_goto_nil__composite;
 }
 
 static int

@@ -69,6 +69,9 @@ tracker_goto_next_key_match__array_slice(struct tracker *tk,
                                          expr_value_t index,
                                          struct track_path search_boundary,
                                          struct browse_state *bst);
+bitpunch_status_t
+tracker_goto_end_path__array_slice(struct tracker *tk,
+                                   struct browse_state *bst);
 
 int
 compile_global_nodes__array_slice(struct compile_ctx *ctx);

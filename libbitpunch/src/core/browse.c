@@ -1247,7 +1247,7 @@ box_get_scope_box(struct box *box)
 
     scope = box;
     while (NULL != scope
-           && AST_NODE_TYPE_COMPOSITE != scope->filter->ndat->type) {
+           && !ast_node_is_filter(scope->filter)) {
         scope = scope->parent_box;
     }
     return scope;
@@ -1391,29 +1391,14 @@ tracker_reset_item_cache(struct tracker *tk)
 }
 
 static void
-tracker_reset_track_path(struct tracker *tk)
+tracker_goto_nil(struct tracker *tk)
 {
     struct ast_node_hdl *item;
 
     item = tk->box->filter;
-    switch (item->ndat->type) {
-    case AST_NODE_TYPE_COMPOSITE:
-        tk->cur = track_path_from_composite_field(NULL);
-        break ;
-    case AST_NODE_TYPE_ARRAY:
-    case AST_NODE_TYPE_ARRAY_SLICE:
-    case AST_NODE_TYPE_BYTE_ARRAY:
-    case AST_NODE_TYPE_BYTE_SLICE:
-    case AST_NODE_TYPE_SOURCE:
-        tk->cur = track_path_from_array_index(-1);
-        break ;
-    case AST_NODE_TYPE_REXPR_FILTER:
-        if (NULL != item->ndat->u.rexpr_filter.f_instance->b_tk.reset_track_path) {
-            item->ndat->u.rexpr_filter.f_instance->b_tk.reset_track_path(tk);
-        }
-        break ;
-    default:
-        break ;
+    assert(ast_node_is_rexpr_filter(item));
+    if (NULL != item->ndat->u.rexpr_filter.f_instance->b_tk.goto_nil) {
+        item->ndat->u.rexpr_filter.f_instance->b_tk.goto_nil(tk);
     }
 }
 
@@ -1423,7 +1408,7 @@ tracker_set_dangling_internal(struct tracker *tk)
     tracker_reset_item_cache_internal(tk);
     tracker_reset_dpath_internal(tk);
     tk->flags &= ~TRACKER_AT_END;
-    tracker_reset_track_path(tk);
+    tracker_goto_nil(tk);
 }
 
 void
@@ -1442,7 +1427,7 @@ tracker_construct(struct tracker *o_tk,
     box_acquire(box);
     o_tk->item_size = -1;
     o_tk->item_offset = -1;
-    tracker_reset_track_path(o_tk);
+    tracker_goto_nil(o_tk);
 }
 
 static void
@@ -2091,50 +2076,6 @@ box_compute_end_offset_internal(struct box *box,
 }
 
 bitpunch_status_t
-box_get_end_path(struct box *box, struct track_path *end_pathp,
-                 struct browse_state *bst)
-{
-    const struct ast_node_hdl *node;
-    bitpunch_status_t bt_ret;
-    int64_t n_items;
-    int64_t index_start;
-
-    DBG_BOX_DUMP(box);
-    node = box->filter;
-    switch (node->ndat->type) {
-    case AST_NODE_TYPE_ARRAY:
-    case AST_NODE_TYPE_BYTE_ARRAY:
-    case AST_NODE_TYPE_REXPR_FILTER:
-    case AST_NODE_TYPE_SOURCE:
-        bt_ret = box_get_n_items_internal(box, &n_items, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        *end_pathp = track_path_from_array_index(n_items);
-        break ;
-    case AST_NODE_TYPE_ARRAY_SLICE:
-    case AST_NODE_TYPE_BYTE_SLICE:
-        bt_ret = box_get_n_items_internal(box, &n_items, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        index_start = box->track_path.u.array.index;
-        if (-1 == index_start) {
-            index_start = 0;
-        }
-        *end_pathp = track_path_from_array_index(index_start + n_items);
-        break ;
-    case AST_NODE_TYPE_COMPOSITE:
-        *end_pathp = track_path_from_composite_field(NULL);
-        break ;
-    default:
-        *end_pathp = TRACK_PATH_NONE;
-        break ;
-    }
-    return BITPUNCH_OK;
-}
-
-bitpunch_status_t
 track_box_contents_internal(struct box *box,
                             struct tracker **tkp, struct browse_state *bst)
 {
@@ -2664,8 +2605,16 @@ static bitpunch_status_t
 tracker_goto_end_path(struct tracker *tk,
                       struct browse_state *bst)
 {
+    struct filter_instance *f_instance;
+
     DBG_TRACKER_DUMP(tk);
-    return box_get_end_path(tk->box, &tk->cur, bst);
+    f_instance = tk->box->filter->ndat->u.rexpr_filter.f_instance;
+    if (NULL == f_instance->b_tk.goto_end_path) {
+        return tracker_error(
+            BITPUNCH_NOT_IMPLEMENTED, tk, tk->box->filter, bst,
+            "filter does not implement goto_end_path() tracker backend function");
+    }
+    return f_instance->b_tk.goto_end_path(tk, bst);
 }
 
 static bitpunch_status_t

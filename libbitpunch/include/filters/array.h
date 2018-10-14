@@ -69,5 +69,10 @@ tracker_get_item_key__indexed_array_internal(
     expr_value_t *keyp,
     int *nth_twinp,
     struct browse_state *bst);
+bitpunch_status_t
+tracker_goto_end_path__array_generic(struct tracker *tk,
+                                     struct browse_state *bst);
+void
+tracker_goto_nil__array_generic(struct tracker *tk);
 
 #endif

@@ -1194,7 +1194,7 @@ resolve_expr_scoped_recur(struct ast_node_hdl *expr,
     struct list_of_visible_refs visible_refs;
 
     while (NULL != cur_scope
-           && AST_NODE_TYPE_COMPOSITE != cur_scope->filter->ndat->type) {
+           && !ast_node_is_filter(cur_scope->filter)) {
         cur_scope = cur_scope->parent_box;
     }
     if (NULL == cur_scope) {
@@ -2476,11 +2476,7 @@ compile_expr_operator_sizeof(
         target = ast_node_get_named_expr_target(
             target->ndat->u.rexpr_op_filter.target);
     }
-    switch (target->ndat->type) {
-    case AST_NODE_TYPE_BYTE:
-    case AST_NODE_TYPE_COMPOSITE:
-    case AST_NODE_TYPE_ARRAY:
-    case AST_NODE_TYPE_BYTE_ARRAY:
+    if (ast_node_is_filter(target)) {
         if (0 != (target->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
@@ -2496,8 +2492,6 @@ compile_expr_operator_sizeof(
             expr_value_as_integer(target->ndat->u.item.min_span_size);
         expr->ndat = compiled_type;
         return 0;
-    default:
-        break ;
     }
     if (target->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_UNSET ||
         target->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
@@ -3804,8 +3798,7 @@ ast_node_get_min_span_size(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
-    // FIXME add REXPR_FILTER when ready
-    // case AST_NODE_TYPE_REXPR_FILTER:
+    case AST_NODE_TYPE_REXPR_FILTER:
         assert(SPAN_SIZE_UNDEF != node->ndat->u.item.min_span_size);
         return node->ndat->u.item.min_span_size;
     default:
@@ -3830,22 +3823,6 @@ ast_node_is_slack(const struct ast_node_hdl *node)
     }
 }
 
-struct ast_node_hdl *
-block_get_first_attribute(const struct ast_node_hdl *filter,
-                          const char *attr_name)
-{
-    struct named_expr *attr_stmt;
-
-    STATEMENT_FOREACH(
-        named_expr, attr_stmt,
-        filter->ndat->u.rexpr_filter.filter_def->block_stmt_list.attribute_list, list) {
-        if (0 == strcmp(attr_stmt->nstmt.name, attr_name)) {
-            return attr_stmt->expr;
-        }
-    }
-    return NULL;
-}
-
 int
 ast_node_is_indexed(const struct ast_node_hdl *node)
 {
@@ -3857,10 +3834,10 @@ ast_node_is_indexed(const struct ast_node_hdl *node)
         array = (struct filter_instance_array *)
             node->ndat->u.rexpr_filter.f_instance;
         target = ast_node_get_as_type(array->item_type);
-        if (AST_NODE_TYPE_COMPOSITE != target->ndat->type) {
+        if (!ast_node_is_filter(target)) {
             return FALSE;
         }
-        return NULL != block_get_first_attribute(target, "@key");
+        return NULL != filter_get_first_declared_attribute(target, "@key");
     default:
         return FALSE;
     }
@@ -3877,13 +3854,13 @@ ast_node_get_key_expr(const struct ast_node_hdl *node)
         array = (struct filter_instance_array *)
             node->ndat->u.rexpr_filter.f_instance;
         target = ast_node_get_as_type(array->item_type);
-        if (AST_NODE_TYPE_COMPOSITE != target->ndat->type) {
+        if (!ast_node_is_filter(target)) {
             return NULL;
         }
         // TODO: multiple or conditional key expressions currently not
         // supported (needs proper support in index cache)
 
-        return block_get_first_attribute(target, "@key");
+        return filter_get_first_declared_attribute(target, "@key");
     default:
         return NULL;
     }

@@ -958,7 +958,7 @@ tracker_goto_next_key_match__array(struct tracker *tk,
     array = (struct filter_instance_array *)
         tk->box->filter->ndat->u.rexpr_filter.f_instance;
     item_type = ast_node_get_as_type(array->item_type);
-    if (AST_NODE_TYPE_COMPOSITE != item_type->ndat->type) {
+    if (!ast_node_is_filter(item_type)) {
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, item_type, bst,
                              "only arrays which items are structures can "
                              "be accessed through named index");
@@ -1161,6 +1161,27 @@ tracker_goto_named_item__array(struct tracker *tk, const char *name,
     return tracker_goto_first_item_with_key_internal(tk, item_key, bst);
 }
 
+bitpunch_status_t
+tracker_goto_end_path__array_generic(struct tracker *tk,
+                                     struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    int64_t n_items;
+
+    bt_ret = box_get_n_items_internal(tk->box, &n_items, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    tk->cur = track_path_from_array_index(n_items);
+    return BITPUNCH_OK;
+}
+
+void
+tracker_goto_nil__array_generic(struct tracker *tk)
+{
+    tk->cur = track_path_from_array_index(-1);
+}
+
 
 static void
 compile_node_backends__item__array(struct ast_node_hdl *item)
@@ -1306,6 +1327,8 @@ compile_node_backends__tracker__array(struct ast_node_hdl *item)
         b_tk->goto_nth_item_with_key =
             tracker_goto_nth_item_with_key__default;
     }
+    b_tk->goto_end_path = tracker_goto_end_path__array_generic;
+    b_tk->goto_nil = tracker_goto_nil__array_generic;
 }
 
 static void

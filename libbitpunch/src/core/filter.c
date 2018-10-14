@@ -812,3 +812,20 @@ filter_attach_native_attribute(
     attr->expr = ast_node_new_rexpr_native(value);
     TAILQ_INSERT_TAIL(attribute_list, (struct statement *)attr, list);
 }
+
+struct ast_node_hdl *
+filter_get_first_declared_attribute(
+    const struct ast_node_hdl *filter,
+    const char *attr_name)
+{
+    struct named_expr *attr_stmt;
+
+    STATEMENT_FOREACH(
+        named_expr, attr_stmt,
+        filter->ndat->u.rexpr_filter.filter_def->block_stmt_list.attribute_list, list) {
+        if (0 == strcmp(attr_stmt->nstmt.name, attr_name)) {
+            return attr_stmt->expr;
+        }
+    }
+    return NULL;
+}

@@ -191,7 +191,7 @@ box_get_n_items__slice_generic(struct box *box, int64_t *item_countp,
                                struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    struct track_path end_path;
+    int64_t array_n_items;
     int64_t index_start;
     int64_t index_end;
     int64_t item_count;
@@ -199,16 +199,14 @@ box_get_n_items__slice_generic(struct box *box, int64_t *item_countp,
     DBG_BOX_DUMP(box);
     assert(box->track_path.type == TRACK_PATH_ARRAY_SLICE);
     if (-1 == box->u.array_generic.n_items) {
-        bt_ret = box_get_end_path(box->parent_box, &end_path, bst);
+        bt_ret = box_get_n_items_internal(box->parent_box, &array_n_items, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
         index_start = box->track_path.u.array.index;
         index_end = box->track_path.u.array_slice.index_end;
-        if (-1 == index_end) {
-            index_end = end_path.u.array.index;
-        } else if (index_end > end_path.u.array.index) {
-            index_end = end_path.u.array.index;
+        if (-1 == index_end || index_end > array_n_items) {
+            index_end = array_n_items;
         }
         if (-1 == index_start) {
             index_start = 0;
@@ -452,6 +450,28 @@ tracker_goto_nth_item_with_key__array_slice(
     return bt_ret;
 }
 
+bitpunch_status_t
+tracker_goto_end_path__array_slice(struct tracker *tk,
+                                   struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    int64_t n_items;
+    int64_t index_start;
+
+    bt_ret = box_get_n_items_internal(tk->box, &n_items, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    // start of slice relative to parent array
+    index_start = tk->box->track_path.u.array.index;
+    if (-1 == index_start) {
+        index_start = 0;
+    }
+    // track path from beginning of parent array
+    tk->cur = track_path_from_array_index(index_start + n_items);
+    return BITPUNCH_OK;
+}
+
 static struct filter_instance *
 array_slice_filter_instance_build(struct ast_node_hdl *item)
 {
@@ -485,6 +505,8 @@ array_slice_filter_instance_build(struct ast_node_hdl *item)
         tracker_goto_next_item_with_key__array_slice;
     b_tk->goto_nth_item_with_key =
         tracker_goto_nth_item_with_key__array_slice;
+    b_tk->goto_end_path = tracker_goto_end_path__array_slice;
+    b_tk->goto_nil = tracker_goto_nil__array_generic;
 
     return slice;
 }

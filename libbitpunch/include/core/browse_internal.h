@@ -86,9 +86,6 @@ struct box_backend {
                                                     int get_left_offset,
                                                     int64_t *max_slack_offsetp,
                                                     struct browse_state *bst);
-    bitpunch_status_t (*get_end_path)(struct box *box,
-                                      struct track_path *end_pathp,
-                                      struct browse_state *bst);
 };
 
 struct tracker_backend {
@@ -120,10 +117,9 @@ struct tracker_backend {
                                                expr_value_t item_key,
                                                int nth_twin,
                                                struct browse_state *bst);
-    bitpunch_status_t (*goto_track_path)(struct tracker *tk,
-                                         struct track_path path,
-                                         struct browse_state *bst);
-    void              (*reset_track_path)(struct tracker *tk);
+    bitpunch_status_t (*goto_end_path)(struct tracker *tk,
+                                       struct browse_state *bst);
+    void              (*goto_nil)(struct tracker *tk);
 };
 
 int
@@ -249,9 +245,6 @@ bitpunch_status_t
 box_set_end_offset(struct box *box, int64_t end_offset,
                    enum box_offset_type type,
                    struct browse_state *bst);
-bitpunch_status_t
-box_get_end_path(struct box *box, struct track_path *end_pathp,
-                 struct browse_state *bst);
 bitpunch_status_t
 box_read_value_internal(struct box *box,
                         expr_value_t *valuep,
