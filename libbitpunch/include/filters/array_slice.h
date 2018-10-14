@@ -47,6 +47,12 @@ box_get_n_items__slice_generic(struct box *box, int64_t *item_countp,
                                struct browse_state *bst);
 
 bitpunch_status_t
+tracker_get_item_key__array_slice(struct tracker *tk,
+                                  expr_value_t *keyp,
+                                  int *nth_twinp,
+                                  struct browse_state *bst);
+
+bitpunch_status_t
 tracker_goto_first_item__array_slice(struct tracker *tk,
                                      struct browse_state *bst);
 bitpunch_status_t
@@ -64,10 +70,7 @@ tracker_goto_next_key_match__array_slice(struct tracker *tk,
                                          struct track_path search_boundary,
                                          struct browse_state *bst);
 
-void
-browse_setup_backends__array_slice(struct ast_node_hdl *filter);
-
 int
-browse_setup_global_backends__array_slice(void);
+compile_global_nodes__array_slice(struct compile_ctx *ctx);
 
 #endif

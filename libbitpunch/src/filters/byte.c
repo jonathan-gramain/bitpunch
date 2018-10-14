@@ -34,7 +34,21 @@
 
 #include <assert.h>
 
-#include "core/filter.h"
+#include "filters/byte.h"
+
+struct ast_node_data shared_ast_node_data_byte = {
+    .type = AST_NODE_TYPE_BYTE,
+    .u = {
+        .item = {
+            .min_span_size = (int64_t)-1,
+        }
+    }
+};
+struct ast_node_hdl shared_ast_node_byte = {
+    .ndat = &shared_ast_node_data_byte,
+};
+
+#define AST_NODE_BYTE &shared_ast_node_byte
 
 static struct filter_instance *
 byte_filter_instance_build(struct ast_node_hdl *filter)
@@ -54,6 +68,39 @@ compile_span_size_byte(struct ast_node_hdl *item,
     return 0;
 }
 
+static bitpunch_status_t
+box_get_n_items__byte(
+    struct box *box, int64_t *item_countp,
+    struct browse_state *bst)
+{
+    *item_countp = 1;
+    return BITPUNCH_OK;
+}
+
+static void
+compile_node_backends__box__byte(struct ast_node_hdl *item)
+{
+    struct box_backend *b_box = NULL;
+
+    b_box = &item->ndat->u.rexpr_filter.f_instance->b_box;
+    memset(b_box, 0, sizeof (*b_box));
+
+    b_box->compute_slack_size = box_compute_slack_size__as_container_slack;
+    b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
+    b_box->compute_span_size = box_compute_span_size__static_size;
+    b_box->compute_max_span_size = box_compute_max_span_size__as_span;
+    b_box->get_n_items = box_get_n_items__byte;
+    b_box->compute_used_size = box_compute_used_size__as_span;
+}
+
+
+void
+compile_node_backends__byte(struct ast_node_hdl *item)
+{
+    compile_node_backends__item__generic(item);
+    compile_node_backends__box__byte(item);
+}
+
 static int
 byte_filter_instance_compile(struct ast_node_hdl *filter,
                              struct filter_instance *f_instance,
@@ -63,6 +110,9 @@ byte_filter_instance_compile(struct ast_node_hdl *filter,
     if (0 != (tags & COMPILE_TAG_NODE_SPAN_SIZE)
         && -1 == compile_span_size_byte(filter, f_instance, ctx)) {
         return -1;
+    }
+    if (0 != (tags & COMPILE_TAG_BROWSE_BACKENDS)) {
+        compile_node_backends__byte(filter);
     }
     return 0;
 }
@@ -78,4 +128,22 @@ filter_class_declare_byte(void)
                                byte_filter_instance_compile,
                                0);
     assert(0 == ret);
+
+    ret = filter_instance_build_shared(AST_NODE_BYTE, "byte");
+    assert(0 == ret);
+}
+
+int
+compile_global_nodes__byte(struct compile_ctx *ctx)
+{
+    (void)compile_span_size_byte(AST_NODE_BYTE, NULL, NULL);
+
+    compile_node_backends__byte(AST_NODE_BYTE);
+    return 0;
+}
+
+struct ast_node_hdl *
+filter_get_global_instance__byte(void)
+{
+    return AST_NODE_BYTE;
 }

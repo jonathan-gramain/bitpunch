@@ -100,13 +100,17 @@ compute_item_size__static_size(struct ast_node_hdl *item_filter,
                                int64_t *item_sizep,
                                struct browse_state *bst);
 
+void
+compile_node_backends__filter_generic(struct ast_node_hdl *filter);
+void
+compile_node_backends__item__generic(struct ast_node_hdl *item);
+void
+compile_node_backends__item(struct ast_node_hdl *item);
+
 int
-browse_setup_backends_rexpr_filter(struct ast_node_hdl *filter);
-void
-browse_setup_backends__item__generic(struct ast_node_hdl *item);
-void
-browse_setup_backends__item(struct ast_node_hdl *item);
-void
-browse_setup_backends__source(struct ast_node_hdl *item);
+compile_global_nodes__item(struct compile_ctx *ctx);
+
+struct ast_node_hdl *
+filter_get_global_instance__source(void);
 
 #endif

@@ -59,7 +59,7 @@ struct parser_ctx {
 };
 
 struct file_block {
-    struct dpath_node *root;
+    struct ast_node_hdl *root;
 };
 
 enum bitpunch_schema_type {

@@ -1158,7 +1158,7 @@ tracker_goto_named_item__array(struct tracker *tk, const char *name,
 
 
 static void
-browse_setup_backends__item__array(struct ast_node_hdl *item)
+compile_node_backends__item__array(struct ast_node_hdl *item)
 {
     struct filter_instance_array *array;
     bitpunch_status_t bt_ret;
@@ -1166,7 +1166,7 @@ browse_setup_backends__item__array(struct ast_node_hdl *item)
     const struct ast_node_hdl *item_type;
     struct item_backend *b_item;
 
-    browse_setup_backends__item__generic(item);
+    compile_node_backends__item__generic(item);
 
     array = (struct filter_instance_array *)
         item->ndat->u.rexpr_filter.f_instance;
@@ -1190,7 +1190,7 @@ browse_setup_backends__item__array(struct ast_node_hdl *item)
 }
 
 static void
-browse_setup_backends__box__array(struct ast_node_hdl *item)
+compile_node_backends__box__array(struct ast_node_hdl *item)
 {
     struct filter_instance_array *array;
     struct box_backend *b_box = NULL;
@@ -1244,7 +1244,7 @@ browse_setup_backends__box__array(struct ast_node_hdl *item)
 }
 
 static void
-browse_setup_backends__tracker__array(struct ast_node_hdl *item)
+compile_node_backends__tracker__array(struct ast_node_hdl *item)
 {
     struct filter_instance_array *array;
     struct item_backend *b_item;
@@ -1305,27 +1305,32 @@ browse_setup_backends__tracker__array(struct ast_node_hdl *item)
 }
 
 static void
-browse_setup_backends__array(struct ast_node_hdl *item)
+compile_node_backends__array(struct ast_node_hdl *item)
 {
-    browse_setup_backends__item__array(item);
-    browse_setup_backends__box__array(item);
-    browse_setup_backends__tracker__array(item);
+    compile_node_backends__item__array(item);
+    compile_node_backends__box__array(item);
+    compile_node_backends__tracker__array(item);
 }
 
 static int
-browse_setup_backends_array_filter(struct ast_node_hdl *item,
-                                   struct filter_instance_array *array,
-                                   struct compile_ctx *ctx)
+compile_node_backends_array(struct ast_node_hdl *item,
+                            struct filter_instance_array *array,
+                            struct compile_ctx *ctx)
 {
-    if (-1 == browse_setup_backends_node_recur(array->item_type)) {
-        return 1;
+    if (-1 == compile_node(array->item_type, ctx,
+                           COMPILE_TAG_NODE_TYPE |
+                           COMPILE_TAG_NODE_SPAN_SIZE,
+                           COMPILE_TAG_BROWSE_BACKENDS,
+                           RESOLVE_EXPECT_TYPE |
+                           RESOLVE_EXPECT_FILTER)) {
+        return -1;
     }
     switch (item->ndat->type) {
     case AST_NODE_TYPE_ARRAY:
-        browse_setup_backends__array(item);
+        compile_node_backends__array(item);
         break ;
     case AST_NODE_TYPE_BYTE_ARRAY:
-        browse_setup_backends__byte_array(item);
+        compile_node_backends__byte_array(item);
         break ;
     default:
         assert(0);
@@ -1351,7 +1356,7 @@ array_filter_instance_compile(struct ast_node_hdl *filter,
         return -1;
     }
     if (0 != (tags & COMPILE_TAG_BROWSE_BACKENDS)
-        && -1 == browse_setup_backends_array_filter(filter, array, ctx)) {
+        && -1 == compile_node_backends_array(filter, array, ctx)) {
         return -1;
     }
     return 0;

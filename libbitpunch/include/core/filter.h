@@ -105,6 +105,9 @@ int
 filter_instance_build(struct ast_node_hdl *node,
                       const struct filter_class *filter_cls,
                       struct filter_def *filter_def);
+int
+filter_instance_build_shared(struct ast_node_hdl *node,
+                             const char *filter_name);
 
 bitpunch_status_t
 filter_instance_read_value(struct ast_node_hdl *filter,
@@ -210,6 +213,6 @@ filter_attach_native_attribute(
 
 
 void
-browse_setup_backends__filter__filter(struct ast_node_hdl *filter);
+compile_node_backends__filter__filter(struct ast_node_hdl *filter);
 
 #endif

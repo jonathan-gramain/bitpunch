@@ -38,6 +38,7 @@
 #include "core/debug.h"
 #include "filters/array.h"
 #include "filters/array_slice.h"
+#include "filters/byte_slice.h"
 
 struct ast_node_data shared_ast_node_data_array_slice = {
     .type = AST_NODE_TYPE_ARRAY_SLICE,
@@ -46,15 +47,7 @@ struct ast_node_hdl shared_ast_node_array_slice = {
     .ndat = &shared_ast_node_data_array_slice,
 };
 
-struct ast_node_data shared_ast_node_data_byte_slice = {
-    .type = AST_NODE_TYPE_BYTE_SLICE,
-};
-struct ast_node_hdl shared_ast_node_byte_slice = {
-    .ndat = &shared_ast_node_data_byte_slice,
-};
-
 #define AST_NODE_ARRAY_SLICE &shared_ast_node_array_slice
-#define AST_NODE_BYTE_SLICE &shared_ast_node_byte_slice
 
 struct box *
 box_array_slice_get_ancestor_array(struct box *box)
@@ -65,7 +58,6 @@ box_array_slice_get_ancestor_array(struct box *box)
     array_box = box;
     while (AST_NODE_TYPE_ARRAY != array_box->filter->ndat->type &&
            AST_NODE_TYPE_BYTE_ARRAY != array_box->filter->ndat->type &&
-           AST_NODE_TYPE_AS_BYTES != array_box->filter->ndat->type &&
            AST_NODE_TYPE_SOURCE != array_box->filter->ndat->type) {
         array_box = array_box->parent_box;
         /* An array slice box shall always have a real array ancestor. */
@@ -101,10 +93,9 @@ box_new_slice_box(struct tracker *slice_start,
         break ;
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
-    case AST_NODE_TYPE_AS_BYTES:
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_SOURCE:
-        slice_filter = AST_NODE_BYTE_SLICE;
+        slice_filter = filter_get_global_instance__byte_slice();
         break ;
     default:
         (void) tracker_error(BITPUNCH_INVALID_PARAM, slice_start, NULL, bst,
@@ -233,7 +224,7 @@ box_get_n_items__slice_generic(struct box *box, int64_t *item_countp,
     return BITPUNCH_OK;
 }
 
-static bitpunch_status_t
+bitpunch_status_t
 tracker_get_item_key__array_slice(struct tracker *tk,
                                   expr_value_t *keyp,
                                   int *nth_twinp,
@@ -530,23 +521,18 @@ tracker_enter_slice(struct tracker *tk, struct tracker *slice_end,
 
 
 
-void
-browse_setup_backends__array_slice(struct ast_node_hdl *filter)
+static void
+compile_node_backends__array_slice(struct ast_node_hdl *filter)
 {
     filter->ndat->u.rexpr_filter.f_instance =
         array_slice_filter_instance_build(filter);
 
-    browse_setup_backends__filter__filter(filter);
+    compile_node_backends__filter__filter(filter);
 }
 
 int
-browse_setup_global_backends__array_slice(void)
+compile_global_nodes__array_slice(struct compile_ctx *ctx)
 {
-    if (-1 == browse_setup_backends_node_recur(AST_NODE_ARRAY_SLICE)) {
-        return -1;
-    }
-    if (-1 == browse_setup_backends_node_recur(AST_NODE_BYTE_SLICE)) {
-        return -1;
-    }
+    compile_node_backends__array_slice(AST_NODE_ARRAY_SLICE);
     return 0;
 }

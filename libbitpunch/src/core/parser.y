@@ -151,8 +151,6 @@
         ASTFLAG_RESOLVE_SPAN_SIZE_REQUESTED = (1<<19),
         ASTFLAG_RESOLVE_SPAN_SIZE_IN_PROGRESS = (1<<20),
         ASTFLAG_RESOLVE_SPAN_SIZE_COMPLETED = (1<<21),
-        ASTFLAG_BROWSE_SETUP_BACKENDS_IN_PROGRESS = (1<<22),
-        ASTFLAG_BROWSE_SETUP_BACKENDS_COMPLETED   = (1<<23),
     };
 
     enum ast_node_data_flag {
@@ -216,7 +214,6 @@
             AST_NODE_TYPE_BYTE_ARRAY,
             AST_NODE_TYPE_ARRAY_SLICE,
             AST_NODE_TYPE_BYTE_SLICE,
-            AST_NODE_TYPE_AS_BYTES,
             AST_NODE_TYPE_SOURCE,
             AST_NODE_TYPE_CONDITIONAL,
             AST_NODE_TYPE_OP_EQ,
@@ -929,8 +926,9 @@ schema:
         }
         /* ignore fields outside file{} */
         TAILQ_INIT($1.field_list);
+        assert(AST_NODE_TYPE_FILTER_DEF == $file_block.root->ndat->type);
         if (-1 == merge_block_stmt_list(
-                &$file_block.root->item->ndat->u.filter_def.block_stmt_list,
+                &$file_block.root->ndat->u.filter_def.block_stmt_list,
                 &$1)) {
             YYERROR;
         }
@@ -948,17 +946,15 @@ schema:
 file_block: KW_FILE '{' block_stmt_list '}' {
         struct ast_node_data *item;
 
-        $$.root = new_safe(struct dpath_node);
-        $$.root->item = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, &@$);
-        item = $$.root->item->ndat;
+        $$.root = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, &@$);
+        item = $$.root->ndat;
         item->u.filter_def.filter_type = "struct";
         if (TAILQ_EMPTY($block_stmt_list.field_list)) {
             semantic_error(SEMANTIC_LOGLEVEL_WARNING, &@$,
                            "file block has zero field");
         }
         item->u.filter_def.block_stmt_list = $block_stmt_list;
-        $$.root->item->flags = ASTFLAG_IS_ROOT_BLOCK;
-        $$.root->filter = NULL;
+        $$.root->flags = ASTFLAG_IS_ROOT_BLOCK;
     }
 
 filter_block:
@@ -1201,7 +1197,6 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_BYTE_ARRAY: return "byte array";
     case AST_NODE_TYPE_ARRAY_SLICE: return "slice";
     case AST_NODE_TYPE_BYTE_SLICE: return "byte slice";
-    case AST_NODE_TYPE_AS_BYTES: return "as bytes";
     case AST_NODE_TYPE_SOURCE: return "source";
     case AST_NODE_TYPE_CONDITIONAL: return "conditional";
     case AST_NODE_TYPE_REXPR_NATIVE: return "native type";

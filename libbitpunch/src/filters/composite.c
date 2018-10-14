@@ -72,6 +72,7 @@ compile_span_size_composite(struct ast_node_hdl *item,
                             struct filter_instance_composite *composite,
                             struct compile_ctx *ctx)
 {
+    struct filter_def *filter_def;
     struct named_expr *attr;
     struct ast_node_hdl *min_span_expr;
     struct ast_node_hdl *max_span_expr;
@@ -112,15 +113,19 @@ compile_span_size_composite(struct ast_node_hdl *item,
     child_fills_slack = FALSE;
     child_conditionally_fills_slack = FALSE;
 
+    filter_def = item->ndat->u.rexpr_filter.filter_def;
+    field_list = filter_def->block_stmt_list.field_list;
+    if (-1 == compile_fields(field_list,
+                             COMPILE_TAG_NODE_TYPE |
+                             COMPILE_TAG_NODE_SPAN_SIZE, 0u, ctx)) {
+        return -1;
+    }
     min_span_expr = NULL;
     max_span_expr = NULL;
     STATEMENT_FOREACH(
         named_expr, attr,
         item->ndat->u.rexpr_filter.filter_def->block_stmt_list.attribute_list,
         list) {
-        if (-1 == compile_expr(attr->expr, ctx, TRUE)) {
-            return -1;
-        }
         if (0 == strcmp(attr->nstmt.name, "@minspan")) {
             if (NULL == attr->nstmt.stmt.cond) {
                 min_span_expr = attr->expr;
@@ -142,16 +147,7 @@ compile_span_size_composite(struct ast_node_hdl *item,
             contains_last_attr = TRUE;
         }
     }
-    field_list = item->ndat->u.rexpr_filter.filter_def->block_stmt_list.field_list;
     first_trailer_field = NULL;
-    STATEMENT_FOREACH(field, field, field_list, list) {
-        compile_field(field, ctx,
-                      COMPILE_TAG_NODE_TYPE |
-                      COMPILE_TAG_NODE_SPAN_SIZE, 0u);
-    }
-    if (!compile_continue(ctx)) {
-        return -1;
-    }
     STATEMENT_FOREACH(field, field, field_list, list) {
         bt_ret = ast_node_filter_get_items(field->filter, &field_items);
         if (BITPUNCH_OK != bt_ret) {
@@ -835,7 +831,7 @@ tracker_goto_field_internal(struct tracker *tk,
 }
 
 static void
-browse_setup_backends__box__composite(struct ast_node_hdl *item)
+compile_node_backends__box__composite(struct ast_node_hdl *item)
 {
     struct box_backend *b_box = NULL;
     struct filter_instance_composite *composite;
@@ -880,7 +876,7 @@ browse_setup_backends__box__composite(struct ast_node_hdl *item)
 }
 
 static void
-browse_setup_backends__tracker__composite(struct ast_node_hdl *item)
+compile_node_backends__tracker__composite(struct ast_node_hdl *item)
 {
     struct item_backend *b_item;
     struct tracker_backend *b_tk;
@@ -905,59 +901,12 @@ browse_setup_backends__tracker__composite(struct ast_node_hdl *item)
 }
 
 static int
-browse_setup_backends_stmt_list_generic(struct statement_list *stmt_list)
+compile_node_backends_composite(struct ast_node_hdl *filter,
+                                struct compile_ctx *ctx)
 {
-    struct statement *stmt;
-
-    TAILQ_FOREACH(stmt, stmt_list, list) {
-        if (NULL != stmt->cond
-            && -1 == browse_setup_backends_node_recur(stmt->cond)) {
-            return -1;
-        }
-    }
-    return 0;
-}
-
-static int
-browse_setup_backends_recur_composite(struct ast_node_hdl *filter)
-{
-    struct block_stmt_list *stmt_lists;
-    struct field *field;
-    struct named_expr *named_expr;
-
-    stmt_lists = &filter->ndat->u.rexpr_filter.filter_def->block_stmt_list;
-    if (-1 == browse_setup_backends_stmt_list_generic(
-            stmt_lists->named_expr_list)) {
-        return -1;
-    }
-    if (-1 == browse_setup_backends_stmt_list_generic(
-            stmt_lists->field_list)) {
-        return -1;
-    }
-    if (-1 == browse_setup_backends_stmt_list_generic(
-            stmt_lists->attribute_list)) {
-        return -1;
-    }
-    STATEMENT_FOREACH(named_expr, named_expr,
-                      stmt_lists->named_expr_list, list) {
-        if (-1 == browse_setup_backends_node_recur(named_expr->expr)) {
-            return -1;
-        }
-    }
-    STATEMENT_FOREACH(field, field, stmt_lists->field_list, list) {
-        if (-1 == browse_setup_backends_node_recur(field->filter)) {
-            return -1;
-        }
-    }
-    STATEMENT_FOREACH(named_expr, named_expr,
-                      stmt_lists->attribute_list, list) {
-        if (-1 == browse_setup_backends_node_recur(named_expr->expr)) {
-            return -1;
-        }
-    }
-    browse_setup_backends__item__generic(filter);
-    browse_setup_backends__box__composite(filter);
-    browse_setup_backends__tracker__composite(filter);
+    compile_node_backends__item__generic(filter);
+    compile_node_backends__box__composite(filter);
+    compile_node_backends__tracker__composite(filter);
     return 0;
 }
 
@@ -975,7 +924,7 @@ composite_filter_instance_compile(struct ast_node_hdl *filter,
         return -1;
     }
     if (0 != (tags & COMPILE_TAG_BROWSE_BACKENDS)
-        && -1 == browse_setup_backends_recur_composite(filter)) {
+        && -1 == compile_node_backends_composite(filter, ctx)) {
         return -1;
     }
     return 0;

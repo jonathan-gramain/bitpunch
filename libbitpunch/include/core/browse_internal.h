@@ -134,15 +134,6 @@ browse_state_init(struct browse_state *bst);
 void
 browse_state_cleanup(struct browse_state *bst);
 
-int
-browse_setup_global_backends(void);
-int
-browse_setup_backends_dpath(struct dpath_node *dpath);
-int
-browse_setup_backends_expr(struct ast_node_hdl *expr);
-int
-browse_setup_backends_node_recur(struct ast_node_hdl *node);
-
 bitpunch_status_t
 box_construct(struct box *o_box,
               struct box *parent_box,
@@ -172,6 +163,13 @@ box_compute_slack_size(struct box *box,
 bitpunch_status_t
 box_compute__error(struct box *box,
                    struct browse_state *bst);
+bitpunch_status_t
+filter_read_value__operator_filter(struct ast_node_hdl *filter,
+                                   struct box *scope,
+                                   int64_t item_offset,
+                                   int64_t item_size,
+                                   expr_value_t *valuep,
+                                   struct browse_state *bst);
 bitpunch_status_t
 box_get_slack_child_allocation(struct box *box,
                                int get_left_offset,

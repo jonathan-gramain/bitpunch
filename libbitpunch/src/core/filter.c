@@ -221,6 +221,21 @@ filter_instance_build(struct ast_node_hdl *node,
     return 0;
 }
 
+int
+filter_instance_build_shared(struct ast_node_hdl *node,
+                             const char *filter_name)
+{
+    const struct filter_class *filter_cls;
+
+    filter_cls = filter_class_lookup(filter_name);
+    assert(NULL != filter_cls);
+    if (-1 == filter_instance_build(node, filter_cls,
+                                    filter_def_create_empty(filter_name))) {
+        return -1;
+    }
+    return 0;
+}
+
 const struct filter_attr_def *
 filter_class_get_attr(const struct filter_class *filter_cls,
                          const char *attr_name)

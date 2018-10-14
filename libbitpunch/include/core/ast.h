@@ -48,6 +48,7 @@ struct field;
 struct parser_location;
 struct expr_value;
 enum statement_type;
+struct statement_list;
 
 enum resolve_expect_mask {
     RESOLVE_EXPECT_TYPE             = (1u<<0),
@@ -103,6 +104,11 @@ int
 compile_expr(struct ast_node_hdl *node, struct compile_ctx *ctx,
              int is_dependency);
 int
+compile_expr_tags(struct ast_node_hdl *node,
+                  dep_resolver_tagset_t tags,
+                  struct compile_ctx *ctx,
+                  int is_dependency);
+int
 compile_dpath(struct dpath_node *node,
               struct compile_ctx *ctx,
               dep_resolver_tagset_t tags_pre,
@@ -113,6 +119,30 @@ compile_field(struct field *field,
               struct compile_ctx *ctx,
               dep_resolver_tagset_t tags_pre,
               dep_resolver_tagset_t tags_post);
+
+int
+compile_attributes(const struct statement_list *attribute_list,
+                   dep_resolver_tagset_t tags_pre,
+                   dep_resolver_tagset_t tags_post,
+                   struct compile_ctx *ctx);
+
+int
+compile_fields(const struct statement_list *field_list,
+               dep_resolver_tagset_t tags_pre,
+               dep_resolver_tagset_t tags_post,
+               struct compile_ctx *ctx);
+
+int
+compile_named_exprs(const struct statement_list *named_expr_list,
+                    dep_resolver_tagset_t tags_pre,
+                    dep_resolver_tagset_t tags_post,
+                    struct compile_ctx *ctx);
+
+int
+compile_stmt_lists(const struct block_stmt_list *stmt_lists,
+                   dep_resolver_tagset_t tags,
+                   struct compile_ctx *ctx);
+
 
 struct ast_node_hdl *
 ast_node_new_rexpr_native(struct expr_value value);

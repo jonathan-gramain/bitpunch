@@ -49,6 +49,7 @@
 //FIXME remove once filters become isolated
 #include "filters/composite.h"
 #include "filters/array.h"
+#include "filters/byte.h"
 #include "filters/byte_array.h"
 #include "filters/array_slice.h"
 #include "filters/byte_slice.h"
@@ -71,17 +72,6 @@ error_get_expected(bitpunch_status_t bt_err,
     return NULL;
 }
 
-// static ast nodes
-
-
-struct ast_node_data shared_ast_node_data_source = {
-    .type = AST_NODE_TYPE_SOURCE,
-};
-struct ast_node_hdl shared_ast_node_source = {
-    .ndat = &shared_ast_node_data_source,
-};
-
-#define AST_NODE_SOURCE &shared_ast_node_source
 
 struct track_path
 track_path_from_composite_field(const struct field *field)
@@ -827,7 +817,6 @@ box_construct(struct box *o_box,
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
-    case AST_NODE_TYPE_AS_BYTES:
     case AST_NODE_TYPE_SOURCE:
         o_box->u.array_generic.n_items = -1;
         break ;
@@ -1077,10 +1066,11 @@ box_new_from_file_internal(const struct bitpunch_schema *def_hdl,
     // dpath, which can be chained with a composite or other type of
     // (usually trackable) filter
 
-    root_filter = def_hdl->file_block.root->filter;
+    root_filter = def_hdl->file_block.root;
     assert(NULL != root_filter);
     source_box = new_safe(struct box);
-    bt_ret = box_construct(source_box, NULL, AST_NODE_SOURCE, 0, 0u, bst);
+    bt_ret = box_construct(source_box, NULL,
+                           filter_get_global_instance__source(), 0, 0u, bst);
     if (BITPUNCH_OK != bt_ret) {
         /* TODO error reporting */
         box_delete_non_null(source_box);
@@ -1412,7 +1402,6 @@ tracker_reset_track_path(struct tracker *tk)
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
-    case AST_NODE_TYPE_AS_BYTES:
     case AST_NODE_TYPE_SOURCE:
         tk->cur = track_path_from_array_index(-1);
         break ;
@@ -2113,7 +2102,6 @@ box_get_end_path(struct box *box, struct track_path *end_pathp,
     switch (node->ndat->type) {
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
-    case AST_NODE_TYPE_AS_BYTES:
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_SOURCE:
         bt_ret = box_get_n_items_internal(box, &n_items, bst);
@@ -2245,7 +2233,6 @@ tracker_compute_item_offset(struct tracker *tk,
                                            TRUE, bst);
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
-    case AST_NODE_TYPE_AS_BYTES:
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_SOURCE:
         return tracker_goto_nth_item_internal(tk, tk->cur.u.array.index,
@@ -3799,7 +3786,7 @@ box_compute__error(struct box *box,
 }
 
 
-static bitpunch_status_t
+bitpunch_status_t
 filter_read_value__operator_filter(struct ast_node_hdl *filter,
                                    struct box *scope,
                                    int64_t item_offset,
@@ -3842,17 +3829,6 @@ tracker_goto_nth_item_with_key__default(struct tracker *tk,
     return BITPUNCH_NO_ITEM;
 }
 
-static bitpunch_status_t
-box_get_n_items__byte(
-    struct box *box, int64_t *item_countp,
-    struct browse_state *bst)
-{
-    *item_countp = 1;
-    return BITPUNCH_OK;
-}
-
-
-
 
 bitpunch_status_t
 tracker_goto_next_item_with_key__not_impl(struct tracker *tk,
@@ -3892,313 +3868,6 @@ box_get_n_items__as_used(struct box *box, int64_t *item_countp,
     return BITPUNCH_OK;
 }
 
-
-/*
- * setup backends
- */
-
-static struct filter_instance *
-operator_filter_filter_instance_build(struct ast_node_hdl *item)
-{
-    struct filter_instance *filter;
-    struct item_backend *b_item;
-
-    filter = new_safe(struct filter_instance);
-    b_item = &filter->b_item;
-    memset(b_item, 0, sizeof (*b_item));
-
-    b_item->read_value = filter_read_value__operator_filter;
-    return filter;
-}
-
-static void
-browse_setup_backends__operator_filter(struct ast_node_hdl *item)
-{
-    item->ndat->u.rexpr_filter.f_instance =
-        operator_filter_filter_instance_build(item);
-}
-
-
-static void
-browse_setup_backends__box__byte(struct ast_node_hdl *item)
-{
-    struct box_backend *b_box = NULL;
-
-    b_box = &item->ndat->u.rexpr_filter.f_instance->b_box;
-    memset(b_box, 0, sizeof (*b_box));
-
-    b_box->compute_slack_size = box_compute_slack_size__as_container_slack;
-    b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
-    b_box->compute_span_size = box_compute_span_size__static_size;
-    b_box->compute_max_span_size = box_compute_max_span_size__as_span;
-    b_box->get_n_items = box_get_n_items__byte;
-    b_box->compute_used_size = box_compute_used_size__as_span;
-}
-
-
-static void
-browse_setup_backends__byte(struct ast_node_hdl *item)
-{
-    item->ndat->u.rexpr_filter.f_instance = new_safe(struct filter_instance);
-
-    browse_setup_backends__item__generic(item);
-    browse_setup_backends__box__byte(item);
-}
-
-static int
-browse_setup_backends_node(struct ast_node_hdl *node)
-{
-    switch (node->ndat->type) {
-    case AST_NODE_TYPE_BYTE:
-        browse_setup_backends__byte(node);
-        break ;
-    case AST_NODE_TYPE_AS_BYTES:
-        browse_setup_backends__as_bytes(node);
-        break ;
-    case AST_NODE_TYPE_ARRAY_SLICE:
-        browse_setup_backends__array_slice(node);
-        break ;
-    case AST_NODE_TYPE_BYTE_SLICE:
-        browse_setup_backends__byte_slice(node);
-        break ;
-    case AST_NODE_TYPE_SOURCE:
-        browse_setup_backends__source(node);
-        break ;
-    case AST_NODE_TYPE_REXPR_FILE:
-    case AST_NODE_TYPE_REXPR_SELF:
-        browse_setup_backends__item(node);
-        break ;
-    case AST_NODE_TYPE_REXPR_OP_FILTER:
-        browse_setup_backends__operator_filter(node);
-        break ;
-    default:
-        break ;
-    }
-    return 0;
-}
-
-static int
-browse_setup_backends_subscript_index(struct ast_node_hdl *expr,
-                                     struct subscript_index *subscript)
-{
-    int ret;
-
-    if (NULL == subscript->key) {
-        return 0;
-    }
-    ret = browse_setup_backends_node_recur(subscript->key);
-    if (-1 == ret) {
-        return -1;
-    }
-    if (NULL != subscript->twin) {
-        ret = browse_setup_backends_node_recur(subscript->twin);
-        if (-1 == ret) {
-            return -1;
-        }
-    }
-    return 0;
-}
-
-static int
-browse_setup_backends_subscript(struct ast_node_hdl *expr)
-{
-    int ret;
-    struct subscript_index *index;
-    struct ast_node_hdl *anchor_expr;
-
-    anchor_expr = expr->ndat->u.rexpr_op_subscript_common.anchor_expr;
-    assert(NULL != anchor_expr);
-    ret = browse_setup_backends_node_recur(anchor_expr);
-    if (-1 == ret) {
-        return -1;
-    }
-    index = &expr->ndat->u.rexpr_op_subscript.index;
-    ret = browse_setup_backends_subscript_index(expr, index);
-    if (-1 == ret) {
-        return -1;
-    }
-    return 0;
-}
-
-static int
-browse_setup_backends_subscript_slice(struct ast_node_hdl *expr)
-{
-    int ret;
-    struct ast_node_hdl *anchor_expr;
-    struct subscript_index *slice_start;
-    struct subscript_index *slice_end;
-
-    anchor_expr = expr->ndat->u.rexpr_op_subscript_common.anchor_expr;
-    assert(NULL != anchor_expr);
-    ret = browse_setup_backends_node_recur(anchor_expr);
-    if (-1 == ret) {
-        return -1;
-    }
-    slice_start = &expr->ndat->u.rexpr_op_subscript_slice.start;
-    slice_end = &expr->ndat->u.rexpr_op_subscript_slice.end;
-    ret = browse_setup_backends_subscript_index(expr, slice_start);
-    if (-1 == ret) {
-        return -1;
-    }
-    ret = browse_setup_backends_subscript_index(expr, slice_end);
-    if (-1 == ret) {
-        return -1;
-    }
-    return 0;
-}
-
-static int
-browse_setup_backends_fcall(struct ast_node_hdl *expr)
-{
-    struct statement *stmt;
-    struct named_expr *param;
-
-    /* resolve expressions in parameter list */
-    TAILQ_FOREACH(stmt, expr->ndat->u.rexpr_op_fcall.func_params, list) {
-        param = (struct named_expr *)stmt;
-        if (-1 == browse_setup_backends_node_recur(param->expr)) {
-            return -1;
-        }
-    }
-    return 0;
-}
-
-int
-browse_setup_backends_expr(struct ast_node_hdl *expr)
-{
-    return browse_setup_backends_node_recur(expr);
-}
-
-int
-browse_setup_backends_node_recur(struct ast_node_hdl *node)
-{
-    int ret = 0;
-
-    if (0 != (node->flags & (ASTFLAG_BROWSE_SETUP_BACKENDS_IN_PROGRESS |
-                             ASTFLAG_BROWSE_SETUP_BACKENDS_COMPLETED))) {
-        return 0;
-    }
-    node->flags |= ASTFLAG_BROWSE_SETUP_BACKENDS_IN_PROGRESS;
-    switch (node->ndat->type) {
-    case AST_NODE_TYPE_REXPR_FILTER:
-    case AST_NODE_TYPE_COMPOSITE:
-    case AST_NODE_TYPE_ARRAY:
-    case AST_NODE_TYPE_BYTE_ARRAY:
-        ret = browse_setup_backends_rexpr_filter(node);
-        break ;
-    case AST_NODE_TYPE_CONDITIONAL:
-        ret = browse_setup_backends_node_recur(
-            node->ndat->u.conditional.cond_expr);
-        break ;
-    case AST_NODE_TYPE_REXPR_OP_FILTER:
-        if (NULL != node->ndat->u.rexpr_op_filter.target) {
-            ret = browse_setup_backends_node_recur(
-                node->ndat->u.rexpr_op_filter.target);
-        }
-        if (0 == ret) {
-            ret = browse_setup_backends_node_recur(
-                node->ndat->u.rexpr_op_filter.filter_expr);
-        }
-        break ;
-    case AST_NODE_TYPE_REXPR_FIELD:
-        return browse_setup_backends_node_recur(
-            node->ndat->u.rexpr_field.field->filter);
-    case AST_NODE_TYPE_REXPR_NAMED_EXPR:
-        // XXX is it useful?
-        return browse_setup_backends_node_recur(
-            node->ndat->u.rexpr_named_expr.named_expr->expr);
-    case AST_NODE_TYPE_REXPR_OP_UPLUS:
-    case AST_NODE_TYPE_REXPR_OP_UMINUS:
-    case AST_NODE_TYPE_REXPR_OP_LNOT:
-    case AST_NODE_TYPE_REXPR_OP_BWNOT:
-    case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
-    case AST_NODE_TYPE_REXPR_OP_EQ:
-    case AST_NODE_TYPE_REXPR_OP_NE:
-    case AST_NODE_TYPE_REXPR_OP_GT:
-    case AST_NODE_TYPE_REXPR_OP_LT:
-    case AST_NODE_TYPE_REXPR_OP_GE:
-    case AST_NODE_TYPE_REXPR_OP_LE:
-    case AST_NODE_TYPE_REXPR_OP_LOR:
-    case AST_NODE_TYPE_REXPR_OP_LAND:
-    case AST_NODE_TYPE_REXPR_OP_BWOR:
-    case AST_NODE_TYPE_REXPR_OP_BWXOR:
-    case AST_NODE_TYPE_REXPR_OP_BWAND:
-    case AST_NODE_TYPE_REXPR_OP_LSHIFT:
-    case AST_NODE_TYPE_REXPR_OP_RSHIFT:
-    case AST_NODE_TYPE_REXPR_OP_ADD:
-    case AST_NODE_TYPE_REXPR_OP_SUB:
-    case AST_NODE_TYPE_REXPR_OP_MUL:
-    case AST_NODE_TYPE_REXPR_OP_DIV:
-    case AST_NODE_TYPE_REXPR_OP_MOD:
-    case AST_NODE_TYPE_REXPR_OP_SIZEOF:
-    case AST_NODE_TYPE_REXPR_OP_ADDROF:
-        ret = browse_setup_backends_node_recur(
-            node->ndat->u.rexpr_op.op.operands[0]);
-        if (0 == ret && NULL != node->ndat->u.rexpr_op.op.operands[1]) {
-            ret = browse_setup_backends_node_recur(
-                node->ndat->u.rexpr_op.op.operands[1]);
-        }
-        break ;
-    case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT:
-        ret = browse_setup_backends_subscript(node);
-        break ;
-    case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE:
-        ret = browse_setup_backends_subscript_slice(node);
-        break ;
-    case AST_NODE_TYPE_REXPR_OP_FCALL:
-        ret = browse_setup_backends_fcall(node);
-        break ;
-    default:
-        break ;
-    }
-    if (-1 == ret) {
-        return -1;
-    }
-    if (-1 == browse_setup_backends_node(node)) {
-        return -1;
-    }
-    node->flags |= ASTFLAG_BROWSE_SETUP_BACKENDS_COMPLETED;
-    return 0;
-}
-
-int
-browse_setup_backends_dpath(struct dpath_node *dpath)
-{
-    int ret = 0;
-
-    if (NULL != dpath->item) {
-        ret = browse_setup_backends_node_recur(dpath->item);
-        if (0 != ret) {
-            return ret;
-        }
-    }
-    if (NULL != dpath->filter) {
-        ret = browse_setup_backends_node_recur(dpath->filter);
-        if (0 != ret) {
-            return ret;
-        }
-    }
-    return 0;
-}
-
-int
-browse_setup_global_backends(void)
-{
-    if (-1 == browse_setup_global_backends__byte_array()) {
-        return -1;
-    }
-    if (-1 == browse_setup_global_backends__array_slice()) {
-        return -1;
-    }
-    if (-1 == browse_setup_backends_node_recur(AST_NODE_SOURCE)) {
-        return -1;
-    }
-    return 0;
-}
-
-/*
- *
- */
 
 
 /*

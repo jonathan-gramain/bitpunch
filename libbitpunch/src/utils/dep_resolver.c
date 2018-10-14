@@ -215,7 +215,7 @@ dep_resolver_resolve(struct dep_resolver *dr)
                 SLIST_INSERT_HEAD(&dr->dep_chain, entry, deps);
                 continue ;
             }
-            if (resolved_tags != unresolved_tags) {
+            if ((resolved_tags & unresolved_tags) != unresolved_tags) {
                 dr->error_entry = entry;
                 dr->flags |= DR_FLAG_ERROR;
                 return DEP_RESOLVER_ERROR;

@@ -29,15 +29,17 @@
  * DAMAGE.
  */
 
-#ifndef __FILTER_BYTE_SLICE_H__
-#define __FILTER_BYTE_SLICE_H__
+#ifndef __FILTER_BYTE_H__
+#define __FILTER_BYTE_H__
 
-#include "filters/array_slice.h"
+#include "filters/item.h"
 
+void
+compile_node_backends__byte(struct ast_node_hdl *item);
 int
-compile_global_nodes__byte_slice(struct compile_ctx *ctx);
+compile_global_nodes__byte(struct compile_ctx *ctx);
 
 struct ast_node_hdl *
-filter_get_global_instance__byte_slice(void);
+filter_get_global_instance__byte(void);
 
 #endif

@@ -36,29 +36,9 @@
 
 #include "core/expr_internal.h"
 #include "core/debug.h"
+#include "filters/byte.h"
 #include "filters/byte_array.h"
 
-struct ast_node_data shared_ast_node_data_byte = {
-    .type = AST_NODE_TYPE_BYTE,
-    .u = {
-        .item = {
-            .min_span_size = 1,
-        }
-    }
-};
-struct ast_node_hdl shared_ast_node_byte = {
-    .ndat = &shared_ast_node_data_byte,
-};
-
-struct ast_node_data shared_ast_node_data_as_bytes = {
-    .type = AST_NODE_TYPE_AS_BYTES,
-};
-struct ast_node_hdl shared_ast_node_as_bytes = {
-    .ndat = &shared_ast_node_data_as_bytes,
-};
-
-#define AST_NODE_BYTE &shared_ast_node_byte
-#define AST_NODE_AS_BYTES &shared_ast_node_as_bytes
 
 static bitpunch_status_t
 compute_item_size__byte_array_dynamic_size(struct ast_node_hdl *item_filter,
@@ -240,7 +220,7 @@ tracker_goto_first_item__byte_array_slack(struct tracker *tk,
     tk->item_offset = tk->box->start_offset_span;
     tk->item_size = 1;
     tk->cur = track_path_from_array_index(0);
-    tk->dpath.filter = AST_NODE_BYTE;
+    tk->dpath.filter = filter_get_global_instance__byte();
     DBG_TRACKER_CHECK_STATE(tk);
     return BITPUNCH_OK;
 }
@@ -267,7 +247,7 @@ tracker_goto_next_item__byte_array_generic(struct tracker *tk,
         return BITPUNCH_NO_ITEM;
     }
     /* check new item */
-    tk->dpath.filter = AST_NODE_BYTE;
+    tk->dpath.filter = filter_get_global_instance__byte();
     bt_ret = tracker_check_item(tk, bst);
     if (BITPUNCH_OK != bt_ret) {
         /* rollback */
@@ -304,7 +284,7 @@ tracker_goto_nth_item__byte_array_generic(
         return BITPUNCH_NO_ITEM;
     }
     tk->flags &= ~TRACKER_AT_END;
-    tk->dpath.filter = AST_NODE_BYTE;
+    tk->dpath.filter = filter_get_global_instance__byte();
     if (0 == (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
         tk->cur = track_path_from_array_index(index);
         DBG_TRACKER_CHECK_STATE(tk);
@@ -318,7 +298,7 @@ tracker_goto_nth_item__byte_array_generic(
 
 
 static void
-browse_setup_backends__box__byte_array(struct ast_node_hdl *item)
+compile_node_backends__box__byte_array(struct ast_node_hdl *item)
 {
     struct filter_instance_array *array;
     struct box_backend *b_box = NULL;
@@ -351,12 +331,12 @@ browse_setup_backends__box__byte_array(struct ast_node_hdl *item)
 }
 
 static void
-browse_setup_backends__item__byte_array(struct ast_node_hdl *item)
+compile_node_backends__item__byte_array(struct ast_node_hdl *item)
 {
     struct filter_instance_array *array;
     struct item_backend *b_item;
 
-    browse_setup_backends__item__generic(item);
+    compile_node_backends__item__generic(item);
 
     array = (struct filter_instance_array *)
         item->ndat->u.rexpr_filter.f_instance;
@@ -370,7 +350,7 @@ browse_setup_backends__item__byte_array(struct ast_node_hdl *item)
 }
 
 static void
-browse_setup_backends__tracker__byte_array(struct ast_node_hdl *item)
+compile_node_backends__tracker__byte_array(struct ast_node_hdl *item)
 {
     struct filter_instance_array *array;
     struct tracker_backend *b_tk;
@@ -397,28 +377,8 @@ browse_setup_backends__tracker__byte_array(struct ast_node_hdl *item)
 }
 
 
-static void
-browse_setup_backends__box__as_bytes(struct ast_node_hdl *item)
-{
-    struct filter_instance *as_bytes;
-    struct box_backend *b_box;
-
-    as_bytes = item->ndat->u.rexpr_filter.f_instance;
-    b_box = &as_bytes->b_box;
-    // FIXME avoid memset because filter may have set functions
-    // already, find a cleaner way to deal with this
-    //memset(b_box, 0, sizeof (*b_box));
-
-    b_box->compute_slack_size = box_compute_slack_size__from_parent;
-    b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
-    b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
-    b_box->compute_span_size = box_compute_span_size__as_slack;
-    b_box->get_n_items = box_get_n_items__as_used;
-    b_box->compute_used_size = box_compute_used_size__as_span;
-}
-
 void
-browse_setup_backends__tracker__as_bytes(struct ast_node_hdl *item)
+compile_node_backends__tracker__as_bytes(struct ast_node_hdl *item)
 {
     struct filter_instance *as_bytes;
     struct tracker_backend *b_tk;
@@ -439,31 +399,9 @@ browse_setup_backends__tracker__as_bytes(struct ast_node_hdl *item)
 }
 
 void
-browse_setup_backends__byte_array(struct ast_node_hdl *item)
+compile_node_backends__byte_array(struct ast_node_hdl *item)
 {
-  browse_setup_backends__item__byte_array(item);
-  browse_setup_backends__box__byte_array(item);
-  browse_setup_backends__tracker__byte_array(item);
-}
-
-void
-browse_setup_backends__as_bytes(struct ast_node_hdl *item)
-{
-    item->ndat->u.rexpr_filter.f_instance = new_safe(struct filter_instance);
-
-    browse_setup_backends__filter__filter(item);
-    browse_setup_backends__box__as_bytes(item);
-    browse_setup_backends__tracker__as_bytes(item);
-}
-
-int
-browse_setup_global_backends__byte_array(void)
-{
-    if (-1 == browse_setup_backends_node_recur(AST_NODE_BYTE)) {
-        return -1;
-    }
-    if (-1 == browse_setup_backends_node_recur(AST_NODE_AS_BYTES)) {
-        return -1;
-    }
-    return 0;
+  compile_node_backends__item__byte_array(item);
+  compile_node_backends__box__byte_array(item);
+  compile_node_backends__tracker__byte_array(item);
 }

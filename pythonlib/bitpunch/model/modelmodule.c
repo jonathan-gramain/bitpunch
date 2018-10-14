@@ -2345,7 +2345,6 @@ box_to_deep_PyObject(struct DataTreeObject *dtree, struct box *box)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_BYTE:
-    case AST_NODE_TYPE_AS_BYTES:
         return box_to_native_PyObject(dtree, box);
     case AST_NODE_TYPE_REXPR_FILTER: {
         if (NULL != node->ndat->u.rexpr_filter.f_instance->b_item.read_value) {

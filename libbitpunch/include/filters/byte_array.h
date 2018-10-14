@@ -35,13 +35,8 @@
 #include "filters/array.h"
 
 void
-browse_setup_backends__byte_array(struct ast_node_hdl *item);
+compile_node_backends__byte_array(struct ast_node_hdl *item);
 void
-browse_setup_backends__as_bytes(struct ast_node_hdl *item);
-void
-browse_setup_backends__tracker__as_bytes(struct ast_node_hdl *item);
-
-int
-browse_setup_global_backends__byte_array(void);
+compile_node_backends__tracker__as_bytes(struct ast_node_hdl *item);
 
 #endif

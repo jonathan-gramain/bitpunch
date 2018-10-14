@@ -40,6 +40,15 @@
 // FIXME should not need this, only for as_bytes tracker backend
 #include "filters/byte_array.h"
 
+struct ast_node_data shared_ast_node_data_source = {
+    .type = AST_NODE_TYPE_SOURCE,
+};
+struct ast_node_hdl shared_ast_node_source = {
+    .ndat = &shared_ast_node_data_source,
+};
+
+#define AST_NODE_SOURCE &shared_ast_node_source
+
 bitpunch_status_t
 filter_read_value__bytes(struct ast_node_hdl *item_filter,
                          struct box *scope,
@@ -415,7 +424,7 @@ compute_item_size__static_size(struct ast_node_hdl *item_filter,
 
 
 void
-browse_setup_backends__filter__filter(struct ast_node_hdl *filter)
+compile_node_backends__filter__filter(struct ast_node_hdl *filter)
 {
     struct item_backend *b_item = NULL;
 
@@ -426,7 +435,7 @@ browse_setup_backends__filter__filter(struct ast_node_hdl *filter)
 }
 
 static void
-browse_setup_backends__box__filter(struct ast_node_hdl *item)
+compile_node_backends__box__filter(struct ast_node_hdl *item)
 {
     struct filter_instance *f_instance;
     struct item_backend *b_item;
@@ -458,36 +467,20 @@ browse_setup_backends__box__filter(struct ast_node_hdl *item)
     }
 }
 
-static void
-browse_setup_backends__filter_generic(struct ast_node_hdl *filter)
+void
+compile_node_backends__filter_generic(struct ast_node_hdl *filter)
 {
-    browse_setup_backends__filter__filter(filter);
-    browse_setup_backends__box__filter(filter);
-    browse_setup_backends__tracker__as_bytes(filter);
-}
-
-int
-browse_setup_backends_rexpr_filter(struct ast_node_hdl *filter)
-{
-    const struct filter_class *filter_cls;
-
-    filter_cls = filter->ndat->u.rexpr_filter.filter_cls;
-    if (NULL != filter_cls->filter_instance_compile_func) {
-        return filter_cls->filter_instance_compile_func(
-            filter, filter->ndat->u.rexpr_filter.f_instance,
-            COMPILE_TAG_BROWSE_BACKENDS, NULL);
-    } else {
-      browse_setup_backends__filter_generic(filter);
-    }
-    return 0;
+    compile_node_backends__filter__filter(filter);
+    compile_node_backends__box__filter(filter);
+    compile_node_backends__tracker__as_bytes(filter);
 }
 
 void
-browse_setup_backends__item__generic(struct ast_node_hdl *item)
+compile_node_backends__item__generic(struct ast_node_hdl *item)
 {
     struct item_backend *b_item;
 
-    browse_setup_backends__filter__filter(item);
+    compile_node_backends__filter__filter(item);
 
     b_item = &item->ndat->u.rexpr_filter.f_instance->b_item;
     if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
@@ -513,13 +506,13 @@ item_filter_instance_build(struct ast_node_hdl *item)
 }
 
 void
-browse_setup_backends__item(struct ast_node_hdl *item)
+compile_node_backends__item(struct ast_node_hdl *item)
 {
     item->ndat->u.rexpr_filter.f_instance = item_filter_instance_build(item);
 }
 
 static void
-browse_setup_backends__box__source(struct ast_node_hdl *item)
+compile_node_backends__box__source(struct ast_node_hdl *item)
 {
     struct filter_instance *f_instance;
     struct box_backend *b_box;
@@ -540,12 +533,25 @@ browse_setup_backends__box__source(struct ast_node_hdl *item)
     b_box->compute_used_size = box_compute_used_size__from_apply_filter;
 }
 
-void
-browse_setup_backends__source(struct ast_node_hdl *item)
+static void
+compile_node_backends__source(struct ast_node_hdl *item)
 {
     item->ndat->u.rexpr_filter.f_instance = new_safe(struct filter_instance);
 
-    browse_setup_backends__item__generic(item);
-    browse_setup_backends__box__source(item);
-    browse_setup_backends__tracker__as_bytes(item);
+    compile_node_backends__item__generic(item);
+    compile_node_backends__box__source(item);
+    compile_node_backends__tracker__as_bytes(item);
+}
+
+int
+compile_global_nodes__item(struct compile_ctx *ctx)
+{
+    compile_node_backends__source(AST_NODE_SOURCE);
+    return 0;
+}
+
+struct ast_node_hdl *
+filter_get_global_instance__source(void)
+{
+    return AST_NODE_SOURCE;
 }

@@ -38,6 +38,15 @@
 #include "core/debug.h"
 #include "filters/byte_slice.h"
 
+struct ast_node_data shared_ast_node_data_byte_slice = {
+    .type = AST_NODE_TYPE_BYTE_SLICE,
+};
+struct ast_node_hdl shared_ast_node_byte_slice = {
+    .ndat = &shared_ast_node_data_byte_slice,
+};
+
+#define AST_NODE_BYTE_SLICE &shared_ast_node_byte_slice
+
 static bitpunch_status_t
 box_compute_span_size__byte_slice(struct box *box,
                                   struct browse_state *bst)
@@ -52,38 +61,6 @@ box_compute_span_size__byte_slice(struct box *box,
     }
     return box_set_span_size(box, n_bytes, bst);
 }
-
-static bitpunch_status_t
-tracker_get_item_key__byte_slice(struct tracker *tk,
-                                 expr_value_t *keyp,
-                                 int *nth_twinp,
-                                 struct browse_state *bst)
-{
-    struct box *slice_box;
-    struct box *array_box;
-    int64_t from_index;
-
-    DBG_TRACKER_DUMP(tk);
-    slice_box = tk->box;
-    array_box = box_array_slice_get_ancestor_array(slice_box);
-    tk->box = array_box;
-    from_index = slice_box->track_path.u.array.index;
-    if (-1 == from_index) {
-        from_index = 0;
-    }
-    if (NULL != keyp) {
-        assert(tk->cur.u.array.index >= from_index);
-        keyp->type = EXPR_VALUE_TYPE_INTEGER;
-        keyp->integer = tk->cur.u.array.index - from_index;
-    }
-    if (NULL != nth_twinp) {
-        /* only relevant for indexed arrays */
-        *nth_twinp = 0;
-    }
-    tk->box = slice_box;
-    return BITPUNCH_OK;
-}
-
 
 static struct filter_instance *
 byte_slice_filter_instance_build(struct ast_node_hdl *item)
@@ -107,7 +84,7 @@ byte_slice_filter_instance_build(struct ast_node_hdl *item)
     b_box->get_n_items = box_get_n_items__slice_generic;
     b_box->compute_used_size = box_compute_used_size__as_span;
 
-    b_tk->get_item_key = tracker_get_item_key__byte_slice;
+    b_tk->get_item_key = tracker_get_item_key__array_slice;
     b_tk->compute_item_size = tracker_compute_item_size__item_box;
     b_tk->goto_first_item = tracker_goto_first_item__array_slice;
     b_tk->goto_next_item = tracker_goto_next_item__array_slice;
@@ -122,12 +99,24 @@ byte_slice_filter_instance_build(struct ast_node_hdl *item)
     return slice;
 }
 
-void
-browse_setup_backends__byte_slice(struct ast_node_hdl *item)
+static void
+compile_node_backends__byte_slice(struct ast_node_hdl *item)
 {
     item->ndat->u.rexpr_filter.f_instance =
         byte_slice_filter_instance_build(item);
 
-    browse_setup_backends__filter__filter(item);
+    compile_node_backends__filter__filter(item);
 }
 
+int
+compile_global_nodes__byte_slice(struct compile_ctx *ctx)
+{
+    compile_node_backends__byte_slice(AST_NODE_BYTE_SLICE);
+    return 0;
+}
+
+struct ast_node_hdl *
+filter_get_global_instance__byte_slice(void)
+{
+    return AST_NODE_BYTE_SLICE;
+}
