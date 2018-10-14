@@ -224,3 +224,80 @@ def test_footer_complex(params_footer_complex):
     assert memoryview(dtree.root.contents) == 'some random data'
 
     assert dtree.root.get_size() == 30
+
+
+spec_file_footer_dynamic_sized_array_static_item_size_1 = """
+
+let u8 = byte <> integer { @signed = false; };
+let u16 = [2] byte <> integer { @signed = false; @endian = 'big'; };
+
+let Footer = struct {
+    footer_items: [nb_footer_items] u16;
+    nb_footer_items: u8;
+};
+
+let Contents = struct {
+    contents: [] byte;
+    footer: Footer;
+};
+
+file {
+    root: Contents;
+}
+
+"""
+
+spec_file_footer_dynamic_sized_array_static_item_size_2 = """
+
+let u8 = byte <> integer { @signed = false; };
+let u16 = [2] byte <> integer { @signed = false; @endian = 'big'; };
+
+let Footer = struct {
+    footer_items: [] u16;
+    nb_footer_items: u8;
+
+    @span = nb_footer_items * 2 + 1;
+};
+
+let Contents = struct {
+    contents: [] byte;
+    footer: Footer;
+};
+
+file {
+    root: Contents;
+}
+
+"""
+
+data_file_footer_dynamic_sized_array_static_item_size = """
+"some random data"
+00 01 00 02 00 03 00 04 00 05
+05
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_footer_dynamic_sized_array_static_item_size_1,
+        'data': data_file_footer_dynamic_sized_array_static_item_size,
+    }, {
+        'spec': spec_file_footer_dynamic_sized_array_static_item_size_2,
+        'data': data_file_footer_dynamic_sized_array_static_item_size,
+    }])
+def params_footer_dynamic_sized_array_static_item_size(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_footer_dynamic_sized_array_static_item_size(
+        params_footer_dynamic_sized_array_static_item_size):
+    params = params_footer_dynamic_sized_array_static_item_size
+    dtree = params['dtree']
+    assert dtree.root.footer.get_size() == 11
+    assert dtree.root.footer.footer_items.get_size() == 10
+    assert dtree.root.footer.nb_footer_items == 5
+    assert memoryview(dtree.root.contents) == 'some random data'
+    assert model.make_python_object(dtree.root.footer.footer_items) == \
+        [1, 2, 3, 4, 5]
+
+    assert dtree.root.get_size() == 27

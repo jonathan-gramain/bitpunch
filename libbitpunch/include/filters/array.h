@@ -42,7 +42,6 @@ struct filter_instance_array {
 
 bitpunch_status_t
 tracker_goto_first_item__array_generic(struct tracker *tk,
-                                       struct ast_node_hdl *item_filter,
                                        struct browse_state *bst);
 bitpunch_status_t
 tracker_get_item_key__array_generic(struct tracker *tk,

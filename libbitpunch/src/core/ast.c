@@ -2357,6 +2357,7 @@ operator_filter_filter_instance_build(struct ast_node_hdl *item)
 static void
 compile_node_backends__operator_filter(struct ast_node_hdl *item)
 {
+    assert(NULL == item->ndat->u.rexpr_filter.f_instance);
     item->ndat->u.rexpr_filter.f_instance =
         operator_filter_filter_instance_build(item);
 }
