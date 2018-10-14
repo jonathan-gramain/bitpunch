@@ -135,21 +135,31 @@ dep_resolver_schedule_tags(struct dep_resolver *dr,
                            void *arg)
 {
     struct dep_resolver_node_entry *entry;
-    dep_resolver_tagset_t tags;
+    dep_resolver_tagset_t unresolved_pre;
+    dep_resolver_tagset_t unresolved_post;
     
-    tags = get_unresolved(node, tags_post);
-    if (0 != tags) {
-        entry = new_entry(node, tags, arg);
+    unresolved_pre = get_unresolved(node, tags_post);
+    if (0 != unresolved_pre) {
+        entry = new_entry(node, unresolved_pre, arg);
         TAILQ_INSERT_TAIL(&dr->tasks, entry, tasks);
     }
-    tags = get_unresolved(node, tags_pre);
-    if (0 == tags) {
+    unresolved_post = get_unresolved(node, tags_pre);
+    if (0 == unresolved_post) {
+        if (0 == unresolved_pre && NULL != dr->free_arg_f) {
+            // nothing to resolve, free arg now
+            dr->free_arg_f(dr, arg);
+        }
         return DEP_RESOLVER_OK;
     }
-    entry = new_entry(node, tags, arg);
+    entry = new_entry(node, unresolved_post, arg);
+    if (0 != unresolved_pre) {
+        // make sure we do not delete arg after the pre task
+        // completes, because there is a following one for post tags
+        entry->keep_arg_on_free = TRUE;
+    }
     TAILQ_INSERT_HEAD(&dr->tasks, entry, tasks);
     dr->flags |= DR_FLAG_NEW_DEPS;
-    if (any_is_processing(node, tags)) {
+    if (any_is_processing(node, unresolved_post)) {
         dr->flags |= DR_FLAG_CIRCULAR_DEP;
         SLIST_INSERT_HEAD(&dr->dep_chain, entry, deps);
     }
@@ -212,7 +222,7 @@ dep_resolver_resolve(struct dep_resolver *dr)
             }
         }
         TAILQ_REMOVE(&dr->tasks, entry, tasks);
-        if (NULL != dr->free_arg_f) {
+        if (NULL != dr->free_arg_f && !entry->keep_arg_on_free) {
             dr->free_arg_f(dr, entry->arg);
         }
         free(entry);
@@ -326,6 +336,27 @@ struct test_resolver_node {
     int resolved[TEST_N_TAGS];
 };
 
+static int test_resolver_args[64];
+int test_resolver_n_args;
+
+#define CLEAR_ARGS() do {                       \
+        test_resolver_n_args = 0;               \
+    } while (0)
+
+#define PUSH_ARG() ({                                                   \
+            assert(test_resolver_n_args < N_ELEM(test_resolver_args));  \
+            test_resolver_args[test_resolver_n_args++] = 0;             \
+            &test_resolver_args[test_resolver_n_args - 1];              \
+        })
+
+#define CHECK_ARGS() do {                                       \
+        int i;                                                  \
+                                                                \
+        for (i = 0; i < test_resolver_n_args; ++i) {            \
+            ck_assert_int_eq(test_resolver_args[i], TRUE);      \
+        }                                                       \
+    } while (0)
+
 static dep_resolver_tagset_t test_resolve(struct dep_resolver *dr,
                                           struct dep_resolver_node *_node,
                                           dep_resolver_tagset_t tags,
@@ -345,7 +376,7 @@ static dep_resolver_tagset_t test_resolve(struct dep_resolver *dr,
             if (NULL != node->deps[tag][i][j]) {
                 ret = dep_resolver_schedule_tags(
                     dr, &node->deps[tag][i][j]->dr_node,
-                    (1u<<i), 0, NULL);
+                    (1u<<i), 0, PUSH_ARG());
                 ck_assert(ret == DEP_RESOLVER_OK ||
                           ret == DEP_RESOLVER_AGAIN ||
                           ret == DEP_RESOLVER_CIRCULAR_DEPENDENCY);
@@ -378,6 +409,13 @@ init_nodes_array(struct test_resolver_node nodes[], int n_nodes)
         dep_resolver_node_init(&nodes[i].dr_node);
         memset(nodes[i].resolved, 0, sizeof (nodes[i].resolved));
     }
+}
+
+static void test_dep_resolver_free_func(struct dep_resolver *dr,
+                                        void *arg)
+{
+    ck_assert_int_eq(*(int *)arg, FALSE);
+    *(int *)arg = TRUE;
 }
 
 START_TEST(test_dep_resolver_no_cycle)
@@ -417,43 +455,67 @@ START_TEST(test_dep_resolver_no_cycle)
     root = &nodes[0];
 
     init_nodes_array(nodes, N_ELEM(nodes));
-    dr = dep_resolver_create(test_resolve, NULL);
-    dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<0, 0u, NULL);
-    dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<1, 0u, NULL);
+    CLEAR_ARGS();
+    dr = dep_resolver_create(test_resolve,
+                             test_dep_resolver_free_func);
+    dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<0, 0u, PUSH_ARG());
+    dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<1, 0u, PUSH_ARG());
     ret = dep_resolver_resolve(dr);
     ck_assert_int_eq(ret, DEP_RESOLVER_OK);
     ck_assert_int_eq(root->resolved[0], TRUE);
     ck_assert_int_eq(root->resolved[1], TRUE);
+    CHECK_ARGS();
     dep_resolver_destroy(dr);
 
     init_nodes_array(nodes, N_ELEM(nodes));
-    dr = dep_resolver_create(test_resolve, NULL);
-    dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<0, 0u, NULL);
-    dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<1, NULL);
+    CLEAR_ARGS();
+    dr = dep_resolver_create(test_resolve,
+                             test_dep_resolver_free_func);
+    dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<0, 0u, PUSH_ARG());
+    dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<1, PUSH_ARG());
     ret = dep_resolver_resolve(dr);
     ck_assert_int_eq(ret, DEP_RESOLVER_OK);
     ck_assert_int_eq(root->resolved[0], TRUE);
     ck_assert_int_eq(root->resolved[1], TRUE);
+    CHECK_ARGS();
     dep_resolver_destroy(dr);
 
     init_nodes_array(nodes, N_ELEM(nodes));
-    dr = dep_resolver_create(test_resolve, NULL);
-    dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<0, NULL);
-    dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<1, 0u, NULL);
+    CLEAR_ARGS();
+    dr = dep_resolver_create(test_resolve,
+                             test_dep_resolver_free_func);
+    dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<0, PUSH_ARG());
+    dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<1, 0u, PUSH_ARG());
     ret = dep_resolver_resolve(dr);
     ck_assert_int_eq(ret, DEP_RESOLVER_OK);
     ck_assert_int_eq(root->resolved[0], TRUE);
     ck_assert_int_eq(root->resolved[1], TRUE);
+    CHECK_ARGS();
     dep_resolver_destroy(dr);
 
     init_nodes_array(nodes, N_ELEM(nodes));
-    dr = dep_resolver_create(test_resolve, NULL);
-    dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<0, NULL);
-    dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<1, NULL);
+    CLEAR_ARGS();
+    dr = dep_resolver_create(test_resolve,
+                             test_dep_resolver_free_func);
+    dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<0, PUSH_ARG());
+    dep_resolver_schedule_tags(dr, &root->dr_node, 0u, 1u<<1, PUSH_ARG());
     ret = dep_resolver_resolve(dr);
     ck_assert_int_eq(ret, DEP_RESOLVER_OK);
     ck_assert_int_eq(root->resolved[0], TRUE);
     ck_assert_int_eq(root->resolved[1], TRUE);
+    CHECK_ARGS();
+    dep_resolver_destroy(dr);
+
+    init_nodes_array(nodes, N_ELEM(nodes));
+    CLEAR_ARGS();
+    dr = dep_resolver_create(test_resolve,
+                             test_dep_resolver_free_func);
+    dep_resolver_schedule_tags(dr, &root->dr_node, 1u<<0, 1u<<1, PUSH_ARG());
+    ret = dep_resolver_resolve(dr);
+    ck_assert_int_eq(ret, DEP_RESOLVER_OK);
+    ck_assert_int_eq(root->resolved[0], TRUE);
+    ck_assert_int_eq(root->resolved[1], TRUE);
+    CHECK_ARGS();
     dep_resolver_destroy(dr);
 }
 END_TEST

@@ -83,6 +83,9 @@ struct dep_resolver_node_entry {
     struct dep_resolver_node *node;
     dep_resolver_tagset_t tags;
     void *arg;
+    /** do not delete arg when deleting entry, used in case both pre
+     * and post tags are set in dep_resolver_schedule_tags() */
+    int keep_arg_on_free;
 };
 
 struct dep_resolver *
