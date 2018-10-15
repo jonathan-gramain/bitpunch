@@ -52,7 +52,7 @@ box_mark_offsets_repo_should_exist(struct box *box, int *should_existp,
         return bt_ret;
     }
     *should_existp = 0 != (item_type->ndat->u.item.flags
-                           & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC);
+                           & ITEMFLAG_IS_SPAN_SIZE_VARIABLE);
     return BITPUNCH_OK;
 }
 
@@ -484,7 +484,7 @@ tracker_goto_mark_internal(struct tracker *tk,
             tk->box, item_path.u.array.index);
     } else {
         assert(0 == (array_item->ndat->u.item.flags
-                     & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC));
+                     & ITEMFLAG_IS_SPAN_SIZE_VARIABLE));
         item_offset = tk->box->start_offset_span
             + (item_path.u.array.index
                * ast_node_get_min_span_size(array_item));
@@ -513,7 +513,7 @@ tracker_goto_last_cached_item_internal(struct tracker *tk,
         tk->dpath.filter = array->item_type;
         tk->dpath.item = tk->box->u.array.last_cached_item;
         if (0 != (tk->dpath.item->ndat->u.item.flags
-                  & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+                  & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
             tk->item_size = -1;
         }
         tk->item_offset = tk->box->u.array.last_cached_item_offset;

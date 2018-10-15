@@ -41,12 +41,10 @@
 
 
 static bitpunch_status_t
-compute_item_size__byte_array_dynamic_size(struct ast_node_hdl *item_filter,
-                                           struct box *scope,
-                                           int64_t item_offset,
-                                           int64_t max_span_offset,
-                                           int64_t *item_sizep,
-                                           struct browse_state *bst)
+compute_item_size__byte_array_var_size(
+    struct ast_node_hdl *item_filter, struct box *scope,
+    int64_t item_offset, int64_t max_span_offset,
+    int64_t *item_sizep, struct browse_state *bst)
 {
     struct filter_instance_array *array;
     expr_value_t byte_count;
@@ -80,8 +78,8 @@ compute_item_size__byte_array_dynamic_size(struct ast_node_hdl *item_filter,
 }
 
 static bitpunch_status_t
-box_compute_span_size__byte_array_dynamic_size(struct box *box,
-                                               struct browse_state *bst)
+box_compute_span_size__byte_array_var_size(
+    struct box *box, struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     int64_t used_size;
@@ -286,15 +284,15 @@ compile_node_backends__box__byte_array(struct ast_node_hdl *item)
 
     b_box->compute_slack_size = box_compute_slack_size__as_container_slack;
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
-    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-        b_box->compute_span_size = box_compute_span_size__static_size;
+    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
+        b_box->compute_span_size = box_compute_span_size__const_size;
         b_box->compute_max_span_size = box_compute_max_span_size__as_span;
     } else {
         if (0 != (item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
             b_box->compute_span_size = box_compute_span_size__as_max_span;
         } else {
             b_box->compute_span_size =
-                box_compute_span_size__byte_array_dynamic_size;
+                box_compute_span_size__byte_array_var_size;
         }
         b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
     }
@@ -319,8 +317,7 @@ compile_node_backends__item__byte_array(struct ast_node_hdl *item)
     b_item = &array->filter.b_item;
     if (NULL == b_item->compute_item_size) {
         if (NULL != array->item_count) {
-            b_item->compute_item_size =
-                compute_item_size__byte_array_dynamic_size;
+            b_item->compute_item_size = compute_item_size__byte_array_var_size;
         }
     }
 }

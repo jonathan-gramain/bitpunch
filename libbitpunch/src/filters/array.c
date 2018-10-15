@@ -97,7 +97,7 @@ compile_span_size_array(struct ast_node_hdl *item,
     struct ast_node_hdl *item_count_expr;
     int64_t item_count;
     int64_t min_span_size;
-    int dynamic_span;
+    int var_span;
 
     item_count_expr = ast_node_get_named_expr_target(array->item_count);
     if (NULL != item_count_expr) {
@@ -135,10 +135,10 @@ compile_span_size_array(struct ast_node_hdl *item,
         assert(SPAN_SIZE_UNDEF != item_type->ndat->u.item.min_span_size);
         item_count = item_count_expr->ndat->u.rexpr_native.value.integer;
         min_span_size = item_count * item_type->ndat->u.item.min_span_size;
-        dynamic_span =
+        var_span =
             (0 != (item_type->ndat->u.item.flags & ASTFLAG_CONTAINS_LAST_ATTR)
              || 0 != (item_type->ndat->u.item.flags
-                      & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC));
+                      & ITEMFLAG_IS_SPAN_SIZE_VARIABLE));
     } else {
         // schedule compilation of item type and size without
         // depending on it, so to allow recursive nesting of items and
@@ -151,15 +151,15 @@ compile_span_size_array(struct ast_node_hdl *item,
             return -1;
         }
         min_span_size = 0;
-        dynamic_span = TRUE;
+        var_span = TRUE;
         item->ndat->u.item.min_span_size = 0;
-        item->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_DYNAMIC |
-                                      ITEMFLAG_IS_USED_SIZE_DYNAMIC);
+        item->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_VARIABLE |
+                                      ITEMFLAG_IS_USED_SIZE_VARIABLE);
     }
     item->ndat->u.item.min_span_size = min_span_size;
-    if (dynamic_span) {
-        item->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_DYNAMIC |
-                                      ITEMFLAG_IS_USED_SIZE_DYNAMIC);
+    if (var_span) {
+        item->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_VARIABLE |
+                                      ITEMFLAG_IS_USED_SIZE_VARIABLE);
     }
     if (0 == (item_type->flags & ASTFLAG_CONTAINS_LAST_ATTR)) {
         if (NULL == item_count_expr) {
@@ -193,7 +193,7 @@ array_box_destroy(struct box *box)
 }
 
 static bitpunch_status_t
-compute_item_size__array_static_item_size(struct ast_node_hdl *item_filter,
+compute_item_size__array_const_item_size(struct ast_node_hdl *item_filter,
                                           struct box *scope,
                                           int64_t item_offset,
                                           int64_t max_span_offset,
@@ -228,7 +228,7 @@ compute_item_size__array_static_item_size(struct ast_node_hdl *item_filter,
 }
 
 static bitpunch_status_t
-box_compute_span_size__array_static_item_size(struct box *box,
+box_compute_span_size__array_const_item_size(struct box *box,
                                               struct browse_state *bst)
 {
     struct filter_instance_array *array;
@@ -391,7 +391,7 @@ box_get_n_items__array_non_slack_with_last(struct box *box,
 
 
 static bitpunch_status_t
-box_get_n_items__array_slack_static_item_size(struct box *box,
+box_get_n_items__array_slack_const_item_size(struct box *box,
                                               int64_t *item_countp,
                                               struct browse_state *bst)
 {
@@ -706,7 +706,7 @@ tracker_goto_next_item__array(struct tracker *tk,
         tk->item_offset += (0 != (tk->flags & TRACKER_REVERSED) ?
                             -tk->item_size : tk->item_size);
         if (0 != (tk->dpath.item->ndat->u.item.flags
-                  & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+                  & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
             tk->item_size = -1;
         }
     }
@@ -759,7 +759,7 @@ tracker_goto_next_item__array(struct tracker *tk,
 }
 
 static bitpunch_status_t
-tracker_goto_nth_item__array_static_item_size(struct tracker *tk,
+tracker_goto_nth_item__array_const_item_size(struct tracker *tk,
                                               int64_t index,
                                               struct browse_state *bst)
 {
@@ -823,7 +823,7 @@ tracker_goto_nth_item__array_static_item_size(struct tracker *tk,
 }
 
 static bitpunch_status_t
-tracker_goto_nth_item__array_dynamic_item_size(
+tracker_goto_nth_item__array_var_item_size(
     struct tracker *tk, int64_t index,
     struct browse_state *bst)
 {
@@ -906,7 +906,7 @@ tracker_goto_nth_item__array_dynamic_item_size(
 }
 
 static bitpunch_status_t
-tracker_goto_nth_item__array_non_slack_dynamic_item_size(
+tracker_goto_nth_item__array_non_slack_var_item_size(
     struct tracker *tk, int64_t index,
     struct browse_state *bst)
 {
@@ -936,8 +936,7 @@ tracker_goto_nth_item__array_non_slack_dynamic_item_size(
         return BITPUNCH_OK;
     }
 
-    return tracker_goto_nth_item__array_dynamic_item_size(
-        tk, index, bst);
+    return tracker_goto_nth_item__array_var_item_size(tk, index, bst);
 }
 
 static bitpunch_status_t
@@ -1208,9 +1207,9 @@ compile_node_backends__item__array(struct ast_node_hdl *item)
     if (NULL == b_item->compute_item_size) {
         if (NULL != array->item_count
             && 0 == (item_type->ndat->u.item.flags
-                     & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+                     & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
             b_item->compute_item_size =
-                compute_item_size__array_static_item_size;
+                compute_item_size__array_const_item_size;
         }
     }
 }
@@ -1241,15 +1240,13 @@ compile_node_backends__box__array(struct ast_node_hdl *item)
     b_box->compute_slack_size = box_compute_slack_size__as_container_slack;
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
     b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
-    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-        b_box->compute_span_size = box_compute_span_size__static_size;
+    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
+        b_box->compute_span_size = box_compute_span_size__const_size;
     } else if (0 == (item_type->ndat->u.item.flags
-                     & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-        b_box->compute_span_size =
-            box_compute_span_size__array_static_item_size;
+                     & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
+        b_box->compute_span_size = box_compute_span_size__array_const_item_size;
     } else {
-        b_box->compute_span_size =
-            box_compute_span_size__packed_dynamic_size;
+        b_box->compute_span_size = box_compute_span_size__packed_var_size;
     }
     if (0 != (item_type->flags & ASTFLAG_CONTAINS_LAST_ATTR)) {
         if (NULL != array->item_count) {
@@ -1260,9 +1257,8 @@ compile_node_backends__box__array(struct ast_node_hdl *item)
     } else if (NULL != array->item_count) {
         b_box->get_n_items = box_get_n_items__array_non_slack;
     } else if (0 == (item_type->ndat->u.item.flags
-                     & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-        b_box->get_n_items =
-            box_get_n_items__array_slack_static_item_size;
+                     & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
+        b_box->get_n_items = box_get_n_items__array_slack_const_item_size;
     } else {
         b_box->get_n_items = box_get_n_items__by_iteration;
     }
@@ -1306,13 +1302,13 @@ compile_node_backends__tracker__array(struct ast_node_hdl *item)
         b_tk->goto_first_item = tracker_goto_first_item__array_slack;
     }
     b_tk->goto_next_item = tracker_goto_next_item__array;
-    if (0 == (item_type->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-        b_tk->goto_nth_item = tracker_goto_nth_item__array_static_item_size;
+    if (0 == (item_type->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
+        b_tk->goto_nth_item = tracker_goto_nth_item__array_const_item_size;
     } else if (NULL != array->item_count) {
         b_tk->goto_nth_item =
-            tracker_goto_nth_item__array_non_slack_dynamic_item_size;
+            tracker_goto_nth_item__array_non_slack_var_item_size;
     } else {
-        b_tk->goto_nth_item = tracker_goto_nth_item__array_dynamic_item_size;
+        b_tk->goto_nth_item = tracker_goto_nth_item__array_var_item_size;
     }
     b_tk->goto_named_item = tracker_goto_named_item__array;
     b_tk->goto_next_key_match = tracker_goto_next_key_match__array;

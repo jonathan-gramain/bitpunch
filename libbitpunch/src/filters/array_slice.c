@@ -167,7 +167,7 @@ box_compute_span_size__array_slice(struct box *box,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    if (0 == (item_type->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+    if (0 == (item_type->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
         int64_t n_elems;
         int64_t item_size;
 

@@ -5,7 +5,7 @@ import pytest
 from bitpunch import model
 import conftest
 
-spec_file_footer_static_sized_byte_array = """
+spec_file_footer_const_sized_byte_array = """
 
 file {
     contents: [] byte;
@@ -14,7 +14,7 @@ file {
 
 """
 
-spec_file_footer_static_sized_struct = """
+spec_file_footer_const_sized_struct = """
 
 let Footer = struct {
     data1: [4] byte;
@@ -28,7 +28,7 @@ file {
 
 """
 
-spec_file_footer_static_sized_span = """
+spec_file_footer_const_sized_span = """
 
 let Footer = struct {
     data: [] byte;
@@ -42,12 +42,12 @@ file {
 
 """
 
-data_file_footer_static_sized = """
+data_file_footer_const_sized = """
 "some random data"
 "footer"
 """
 
-spec_file_footer_dynamic_sized_len_at_start = """
+spec_file_footer_var_sized_len_at_start = """
 
 let u8 = byte <> integer { @signed = false; };
 
@@ -59,14 +59,14 @@ file {
 
 """
 
-data_file_footer_dynamic_sized_len_at_start = """
+data_file_footer_var_sized_len_at_start = """
 06
 "some random data"
 "footer"
 """
 
 
-spec_file_footer_dynamic_sized_len_in_footer = """
+spec_file_footer_var_sized_len_in_footer = """
 
 let u8 = byte <> integer { @signed = false; };
 
@@ -78,7 +78,7 @@ file {
 
 """
 
-data_file_footer_dynamic_sized_len_in_footer = """
+data_file_footer_var_sized_len_in_footer = """
 "some random data"
 "footer"
 06
@@ -88,20 +88,20 @@ data_file_footer_dynamic_sized_len_in_footer = """
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_file_footer_static_sized_byte_array,
-        'data': data_file_footer_static_sized,
+        'spec': spec_file_footer_const_sized_byte_array,
+        'data': data_file_footer_const_sized,
     }, {
-        'spec': spec_file_footer_static_sized_struct,
-        'data': data_file_footer_static_sized,
+        'spec': spec_file_footer_const_sized_struct,
+        'data': data_file_footer_const_sized,
     }, {
-        'spec': spec_file_footer_static_sized_span,
-        'data': data_file_footer_static_sized,
+        'spec': spec_file_footer_const_sized_span,
+        'data': data_file_footer_const_sized,
     }, {
-        'spec': spec_file_footer_dynamic_sized_len_at_start,
-        'data': data_file_footer_dynamic_sized_len_at_start,
+        'spec': spec_file_footer_var_sized_len_at_start,
+        'data': data_file_footer_var_sized_len_at_start,
     }, {
-        'spec': spec_file_footer_dynamic_sized_len_in_footer,
-        'data': data_file_footer_dynamic_sized_len_in_footer,
+        'spec': spec_file_footer_var_sized_len_in_footer,
+        'data': data_file_footer_var_sized_len_in_footer,
     }])
 def params_footer_simple(request):
     return conftest.make_testcase(request.param)
@@ -117,7 +117,7 @@ def test_footer_simple(params_footer_simple):
 
 
 
-spec_file_footer_dynamic_sized_complex_footer_dynamic_span = """
+spec_file_footer_var_sized_complex_footer_var_span = """
 
 let u8 = byte <> integer { @signed = false; };
 let u16 = [2] byte <> integer { @signed = false; @endian = 'big'; };
@@ -141,7 +141,7 @@ file {
 
 """
 
-spec_file_footer_dynamic_sized_complex_footer_static_span = """
+spec_file_footer_var_sized_complex_footer_static_span = """
 
 let u8 = byte <> integer { @signed = false; };
 let u16 = [2] byte <> integer { @signed = false; @endian = 'big'; };
@@ -165,7 +165,7 @@ file {
 
 """
 
-spec_file_footer_dynamic_sized_complex_footer_packed = """
+spec_file_footer_var_sized_complex_footer_packed = """
 
 let u8 = byte <> integer { @signed = false; };
 let u16 = [2] byte <> integer { @signed = false; @endian = 'big'; };
@@ -188,7 +188,7 @@ file {
 
 """
 
-data_file_footer_dynamic_sized_complex_footer = """
+data_file_footer_var_sized_complex_footer = """
 "some random data"
 "fthdr"
 "footer"
@@ -199,14 +199,14 @@ data_file_footer_dynamic_sized_complex_footer = """
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_file_footer_dynamic_sized_complex_footer_dynamic_span,
-        'data': data_file_footer_dynamic_sized_complex_footer,
+        'spec': spec_file_footer_var_sized_complex_footer_var_span,
+        'data': data_file_footer_var_sized_complex_footer,
     }, {
-        'spec': spec_file_footer_dynamic_sized_complex_footer_static_span,
-        'data': data_file_footer_dynamic_sized_complex_footer,
+        'spec': spec_file_footer_var_sized_complex_footer_static_span,
+        'data': data_file_footer_var_sized_complex_footer,
     }, {
-        'spec': spec_file_footer_dynamic_sized_complex_footer_packed,
-        'data': data_file_footer_dynamic_sized_complex_footer,
+        'spec': spec_file_footer_var_sized_complex_footer_packed,
+        'data': data_file_footer_var_sized_complex_footer,
     }])
 def params_footer_complex(request):
     return conftest.make_testcase(request.param)
@@ -226,7 +226,7 @@ def test_footer_complex(params_footer_complex):
     assert dtree.root.get_size() == 30
 
 
-spec_file_footer_dynamic_sized_array_static_item_size_1 = """
+spec_file_footer_var_sized_array_const_item_size_1 = """
 
 let u8 = byte <> integer { @signed = false; };
 let u16 = [2] byte <> integer { @signed = false; @endian = 'big'; };
@@ -247,7 +247,7 @@ file {
 
 """
 
-spec_file_footer_dynamic_sized_array_static_item_size_2 = """
+spec_file_footer_var_sized_array_const_item_size_2 = """
 
 let u8 = byte <> integer { @signed = false; };
 let u16 = [2] byte <> integer { @signed = false; @endian = 'big'; };
@@ -270,7 +270,7 @@ file {
 
 """
 
-data_file_footer_dynamic_sized_array_static_item_size = """
+data_file_footer_var_sized_array_const_item_size = """
 "some random data"
 00 01 00 02 00 03 00 04 00 05
 05
@@ -279,19 +279,19 @@ data_file_footer_dynamic_sized_array_static_item_size = """
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_file_footer_dynamic_sized_array_static_item_size_1,
-        'data': data_file_footer_dynamic_sized_array_static_item_size,
+        'spec': spec_file_footer_var_sized_array_const_item_size_1,
+        'data': data_file_footer_var_sized_array_const_item_size,
     }, {
-        'spec': spec_file_footer_dynamic_sized_array_static_item_size_2,
-        'data': data_file_footer_dynamic_sized_array_static_item_size,
+        'spec': spec_file_footer_var_sized_array_const_item_size_2,
+        'data': data_file_footer_var_sized_array_const_item_size,
     }])
-def params_footer_dynamic_sized_array_static_item_size(request):
+def params_footer_var_sized_array_const_item_size(request):
     return conftest.make_testcase(request.param)
 
 
-def test_footer_dynamic_sized_array_static_item_size(
-        params_footer_dynamic_sized_array_static_item_size):
-    params = params_footer_dynamic_sized_array_static_item_size
+def test_footer_var_sized_array_const_item_size(
+        params_footer_var_sized_array_const_item_size):
+    params = params_footer_var_sized_array_const_item_size
     dtree = params['dtree']
     assert dtree.root.footer.get_size() == 11
     assert dtree.root.footer.footer_items.get_size() == 10

@@ -44,11 +44,11 @@
 
 static const char *radio_sources[] = {
     "static",
-    "dynamic_length",
-    "dynamic_item_length",
+    "var_length",
+    "var_item_length",
     "item_span",
     "item_cond_span",
-    "dynamic_item_span",
+    "var_item_span",
     "item_size_table",
     "named_exprs_shuffled",
     "with_last",

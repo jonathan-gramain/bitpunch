@@ -50,7 +50,7 @@ filter_read_value__filter(struct ast_node_hdl *filter,
                           struct browse_state *bst);
 
 bitpunch_status_t
-box_compute_span_size__static_size(struct box *box,
+box_compute_span_size__const_size(struct box *box,
                                    struct browse_state *bst);
 bitpunch_status_t
 box_compute_slack_size__from_parent(struct box *box,
@@ -93,7 +93,7 @@ tracker_compute_item_size__item_box(struct tracker *tk,
                                     int64_t *item_sizep,
                                     struct browse_state *bst);
 bitpunch_status_t
-compute_item_size__static_size(struct ast_node_hdl *item_filter,
+compute_item_size__const_size(struct ast_node_hdl *item_filter,
                                struct box *scope,
                                int64_t item_offset,
                                int64_t max_span_offset,

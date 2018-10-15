@@ -17,7 +17,7 @@ import conftest
 
 BLOCK_SIZES = [100, 30, 10, 3]
 
-spec_static_sized = """
+spec_const_sized = """
 
 file {
     huge_blocks: [] HugeBlock;
@@ -48,7 +48,7 @@ let SmallBlock = struct {
 
 """
 
-data_static_sized_1 = """
+data_const_sized_1 = """
 # no HugeBlock
 01 01 01 01 01 01 01 01 01 01
 01 01 01 01 01 01 01 01 01 01
@@ -61,7 +61,7 @@ data_static_sized_1 = """
 03 03 03 03 03 03 03 03 03    # 3x SmallBlock
 """
 
-data_static_sized_2 = """
+data_const_sized_2 = """
 00 00 00 00 00 00 00 00 00 00
 00 00 00 00 00 00 00 00 00 00
 00 00 00 00 00 00 00 00 00 00
@@ -80,21 +80,21 @@ data_static_sized_2 = """
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_static_sized,
-        'data': data_static_sized_1,
+        'spec': spec_const_sized,
+        'data': data_const_sized_1,
         'block_counts': [0, 1, 2, 3]
     }, {
-        'spec': spec_static_sized,
-        'data': data_static_sized_2,
+        'spec': spec_const_sized,
+        'data': data_const_sized_2,
         'block_counts': [1, 0, 0, 2]
     },
     ])
-def params_slack_static_sized(request):
+def params_slack_const_sized(request):
     return conftest.make_testcase(request.param)
 
 
-def test_slack_static_sized(params_slack_static_sized):
-    params = params_slack_static_sized
+def test_slack_const_sized(params_slack_const_sized):
+    params = params_slack_const_sized
     dtree, block_counts = params['dtree'], params['block_counts']
 
     cur_location = 0

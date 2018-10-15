@@ -1761,8 +1761,8 @@ compile_rexpr_filter_span_size(struct ast_node_hdl *expr,
     f_instance = expr->ndat->u.rexpr_filter.f_instance;
     if (SPAN_SIZE_UNDEF == expr->ndat->u.item.min_span_size) {
         expr->ndat->u.item.min_span_size = 0;
-        expr->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_DYNAMIC |
-                                     ITEMFLAG_IS_USED_SIZE_DYNAMIC);
+        expr->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_VARIABLE |
+                                     ITEMFLAG_IS_USED_SIZE_VARIABLE);
     }
     if (NULL == f_instance->b_item.compute_item_size) {
         expr->ndat->u.item.flags |= (ITEMFLAG_USES_SLACK |
@@ -2477,7 +2477,7 @@ compile_expr_operator_sizeof(
             target->ndat->u.rexpr_op_filter.target);
     }
     if (ast_node_is_filter(target)) {
-        if (0 != (target->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+        if (0 != (target->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
                 "invalid use of sizeof operator on dynamic-sized type\n"
@@ -4041,10 +4041,10 @@ dump_ast_item_info(struct ast_node_hdl *node, FILE *out)
 {
     fprintf(out, "min span size: %s%s%s",
             span_size_str(node->ndat->u.item.min_span_size),
-            (0 != (node->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC) ?
-             " (dynamic span)" : ""),
-            (0 != (node->ndat->u.item.flags & ITEMFLAG_IS_USED_SIZE_DYNAMIC) ?
-             " (dynamic used)" : ""));
+            (0 != (node->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE) ?
+             " (variable span)" : ""),
+            (0 != (node->ndat->u.item.flags & ITEMFLAG_IS_USED_SIZE_VARIABLE) ?
+             " (variable used)" : ""));
 }
 
 static void

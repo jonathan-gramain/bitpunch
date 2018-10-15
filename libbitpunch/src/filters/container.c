@@ -38,8 +38,8 @@
 #include "filters/container.h"
 
 bitpunch_status_t
-box_compute_span_size__packed_dynamic_size(struct box *box,
-                                           struct browse_state *bst)
+box_compute_span_size__packed_var_size(struct box *box,
+                                       struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     struct tracker *tk;

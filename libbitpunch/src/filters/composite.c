@@ -81,8 +81,8 @@ compile_span_size_composite(struct ast_node_hdl *item,
     struct ast_node_hdl_array field_items;
     struct ast_node_hdl *field_item;
     int64_t min_span_size;
-    int dynamic_span;
-    int dynamic_used;
+    int var_span;
+    int var_used;
     int contains_last_attr;
     int child_uses_slack;
     int child_spreads_slack;
@@ -104,8 +104,8 @@ compile_span_size_composite(struct ast_node_hdl *item,
     */
 
     min_span_size = 0;
-    dynamic_span = FALSE;
-    dynamic_used = FALSE;
+    var_span = FALSE;
+    var_used = FALSE;
     contains_last_attr = FALSE;
     child_uses_slack = FALSE;
     child_spreads_slack = FALSE;
@@ -130,18 +130,18 @@ compile_span_size_composite(struct ast_node_hdl *item,
             if (NULL == attr->nstmt.stmt.cond) {
                 min_span_expr = attr->expr;
             }
-            dynamic_span = TRUE;
+            var_span = TRUE;
         } else if (0 == strcmp(attr->nstmt.name, "@maxspan")) {
             if (NULL == attr->nstmt.stmt.cond) {
                 max_span_expr = attr->expr;
             }
-            dynamic_span = TRUE;
+            var_span = TRUE;
         } else if (0 == strcmp(attr->nstmt.name, "@span")) {
             if (NULL == attr->nstmt.stmt.cond) {
                 min_span_expr = attr->expr;
                 max_span_expr = attr->expr;
             } else {
-                dynamic_span = TRUE;
+                var_span = TRUE;
             }
         } else if (0 == strcmp(attr->nstmt.name, "@last")) {
             contains_last_attr = TRUE;
@@ -156,11 +156,11 @@ compile_span_size_composite(struct ast_node_hdl *item,
         assert(ARRAY_SIZE(&field_items) >= 1);
         field_item = ARRAY_ITEM(&field_items, 0);
         if (ARRAY_SIZE(&field_items) > 1) {
-            dynamic_used = TRUE;
+            var_used = TRUE;
         } else {
             if (0 != (field_item->ndat->u.item.flags
-                      & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-                dynamic_used = TRUE;
+                      & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
+                var_used = TRUE;
             } else if (NULL == field->nstmt.stmt.cond) {
                 /* only update min span size if field is not conditional */
                 assert(SPAN_SIZE_UNDEF != field_item->ndat->u.item.min_span_size);
@@ -173,7 +173,7 @@ compile_span_size_composite(struct ast_node_hdl *item,
             } else {
                 // if at least one conditional field is present, the
                 // used size is dynamic
-                dynamic_used = TRUE;
+                var_used = TRUE;
             }
             if (0 != (field_item->ndat->u.item.flags & ITEMFLAG_USES_SLACK)) {
                 child_uses_slack = TRUE;
@@ -258,7 +258,7 @@ compile_span_size_composite(struct ast_node_hdl *item,
             }
             min_span_size = user_min_span_size;
         } else {
-            dynamic_span = TRUE;
+            var_span = TRUE;
         }
     }
     if (NULL != max_span_expr) {
@@ -278,15 +278,15 @@ compile_span_size_composite(struct ast_node_hdl *item,
                 return -1;
             }
             // override
-            dynamic_span = (user_max_span_size != min_span_size);
+            var_span = (user_max_span_size != min_span_size);
         } else {
-            dynamic_span = TRUE;
+            var_span = TRUE;
         }
     }
     // when no span expression is declared, span space matches
     // used space
-    if (NULL == min_span_expr && NULL == max_span_expr && !dynamic_span) {
-        dynamic_span = dynamic_used;
+    if (NULL == min_span_expr && NULL == max_span_expr && !var_span) {
+        var_span = var_used;
     }
     // if max span expression exists and is inconditional, slack
     // space claimed by children is allocated greedily by their
@@ -312,11 +312,11 @@ compile_span_size_composite(struct ast_node_hdl *item,
         }
     }
     item->ndat->u.item.min_span_size = min_span_size;
-    if (dynamic_span) {
-        item->ndat->u.item.flags |= ITEMFLAG_IS_SPAN_SIZE_DYNAMIC;
+    if (var_span) {
+        item->ndat->u.item.flags |= ITEMFLAG_IS_SPAN_SIZE_VARIABLE;
     }
-    if (dynamic_used) {
-        item->ndat->u.item.flags |= ITEMFLAG_IS_USED_SIZE_DYNAMIC;
+    if (var_used) {
+        item->ndat->u.item.flags |= ITEMFLAG_IS_USED_SIZE_VARIABLE;
     }
     if (contains_last_attr) {
         item->flags |= ASTFLAG_CONTAINS_LAST_ATTR;
@@ -357,8 +357,8 @@ box_compute_span_size__struct(struct box *box,
 }
 
 static bitpunch_status_t
-box_compute_span_size__union_dynamic_size(struct box *box,
-                                          struct browse_state *bst)
+box_compute_span_size__union_var_size(struct box *box,
+                                      struct browse_state *bst)
 {
     struct tracker *tk;
     bitpunch_status_t bt_ret;
@@ -856,14 +856,14 @@ compile_node_backends__box__composite(struct ast_node_hdl *item)
         item->ndat->u.rexpr_filter.f_instance;
 
     b_box->compute_slack_size = box_compute_slack_size__as_container_slack;
-    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-        b_box->compute_span_size = box_compute_span_size__static_size;
+    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
+        b_box->compute_span_size = box_compute_span_size__const_size;
     } else if (0 != (item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
         b_box->compute_span_size = box_compute_span_size__as_max_span;
     } else if (COMPOSITE_TYPE_STRUCT == composite->type) {
         b_box->compute_span_size = box_compute_span_size__struct;
     } else /* union */ {
-        b_box->compute_span_size = box_compute_span_size__union_dynamic_size;
+        b_box->compute_span_size = box_compute_span_size__union_var_size;
     }
     if (NULL != filter_get_first_declared_attribute(item, "@span") ||
         NULL != filter_get_first_declared_attribute(item, "@minspan") ||
@@ -873,7 +873,7 @@ compile_node_backends__box__composite(struct ast_node_hdl *item)
     } else {
         b_box->compute_min_span_size =
             box_compute_min_span_size__as_hard_min;
-        if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+        if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
             b_box->compute_max_span_size =
                 box_compute_max_span_size__as_span;
         } else {

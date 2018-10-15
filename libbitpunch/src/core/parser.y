@@ -164,8 +164,8 @@
     };
 
     enum item_flag {
-        ITEMFLAG_IS_SPAN_SIZE_DYNAMIC        = (1<<0),
-        ITEMFLAG_IS_USED_SIZE_DYNAMIC        = (1<<1),
+        ITEMFLAG_IS_SPAN_SIZE_VARIABLE        = (1<<0),
+        ITEMFLAG_IS_USED_SIZE_VARIABLE        = (1<<1),
         ITEMFLAG_USES_SLACK                  = (1<<2),
         ITEMFLAG_SPREADS_SLACK               = (1<<3),
         ITEMFLAG_CONDITIONALLY_SPREADS_SLACK = (1<<4),

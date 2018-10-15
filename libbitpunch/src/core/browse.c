@@ -3165,7 +3165,7 @@ tracker_get_item_size_internal(struct tracker *tk, int64_t *item_sizep,
         return bt_ret;
     }
     if (0 == (tk->dpath.item->ndat->u.item.flags
-              & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
+              & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
         if (0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
             bt_ret = tracker_set_item_size(
                 tk, tk->dpath.item->ndat->u.item.min_span_size, bst);

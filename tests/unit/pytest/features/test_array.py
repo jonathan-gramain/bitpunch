@@ -5,7 +5,7 @@ import pytest
 from bitpunch import model
 import conftest
 
-spec_file_array_static_sized = """
+spec_file_array_const_sized = """
 
 let u32 = [4] byte <> integer { @signed = false; @endian = 'big'; };
 
@@ -19,7 +19,7 @@ file {
 
 """
 
-data_file_array_static_sized = """
+data_file_array_const_sized = """
 00 00 00 00
 00 00 00 01
 00 00 00 02
@@ -53,8 +53,8 @@ data_file_array_byte_items = """
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_file_array_static_sized,
-        'data': data_file_array_static_sized,
+        'spec': spec_file_array_const_sized,
+        'data': data_file_array_const_sized,
         'sizeof_array': 40,
     }, {
         'spec': spec_file_array_byte_items,

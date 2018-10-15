@@ -96,7 +96,7 @@ filter_read_value__filter(struct ast_node_hdl *filter,
 }
 
 bitpunch_status_t
-box_compute_span_size__static_size(struct box *box,
+box_compute_span_size__const_size(struct box *box,
                                    struct browse_state *bst)
 {
     DBG_BOX_DUMP(box);
@@ -295,7 +295,7 @@ box_compute_min_span_size__span_expr(struct box *box,
     case BITPUNCH_OK:
         break ;
     case BITPUNCH_NO_ITEM:
-        // no dynamic span enabled by conditional: min span is the
+        // no variable span enabled by conditional: min span is the
         // hard minimum
         return box_compute_min_span_size__as_hard_min(box, bst);
     default:
@@ -337,7 +337,7 @@ box_compute_max_span_size__span_expr(struct box *box,
     case BITPUNCH_OK:
         break ;
     case BITPUNCH_NO_ITEM:
-        // no dynamic span enabled by conditional
+        // no variable span enabled by conditional
         return box_compute_max_span_size__as_slack(box, bst);
     default:
         return bt_ret;
@@ -411,7 +411,7 @@ tracker_compute_item_size__item_box(struct tracker *tk,
 
 
 bitpunch_status_t
-compute_item_size__static_size(struct ast_node_hdl *item_filter,
+compute_item_size__const_size(struct ast_node_hdl *item_filter,
                                struct box *scope,
                                int64_t item_offset,
                                int64_t max_span_offset,
@@ -483,8 +483,8 @@ compile_node_backends__item__generic(struct ast_node_hdl *item)
     compile_node_backends__filter__filter(item);
 
     b_item = &item->ndat->u.rexpr_filter.f_instance->b_item;
-    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-        b_item->compute_item_size = compute_item_size__static_size;
+    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
+        b_item->compute_item_size = compute_item_size__const_size;
     }
 }
 
@@ -498,8 +498,8 @@ item_filter_instance_build(struct ast_node_hdl *item)
     b_item = &filter->b_item;
     memset(b_item, 0, sizeof (*b_item));
 
-    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC)) {
-        b_item->compute_item_size = compute_item_size__static_size;
+    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
+        b_item->compute_item_size = compute_item_size__const_size;
     }
     b_item->read_value = filter_read_value__bytes;
     return filter;

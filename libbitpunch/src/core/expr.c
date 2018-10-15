@@ -1781,7 +1781,7 @@ expr_evaluate_sizeof(
             // static sized item
             assert(ast_node_is_item(opd));
             assert(0 == (opd->ndat->u.item.flags
-                         & ITEMFLAG_IS_SPAN_SIZE_DYNAMIC));
+                         & ITEMFLAG_IS_SPAN_SIZE_VARIABLE));
             item_size = ast_node_get_min_span_size(opd);
         }
         *valuep = expr_value_as_integer(item_size);
