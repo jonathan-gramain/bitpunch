@@ -655,7 +655,7 @@
 %right OP_ARRAY_DECL
 %left  OP_BRACKETS
 
-%type <ast_node_hdl> g_integer g_boolean g_identifier g_literal filter_block expr opt_expr twin_index opt_twin_index
+%type <ast_node_hdl> g_integer g_boolean g_identifier g_literal scope_block filter_block expr opt_expr twin_index opt_twin_index
 %type <file_block> file_block
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
 %type <statement_list> func_params func_param_nonempty_list
@@ -914,51 +914,20 @@ func_param:
 
 
 schema:
-    block_stmt_list file_block block_stmt_list {
-        struct statement *stmt, *tstmt;
-        struct named_expr *field;
-
-        if (-1 == merge_block_stmt_list(&$1, &$3)) {
-            YYERROR;
-        }
-        TAILQ_FOREACH_SAFE(stmt, $1.field_list, list, tstmt) {
-            field = (struct named_expr *)stmt;
-            semantic_error(SEMANTIC_LOGLEVEL_WARNING, &stmt->loc,
-                           "top-level field declared outside file{} block");
-            free(field->nstmt.name);
-            free(field);
-        }
-        /* ignore fields outside file{} */
-        TAILQ_INIT($1.field_list);
-        assert(AST_NODE_TYPE_FILTER_DEF == $file_block.root->ndat->type);
-        if (-1 == merge_block_stmt_list(
-                &$file_block.root->ndat->u.scope_block.block_stmt_list,
-                &$1)) {
-            YYERROR;
-        }
+    file_block {
         memcpy(out_param, &$file_block, sizeof($file_block));
     }
-  | block_stmt_list {
-      struct block_stmt_list __attribute__((unused)) *stmt_list = &$block_stmt_list;
 
-      semantic_error(SEMANTIC_LOGLEVEL_ERROR, NULL,
-                     "missing top-level \"file {}\" block in "
-                     "binary definition file");
-      YYERROR;
-  }
-
-file_block: KW_FILE '{' block_stmt_list '}' {
-        struct ast_node_data *item;
-
-        $$.root = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, &@$);
-        item = $$.root->ndat;
-        item->u.filter_def.filter_type = "struct";
-        if (TAILQ_EMPTY($block_stmt_list.field_list)) {
-            semantic_error(SEMANTIC_LOGLEVEL_WARNING, &@$,
-                           "file block has zero field");
-        }
-        item->u.scope_block.block_stmt_list = $block_stmt_list;
+file_block:
+    scope_block {
+        $$.root = $scope_block;
         $$.root->flags = ASTFLAG_IS_ROOT_BLOCK;
+    }
+
+scope_block:
+    block_stmt_list {
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_SCOPE_BLOCK, &@$);
+        $$->ndat->u.scope_block.block_stmt_list = $block_stmt_list;
     }
 
 filter_block:
