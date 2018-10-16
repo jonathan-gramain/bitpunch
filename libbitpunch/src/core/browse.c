@@ -1060,7 +1060,7 @@ box_new_from_file_internal(const struct bitpunch_schema *def_hdl,
 {
     struct box *source_box;
     struct box *composite_box;
-    struct ast_node_hdl *root_filter;
+    struct ast_node_hdl *root_scope;
     bitpunch_status_t bt_ret;
 
     // TODO decouple source from composite in bp file syntax: source
@@ -1068,8 +1068,8 @@ box_new_from_file_internal(const struct bitpunch_schema *def_hdl,
     // dpath, which can be chained with a composite or other type of
     // (usually trackable) filter
 
-    root_filter = def_hdl->file_block.root;
-    assert(NULL != root_filter);
+    root_scope = def_hdl->file_block.root;
+    assert(NULL != root_scope);
     source_box = new_safe(struct box);
     bt_ret = box_construct(source_box, NULL,
                            filter_get_global_instance__source(), 0, 0u, bst);
@@ -1087,7 +1087,7 @@ box_new_from_file_internal(const struct bitpunch_schema *def_hdl,
         ds_in->box_cache = box_cache_new(BOX_CACHE_MAX_N_BOXES,
                                          BOX_CACHE_MAX_N_CACHED_CHILDREN);
     }
-    composite_box = box_new_filter_box(source_box, root_filter, bst);
+    composite_box = box_new_filter_box(source_box, root_scope, bst);
     if (NULL == composite_box) {
         box_delete_non_null(source_box);
     }
