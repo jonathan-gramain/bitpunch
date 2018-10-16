@@ -114,7 +114,7 @@ compile_span_size_composite(struct ast_node_hdl *item,
     child_conditionally_fills_slack = FALSE;
 
     filter_def = item->ndat->u.rexpr_filter.filter_def;
-    field_list = filter_def->block_stmt_list.field_list;
+    field_list = filter_def->scope_block.block_stmt_list.field_list;
     if (-1 == compile_fields(field_list,
                              COMPILE_TAG_NODE_TYPE |
                              COMPILE_TAG_NODE_SPAN_SIZE, 0u, ctx)) {
@@ -124,7 +124,8 @@ compile_span_size_composite(struct ast_node_hdl *item,
     max_span_expr = NULL;
     STATEMENT_FOREACH(
         named_expr, attr,
-        item->ndat->u.rexpr_filter.filter_def->block_stmt_list.attribute_list,
+        item->ndat->u.rexpr_filter.filter_def
+        ->scope_block.block_stmt_list.attribute_list,
         list) {
         if (0 == strcmp(attr->nstmt.name, "@minspan")) {
             if (NULL == attr->nstmt.stmt.cond) {

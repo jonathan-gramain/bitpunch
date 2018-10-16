@@ -170,7 +170,7 @@ filter_def_create_empty(const char *filter_type)
 
     filter_def = new_safe(struct filter_def);
     filter_def->filter_type = filter_type;
-    init_block_stmt_list(&filter_def->block_stmt_list);
+    init_block_stmt_list(&filter_def->scope_block.block_stmt_list);
     return filter_def;
 }
 
@@ -423,7 +423,7 @@ filter_iter_statements(
     it.stmt_mask = stmt_mask;
     if (NULL != filter_def) {
         it.scope = scope;
-        it.stmt_lists = &filter_def->block_stmt_list;
+        it.stmt_lists = &filter_def->scope_block.block_stmt_list;
         it.stmt_remaining = stmt_mask;
         filter_iter_start_list_internal(&it);
     }
@@ -460,7 +460,7 @@ filter_riter_statements(
     filter_def = filter->ndat->u.rexpr_filter.filter_def;
     if (NULL != filter_def) {
         it.scope = scope;
-        it.stmt_lists = &filter_def->block_stmt_list;
+        it.stmt_lists = &filter_def->scope_block.block_stmt_list;
         it.stmt_remaining = stmt_mask;
         filter_riter_start_list_internal(&it);
     }
@@ -569,7 +569,8 @@ filter_lookup_statement_in_anonymous_field_recur(
     if (!identifier_is_visible_in_block_stmt_lists(
             STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD,
             identifier,
-            &as_type->ndat->u.rexpr_filter.filter_def->block_stmt_list)) {
+            &as_type->ndat->u.rexpr_filter.filter_def
+            ->scope_block.block_stmt_list)) {
         return BITPUNCH_NO_ITEM;
     }
 
@@ -596,7 +597,8 @@ filter_lookup_statement_in_anonymous_field_recur(
     if (BITPUNCH_OK == bt_ret) {
         bt_ret = filter_lookup_statement_recur(
             as_type, anon_scope,
-            &as_type->ndat->u.rexpr_filter.filter_def->block_stmt_list,
+            &as_type->ndat->u.rexpr_filter.filter_def
+            ->scope_block.block_stmt_list,
             stmt_mask, identifier, stmt_typep, stmtp, scopep, bst);
     }
     box_delete(anon_scope);
@@ -677,7 +679,8 @@ filter_lookup_statement_internal(
         return BITPUNCH_NO_ITEM;
     }
     return filter_lookup_statement_recur(
-        filter, scope, &filter_def->block_stmt_list, stmt_mask, identifier,
+        filter, scope,
+        &filter_def->scope_block.block_stmt_list, stmt_mask, identifier,
         stmt_typep, stmtp, scopep, bst);
 }
 
@@ -806,7 +809,7 @@ filter_attach_native_attribute(
     struct named_expr *attr;
 
     filter_def = filter->ndat->u.rexpr_filter.filter_def;
-    attribute_list = filter_def->block_stmt_list.attribute_list;
+    attribute_list = filter_def->scope_block.block_stmt_list.attribute_list;
     attr = new_safe(struct named_expr);
     attr->nstmt.name = strdup_safe(attr_name);
     attr->expr = ast_node_new_rexpr_native(value);
@@ -822,7 +825,8 @@ filter_get_first_declared_attribute(
 
     STATEMENT_FOREACH(
         named_expr, attr_stmt,
-        filter->ndat->u.rexpr_filter.filter_def->block_stmt_list.attribute_list, list) {
+        filter->ndat->u.rexpr_filter.filter_def
+        ->scope_block.block_stmt_list.attribute_list, list) {
         if (0 == strcmp(attr_stmt->nstmt.name, attr_name)) {
             return attr_stmt->expr;
         }

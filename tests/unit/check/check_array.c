@@ -362,7 +362,8 @@ START_TEST(sarray_ast)
 
     root = check_sarray_def_hdl->file_block.root;
     ck_assert_int_eq(root->ndat->type, AST_NODE_TYPE_COMPOSITE);
-    stmt_lists = &root->ndat->u.rexpr_filter.filter_def->block_stmt_list;
+    stmt_lists =
+        &root->ndat->u.rexpr_filter.filter_def->scope_block.block_stmt_list;
 
     field = STATEMENT_FIRST(field, stmt_lists->field_list);
     ck_assert_str_eq(field->nstmt.name, "int_array");
@@ -432,7 +433,8 @@ START_TEST(varray_ast)
 
     root = check_varray_def_hdl->file_block.root;
     ck_assert_int_eq(root->ndat->type, AST_NODE_TYPE_COMPOSITE);
-    stmt_lists = &root->ndat->u.rexpr_filter.filter_def->block_stmt_list;
+    stmt_lists =
+        &root->ndat->u.rexpr_filter.filter_def->scope_block.block_stmt_list;
 
     field = STATEMENT_FIRST(field, stmt_lists->field_list);
     ck_assert_str_eq(field->nstmt.name, "int_array_size");

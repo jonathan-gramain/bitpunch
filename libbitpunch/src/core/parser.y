@@ -207,6 +207,7 @@
             AST_NODE_TYPE_BOOLEAN,
             AST_NODE_TYPE_STRING,
             AST_NODE_TYPE_IDENTIFIER,
+            AST_NODE_TYPE_SCOPE_BLOCK,
             AST_NODE_TYPE_FILTER_DEF,
             AST_NODE_TYPE_COMPOSITE,
             AST_NODE_TYPE_ARRAY,
@@ -294,9 +295,12 @@
             struct expr_value_string string;
             char *identifier;
             struct item_node item;
-            struct filter_def {
-                const char *filter_type;
+            struct scope_block {
                 struct block_stmt_list block_stmt_list;
+            } scope_block;
+            struct filter_def {
+                struct scope_block scope_block; /* inherits */
+                const char *filter_type;
             } filter_def;
             struct conditional {
                 struct ast_node_hdl *cond_expr;
@@ -834,13 +838,13 @@ expr:
         $$ = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, NULL);
         parser_location_make_span(&$$->loc, &@1, &@4);
         $$->ndat->u.filter_def.filter_type = "array";
-        init_block_stmt_list(&$$->ndat->u.filter_def.block_stmt_list);
+        init_block_stmt_list(&$$->ndat->u.scope_block.block_stmt_list);
         attribute_list_push(
-            $$->ndat->u.filter_def.block_stmt_list.attribute_list,
+            $$->ndat->u.scope_block.block_stmt_list.attribute_list,
             "@item", &@4, $4);
         if (NULL != $2) {
             attribute_list_push(
-                $$->ndat->u.filter_def.block_stmt_list.attribute_list,
+                $$->ndat->u.scope_block.block_stmt_list.attribute_list,
                 "@length", &@2, $2);
         }
     }
@@ -928,7 +932,7 @@ schema:
         TAILQ_INIT($1.field_list);
         assert(AST_NODE_TYPE_FILTER_DEF == $file_block.root->ndat->type);
         if (-1 == merge_block_stmt_list(
-                &$file_block.root->ndat->u.filter_def.block_stmt_list,
+                &$file_block.root->ndat->u.scope_block.block_stmt_list,
                 &$1)) {
             YYERROR;
         }
@@ -953,7 +957,7 @@ file_block: KW_FILE '{' block_stmt_list '}' {
             semantic_error(SEMANTIC_LOGLEVEL_WARNING, &@$,
                            "file block has zero field");
         }
-        item->u.filter_def.block_stmt_list = $block_stmt_list;
+        item->u.scope_block.block_stmt_list = $block_stmt_list;
         $$.root->flags = ASTFLAG_IS_ROOT_BLOCK;
     }
 
@@ -961,8 +965,8 @@ filter_block:
     IDENTIFIER '{' block_stmt_list '}' {
         $$ = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, &@$);
         $$->loc = @IDENTIFIER;
+        $$->ndat->u.scope_block.block_stmt_list = $block_stmt_list;
         $$->ndat->u.filter_def.filter_type = $IDENTIFIER;
-        $$->ndat->u.filter_def.block_stmt_list = $block_stmt_list;
     }
 
 if_block:
@@ -1190,6 +1194,7 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_BOOLEAN: return "boolean";
     case AST_NODE_TYPE_STRING: return "string";
     case AST_NODE_TYPE_IDENTIFIER: return "identifier";
+    case AST_NODE_TYPE_SCOPE_BLOCK: return "scope block";
     case AST_NODE_TYPE_FILTER_DEF: return "filter def";
     case AST_NODE_TYPE_COMPOSITE: return "composite";
     case AST_NODE_TYPE_ARRAY: return "array";

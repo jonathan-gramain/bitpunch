@@ -223,7 +223,8 @@ string_filter_instance_build(struct ast_node_hdl *filter)
     struct named_expr *attr;
     struct expr_value_string boundary;
 
-    stmt_lists = &filter->ndat->u.rexpr_filter.filter_def->block_stmt_list;
+    stmt_lists = &filter->ndat->u.rexpr_filter.filter_def
+        ->scope_block.block_stmt_list;
     STATEMENT_FOREACH(named_expr, attr, stmt_lists->attribute_list, list) {
         if (0 == strcmp(attr->nstmt.name, "@boundary")) {
             filter->ndat->u.item.flags &= ~ITEMFLAG_FILLS_SLACK;
