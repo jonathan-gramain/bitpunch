@@ -1453,6 +1453,9 @@ DataItem_get_filter_type_str(DataItemObject *self)
     const struct ast_node_hdl *item;
 
     filter = expr_dpath_get_target_filter(self->dpath);
+    if (NULL == filter) {
+        return "<nil>";
+    }
     if (AST_NODE_TYPE_REXPR_FILTER == filter->ndat->type) {
         return filter->ndat->u.rexpr_filter.filter_cls->name;
     }

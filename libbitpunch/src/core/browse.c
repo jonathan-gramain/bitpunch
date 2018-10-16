@@ -786,8 +786,6 @@ box_construct(struct box *o_box,
                          "reached maximum box nesting level %d",
                          BOX_MAX_DEPTH_LEVEL);
     }
-    assert(ast_node_is_rexpr_filter(filter));
-    assert(AST_NODE_TYPE_REXPR_OP_FILTER != filter->ndat->type);
     o_box->filter = filter;
     o_box->flags = box_flags;
     o_box->start_offset_parent = -1;
@@ -924,7 +922,7 @@ box_cache_init(struct box_cache *cache,
     cache->max_n_cached_children = max_n_cached_children;
 }
 
-static struct box_cache *
+static __attribute__((unused)) struct box_cache *
 box_cache_new(int max_n_boxes, int max_n_cached_children)
 {
     struct box_cache *cache;
@@ -1058,40 +1056,7 @@ box_new_from_file_internal(const struct bitpunch_schema *def_hdl,
                            struct bitpunch_data_source *ds_in,
                            struct browse_state *bst)
 {
-    struct box *source_box;
-    struct box *composite_box;
-    struct ast_node_hdl *root_scope;
-    bitpunch_status_t bt_ret;
-
-    // TODO decouple source from composite in bp file syntax: source
-    // should be declared as an independent filter that returns a bare
-    // dpath, which can be chained with a composite or other type of
-    // (usually trackable) filter
-
-    root_scope = def_hdl->file_block.root;
-    assert(NULL != root_scope);
-    source_box = new_safe(struct box);
-    bt_ret = box_construct(source_box, NULL,
-                           filter_get_global_instance__source(), 0, 0u, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        /* TODO error reporting */
-        box_delete_non_null(source_box);
-        return NULL;
-    }
-    source_box->ds_in = NULL;
-    source_box->ds_out = ds_in;
-    source_box->start_offset_used = 0;
-    source_box->end_offset_used = ds_in->ds_data_length;
-    source_box->flags |= BOX_FILTER | BOX_FILTER_APPLIED;
-    if (NULL == ds_in->box_cache) {
-        ds_in->box_cache = box_cache_new(BOX_CACHE_MAX_N_BOXES,
-                                         BOX_CACHE_MAX_N_CACHED_CHILDREN);
-    }
-    composite_box = box_new_filter_box(source_box, root_scope, bst);
-    if (NULL == composite_box) {
-        box_delete_non_null(source_box);
-    }
-    return composite_box;
+    return box_new_scope_box(NULL, def_hdl->file_block.root, bst);
 }
 
 struct box *
@@ -1102,6 +1067,25 @@ box_new_from_file(const struct bitpunch_schema *def_hdl,
 
     browse_state_init(&bst);
     return box_new_from_file_internal(def_hdl, ds_in, &bst);
+}
+
+struct box *
+box_new_scope_box(struct box *parent_box,
+                  struct ast_node_hdl *scope_block,
+                  struct browse_state *bst)
+{
+    struct box *box;
+    bitpunch_status_t bt_ret;
+
+    box = new_safe(struct box);
+    bt_ret = box_construct(
+        box, parent_box, scope_block, -1, BOX_SCOPE_ONLY, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        box_delete_non_null(box);
+        return NULL;
+    }
+    box->track_path = TRACK_PATH_NONE;
+    return box;
 }
 
 struct box *
@@ -1396,8 +1380,8 @@ tracker_goto_nil(struct tracker *tk)
     struct ast_node_hdl *item;
 
     item = tk->box->filter;
-    assert(ast_node_is_rexpr_filter(item));
-    if (NULL != item->ndat->u.rexpr_filter.f_instance->b_tk.goto_nil) {
+    if (ast_node_is_rexpr_filter(item)
+        && NULL != item->ndat->u.rexpr_filter.f_instance->b_tk.goto_nil) {
         item->ndat->u.rexpr_filter.f_instance->b_tk.goto_nil(tk);
     }
 }

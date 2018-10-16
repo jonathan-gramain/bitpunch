@@ -173,6 +173,10 @@ box_get_slack_child_allocation(struct box *box,
                                struct browse_state *bst);
 
 struct box *
+box_new_scope_box(struct box *parent_box,
+                  struct ast_node_hdl *scope_block,
+                  struct browse_state *bst);
+struct box *
 box_new_filter_box(struct box *parent_box,
                    struct ast_node_hdl *filter,
                    struct browse_state *bst);

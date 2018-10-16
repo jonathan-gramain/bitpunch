@@ -1210,18 +1210,25 @@ resolve_expr_scoped_recur(struct ast_node_hdl *expr,
                           struct list_of_visible_refs *inmost_refs)
 {
     struct list_of_visible_refs visible_refs;
+    struct ast_node_hdl *scope_node;
+    struct scope_block *scope_block;
 
     while (NULL != cur_scope
-           && !ast_node_is_filter(cur_scope->filter)) {
+           && !ast_node_is_scope(cur_scope->filter)) {
         cur_scope = cur_scope->parent_box;
     }
     if (NULL == cur_scope) {
         return resolve_expr_internal(expr, inmost_refs);
     }
+    scope_node = cur_scope->filter;
     visible_refs.outer_refs = NULL;
-    visible_refs.cur_filter = cur_scope->filter;
-    visible_refs.cur_lists = &cur_scope->filter->ndat->u.rexpr_filter
-        .filter_def->scope_block.block_stmt_list;
+    visible_refs.cur_filter = scope_node;
+    if (AST_NODE_TYPE_SCOPE_BLOCK == scope_node->ndat->type) {
+        scope_block = &scope_node->ndat->u.scope_block;
+    } else {
+        scope_block = &scope_node->ndat->u.rexpr_filter.filter_def->scope_block;
+    }
+    visible_refs.cur_lists = &scope_block->block_stmt_list;
     if (NULL != inner_refs) {
         inner_refs->outer_refs = &visible_refs;
     }
@@ -3726,6 +3733,25 @@ ast_node_is_type(const struct ast_node_hdl *node)
     return ast_node_is_item(node);
 }
 
+
+int
+ast_node_is_scope(const struct ast_node_hdl *node)
+{
+    if (NULL == node) {
+        return FALSE;
+    }
+    switch (node->ndat->type) {
+    case AST_NODE_TYPE_SCOPE_BLOCK:
+    case AST_NODE_TYPE_COMPOSITE:
+    case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE_ARRAY:
+    case AST_NODE_TYPE_BYTE:
+    case AST_NODE_TYPE_REXPR_FILTER:
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
 
 int
 ast_node_is_filter(const struct ast_node_hdl *node)

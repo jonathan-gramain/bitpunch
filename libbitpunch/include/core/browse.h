@@ -194,6 +194,7 @@ struct box {
         BOX_DATA_SOURCE            = (1u<<5),
         BOX_OVERLAY                = (1u<<6),
         BOX_FILTER_APPLIED         = (1u<<7),
+        BOX_SCOPE_ONLY             = (1u<<8),
     } flags;
     union {
         struct box_composite {
