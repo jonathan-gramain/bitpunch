@@ -532,10 +532,10 @@ class CLI(NestedCmd):
         if self.format_spec and self.bin_file:
             self.open_data_tree('list')
         obj = self.data_tree.eval_expr(expr) if expr else self.data_tree
-        if (obj.get_filter_type() == 'composite' or
-            obj.get_filter_type() == 'array'):
+        obj_type = obj.get_filter_type()
+        if (obj_type in ['scope', 'composite', 'array']):
             keys = list(str(key) for key in model.Tracker(
-                obj, iter_mode=model.Tracker.ITER_MEMBER_NAMES))
+                obj, iter_mode=model.Tracker.ITER_ATTRIBUTE_NAMES))
             self.columnize(keys)
         else:
             raise CommandError('list',

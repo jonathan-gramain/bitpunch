@@ -1454,7 +1454,7 @@ DataItem_get_filter_type_str(DataItemObject *self)
 
     filter = expr_dpath_get_target_filter(self->dpath);
     if (NULL == filter) {
-        return "<nil>";
+        return "scope";
     }
     if (AST_NODE_TYPE_REXPR_FILTER == filter->ndat->type) {
         return filter->ndat->u.rexpr_filter.filter_cls->name;
@@ -2412,6 +2412,9 @@ Tracker_set_default_iter_mode(TrackerObject *self)
 
     node = self->tk->box->filter;
     switch (node->ndat->type) {
+    case AST_NODE_TYPE_SCOPE_BLOCK:
+        self->iter_mode = TRACKER_ITER_ATTRIBUTE_NAMES;
+        break ;
     case AST_NODE_TYPE_COMPOSITE:
         self->iter_mode = TRACKER_ITER_FIELD_NAMES;
         break ;

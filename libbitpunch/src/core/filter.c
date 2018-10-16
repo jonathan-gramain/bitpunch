@@ -414,19 +414,21 @@ filter_iter_statements(
     enum statement_type stmt_mask, const char *identifier)
 {
     struct statement_iterator it;
-    struct filter_def *filter_def;
+    struct scope_block *scope_block;
 
-    assert(ast_node_is_rexpr_filter(filter));
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
-    filter_def = filter->ndat->u.rexpr_filter.filter_def;
-    it.stmt_mask = stmt_mask;
-    if (NULL != filter_def) {
-        it.scope = scope;
-        it.stmt_lists = &filter_def->scope_block.block_stmt_list;
-        it.stmt_remaining = stmt_mask;
-        filter_iter_start_list_internal(&it);
+    if (AST_NODE_TYPE_SCOPE_BLOCK == filter->ndat->type) {
+        scope_block = &filter->ndat->u.scope_block;
+    } else {
+        assert(ast_node_is_rexpr_filter(filter));
+        scope_block = &filter->ndat->u.rexpr_filter.filter_def->scope_block;
     }
+    it.stmt_mask = stmt_mask;
+    it.scope = scope;
+    it.stmt_lists = &scope_block->block_stmt_list;
+    it.stmt_remaining = stmt_mask;
+    filter_iter_start_list_internal(&it);
     return it;
 }
 
