@@ -286,9 +286,10 @@ scope_lookup_statement_in_anonymous_field_recur(
     struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
+    struct ast_node_hdl *field_filter_type;
+    struct scope_def *field_scope_def;
     int cond_eval;
     const struct field *field;
-    struct ast_node_hdl *as_type;
     struct box *anon_scope = NULL;
     struct tracker *tk;
 
@@ -301,12 +302,15 @@ scope_lookup_statement_in_anonymous_field_recur(
     // table for identifiers for fast lookup)
 
     field = (const struct field *)stmt;
-    as_type = ast_node_get_as_type(field->filter);
-    assert(ast_node_is_rexpr_filter(as_type));
+    bt_ret = expr_evaluate_filter_type_internal(
+        field->filter, scope, FILTER_KIND_FILTER, &field_filter_type, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    field_scope_def = filter_get_scope_def(field_filter_type);
     if (!identifier_is_visible_in_block_stmt_lists(
             STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD,
-            identifier,
-            &filter_get_scope_def(as_type)->block_stmt_list)) {
+            identifier, &field_scope_def->block_stmt_list)) {
         return BITPUNCH_NO_ITEM;
     }
 
@@ -332,8 +336,7 @@ scope_lookup_statement_in_anonymous_field_recur(
     tracker_delete(tk);
     if (BITPUNCH_OK == bt_ret) {
         bt_ret = scope_lookup_statement_recur(
-            filter_get_scope_def(as_type), anon_scope,
-            &filter_get_scope_def(as_type)->block_stmt_list,
+            field_scope_def, anon_scope, &field_scope_def->block_stmt_list,
             stmt_mask, identifier, stmt_typep, stmtp, scopep, bst);
     }
     box_delete(anon_scope);
@@ -560,3 +563,171 @@ scope_get_first_declared_attribute(
     }
     return NULL;
 }
+
+
+/* browse backend */
+
+
+bitpunch_status_t
+box_get_n_items__scope(struct box *box, int64_t *item_countp,
+                       struct browse_state *bst)
+{
+    DBG_BOX_DUMP(box);
+    return filter_get_n_statements_internal(
+        box->filter, box, STATEMENT_TYPE_FIELD, NULL,
+        item_countp, bst);
+}
+
+
+bitpunch_status_t
+tracker_get_item_key__scope(struct tracker *tk,
+                            expr_value_t *keyp,
+                            int *nth_twinp,
+                            struct browse_state *bst)
+{
+    DBG_TRACKER_DUMP(tk);
+    assert(NULL != tk->cur.u.field);
+    if (NULL != keyp) {
+        *keyp = expr_value_as_string(tk->cur.u.field->nstmt.name);
+    }
+    if (NULL != nth_twinp) {
+        /* field names are unique within a scope */
+        *nth_twinp = 0;
+    }
+    return BITPUNCH_OK;
+}
+
+
+bitpunch_status_t
+tracker_goto_first_item__scope(
+    struct tracker *tk, struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+
+    DBG_TRACKER_DUMP(tk);
+    bt_ret = tracker_goto_first_field_internal(tk, FALSE, bst);
+    // skip hidden fields
+    while (BITPUNCH_OK == bt_ret
+           && 0 != (tk->cur.u.field->nstmt.stmt.stmt_flags
+                    & FIELD_FLAG_HIDDEN)) {
+        bt_ret = tracker_goto_next_field_internal(tk, FALSE, bst);
+    }
+    return bt_ret;
+}
+
+bitpunch_status_t
+tracker_goto_next_item__scope(
+    struct tracker *tk, struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+
+    DBG_TRACKER_DUMP(tk);
+    // skip hidden fields
+    do {
+        bt_ret = tracker_goto_next_field_internal(tk, FALSE, bst);
+    } while (BITPUNCH_OK == bt_ret
+             && 0 != (tk->cur.u.field->nstmt.stmt.stmt_flags
+                      & FIELD_FLAG_HIDDEN));
+    return bt_ret;
+}
+
+bitpunch_status_t
+tracker_goto_nth_item__scope(
+    struct tracker *tk, int64_t index, struct browse_state *bst)
+{
+    struct tracker *xtk;
+    bitpunch_status_t bt_ret;
+    int64_t cur_idx;
+
+    DBG_TRACKER_DUMP(tk);
+    xtk = tracker_dup(tk);
+    bt_ret = tracker_goto_first_item__scope(xtk, bst);
+    cur_idx = 0;
+    while (TRUE) {
+        if (BITPUNCH_OK != bt_ret) {
+            tracker_delete(xtk);
+            return bt_ret;
+        }
+        if (cur_idx == index) {
+            break ;
+        }
+        ++cur_idx;
+        bt_ret = tracker_goto_next_item__scope(xtk, bst);
+    }
+    tracker_set(tk, xtk);
+    tracker_delete(xtk);
+    DBG_TRACKER_CHECK_STATE(tk);
+    return BITPUNCH_OK;
+}
+
+bitpunch_status_t
+tracker_goto_next_item_with_key__scope(
+    struct tracker *tk, expr_value_t item_key, struct browse_state *bst)
+{
+    DBG_TRACKER_DUMP(tk);
+    return BITPUNCH_NOT_IMPLEMENTED;
+}
+
+bitpunch_status_t
+tracker_goto_nth_item_with_key__scope(
+    struct tracker *tk, expr_value_t item_key, int nth_twin,
+    struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+
+    DBG_TRACKER_DUMP(tk);
+    if (0 != nth_twin) {
+        // all attributes within a scope are unique
+        return BITPUNCH_NO_ITEM;
+    }
+    if (EXPR_VALUE_TYPE_STRING != item_key.type) {
+        // all attributes names are string-typed
+        return BITPUNCH_NO_ITEM;
+    }
+    bt_ret = tracker_goto_first_field_internal(tk, FALSE, bst);
+    while (BITPUNCH_OK == bt_ret) {
+        if (NULL != tk->cur.u.field->nstmt.name
+            && strlen(tk->cur.u.field->nstmt.name) == item_key.string.len
+            && 0 == memcmp(tk->cur.u.field->nstmt.name,
+                           item_key.string.str, item_key.string.len)) {
+            return BITPUNCH_OK;
+        }
+        bt_ret = tracker_goto_next_field_internal(tk, FALSE, bst);
+    }
+    return bt_ret;
+}
+
+bitpunch_status_t
+tracker_goto_named_item__scope(struct tracker *tk, const char *name,
+                               struct browse_state *bst)
+{
+    expr_value_t key;
+
+    key = expr_value_as_string(name);
+    return tracker_goto_nth_item_with_key__scope(tk, key, 0, bst);
+}
+
+bitpunch_status_t
+tracker_goto_next_key_match__scope(struct tracker *tk,
+                                   expr_value_t index,
+                                   struct track_path search_boundary,
+                                   struct browse_state *bst)
+{
+    DBG_TRACKER_DUMP(tk);
+    return tracker_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst, NULL);
+}
+
+bitpunch_status_t
+tracker_goto_end_path__scope(struct tracker *tk,
+                             struct browse_state *bst)
+{
+    tk->cur = track_path_from_field(NULL);
+    return BITPUNCH_OK;
+}
+
+void
+tracker_goto_nil__scope(struct tracker *tk)
+{
+    tk->cur = track_path_from_field(NULL);
+}
+

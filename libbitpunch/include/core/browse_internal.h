@@ -96,6 +96,10 @@ struct tracker_backend {
     bitpunch_status_t (*compute_item_size)(struct tracker *tk,
                                           int64_t *item_sizep,
                                           struct browse_state *bst);
+    bitpunch_status_t (*init_item_offset)(struct tracker *tk,
+                                          struct browse_state *bst);
+    bitpunch_status_t (*advance_item_offset)(struct tracker *tk,
+                                             struct browse_state *bst);
     bitpunch_status_t (*goto_first_item)(struct tracker *tk,
                                         struct browse_state *bst);
     bitpunch_status_t (*goto_next_item)(struct tracker *tk,
@@ -182,8 +186,6 @@ box_apply_parent_filter_internal(struct box *box,
 bitpunch_status_t
 box_apply_filter_internal(struct box *box,
                           struct browse_state *bst);
-struct box *
-box_get_scope_box(struct box *box);
 
 bitpunch_status_t
 box_get_n_items_internal(struct box *box, int64_t *item_countp,
@@ -337,6 +339,10 @@ tracker_goto_nth_item_with_key__not_impl(
     struct tracker *tk, expr_value_t item_key, int nth_twin,
     struct browse_state *bst);
 bitpunch_status_t
+tracker_goto_ancestor_array_index_internal(struct tracker *tk,
+                                           int64_t index,
+                                           struct browse_state *bst);
+bitpunch_status_t
 tracker_goto_index_internal(struct tracker *tk,
                             struct subscript_index index,
                             const char *index_desc,
@@ -344,6 +350,17 @@ tracker_goto_index_internal(struct tracker *tk,
                             int allow_end_boundary,
                             int is_end_of_slice,
                             struct browse_state *bst);
+
+bitpunch_status_t
+tracker_goto_field_internal(struct tracker *tk,
+                            const struct field *to_field, int flat,
+                            struct browse_state *bst);
+bitpunch_status_t
+tracker_goto_first_field_internal(struct tracker *tk, int flat,
+                                   struct browse_state *bst);
+bitpunch_status_t
+tracker_goto_next_field_internal(struct tracker *tk, int flat,
+                                 struct browse_state *bst);
 
 bitpunch_status_t
 tracker_enter_item_internal(struct tracker *tk,
@@ -410,7 +427,7 @@ tracker_reverse_direction_internal(struct tracker *tk,
 void
 tracker_reset_item_cache(struct tracker *tk);
 struct track_path
-track_path_from_composite_field(const struct field *field);
+track_path_from_field(const struct field *field);
 struct track_path
 track_path_from_array_index(int64_t index);
 struct track_path

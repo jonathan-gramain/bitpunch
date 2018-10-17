@@ -62,12 +62,8 @@ enum expr_dpath_type {
 struct expr_dpath {
     enum expr_dpath_type type;
     union {
-        struct expr_dpath_item {
-            struct tracker *tk;
-        } item;
-        struct expr_dpath_container {
-            struct box *box;
-        } container;
+        struct tracker *tk;
+        struct box *box;
     };
 };
 

@@ -107,7 +107,7 @@ TAILQ_HEAD(box_tailq, box);
 struct track_path {
     enum track_path_type {
         TRACK_PATH_NOTYPE,
-        TRACK_PATH_COMPOSITE,
+        TRACK_PATH_FIELD,
         TRACK_PATH_ARRAY,
         TRACK_PATH_ARRAY_SLICE,
     } type;
@@ -117,9 +117,7 @@ struct track_path {
         TRACK_PATH_TRAILER     = (1u<<2),
     } flags;
     union {
-        struct {
-            const struct field *field;
-        } block;
+        const struct field *field;
         struct track_path_array {
             int64_t index;
         } array;

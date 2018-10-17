@@ -162,8 +162,6 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
             bt_ret = tracker_return(tk, NULL);
             ck_assert_int_eq(bt_ret, BITPUNCH_NO_ITEM);
         }
-    } else {
-        ck_assert_int_eq(bt_ret, BITPUNCH_OUT_OF_BOUNDS_ERROR);
     }
     tracker_delete(tk);
 

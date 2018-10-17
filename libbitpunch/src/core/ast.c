@@ -3916,7 +3916,7 @@ static void
 fdump_ast_recur(struct ast_node_hdl *node, int depth,
                 struct list_of_visible_refs *visible_refs, FILE *stream);
 static void
-dump_filter_recur(const struct ast_node_hdl *filter,
+dump_scope_recur(const struct ast_node_hdl *filter,
                  int depth,
                  struct list_of_visible_refs *outer_refs,
                  FILE *stream);
@@ -3984,7 +3984,7 @@ fdump_ast(struct ast_node_hdl *root, FILE *out)
 void
 dump_filter(const struct ast_node_hdl *filter, FILE *out)
 {
-    dump_filter_recur(filter, 0, NULL, out);
+    dump_scope_recur(filter, 0, NULL, out);
 }
 
 void
@@ -4088,10 +4088,14 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_IDENTIFIER:
         fprintf(out, "\"%s\"\n", node->ndat->u.identifier);
         break ;
+    case AST_NODE_TYPE_SCOPE_DEF:
+        fprintf(out, "scope\n");
+        dump_scope_recur(node, depth + 1, visible_refs, out);
+        break ;
     case AST_NODE_TYPE_FILTER_DEF:
         fprintf(out, "filter type: %s\n",
                 node->ndat->u.filter_def.filter_type);
-        dump_filter_recur(node, depth + 1, visible_refs, out);
+        dump_scope_recur(node, depth + 1, visible_refs, out);
         break ;
     case AST_NODE_TYPE_COMPOSITE:
         dump_ast_item_info(node, out);
@@ -4454,6 +4458,7 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
                 ast_node_type_str(node->ndat->type));
         break ;
     case AST_NODE_TYPE_REXPR_FILTER:
+    case AST_NODE_TYPE_SCOPE_DEF:
     case AST_NODE_TYPE_FILTER_DEF:
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
@@ -4551,7 +4556,7 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
 }
 
 static void
-dump_filter_recur(const struct ast_node_hdl *filter,
+dump_scope_recur(const struct ast_node_hdl *filter,
                  int depth,
                  struct list_of_visible_refs *outer_refs,
                  FILE *out)

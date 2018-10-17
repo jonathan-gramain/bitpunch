@@ -37,12 +37,6 @@
 #include "core/debug.h"
 #include "filters/composite.h"
 
-static bitpunch_status_t
-tracker_goto_first_item_int__composite(struct tracker *tk, int flat,
-                                       struct browse_state *bst);
-static bitpunch_status_t
-tracker_goto_next_item_int__composite(struct tracker *tk, int flat,
-                                      struct browse_state *bst);
 
 static struct filter_instance *
 composite_filter_instance_build(struct ast_node_hdl *filter,
@@ -336,9 +330,9 @@ box_compute_span_size__struct(struct box *box,
     }
     tk->flags |= (TRACKER_NEED_ITEM_OFFSET |
                   ((box->flags & BOX_RALIGN) ? TRACKER_REVERSED : 0u));
-    bt_ret = tracker_goto_first_item_int__composite(tk, TRUE, bst);
+    bt_ret = tracker_goto_first_field_internal(tk, TRUE, bst);
     while (BITPUNCH_OK == bt_ret) {
-        bt_ret = tracker_goto_next_item_int__composite(tk, TRUE, bst);
+        bt_ret = tracker_goto_next_field_internal(tk, TRUE, bst);
     }
     if (BITPUNCH_NO_ITEM == bt_ret) {
         assert(-1 != tk->item_offset);
@@ -369,14 +363,14 @@ box_compute_span_size__union_var_size(struct box *box,
         return bt_ret;
     }
     max_subitem_size = 0;
-    bt_ret = tracker_goto_first_item_int__composite(tk, TRUE, bst);
+    bt_ret = tracker_goto_first_field_internal(tk, TRUE, bst);
     while (BITPUNCH_OK == bt_ret) {
         bt_ret = tracker_get_item_size_internal(tk, &subitem_size, bst);
         if (BITPUNCH_OK != bt_ret) {
             break ;
         }
         max_subitem_size = MAX(max_subitem_size, subitem_size);
-        bt_ret = tracker_goto_next_item_int__composite(tk, TRUE, bst);
+        bt_ret = tracker_goto_next_field_internal(tk, TRUE, bst);
     }
     if (BITPUNCH_NO_ITEM == bt_ret) {
         bt_ret = box_set_span_size(box, max_subitem_size, bst);
@@ -409,9 +403,9 @@ box_get_slack_child_allocation__struct(struct box *box,
         // encountered)
         tk->flags |= TRACKER_REVERSED;
     }
-    bt_ret = tracker_goto_first_item_int__composite(tk, TRUE, bst);
+    bt_ret = tracker_goto_first_field_internal(tk, TRUE, bst);
     while (BITPUNCH_OK == bt_ret) {
-        field = tk->cur.u.block.field;
+        field = tk->cur.u.field;
         if (get_left_offset) {
             if (0 == (field->nstmt.stmt.stmt_flags & FIELD_FLAG_HEADER)) {
                 break ;
@@ -421,425 +415,13 @@ box_get_slack_child_allocation__struct(struct box *box,
                 break ;
             }
         }
-        bt_ret = tracker_goto_next_item_int__composite(tk, TRUE, bst);
+        bt_ret = tracker_goto_next_field_internal(tk, TRUE, bst);
     }
     if (BITPUNCH_OK == bt_ret) {
         *max_slack_offsetp = tk->item_offset;
     }
     tracker_delete(tk);
     return bt_ret;
-}
-
-static bitpunch_status_t
-box_get_n_items__composite(struct box *box, int64_t *item_countp,
-                       struct browse_state *bst)
-{
-    DBG_BOX_DUMP(box);
-    return filter_get_n_statements_internal(
-        box->filter, box, STATEMENT_TYPE_FIELD, NULL,
-        item_countp, bst);
-}
-
-
-static bitpunch_status_t
-tracker_get_item_key__composite(struct tracker *tk,
-                            expr_value_t *keyp,
-                            int *nth_twinp,
-                            struct browse_state *bst)
-{
-    DBG_TRACKER_DUMP(tk);
-    assert(NULL != tk->cur.u.block.field);
-    if (NULL != keyp) {
-        *keyp = expr_value_as_string(tk->cur.u.block.field->nstmt.name);
-    }
-    if (NULL != nth_twinp) {
-        /* field names are unique */
-        *nth_twinp = 0;
-    }
-    return BITPUNCH_OK;
-}
-
-
-static void
-tracker_set_field_internal__composite(struct tracker *tk,
-                                      const struct field *field,
-                                      struct browse_state *bst)
-{
-    DPRINT("TK set field "ANSI_COLOR_GREEN"%s"ANSI_COLOR_RESET" on:\n",
-           field->nstmt.name);
-    DBG_TRACKER_DUMP(tk);
-    tracker_set_dangling(tk);
-    tk->cur = track_path_from_composite_field(field);
-    tk->dpath.filter = field->filter;
-    DBG_TRACKER_CHECK_STATE(tk);
-}
-
-static bitpunch_status_t
-tracker_goto_item_int__composite(struct tracker *tk,
-                             const struct field *field, int flat,
-                             struct browse_state *bst)
-{
-    struct tracker *xtk;
-    bitpunch_status_t bt_ret;
-    struct statement_iterator stit;
-    const struct statement *stmt;
-
-    DBG_TRACKER_DUMP(tk);
-    if (flat
-        || NULL != field->nstmt.name
-        || 0 != (field->nstmt.stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
-        tracker_set_field_internal__composite(tk, field, bst);
-        return BITPUNCH_OK;
-    }
-    // recurse into anonymous struct's fields
-    xtk = tracker_dup(tk);
-    do {
-        tracker_set_field_internal__composite(xtk, field, bst);
-        bt_ret = tracker_enter_item_internal(xtk, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            tracker_delete(xtk);
-            return bt_ret;
-        }
-        if (0 != (tk->flags & TRACKER_REVERSED)) {
-            stit = filter_riter_statements(
-                xtk->box->filter, xtk->box, STATEMENT_TYPE_FIELD, NULL);
-        } else {
-            stit = filter_iter_statements(
-                xtk->box->filter, xtk->box, STATEMENT_TYPE_FIELD, NULL);
-        }
-        bt_ret = scope_iter_statements_next_internal(&stit, NULL, &stmt, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            tracker_delete(xtk);
-            return bt_ret;
-        }
-        field = (const struct field *)stmt;
-    } while (NULL == field->nstmt.name
-             && 0 == (field->nstmt.stmt.stmt_flags & FIELD_FLAG_HIDDEN));
-    tracker_set(tk, xtk);
-    tracker_delete(xtk);
-    tracker_set_field_internal__composite(tk, field, bst);
-    return BITPUNCH_OK;
-}
-
-static struct box *
-box_get_container_parent_box(struct box *box)
-{
-    while (TRUE) {
-        switch (box->filter->ndat->type) {
-        case AST_NODE_TYPE_COMPOSITE:
-        case AST_NODE_TYPE_ARRAY:
-            return box;
-        default:
-            box = box->parent_box;
-            break ;
-        }
-    }
-    return box;
-}
-
-static int
-tracker_in_anonymous_composite(struct tracker *tk)
-{
-    struct box *composite_box;
-    struct box *parent_box;
-
-    composite_box = box_get_container_parent_box(tk->box);
-    parent_box = composite_box->parent_box;
-    return (NULL != parent_box
-            && AST_NODE_TYPE_COMPOSITE == parent_box->filter->ndat->type
-            && NULL != composite_box->track_path.u.block.field
-            && NULL == composite_box->track_path.u.block.field->nstmt.name
-            && 0 == (composite_box->track_path.u.block.field
-                     ->nstmt.stmt.stmt_flags & FIELD_FLAG_HIDDEN));
-}
-
-static bitpunch_status_t
-tracker_goto_first_item_int__composite(struct tracker *tk, int flat,
-                                       struct browse_state *bst)
-{
-    struct statement_iterator stit;
-    const struct statement *stmt;
-    bitpunch_status_t bt_ret;
-
-    DBG_TRACKER_DUMP(tk);
-    if (!flat && NULL != tk->cur.u.block.field) {
-        // return to base, non-anonymous level
-        while (tracker_in_anonymous_composite(tk)) {
-            bt_ret = tracker_return_internal(tk, bst);
-            assert(BITPUNCH_OK == bt_ret);
-        }
-    }
-    bt_ret = tracker_set_item_offset_at_box(tk, tk->box, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    if (0 != (tk->flags & TRACKER_REVERSED)) {
-        stit = filter_riter_statements(
-            tk->box->filter, tk->box, STATEMENT_TYPE_FIELD, NULL);
-    } else {
-        stit = filter_iter_statements(
-            tk->box->filter, tk->box, STATEMENT_TYPE_FIELD, NULL);
-    }
-    bt_ret = scope_iter_statements_next_internal(&stit, NULL, &stmt, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        if (BITPUNCH_NO_ITEM == bt_ret) {
-            bt_ret = tracker_set_end(tk, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                return bt_ret;
-            }
-            return BITPUNCH_NO_ITEM;
-        } else {
-            return bt_ret;
-        }
-    }
-    return tracker_goto_item_int__composite(tk, (const struct field *)stmt,
-                                        flat, bst);
-}
-
-
-static bitpunch_status_t
-tracker_goto_next_item_int__composite(struct tracker *tk, int flat,
-                                      struct browse_state *bst)
-{
-    struct statement_iterator stit;
-    const struct statement *stmt;
-    bitpunch_status_t bt_ret;
-    int reversed;
-
-    DBG_TRACKER_DUMP(tk);
-    reversed = (0 != (tk->flags & TRACKER_REVERSED));
-    DBG_TRACKER_CHECK_STATE(tk);
-    while (TRUE) {
-        /* union: no offset change */
-        if (0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
-            struct filter_instance_composite *composite;
-
-            composite = (struct filter_instance_composite *)
-                tk->box->filter->ndat->u.rexpr_filter.f_instance;
-            if (COMPOSITE_TYPE_STRUCT == composite->type) {
-                int64_t item_size;
-
-                bt_ret = tracker_get_item_size_internal(tk, &item_size, bst);
-                if (BITPUNCH_OK != bt_ret) {
-                    DBG_TRACKER_CHECK_STATE(tk);
-                    return bt_ret;
-                }
-                DBG_TRACKER_CHECK_STATE(tk);
-                if (reversed) {
-                    assert(tk->item_offset >= item_size);
-                    tk->item_offset -= item_size;
-                } else {
-                    tk->item_offset += item_size;
-                }
-            }
-        }
-        tracker_reset_item_cache(tk);
-        if (reversed) {
-            stit = filter_riter_statements_from(
-                tk->box->filter, tk->box,
-                (const struct statement *)tk->cur.u.block.field, NULL);
-        } else {
-            stit = filter_iter_statements_from(
-                tk->box->filter, tk->box,
-                (const struct statement *)tk->cur.u.block.field, NULL);
-        }
-        bt_ret = scope_iter_statements_next_internal(&stit, NULL, &stmt, bst);
-        if (BITPUNCH_NO_ITEM != bt_ret) {
-            break ;
-        }
-        if (!flat && tracker_in_anonymous_composite(tk)) {
-            // return from anonymous struct's field list
-            bt_ret = tracker_return_internal(tk, bst);
-            assert(BITPUNCH_OK == bt_ret);
-        } else {
-            bt_ret = tracker_set_end(tk, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                return bt_ret;
-            }
-            return BITPUNCH_NO_ITEM;
-        }
-    }
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    return tracker_goto_item_int__composite(tk, (const struct field *)stmt,
-                                        flat, bst);
-}
-
-static bitpunch_status_t
-tracker_goto_first_item__composite(struct tracker *tk,
-                                   struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-
-    DBG_TRACKER_DUMP(tk);
-    bt_ret = tracker_goto_first_item_int__composite(tk, FALSE, bst);
-    // skip hidden fields
-    while (BITPUNCH_OK == bt_ret
-           && 0 != (tk->cur.u.block.field->nstmt.stmt.stmt_flags
-                    & FIELD_FLAG_HIDDEN)) {
-        bt_ret = tracker_goto_next_item_int__composite(tk, FALSE, bst);
-    }
-    return bt_ret;
-}
-
-static bitpunch_status_t
-tracker_goto_next_item__composite(struct tracker *tk,
-                                  struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-
-    DBG_TRACKER_DUMP(tk);
-    // skip hidden fields
-    do {
-        bt_ret = tracker_goto_next_item_int__composite(tk, FALSE, bst);
-    } while (BITPUNCH_OK == bt_ret
-             && 0 != (tk->cur.u.block.field->nstmt.stmt.stmt_flags
-                      & FIELD_FLAG_HIDDEN));
-    return bt_ret;
-}
-
-static bitpunch_status_t
-tracker_goto_nth_item__composite(struct tracker *tk, int64_t index,
-                                 struct browse_state *bst)
-{
-    struct tracker *xtk;
-    bitpunch_status_t bt_ret;
-    int64_t cur_idx;
-
-    DBG_TRACKER_DUMP(tk);
-    xtk = tracker_dup(tk);
-    bt_ret = tracker_goto_first_item__composite(xtk, bst);
-    cur_idx = 0;
-    while (TRUE) {
-        if (BITPUNCH_OK != bt_ret) {
-            tracker_delete(xtk);
-            return bt_ret;
-        }
-        if (cur_idx == index) {
-            break ;
-        }
-        ++cur_idx;
-        bt_ret = tracker_goto_next_item__composite(xtk, bst);
-    }
-    tracker_set(tk, xtk);
-    tracker_delete(xtk);
-    DBG_TRACKER_CHECK_STATE(tk);
-    return BITPUNCH_OK;
-}
-
-static bitpunch_status_t
-tracker_goto_next_item_with_key__composite(struct tracker *tk,
-                                           expr_value_t item_key,
-                                           struct browse_state *bst)
-{
-    DBG_TRACKER_DUMP(tk);
-    return BITPUNCH_NOT_IMPLEMENTED;
-}
-
-static bitpunch_status_t
-tracker_goto_nth_item_with_key__composite(
-    struct tracker *tk, expr_value_t item_key, int nth_twin,
-    struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-
-    DBG_TRACKER_DUMP(tk);
-    if (0 != nth_twin) {
-        // all composite attributes are unique
-        return BITPUNCH_NO_ITEM;
-    }
-    if (EXPR_VALUE_TYPE_STRING != item_key.type) {
-        // all composite attributes are string-typed
-        return BITPUNCH_NO_ITEM;
-    }
-    bt_ret = tracker_goto_first_item_int__composite(tk, FALSE, bst);
-    while (BITPUNCH_OK == bt_ret) {
-        if (NULL != tk->cur.u.block.field->nstmt.name
-            && strlen(tk->cur.u.block.field->nstmt.name) == item_key.string.len
-            && 0 == memcmp(tk->cur.u.block.field->nstmt.name,
-                           item_key.string.str, item_key.string.len)) {
-            return BITPUNCH_OK;
-        }
-        bt_ret = tracker_goto_next_item_int__composite(tk, FALSE, bst);
-    }
-    return bt_ret;
-}
-
-static bitpunch_status_t
-tracker_goto_named_item__composite(struct tracker *tk, const char *name,
-                                   struct browse_state *bst)
-{
-    expr_value_t key;
-
-    key = expr_value_as_string(name);
-    return tracker_goto_nth_item_with_key__composite(tk, key, 0, bst);
-}
-
-static bitpunch_status_t
-tracker_goto_next_key_match__composite(struct tracker *tk,
-                                   expr_value_t index,
-                                   struct track_path search_boundary,
-                                   struct browse_state *bst)
-{
-    DBG_TRACKER_DUMP(tk);
-    return tracker_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst, NULL);
-}
-
-bitpunch_status_t
-tracker_goto_field_internal(struct tracker *tk,
-                            const struct field *to_field, int flat,
-                            struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    int tracker_set_reversed;
-    int reverse_direction;
-
-    DBG_TRACKER_DUMP(tk);
-    assert(flat || NULL != to_field->nstmt.name);
-
-    if (flat && 0 == (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
-        tracker_set_field_internal__composite(tk, to_field, bst);
-        return BITPUNCH_OK;
-    }
-    if (0 != (tk->box->flags & BOX_RALIGN)) {
-        tracker_set_reversed =
-            0 == (to_field->nstmt.stmt.stmt_flags & FIELD_FLAG_HEADER);
-    } else {
-        tracker_set_reversed =
-            0 != (to_field->nstmt.stmt.stmt_flags & FIELD_FLAG_TRAILER);
-    }
-    // union may be nesting anonymous structures, so setting offset to
-    // box offset as an easy optimization for union types is incorrect
-    // (keep a more complex optim for later)
-    reverse_direction =
-        (tracker_set_reversed && 0 == (tk->flags & TRACKER_REVERSED))
-        || (!tracker_set_reversed && 0 != (tk->flags & TRACKER_REVERSED));
-    if (reverse_direction) {
-        tk->flags ^= TRACKER_REVERSED;
-    }
-    bt_ret = tracker_goto_first_item_int__composite(tk, flat, bst);
-    while (BITPUNCH_OK == bt_ret && tk->cur.u.block.field != to_field) {
-        bt_ret = tracker_goto_next_item_int__composite(tk, flat, bst);
-    }
-    if (reverse_direction && BITPUNCH_OK == bt_ret) {
-        bt_ret = tracker_reverse_direction_internal(tk, bst);
-    }
-    return bt_ret;
-}
-
-static bitpunch_status_t
-tracker_goto_end_path__composite(struct tracker *tk,
-                                 struct browse_state *bst)
-{
-    tk->cur = track_path_from_composite_field(NULL);
-    return BITPUNCH_OK;
-}
-
-static void
-tracker_goto_nil__composite(struct tracker *tk)
-{
-    tk->cur = track_path_from_composite_field(NULL);
 }
 
 static void
@@ -883,8 +465,48 @@ compile_node_backends__box__composite(struct ast_node_hdl *item)
         b_box->get_slack_child_allocation =
             box_get_slack_child_allocation__struct;
     }
-    b_box->get_n_items = box_get_n_items__composite;
+    b_box->get_n_items = box_get_n_items__scope;
     b_box->compute_used_size = box_compute_used_size__as_span;
+}
+
+
+
+static bitpunch_status_t
+tracker_init_item_offset__composite(struct tracker *tk,
+                                    struct browse_state *bst)
+{
+    return tracker_set_item_offset_at_box(tk, tk->box, bst);
+}
+
+static bitpunch_status_t
+tracker_advance_item_offset__composite(struct tracker *tk,
+                                       struct browse_state *bst)
+{
+    struct filter_instance_composite *composite;
+    bitpunch_status_t bt_ret;
+
+    DBG_TRACKER_DUMP(tk);
+    composite = (struct filter_instance_composite *)
+        tk->box->filter->ndat->u.rexpr_filter.f_instance;
+
+    if (COMPOSITE_TYPE_STRUCT == composite->type) {
+        int reversed;
+        int64_t item_size;
+
+        reversed = (0 != (tk->flags & TRACKER_REVERSED));
+        bt_ret = tracker_get_item_size_internal(tk, &item_size, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            DBG_TRACKER_CHECK_STATE(tk);
+            return bt_ret;
+        }
+        DBG_TRACKER_CHECK_STATE(tk);
+        if (reversed) {
+            tk->item_offset -= item_size;
+        } else {
+            tk->item_offset += item_size;
+        }
+    } // else union: no offset change
+    return BITPUNCH_OK;
 }
 
 static void
@@ -897,21 +519,23 @@ compile_node_backends__tracker__composite(struct ast_node_hdl *item)
     b_tk = &item->ndat->u.rexpr_filter.f_instance->b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
-    b_tk->get_item_key = tracker_get_item_key__composite;
+    b_tk->get_item_key = tracker_get_item_key__scope;
     if (NULL == b_item->compute_item_size) {
         b_tk->compute_item_size = tracker_compute_item_size__item_box;
     }
-    b_tk->goto_first_item = tracker_goto_first_item__composite;
-    b_tk->goto_next_item = tracker_goto_next_item__composite;
-    b_tk->goto_nth_item = tracker_goto_nth_item__composite;
-    b_tk->goto_named_item = tracker_goto_named_item__composite;
-    b_tk->goto_next_key_match = tracker_goto_next_key_match__composite;
+    b_tk->init_item_offset = tracker_init_item_offset__composite;
+    b_tk->advance_item_offset = tracker_advance_item_offset__composite;
+    b_tk->goto_first_item = tracker_goto_first_item__scope;
+    b_tk->goto_next_item = tracker_goto_next_item__scope;
+    b_tk->goto_nth_item = tracker_goto_nth_item__scope;
+    b_tk->goto_named_item = tracker_goto_named_item__scope;
+    b_tk->goto_next_key_match = tracker_goto_next_key_match__scope;
     b_tk->goto_next_item_with_key =
-        tracker_goto_next_item_with_key__composite;
+        tracker_goto_next_item_with_key__scope;
     b_tk->goto_nth_item_with_key =
-        tracker_goto_nth_item_with_key__composite;
-    b_tk->goto_end_path = tracker_goto_end_path__composite;
-    b_tk->goto_nil = tracker_goto_nil__composite;
+        tracker_goto_nth_item_with_key__scope;
+    b_tk->goto_end_path = tracker_goto_end_path__scope;
+    b_tk->goto_nil = tracker_goto_nil__scope;
 }
 
 static int
