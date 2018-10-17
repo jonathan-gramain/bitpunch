@@ -49,7 +49,7 @@ expr_dpath_as_item(struct tracker *tk)
   expr_dpath_t dpath;
 
   dpath.type = EXPR_DPATH_TYPE_ITEM;
-  dpath.item.tk = tk;
+  dpath.tk = tk;
   return dpath;
 }
 
@@ -59,7 +59,7 @@ expr_dpath_as_container(struct box *box)
   expr_dpath_t dpath;
 
   dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-  dpath.container.box = box;
+  dpath.box = box;
   return dpath;
 }
 

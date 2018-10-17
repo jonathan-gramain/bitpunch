@@ -41,6 +41,10 @@ struct filter_instance_array {
 };
 
 bitpunch_status_t
+box_get_n_items__array_non_slack(struct box *box, int64_t *item_countp,
+                                 struct browse_state *bst);
+
+bitpunch_status_t
 tracker_goto_first_item__array_generic(struct tracker *tk,
                                        struct browse_state *bst);
 bitpunch_status_t

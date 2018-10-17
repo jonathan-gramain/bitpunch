@@ -846,9 +846,9 @@ expr_eval_builtin_index(struct ast_node_hdl *object,
             item_track = cur_track;
         }
         array_item_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        array_item_dpath.container.box =
+        array_item_dpath.box =
             expr_dpath_get_parent_box(array_item_dpath);
-        assert(NULL != array_item_dpath.container.box);
+        assert(NULL != array_item_dpath.box);
     }
     while (!expr_dpath_is(array_item_dpath, item_ancestor));
     assert(TRACK_PATH_ARRAY == item_track.type);
@@ -1007,10 +1007,10 @@ expr_dpath_destroy(expr_dpath_t dpath)
 {
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        tracker_delete(dpath.item.tk);
+        tracker_delete(dpath.tk);
         break ;
     case EXPR_DPATH_TYPE_CONTAINER:
-        box_delete(dpath.container.box);
+        box_delete(dpath.box);
         break ;
     default:
         break ;
@@ -1040,11 +1040,11 @@ expr_dpath_dup(expr_dpath_t src_dpath)
     res.type = src_dpath.type;
     switch (res.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        res.item.tk = tracker_dup(src_dpath.item.tk);
+        res.tk = tracker_dup(src_dpath.tk);
         break ;
     case EXPR_DPATH_TYPE_CONTAINER:
-        res.container.box = src_dpath.container.box;
-        box_acquire(res.container.box);
+        res.box = src_dpath.box;
+        box_acquire(res.box);
         break ;
     default:
         assert(0);
@@ -1062,11 +1062,11 @@ expr_dpath_to_tracker_internal(expr_dpath_t dpath,
 {
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        *tkp = tracker_dup(dpath.item.tk);
+        *tkp = tracker_dup(dpath.tk);
         return BITPUNCH_OK;
 
     case EXPR_DPATH_TYPE_CONTAINER:
-        return track_box_contents_internal(dpath.container.box, tkp, bst);
+        return track_box_contents_internal(dpath.box, tkp, bst);
 
     default:
         assert(0);
@@ -1080,11 +1080,11 @@ expr_dpath_to_box_internal(expr_dpath_t dpath,
 {
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        return tracker_get_filtered_item_box_internal(dpath.item.tk, boxp,
+        return tracker_get_filtered_item_box_internal(dpath.tk, boxp,
                                                       bst);
     case EXPR_DPATH_TYPE_CONTAINER:
-        box_acquire(dpath.container.box);
-        *boxp = dpath.container.box;
+        box_acquire(dpath.box);
+        *boxp = dpath.box;
         return BITPUNCH_OK;
     default:
         assert(0);
@@ -1098,10 +1098,10 @@ expr_dpath_to_box_direct(expr_dpath_t dpath,
 {
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        return tracker_create_item_box_internal(dpath.item.tk, boxp, bst);
+        return tracker_create_item_box_internal(dpath.tk, boxp, bst);
     case EXPR_DPATH_TYPE_CONTAINER:
-        box_acquire(dpath.container.box);
-        *boxp = dpath.container.box;
+        box_acquire(dpath.box);
+        *boxp = dpath.box;
         return BITPUNCH_OK;
     default:
         assert(0);
@@ -1121,7 +1121,7 @@ expr_dpath_to_container_internal(expr_dpath_t dpath,
         return bt_ret;
     }
     dpathp->type = EXPR_DPATH_TYPE_CONTAINER;
-    dpathp->container.box = box;
+    dpathp->box = box;
     return BITPUNCH_OK;
 }
 
@@ -1138,7 +1138,7 @@ expr_dpath_to_item_internal(expr_dpath_t dpath,
         return bt_ret;
     }
     dpathp->type = EXPR_DPATH_TYPE_ITEM;
-    dpathp->item.tk = tk;
+    dpathp->tk = tk;
     return BITPUNCH_OK;
 }
 
@@ -1163,9 +1163,9 @@ expr_dpath_get_parent_box(expr_dpath_t dpath)
 {
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        return dpath.item.tk->box;
+        return dpath.tk->box;
     case EXPR_DPATH_TYPE_CONTAINER:
-        return dpath.container.box->parent_box;
+        return dpath.box->parent_box;
     default:
         assert(0);
     }
@@ -1180,11 +1180,11 @@ expr_dpath_get_size_internal(expr_dpath_t dpath,
 
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        bt_ret = tracker_get_item_size_internal(dpath.item.tk,
+        bt_ret = tracker_get_item_size_internal(dpath.tk,
                                                 dpath_sizep, bst);
         break ;
     case EXPR_DPATH_TYPE_CONTAINER:
-        bt_ret = box_get_span_size(dpath.container.box, dpath_sizep, bst);
+        bt_ret = box_get_span_size(dpath.box, dpath_sizep, bst);
         break ;
     default:
         assert(0);
@@ -1202,10 +1202,10 @@ expr_dpath_get_location_internal(expr_dpath_t dpath,
 {
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        return tracker_get_item_location_internal(dpath.item.tk,
+        return tracker_get_item_location_internal(dpath.tk,
                                                   offsetp, sizep, bst);
     case EXPR_DPATH_TYPE_CONTAINER:
-        return box_get_location_internal(dpath.container.box,
+        return box_get_location_internal(dpath.box,
                                          offsetp, sizep, bst);
     default:
         assert(0);
@@ -1222,11 +1222,11 @@ expr_dpath_evaluate_filter_internal(
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
         return expr_evaluate_filter_type_internal(
-            dpath.item.tk->dpath.filter, dpath.item.tk->box,
+            dpath.tk->dpath.filter, dpath.tk->box,
             FILTER_KIND_FILTER, filter_typep, bst);
 
     case EXPR_DPATH_TYPE_CONTAINER:
-        *filter_typep = dpath.container.box->filter;
+        *filter_typep = dpath.box->filter;
         return BITPUNCH_OK;
 
     default:
@@ -1239,9 +1239,9 @@ expr_dpath_contains_indexed_items(expr_dpath_t dpath)
 {
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        return ast_node_is_indexed(dpath.item.tk->dpath.item);
+        return ast_node_is_indexed(dpath.tk->dpath.item);
     case EXPR_DPATH_TYPE_CONTAINER:
-        return box_contains_indexed_items(dpath.container.box);
+        return box_contains_indexed_items(dpath.box);
     default:
         assert(0);
     }
@@ -1252,9 +1252,9 @@ expr_dpath_get_as_type(expr_dpath_t dpath)
 {
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        return dpath_node_get_as_type(&dpath.item.tk->dpath);
+        return dpath_node_get_as_type(&dpath.tk->dpath);
     case EXPR_DPATH_TYPE_CONTAINER:
-        return ast_node_get_as_type(dpath.container.box->filter);
+        return ast_node_get_as_type(dpath.box->filter);
     default:
         assert(0);
     }
@@ -1265,9 +1265,9 @@ expr_dpath_get_target_filter(expr_dpath_t dpath)
 {
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        return dpath_node_get_target_filter(&dpath.item.tk->dpath);
+        return dpath_node_get_target_filter(&dpath.tk->dpath);
     case EXPR_DPATH_TYPE_CONTAINER:
-        return ast_node_get_target_filter(dpath.container.box->filter);
+        return ast_node_get_target_filter(dpath.box->filter);
     default:
         assert(0);
     }
@@ -1278,9 +1278,9 @@ expr_dpath_get_track_path(expr_dpath_t dpath)
 {
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        return dpath.item.tk->cur;
+        return dpath.tk->cur;
     case EXPR_DPATH_TYPE_CONTAINER:
-        return dpath.container.box->track_path;
+        return dpath.box->track_path;
     default:
         assert(0);
     }
@@ -1294,9 +1294,9 @@ expr_dpath_is(expr_dpath_t dpath1, expr_dpath_t dpath2)
     }
     switch (dpath1.type) {
     case EXPR_DPATH_TYPE_CONTAINER:
-        return dpath1.container.box == dpath2.container.box;
+        return dpath1.box == dpath2.box;
     case EXPR_DPATH_TYPE_ITEM:
-        return dpath1.item.tk == dpath2.item.tk;
+        return dpath1.tk == dpath2.tk;
     default:
         return FALSE;
     }
@@ -1354,13 +1354,13 @@ expr_dpath_find_common_ancestor(expr_dpath_t dpath1,
             ancestor2_dpath = dpath2;
         } else {
             ancestor2_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-            ancestor2_dpath.container.box = ancestors2[-1];
+            ancestor2_dpath.box = ancestors2[-1];
         }
         goto end;
     }
     if (NULL == pbox2) {
         ancestor1_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        ancestor1_dpath.container.box = ancestors1[-1];
+        ancestor1_dpath.box = ancestors1[-1];
         ancestor2_dpath = dpath2;
         goto end;
     }
@@ -1374,9 +1374,9 @@ expr_dpath_find_common_ancestor(expr_dpath_t dpath1,
 
     if (!path_eq) {
         ancestor1_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        ancestor1_dpath.container.box = ancestors1[1];
+        ancestor1_dpath.box = ancestors1[1];
         ancestor2_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        ancestor2_dpath.container.box = ancestors2[1];
+        ancestor2_dpath.box = ancestors2[1];
         goto end;
     }
     if (*ancestors1 == pbox1) {
@@ -1392,22 +1392,22 @@ expr_dpath_find_common_ancestor(expr_dpath_t dpath1,
     path_eq = track_path_eq(path1, path2);
     if (!path_eq) {
         ancestor1_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        ancestor1_dpath.container.box = *ancestors1;
+        ancestor1_dpath.box = *ancestors1;
         ancestor2_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        ancestor2_dpath.container.box = *ancestors2;
+        ancestor2_dpath.box = *ancestors2;
         goto end;
     }
     if (*ancestors1 == pbox1) {
         ancestor1_dpath = dpath1;
     } else {
         ancestor1_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        ancestor1_dpath.container.box = ancestors1[-1];
+        ancestor1_dpath.box = ancestors1[-1];
     }
     if (*ancestors2 == pbox2) {
         ancestor2_dpath = dpath2;
     } else {
         ancestor2_dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-        ancestor2_dpath.container.box = ancestors2[-1];
+        ancestor2_dpath.box = ancestors2[-1];
     }
 
   end:
@@ -1811,12 +1811,12 @@ expr_evaluate_addrof(
         }
         switch (dpath_eval.type) {
         case EXPR_DPATH_TYPE_ITEM:
-            bt_ret = tracker_get_item_offset_internal(dpath_eval.item.tk,
+            bt_ret = tracker_get_item_offset_internal(dpath_eval.tk,
                                                       &item_offset, bst);
             break ;
         case EXPR_DPATH_TYPE_CONTAINER:
-            bt_ret = box_apply_filter_internal(dpath_eval.container.box, bst);
-            item_offset = dpath_eval.container.box->start_offset_span;
+            bt_ret = box_apply_filter_internal(dpath_eval.box, bst);
+            item_offset = dpath_eval.box->start_offset_span;
             break ;
         default:
             assert(0);
@@ -2000,7 +2000,7 @@ expr_evaluate_subscript(
     }
     switch (anchor_eval.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        tk = anchor_eval.item.tk;
+        tk = anchor_eval.tk;
         bt_ret = tracker_enter_item_internal(tk, bst);
         if (BITPUNCH_OK != bt_ret) {
             tracker_delete(tk);
@@ -2008,9 +2008,9 @@ expr_evaluate_subscript(
         }
         break ;
     case EXPR_DPATH_TYPE_CONTAINER:
-        bt_ret = track_box_contents_internal(anchor_eval.container.box,
+        bt_ret = track_box_contents_internal(anchor_eval.box,
                                              &tk, bst);
-        box_delete(anchor_eval.container.box);
+        box_delete(anchor_eval.box);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
@@ -2061,7 +2061,7 @@ expr_evaluate_subscript_slice(
     }
     switch (anchor_eval.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        tk_slice_start = anchor_eval.item.tk;
+        tk_slice_start = anchor_eval.tk;
         bt_ret = tracker_enter_item_internal(tk_slice_start, bst);
         if (BITPUNCH_OK != bt_ret) {
             tracker_delete(tk_slice_start);
@@ -2069,9 +2069,9 @@ expr_evaluate_subscript_slice(
         }
         break ;
     case EXPR_DPATH_TYPE_CONTAINER:
-        bt_ret = track_box_contents_internal(anchor_eval.container.box,
+        bt_ret = track_box_contents_internal(anchor_eval.box,
                                              &tk_slice_start, bst);
-        box_delete(anchor_eval.container.box);
+        box_delete(anchor_eval.box);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
@@ -2153,7 +2153,7 @@ expr_evaluate_ancestor(
         return bt_ret;
     }
     if (EXPR_DPATH_TYPE_ITEM == opd_dpath.type) {
-        tk = opd_dpath.item.tk;
+        tk = opd_dpath.tk;
         bt_ret = tracker_get_filtered_item_box_internal(tk, &box, bst);
         tracker_delete(tk);
         tk = NULL;
@@ -2161,7 +2161,7 @@ expr_evaluate_ancestor(
             return bt_ret;
         }
     } else {
-        box = opd_dpath.container.box;
+        box = opd_dpath.box;
     }
     if (0 != (box->flags & BOX_FILTER)) {
         ancestor_box = box->parent_box;
@@ -2302,7 +2302,7 @@ expr_transform_dpath_generic_internal(struct ast_node_hdl *expr,
     if (BITPUNCH_OK == bt_ret
         && EXPR_DPATH_TYPE_ITEM == transformp->dpath.type) {
         bt_ret = tracker_get_filtered_dpath_internal(
-            transformp->dpath.item.tk, &filtered_dpath, bst);
+            transformp->dpath.tk, &filtered_dpath, bst);
         if (BITPUNCH_OK == bt_ret) {
             expr_dpath_destroy(transformp->dpath);
             transformp->dpath = filtered_dpath;
@@ -2371,7 +2371,7 @@ expr_transform_dpath_polymorphic(
             return bt_ret;
         }
         transformp->dpath.type = EXPR_DPATH_TYPE_ITEM;
-        transformp->dpath.item.tk = tk;
+        transformp->dpath.tk = tk;
         return BITPUNCH_OK;
     }
     case STATEMENT_TYPE_NAMED_EXPR: {
@@ -2421,14 +2421,14 @@ expr_transform_dpath_filter(struct ast_node_hdl *expr,
     switch (transformp->dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
         bt_ret = tracker_create_item_box_internal(
-            transformp->dpath.item.tk, &filtered_data_box, bst);
+            transformp->dpath.tk, &filtered_data_box, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
         break ;
 
     case EXPR_DPATH_TYPE_CONTAINER:
-        parent_box = transformp->dpath.container.box;
+        parent_box = transformp->dpath.box;
         filtered_data_box = box_new_filter_box(parent_box, expr, bst);
         if (NULL == filtered_data_box) {
             return BITPUNCH_DATA_ERROR;
@@ -2444,7 +2444,7 @@ expr_transform_dpath_filter(struct ast_node_hdl *expr,
     }
     expr_dpath_destroy(transformp->dpath);
     transformp->dpath.type = EXPR_DPATH_TYPE_CONTAINER;
-    transformp->dpath.container.box = filtered_data_box;
+    transformp->dpath.box = filtered_data_box;
     return BITPUNCH_OK;
 }
 
@@ -2648,10 +2648,10 @@ dpath_read_value_internal(expr_dpath_t dpath,
 {
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        return tracker_read_item_value_internal(dpath.item.tk,
+        return tracker_read_item_value_internal(dpath.tk,
                                                 expr_valuep, bst);
     case EXPR_DPATH_TYPE_CONTAINER:
-        return box_read_value_internal(dpath.container.box, expr_valuep, bst);
+        return box_read_value_internal(dpath.box, expr_valuep, bst);
     default:
         assert(0);
     }

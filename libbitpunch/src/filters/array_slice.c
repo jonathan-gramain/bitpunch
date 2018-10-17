@@ -334,28 +334,20 @@ bitpunch_status_t
 tracker_goto_nth_item__array_slice(struct tracker *tk, int64_t index,
                                    struct browse_state *bst)
 {
-    struct box *slice_box;
-    struct box *array_box;
-    bitpunch_status_t bt_ret;
     int64_t index_start;
     int64_t index_end;
 
     DBG_TRACKER_DUMP(tk);
-    slice_box = tk->box;
-    index_start = slice_box->track_path.u.array.index;
+    index_start = tk->box->track_path.u.array.index;
     if (-1 == index_start) {
         index_start = 0;
     }
-    index_end = slice_box->track_path.u.array_slice.index_end;
+    index_end = tk->box->track_path.u.array_slice.index_end;
     if ((-1 != index_end && index >= index_end - index_start)) {
         return BITPUNCH_NO_ITEM;
     }
-    array_box = box_array_slice_get_ancestor_array(slice_box);
-    tk->box = array_box;
-    bt_ret = array_box->filter->ndat->u.rexpr_filter.f_instance->b_tk.goto_nth_item(
+    return tracker_goto_ancestor_array_index_internal(
         tk, index_start + index, bst);
-    tk->box = slice_box;
-    return bt_ret;
 }
 
 bitpunch_status_t

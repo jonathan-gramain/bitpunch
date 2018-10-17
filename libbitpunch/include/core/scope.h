@@ -132,4 +132,46 @@ scope_get_first_declared_attribute(
     const struct scope_def *scope_def,
     const char *attr_name);
 
+
+/* browse backend */
+
+bitpunch_status_t
+box_get_n_items__scope(struct box *box, int64_t *item_countp,
+                       struct browse_state *bst);
+bitpunch_status_t
+tracker_get_item_key__scope(struct tracker *tk,
+                            expr_value_t *keyp,
+                            int *nth_twinp,
+                            struct browse_state *bst);
+bitpunch_status_t
+tracker_goto_first_item__scope(
+    struct tracker *tk, struct browse_state *bst);
+bitpunch_status_t
+tracker_goto_next_item__scope(
+    struct tracker *tk, struct browse_state *bst);
+bitpunch_status_t
+tracker_goto_nth_item__scope(
+    struct tracker *tk, int64_t index, struct browse_state *bst);
+bitpunch_status_t
+tracker_goto_next_item_with_key__scope(
+    struct tracker *tk, expr_value_t item_key, struct browse_state *bst);
+bitpunch_status_t
+tracker_goto_nth_item_with_key__scope(
+    struct tracker *tk, expr_value_t item_key, int nth_twin,
+    struct browse_state *bst);
+bitpunch_status_t
+tracker_goto_named_item__scope(struct tracker *tk, const char *name,
+                               struct browse_state *bst);
+bitpunch_status_t
+tracker_goto_next_key_match__scope(struct tracker *tk,
+                                   expr_value_t index,
+                                   struct track_path search_boundary,
+                                   struct browse_state *bst);
+bitpunch_status_t
+tracker_goto_end_path__scope(struct tracker *tk,
+                             struct browse_state *bst);
+void
+tracker_goto_nil__scope(struct tracker *tk);
+
+
 #endif

@@ -93,52 +93,6 @@ box_compute_span_size__byte_array_var_size(
 }
 
 static bitpunch_status_t
-box_get_n_items__byte_array_non_slack(
-    struct box *box, int64_t *item_countp,
-    struct browse_state *bst)
-{
-    struct filter_instance_array *array;
-    expr_value_t size;
-
-    DBG_BOX_DUMP(box);
-    if (-1 == box->u.array_generic.n_items) {
-        bitpunch_status_t bt_ret;
-        struct box *scope;
-
-        array = (struct filter_instance_array *)
-            box->filter->ndat->u.rexpr_filter.f_instance;
-        scope = box_get_scope_box(box->parent_box);
-        assert(NULL != scope);
-        bt_ret = expr_evaluate_value_internal(array->item_count,
-                                              scope, &size, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        if (EXPR_VALUE_TYPE_INTEGER != size.type) {
-            return box_error(
-                BITPUNCH_DATA_ERROR, box, array->item_count, bst,
-                "evaluation of byte array size returned a value-type "
-                "'%s', expect an integer",
-                expr_value_type_str(size.type));
-        }
-        if (size.integer < 0) {
-            return box_error(BITPUNCH_DATA_ERROR, box, array->item_count, bst,
-                             "evaluation of byte array size gives "
-                             "negative value (%"PRIi64")", size.integer);
-        }
-        bt_ret = box_set_max_span_size(box, size.integer, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        box->u.array_generic.n_items = size.integer;
-    }
-    if (NULL != item_countp) {
-        *item_countp = box->u.array_generic.n_items;
-    }
-    return BITPUNCH_OK;
-}
-
-static bitpunch_status_t
 box_get_n_items__byte_array_slack(struct box *box, int64_t *item_countp,
                                   struct browse_state *bst)
 {
@@ -297,7 +251,7 @@ compile_node_backends__box__byte_array(struct ast_node_hdl *item)
         b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
     }
     if (NULL != array->item_count) {
-        b_box->get_n_items = box_get_n_items__byte_array_non_slack;
+        b_box->get_n_items = box_get_n_items__array_non_slack;
     } else {
         b_box->get_n_items = box_get_n_items__byte_array_slack;
     }

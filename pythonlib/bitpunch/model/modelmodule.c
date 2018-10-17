@@ -926,7 +926,7 @@ DataItem_apply_dpath_filters(DataItemObject *self)
     struct tracker_error *tk_err = NULL;
 
     if (EXPR_DPATH_TYPE_ITEM == self->dpath.type) {
-        bt_ret = tracker_get_filtered_dpath(self->dpath.item.tk,
+        bt_ret = tracker_get_filtered_dpath(self->dpath.tk,
                                             &filtered_dpath, &tk_err);
         if (BITPUNCH_OK != bt_ret) {
             set_tracker_error(tk_err, bt_ret);
@@ -1017,7 +1017,7 @@ DataItem_mp_length(DataItemObject *self)
     if (-1 == DataItem_convert_dpath_to_box(self)) {
         return -1;
     }
-    bt_ret = box_get_n_items(self->dpath.container.box, &item_count, &tk_err);
+    bt_ret = box_get_n_items(self->dpath.box, &item_count, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
         set_tracker_error(tk_err, bt_ret);
         return -1;
@@ -1177,9 +1177,9 @@ DataItem_make_python_object(DataItemObject *obj)
 {
     switch (obj->dpath.type) {
     case EXPR_DPATH_TYPE_CONTAINER:
-        return box_to_deep_PyObject(obj->dtree, obj->dpath.container.box);
+        return box_to_deep_PyObject(obj->dtree, obj->dpath.box);
     case EXPR_DPATH_TYPE_ITEM:
-        return tracker_item_to_deep_PyObject(obj->dtree, obj->dpath.item.tk);
+        return tracker_item_to_deep_PyObject(obj->dtree, obj->dpath.tk);
     default:
         Py_INCREF(obj);
         return (PyObject *)obj;
@@ -1265,19 +1265,19 @@ DataItem_get_size(DataItemObject *self, PyObject *args)
     }
     switch (self->dpath.type) {
     case EXPR_DPATH_TYPE_CONTAINER:
-        bt_ret = box_compute_end_offset(self->dpath.container.box,
+        bt_ret = box_compute_end_offset(self->dpath.box,
                                         BOX_END_OFFSET_SPAN,
                                         &end_offset, &tk_err);
         if (BITPUNCH_OK != bt_ret) {
             set_tracker_error(tk_err, bt_ret);
             return NULL;
         }
-        start_offset = box_get_start_offset(self->dpath.container.box);
+        start_offset = box_get_start_offset(self->dpath.box);
         assert(end_offset >= start_offset);
         item_size = end_offset - start_offset;
         break ;
     case EXPR_DPATH_TYPE_ITEM:
-        bt_ret = tracker_get_item_size(self->dpath.item.tk,
+        bt_ret = tracker_get_item_size(self->dpath.tk,
                                        &item_size, &tk_err);
         if (BITPUNCH_OK != bt_ret) {
             set_tracker_error(tk_err, bt_ret);
@@ -1303,16 +1303,16 @@ DataItem_get_offset(DataItemObject *self, PyObject *args)
     }
     switch (self->dpath.type) {
     case EXPR_DPATH_TYPE_CONTAINER:
-        bt_ret = box_compute_end_offset(self->dpath.container.box,
+        bt_ret = box_compute_end_offset(self->dpath.box,
                                         BOX_END_OFFSET_SPAN, NULL, &tk_err);
         if (BITPUNCH_OK != bt_ret) {
             set_tracker_error(tk_err, bt_ret);
             return NULL;
         }
-        item_offset = box_get_start_offset(self->dpath.container.box);
+        item_offset = box_get_start_offset(self->dpath.box);
         break ;
     case EXPR_DPATH_TYPE_ITEM:
-        bt_ret = tracker_get_item_offset(self->dpath.item.tk,
+        bt_ret = tracker_get_item_offset(self->dpath.tk,
                                          &item_offset, &tk_err);
         if (BITPUNCH_OK != bt_ret) {
             set_tracker_error(tk_err, bt_ret);
@@ -1340,20 +1340,20 @@ DataItem_get_location(DataItemObject *self, PyObject *args)
     }
     switch (self->dpath.type) {
     case EXPR_DPATH_TYPE_CONTAINER:
-        bt_ret = box_compute_end_offset(self->dpath.container.box,
+        bt_ret = box_compute_end_offset(self->dpath.box,
                                         BOX_END_OFFSET_SPAN,
                                         &end_offset, &tk_err);
         if (BITPUNCH_OK != bt_ret) {
             set_tracker_error(tk_err, bt_ret);
             return NULL;
         }
-        item_offset = box_get_start_offset(self->dpath.container.box);
+        item_offset = box_get_start_offset(self->dpath.box);
         assert(item_offset >= 0);
         assert(end_offset >= item_offset);
         item_size = end_offset - item_offset;
         break ;
     case EXPR_DPATH_TYPE_ITEM:
-        bt_ret = tracker_get_item_location(self->dpath.item.tk,
+        bt_ret = tracker_get_item_location(self->dpath.tk,
                                            &item_offset, &item_size, &tk_err);
         if (BITPUNCH_OK != bt_ret) {
             set_tracker_error(tk_err, bt_ret);
@@ -1374,11 +1374,11 @@ DataItem_read_value(DataItemObject *self)
 
     switch (self->dpath.type) {
     case EXPR_DPATH_TYPE_CONTAINER:
-        bt_ret = box_read_value(self->dpath.container.box,
+        bt_ret = box_read_value(self->dpath.box,
                                 &self->value, &tk_err);
         break ;
     case EXPR_DPATH_TYPE_ITEM:
-        bt_ret = tracker_read_item_value(self->dpath.item.tk,
+        bt_ret = tracker_read_item_value(self->dpath.tk,
                                          &self->value, &tk_err);
         break ;
     default:
@@ -1643,11 +1643,11 @@ DataItem_bf_getbuffer(DataItemObject *exporter,
 
     switch (exporter->dpath.type) {
     case EXPR_DPATH_TYPE_CONTAINER:
-        box = exporter->dpath.container.box;
+        box = exporter->dpath.box;
         bt_ret = box_get_location(box, &data_offset, &data_size, &tk_err);
         break ;
     case EXPR_DPATH_TYPE_ITEM:
-        tk = exporter->dpath.item.tk;
+        tk = exporter->dpath.tk;
         bt_ret = tracker_get_filtered_dpath(tk, &filtered_dpath, &tk_err);
         if (BITPUNCH_OK == bt_ret) {
             bt_ret = expr_dpath_get_location(filtered_dpath,
@@ -1809,7 +1809,7 @@ DataItem_eval_attr(DataItemObject *self, const char *attr_str,
         return NULL;
     }
     bt_ret = filter_evaluate_identifier(
-        self->dpath.container.box->filter, self->dpath.container.box,
+        self->dpath.box->filter, self->dpath.box,
         STATEMENT_TYPE_FIELD |
         STATEMENT_TYPE_NAMED_EXPR |
         STATEMENT_TYPE_ATTRIBUTE, attr_str,
@@ -1843,7 +1843,7 @@ DataItem_get_item(DataItemObject *self, PyObject *attr_name,
                 if (-1 == DataItem_convert_dpath_to_box(self)) {
                     return NULL;
                 }
-                return box_get_attributes_dict(self->dpath.container.box);
+                return box_get_attributes_dict(self->dpath.box);
             }
             attr = PyObject_GenericGetAttr((PyObject *)self, attr_name);
             if (NULL != attr) {
@@ -1886,7 +1886,7 @@ DataItem_get_tracker_at_key(
     if (-1 == DataItem_convert_dpath_to_box(self)) {
         return NULL;
     }
-    bt_ret = track_box_contents(self->dpath.container.box, &tk, &tk_err);
+    bt_ret = track_box_contents(self->dpath.box, &tk, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
         set_tracker_error(tk_err, bt_ret);
         return NULL;
@@ -1993,7 +1993,7 @@ DataItem_get_slice(DataItemObject *self, PyObject *key)
     if (-1 == DataItem_convert_dpath_to_box(self)) {
         return NULL;
     }
-    bt_ret = box_get_n_items(self->dpath.container.box, &item_count, &tk_err);
+    bt_ret = box_get_n_items(self->dpath.box, &item_count, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
         set_tracker_error(tk_err, bt_ret);
         return NULL;
@@ -2010,7 +2010,7 @@ DataItem_get_slice(DataItemObject *self, PyObject *key)
         // case, keep the same behavior instead of returning an error.
         slice_stop = slice_start;
     }
-    bt_ret = track_box_contents(self->dpath.container.box, &tk_start, &tk_err);
+    bt_ret = track_box_contents(self->dpath.box, &tk_start, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
         set_tracker_error(tk_err, bt_ret);
         goto end;
@@ -2020,7 +2020,7 @@ DataItem_get_slice(DataItemObject *self, PyObject *key)
         set_tracker_error(tk_err, bt_ret);
         goto end;
     }
-    bt_ret = track_box_contents(self->dpath.container.box, &tk_end, &tk_err);
+    bt_ret = track_box_contents(self->dpath.box, &tk_end, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
         set_tracker_error(tk_err, bt_ret);
         goto end;
@@ -3398,7 +3398,7 @@ eval_expr_as_python_object(DataItemObject *item, const char *expr)
         dtree = item->dtree;
         schema = dtree->fmt->schema;
         ds = dtree->ds;
-        scope = item->dpath.container.box;
+        scope = item->dpath.box;
     } else {
         dtree = NULL;
         schema = NULL;

@@ -43,9 +43,4 @@ struct filter_instance_composite {
     } type;
 };
 
-bitpunch_status_t
-tracker_goto_field_internal(struct tracker *tk,
-                            const struct field *to_field, int flat,
-                            struct browse_state *bst);
-
 #endif

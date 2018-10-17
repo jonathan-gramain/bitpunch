@@ -270,3 +270,6 @@ correctly (b_filter is empty)
 - inline docstrings (ala pydoc)
 
 - check tests: change .key_type to .key: { .type }, same for .value_type
+
+- BUG: track path dump of tracker in a slice should substract the
+  slice's start index
