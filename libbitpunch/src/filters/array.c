@@ -55,7 +55,7 @@ array_filter_instance_build(struct ast_node_hdl *filter)
     // FIXME this does not support conditional attributes
     STATEMENT_FOREACH(
         named_expr, attr,
-        filter->ndat->u.rexpr_filter.filter_def->block_stmt_list.attribute_list,
+        filter_get_scope_def(filter)->block_stmt_list.attribute_list,
         list) {
         if (0 == strcmp(attr->nstmt.name, "@item")) {
             item_type = attr->expr;
