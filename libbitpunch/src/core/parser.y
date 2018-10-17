@@ -294,9 +294,12 @@
             struct expr_value_string string;
             char *identifier;
             struct item_node item;
-            struct filter_def {
-                const char *filter_type;
+            struct scope_def {
                 struct block_stmt_list block_stmt_list;
+            } scope_def;
+            struct filter_def {
+                struct scope_def scope_def; /* inherits */
+                const char *filter_type;
             } filter_def;
             struct conditional {
                 struct ast_node_hdl *cond_expr;
@@ -834,13 +837,13 @@ expr:
         $$ = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, NULL);
         parser_location_make_span(&$$->loc, &@1, &@4);
         $$->ndat->u.filter_def.filter_type = "array";
-        init_block_stmt_list(&$$->ndat->u.filter_def.block_stmt_list);
+        init_block_stmt_list(&$$->ndat->u.scope_def.block_stmt_list);
         attribute_list_push(
-            $$->ndat->u.filter_def.block_stmt_list.attribute_list,
+            $$->ndat->u.scope_def.block_stmt_list.attribute_list,
             "@item", &@4, $4);
         if (NULL != $2) {
             attribute_list_push(
-                $$->ndat->u.filter_def.block_stmt_list.attribute_list,
+                $$->ndat->u.scope_def.block_stmt_list.attribute_list,
                 "@length", &@2, $2);
         }
     }
@@ -928,7 +931,7 @@ schema:
         TAILQ_INIT($1.field_list);
         assert(AST_NODE_TYPE_FILTER_DEF == $file_block.root->ndat->type);
         if (-1 == merge_block_stmt_list(
-                &$file_block.root->ndat->u.filter_def.block_stmt_list,
+                &$file_block.root->ndat->u.scope_def.block_stmt_list,
                 &$1)) {
             YYERROR;
         }
@@ -953,7 +956,7 @@ file_block: KW_FILE '{' block_stmt_list '}' {
             semantic_error(SEMANTIC_LOGLEVEL_WARNING, &@$,
                            "file block has zero field");
         }
-        item->u.filter_def.block_stmt_list = $block_stmt_list;
+        item->u.scope_def.block_stmt_list = $block_stmt_list;
         $$.root->flags = ASTFLAG_IS_ROOT_BLOCK;
     }
 
@@ -962,7 +965,7 @@ filter_block:
         $$ = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, &@$);
         $$->loc = @IDENTIFIER;
         $$->ndat->u.filter_def.filter_type = $IDENTIFIER;
-        $$->ndat->u.filter_def.block_stmt_list = $block_stmt_list;
+        $$->ndat->u.scope_def.block_stmt_list = $block_stmt_list;
     }
 
 if_block:

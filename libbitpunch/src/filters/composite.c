@@ -72,7 +72,7 @@ compile_span_size_composite(struct ast_node_hdl *item,
                             struct filter_instance_composite *composite,
                             struct compile_ctx *ctx)
 {
-    struct filter_def *filter_def;
+    struct scope_def *scope_def;
     struct named_expr *attr;
     struct ast_node_hdl *min_span_expr;
     struct ast_node_hdl *max_span_expr;
@@ -113,8 +113,8 @@ compile_span_size_composite(struct ast_node_hdl *item,
     child_fills_slack = FALSE;
     child_conditionally_fills_slack = FALSE;
 
-    filter_def = item->ndat->u.rexpr_filter.filter_def;
-    field_list = filter_def->block_stmt_list.field_list;
+    scope_def = filter_get_scope_def(item);
+    field_list = scope_def->block_stmt_list.field_list;
     if (-1 == compile_fields(field_list,
                              COMPILE_TAG_NODE_TYPE |
                              COMPILE_TAG_NODE_SPAN_SIZE, 0u, ctx)) {
@@ -123,9 +123,7 @@ compile_span_size_composite(struct ast_node_hdl *item,
     min_span_expr = NULL;
     max_span_expr = NULL;
     STATEMENT_FOREACH(
-        named_expr, attr,
-        item->ndat->u.rexpr_filter.filter_def->block_stmt_list.attribute_list,
-        list) {
+        named_expr, attr, scope_def->block_stmt_list.attribute_list, list) {
         if (0 == strcmp(attr->nstmt.name, "@minspan")) {
             if (NULL == attr->nstmt.stmt.cond) {
                 min_span_expr = attr->expr;
@@ -509,7 +507,7 @@ tracker_goto_item_int__composite(struct tracker *tk,
             stit = filter_iter_statements(
                 xtk->box->filter, xtk->box, STATEMENT_TYPE_FIELD, NULL);
         }
-        bt_ret = filter_iter_statements_next_internal(&stit, NULL, &stmt, bst);
+        bt_ret = scope_iter_statements_next_internal(&stit, NULL, &stmt, bst);
         if (BITPUNCH_OK != bt_ret) {
             tracker_delete(xtk);
             return bt_ret;
@@ -582,7 +580,7 @@ tracker_goto_first_item_int__composite(struct tracker *tk, int flat,
         stit = filter_iter_statements(
             tk->box->filter, tk->box, STATEMENT_TYPE_FIELD, NULL);
     }
-    bt_ret = filter_iter_statements_next_internal(&stit, NULL, &stmt, bst);
+    bt_ret = scope_iter_statements_next_internal(&stit, NULL, &stmt, bst);
     if (BITPUNCH_OK != bt_ret) {
         if (BITPUNCH_NO_ITEM == bt_ret) {
             bt_ret = tracker_set_end(tk, bst);
@@ -645,7 +643,7 @@ tracker_goto_next_item_int__composite(struct tracker *tk, int flat,
                 tk->box->filter, tk->box,
                 (const struct statement *)tk->cur.u.block.field, NULL);
         }
-        bt_ret = filter_iter_statements_next_internal(&stit, NULL, &stmt, bst);
+        bt_ret = scope_iter_statements_next_internal(&stit, NULL, &stmt, bst);
         if (BITPUNCH_NO_ITEM != bt_ret) {
             break ;
         }

@@ -282,15 +282,14 @@ lookup_visible_statements_in_anonymous_field(
 {
     const struct ast_node_hdl *filter;
     int ret;
-    struct block_stmt_list *stmt_lists;
+    const struct block_stmt_list *stmt_lists;
 
     filter = ast_node_get_as_type(field->filter);
     if (NULL != filter) {
         if (AST_NODE_TYPE_FILTER_DEF == filter->ndat->type) {
-            stmt_lists = &filter->ndat->u.filter_def.block_stmt_list;
+            stmt_lists = &filter->ndat->u.scope_def.block_stmt_list;
         } else if (ast_node_is_rexpr_filter(filter)) {
-            stmt_lists = &filter->ndat->u.rexpr_filter
-                .filter_def->block_stmt_list;
+            stmt_lists = &filter_get_const_scope_def(filter)->block_stmt_list;
         } else {
             stmt_lists = NULL;
         }
@@ -715,7 +714,7 @@ resolve_identifiers_in_filter_body(
     struct list_of_visible_refs visible_refs;
 
     assert(AST_NODE_TYPE_FILTER_DEF == filter->ndat->type);
-    stmt_lists = &filter->ndat->u.filter_def.block_stmt_list;
+    stmt_lists = &filter->ndat->u.scope_def.block_stmt_list;
     /* add current refs to the chain of visible refs */
     visible_refs.outer_refs = outer_refs;
     visible_refs.cur_filter = filter;
@@ -1203,7 +1202,7 @@ resolve_expr_scoped_recur(struct ast_node_hdl *expr,
     visible_refs.outer_refs = NULL;
     visible_refs.cur_filter = cur_scope->filter;
     visible_refs.cur_lists =
-        &cur_scope->filter->ndat->u.rexpr_filter.filter_def->block_stmt_list;
+        &filter_get_scope_def(cur_scope->filter)->block_stmt_list;
     if (NULL != inner_refs) {
         inner_refs->outer_refs = &visible_refs;
     }
@@ -1536,11 +1535,11 @@ compile_field_cb(struct compile_ctx *ctx,
         as_type = ast_node_get_named_expr_target(
             ast_node_get_as_type(field->filter));
         if (ast_node_is_rexpr_filter(as_type)) {
-            struct filter_def *filter_def;
+            const struct scope_def *scope_def;
 
-            filter_def = as_type->ndat->u.rexpr_filter.filter_def;
-            if (TAILQ_EMPTY(filter_def->block_stmt_list.field_list) &&
-                TAILQ_EMPTY(filter_def->block_stmt_list.named_expr_list)) {
+            scope_def = filter_get_const_scope_def(as_type);
+            if (TAILQ_EMPTY(scope_def->block_stmt_list.field_list) &&
+                TAILQ_EMPTY(scope_def->block_stmt_list.named_expr_list)) {
                 field->nstmt.stmt.stmt_flags |= FIELD_FLAG_HIDDEN;
             }
         } else {
@@ -1673,7 +1672,7 @@ compile_filter_def_validate_attributes(struct ast_node_hdl *filter,
     const struct filter_attr_def *attr_def;
     int sem_error = FALSE;
 
-    stmt_lists = &filter->ndat->u.filter_def.block_stmt_list;
+    stmt_lists = &filter->ndat->u.scope_def.block_stmt_list;
 
     // we need attribute types to be compiled to check their types
     if (-1 == compile_attributes(stmt_lists->attribute_list,
@@ -1784,7 +1783,7 @@ compile_rexpr_filter(struct ast_node_hdl *expr,
     // expressions. Filter implementations may request immediate
     // compilation of the subset needed for their own compilation
     // stages.
-    stmt_lists = &expr->ndat->u.rexpr_filter.filter_def->block_stmt_list;
+    stmt_lists = &filter_get_scope_def(expr)->block_stmt_list;
     if (-1 == compile_stmt_lists(stmt_lists, tags, ctx)) {
         return -1;
     }
@@ -2821,7 +2820,7 @@ compile_rexpr_member(
         n_visible_statements = lookup_visible_statements_in_lists(
             lookup_mask,
             member->ndat->u.identifier,
-            &anchor_filter->ndat->u.rexpr_filter.filter_def->block_stmt_list,
+            &filter_get_const_scope_def(anchor_filter)->block_stmt_list,
             &visible_statements);
         if (-1 == n_visible_statements) {
             return -1;
@@ -3341,13 +3340,13 @@ ast_node_is_rexpr_filter(const struct ast_node_hdl *node)
 int
 ast_node_filter_has_fields(const struct ast_node_hdl *node)
 {
-    struct filter_def *filter_def;
+    const struct scope_def *scope_def;
 
     if (!ast_node_is_rexpr_filter(node)) {
         return FALSE;
     }
-    filter_def = node->ndat->u.rexpr_filter.filter_def;
-    return !TAILQ_EMPTY(filter_def->block_stmt_list.field_list);
+    scope_def = filter_get_const_scope_def(node);
+    return !TAILQ_EMPTY(scope_def->block_stmt_list.field_list);
 }
 
 struct ast_node_hdl *
@@ -4302,7 +4301,7 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
                 filter_cls->name, (depth + 1) * INDENT_N_SPACES, "");
         STATEMENT_FOREACH(
             named_expr, attr,
-            node->ndat->u.rexpr_filter.filter_def->block_stmt_list.attribute_list,
+            filter_get_scope_def(node)->block_stmt_list.attribute_list,
             list) {
             attr_def = filter_class_get_attr(filter_cls, attr->nstmt.name);
             assert(NULL != attr_def);
@@ -4561,7 +4560,7 @@ dump_filter_recur(const struct ast_node_hdl *filter,
         return ;
     }
     dump_block_stmt_list_recur(filter,
-                               &filter->ndat->u.filter_def.block_stmt_list,
+                               &filter->ndat->u.scope_def.block_stmt_list,
                                depth, outer_refs, out);
 }
 
@@ -4576,7 +4575,7 @@ dump_composite_recur(const struct ast_node_hdl *filter,
     }
     dump_block_stmt_list_recur(
         filter,
-        &filter->ndat->u.rexpr_filter.filter_def->block_stmt_list,
+        &filter_get_const_scope_def(filter)->block_stmt_list,
         depth, outer_refs, out);
 }
 
