@@ -655,7 +655,7 @@
 %right OP_ARRAY_DECL
 %left  OP_BRACKETS
 
-%type <ast_node_hdl> g_integer g_boolean g_identifier g_literal filter_block expr opt_expr twin_index opt_twin_index
+%type <ast_node_hdl> g_integer g_boolean g_identifier g_literal scope_block filter_block expr opt_expr twin_index opt_twin_index
 %type <file_block> file_block
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
 %type <statement_list> func_params func_param_nonempty_list
@@ -725,6 +725,7 @@ expr:
   | KW_SELF {
         $$ = ast_node_hdl_create(AST_NODE_TYPE_EXPR_SELF, &@KW_SELF);
     }
+  | scope_block
   | filter_block
   | '+' expr %prec OP_ARITH_UNARY_OP {
         $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_UPLUS, $2, NULL, &@1);
@@ -947,26 +948,34 @@ schema:
       YYERROR;
   }
 
-file_block: KW_FILE '{' block_stmt_list '}' {
+scope_block:
+    '{' block_stmt_list '}' {
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_SCOPE_DEF, &@$);
+        $$->loc = @1;
+        $$->ndat->u.scope_def.block_stmt_list = $block_stmt_list;
+    }
+
+file_block: KW_FILE scope_block {
         struct ast_node_data *item;
 
-        $$.root = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, &@$);
+        $$.root = $scope_block;
+        $$.root->ndat->type = AST_NODE_TYPE_FILTER_DEF;
+        $$.root->loc = @1;
         item = $$.root->ndat;
         item->u.filter_def.filter_type = "struct";
-        if (TAILQ_EMPTY($block_stmt_list.field_list)) {
+        if (TAILQ_EMPTY(item->u.scope_def.block_stmt_list.field_list)) {
             semantic_error(SEMANTIC_LOGLEVEL_WARNING, &@$,
                            "file block has zero field");
         }
-        item->u.scope_def.block_stmt_list = $block_stmt_list;
         $$.root->flags = ASTFLAG_IS_ROOT_BLOCK;
     }
 
 filter_block:
-    IDENTIFIER '{' block_stmt_list '}' {
-        $$ = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, &@$);
+    IDENTIFIER scope_block {
+        $$ = $scope_block;
+        $$->ndat->type = AST_NODE_TYPE_FILTER_DEF;
         $$->loc = @IDENTIFIER;
         $$->ndat->u.filter_def.filter_type = $IDENTIFIER;
-        $$->ndat->u.scope_def.block_stmt_list = $block_stmt_list;
     }
 
 if_block:
