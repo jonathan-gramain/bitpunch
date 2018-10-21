@@ -135,6 +135,8 @@ filter_class_lookup(const char *name)
     return NULL;
 }
 
+void filter_class_declare_file(void);
+
 void filter_class_declare_byte(void);
 void filter_class_declare_struct(void);
 void filter_class_declare_union(void);
@@ -150,6 +152,8 @@ void filter_class_declare_formatted_integer(void);
 void
 filter_class_declare_std(void)
 {
+    filter_class_declare_file();
+
     filter_class_declare_byte();
     filter_class_declare_struct();
     filter_class_declare_union();

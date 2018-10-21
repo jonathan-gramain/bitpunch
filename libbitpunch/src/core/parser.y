@@ -115,13 +115,6 @@
         struct statement_list *attribute_list;
     };
 
-    typedef bitpunch_status_t (*filter_read_func_t)(
-        struct ast_node_hdl *filter,
-        struct box *scope,
-        expr_value_t *read_value,
-        const char *data, size_t span_size,
-        struct browse_state *bst);
-
     typedef expr_value_t
         (*expr_evalop_fn_t)(expr_value_t operands[]);
 

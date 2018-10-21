@@ -52,11 +52,25 @@ struct filter_attr_def {
     enum filter_attr_flags flags;
 };
 
+typedef bitpunch_status_t (*filter_get_data_source_func_t)(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    struct bitpunch_data_source **ds_outp,
+    struct browse_state *bst);
+
+typedef bitpunch_status_t (*filter_read_func_t)(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    expr_value_t *read_value,
+    const char *data, size_t span_size,
+    struct browse_state *bst);
+
 struct filter_instance {
     struct item_node item; /* inherits */
     struct item_backend b_item;
     struct box_backend b_box;
     struct tracker_backend b_tk;
+    filter_get_data_source_func_t get_data_source_func;
     filter_read_func_t read_func;
 };
 
