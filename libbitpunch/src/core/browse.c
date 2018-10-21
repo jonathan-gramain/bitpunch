@@ -1123,27 +1123,16 @@ box_new_filter_box(struct box *parent_box,
     return box;
 }
 
+
 static bitpunch_status_t
-box_apply_local_filter(struct box *box, struct browse_state *bst)
+box_apply_local_filter__data_filter(struct box *box, struct browse_state *bst)
 {
-    const struct filter_class *filter_cls;
+    bitpunch_status_t bt_ret;
     int64_t unfiltered_size;
     expr_value_t filtered_value;
     const char *filtered_data;
     int64_t filtered_size;
-    bitpunch_status_t bt_ret;
 
-    assert(NULL == box->ds_out);
-    assert(NULL != box->parent_box);
-
-    filter_cls = box->filter->ndat->u.rexpr_filter.filter_cls;
-
-    if (NULL == filter_cls
-        || !expr_value_type_mask_contains_dpath(filter_cls->value_type_mask)) {
-        box_setup_input_boundaries(box);
-        box_setup_overlay(box);
-        return BITPUNCH_OK;
-    }
     bt_ret = box_get_max_span_size(box, &unfiltered_size, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
@@ -1189,6 +1178,40 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
     }
     expr_value_destroy(filtered_value);
     return BITPUNCH_OK;
+}
+
+static bitpunch_status_t
+box_apply_local_filter__data_source(struct box *box, struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+
+    bt_ret = filter_instance_get_data_source(box->filter, box,
+                                             &box->ds_out, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        box->flags |= BOX_DATA_SOURCE;
+    }
+    return bt_ret;
+}
+
+static bitpunch_status_t
+box_apply_local_filter(struct box *box, struct browse_state *bst)
+{
+    const struct filter_class *filter_cls;
+
+    assert(NULL == box->ds_out);
+    assert(NULL != box->parent_box);
+
+    filter_cls = box->filter->ndat->u.rexpr_filter.filter_cls;
+    if (NULL == filter_cls
+        || !expr_value_type_mask_contains_dpath(filter_cls->value_type_mask)) {
+        box_setup_input_boundaries(box);
+        box_setup_overlay(box);
+        return BITPUNCH_OK;
+    }
+    if (NULL != box->ds_in) {
+        return box_apply_local_filter__data_filter(box, bst);
+    }
+    return box_apply_local_filter__data_source(box, bst);
 }
 
 bitpunch_status_t

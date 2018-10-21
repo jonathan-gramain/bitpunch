@@ -301,3 +301,16 @@ filter_instance_read_value(struct ast_node_hdl *filter,
     }
     return bt_ret;
 }
+
+bitpunch_status_t
+filter_instance_get_data_source(
+    struct ast_node_hdl *filter, struct box *scope,
+    struct bitpunch_data_source **ds_outp, struct browse_state *bst)
+{
+    struct filter_instance *f_instance;
+
+    f_instance = filter->ndat->u.rexpr_filter.f_instance;
+    assert(NULL != f_instance->get_data_source_func);
+
+    return f_instance->get_data_source_func(filter, scope, ds_outp, bst);
+}

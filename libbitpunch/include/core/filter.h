@@ -131,6 +131,11 @@ filter_instance_read_value(struct ast_node_hdl *filter,
                            expr_value_t *valuep,
                            struct browse_state *bst);
 
+bitpunch_status_t
+filter_instance_get_data_source(
+    struct ast_node_hdl *filter, struct box *scope,
+    struct bitpunch_data_source **ds_outp, struct browse_state *bst);
+
 void
 compile_node_backends__filter__filter(struct ast_node_hdl *filter);
 
