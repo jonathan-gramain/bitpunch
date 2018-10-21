@@ -148,6 +148,8 @@ filter_class_lookup(const char *name)
     return NULL;
 }
 
+void filter_class_declare_file(void);
+
 void filter_class_declare_byte(void);
 void filter_class_declare_struct(void);
 void filter_class_declare_union(void);
@@ -163,6 +165,8 @@ void filter_class_declare_formatted_integer(void);
 void
 filter_class_declare_std(void)
 {
+    filter_class_declare_file();
+
     filter_class_declare_byte();
     filter_class_declare_struct();
     filter_class_declare_union();
@@ -309,6 +313,19 @@ filter_instance_read_value(struct ast_node_hdl *filter,
         expr_value_destroy(value);
     }
     return bt_ret;
+}
+
+bitpunch_status_t
+filter_instance_get_data_source(
+    struct ast_node_hdl *filter, struct box *scope,
+    struct bitpunch_data_source **ds_outp, struct browse_state *bst)
+{
+    struct filter_instance *f_instance;
+
+    f_instance = filter->ndat->u.rexpr_filter.f_instance;
+    assert(NULL != f_instance->get_data_source_func);
+
+    return f_instance->get_data_source_func(filter, scope, ds_outp, bst);
 }
 
 bitpunch_status_t
@@ -562,7 +579,7 @@ compile_node_backends__source(struct ast_node_hdl *item)
 {
     item->ndat->u.rexpr_filter.f_instance = new_safe(struct filter_instance);
 
-    compile_node_backends__item__generic(item);
+    compile_node_backends__filter__filter(item);
     compile_node_backends__box__source(item);
     compile_node_backends__tracker__filter(item);
 }

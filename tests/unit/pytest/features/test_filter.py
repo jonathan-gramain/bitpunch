@@ -332,8 +332,8 @@ def test_filter_2(params_filter_2):
 
     # up one ancestor => input for base64 filter
     daddy = dtree.eval_expr('^blocks[1]')
-    assert daddy.get_offset() == 29
-    assert daddy.get_size() == 32
+    assert daddy.get_offset() == 0
+    assert daddy.get_size() == 22
     # filtered output
     assert daddy == '\x12\00\00\00more contents data'
 
@@ -344,7 +344,7 @@ def test_filter_2(params_filter_2):
     for grandpa in [dtree.eval_expr('^^blocks[1]'),
                     dtree.eval_expr('^^^blocks[1]')]:
         assert grandpa.get_offset() == 29
-        assert grandpa.get_size() == 33
+        assert grandpa.get_size() == 32
         # filtered output (i.e. without final newline)
         assert str(grandpa) == 'EgAAAG1vcmUgY29udGVudHMgZGF0YQ=='
 

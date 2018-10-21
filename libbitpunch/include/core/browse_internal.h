@@ -155,6 +155,9 @@ bitpunch_status_t
 box_set_max_span_size(struct box *box, int64_t max_span_size,
                       struct browse_state *bst);
 bitpunch_status_t
+box_set_used_size(struct box *box, int64_t used_size,
+                  struct browse_state *bst);
+bitpunch_status_t
 box_compute_max_span_size(struct box *box,
                           struct browse_state *bst);
 bitpunch_status_t
@@ -251,6 +254,11 @@ bitpunch_status_t
 box_read_value_internal(struct box *box,
                         expr_value_t *valuep,
                         struct browse_state *bst);
+bitpunch_status_t
+box_get_filtered_data_internal(
+    struct box *box,
+    struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct browse_state *bst);
 
 bitpunch_status_t
 tracker_get_filtered_dpath_internal(struct tracker *tk,
@@ -420,6 +428,11 @@ tracker_read_item_raw_internal(struct tracker *tk,
                                const char **item_contentsp,
                                int64_t *item_sizep,
                                struct browse_state *bst);
+bitpunch_status_t
+tracker_get_filtered_data_internal(
+    struct tracker *tk,
+    struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct browse_state *bst);
 bitpunch_status_t
 tracker_reverse_direction_internal(struct tracker *tk,
                                    struct browse_state *bst);

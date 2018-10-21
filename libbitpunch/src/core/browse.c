@@ -693,6 +693,13 @@ box_set_max_span_size(struct box *box, int64_t max_span_size,
     return box_set_size(box, max_span_size, BOX_SIZE_MAX_SPAN, bst);
 }
 
+bitpunch_status_t
+box_set_used_size(struct box *box, int64_t used_size,
+                  struct browse_state *bst)
+{
+    return box_set_size(box, used_size, BOX_SIZE_USED, bst);
+}
+
 
 static void
 box_set_boundary_offset(struct box *box,
@@ -815,14 +822,14 @@ box_construct(struct box *o_box,
     /* initialize internal state */
     switch (filter->ndat->type) {
     case AST_NODE_TYPE_ARRAY_SLICE:
-    case AST_NODE_TYPE_BYTE:
-    case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_SOURCE:
         o_box->u.array_generic.n_items = -1;
         break ;
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE:
+    case AST_NODE_TYPE_BYTE_ARRAY:
         if (NULL != filter->ndat->u.rexpr_filter.f_instance->b_box.init) {
             bt_ret = filter->ndat->u.rexpr_filter.f_instance->b_box.init(
                 o_box, bst);
@@ -1110,11 +1117,20 @@ box_new_filter_box(struct box *parent_box,
 {
     struct box *box;
     bitpunch_status_t bt_ret;
+    enum box_flag flags;
+    struct filter_instance *f_instance;
 
     box = new_safe(struct box);
-    bt_ret = box_construct(
-        box, parent_box, filter, -1,
-        BOX_FILTER | (parent_box->flags & BOX_RALIGN), bst);
+    flags = BOX_FILTER;
+    if (NULL != parent_box) {
+        flags |= (parent_box->flags & BOX_RALIGN);
+    }
+    assert(ast_node_is_rexpr_filter(filter));
+    f_instance = filter->ndat->u.rexpr_filter.f_instance;
+    if (NULL != f_instance->get_data_source_func) {
+        flags |= BOX_DATA_SOURCE;
+    }
+    bt_ret = box_construct(box, parent_box, filter, -1, flags, bst);
     if (BITPUNCH_OK != bt_ret) {
         box_delete_non_null(box);
         return NULL;
@@ -1123,31 +1139,25 @@ box_new_filter_box(struct box *parent_box,
     return box;
 }
 
+
 static bitpunch_status_t
-box_apply_local_filter(struct box *box, struct browse_state *bst)
+box_apply_local_filter__data_filter(struct box *box, struct browse_state *bst)
 {
-    const struct filter_class *filter_cls;
+    bitpunch_status_t bt_ret;
     int64_t unfiltered_size;
     expr_value_t filtered_value;
     const char *filtered_data;
     int64_t filtered_size;
-    bitpunch_status_t bt_ret;
 
-    assert(NULL == box->ds_out);
-    assert(NULL != box->parent_box);
-
-    filter_cls = box->filter->ndat->u.rexpr_filter.filter_cls;
-
-    if (NULL == filter_cls
-        || !expr_value_type_mask_contains_dpath(filter_cls->value_type_mask)) {
-        box_setup_input_boundaries(box);
-        box_setup_overlay(box);
-        return BITPUNCH_OK;
+    if (0 != (box->flags & BOX_RALIGN)) {
+        bt_ret = box_get_span_size(box, &unfiltered_size, bst);
+    } else {
+        bt_ret = box_get_max_span_size(box, &unfiltered_size, bst);
     }
-    bt_ret = box_get_max_span_size(box, &unfiltered_size, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
+    assert(-1 != box->start_offset_span);
     bt_ret = filter_instance_read_value(
         box->filter, box,
         box->start_offset_span, unfiltered_size,
@@ -1189,6 +1199,42 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
     }
     expr_value_destroy(filtered_value);
     return BITPUNCH_OK;
+}
+
+static bitpunch_status_t
+box_apply_local_filter__data_source(struct box *box, struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+
+    bt_ret = filter_instance_get_data_source(box->filter, box,
+                                             &box->ds_out, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        box->start_offset_used = 0;
+        box->end_offset_used = box->ds_out->ds_data_length;
+    }
+    return bt_ret;
+}
+
+static bitpunch_status_t
+box_apply_local_filter(struct box *box, struct browse_state *bst)
+{
+    const struct filter_class *filter_cls;
+    struct filter_instance *f_instance;
+
+    assert(NULL == box->ds_out);
+
+    filter_cls = box->filter->ndat->u.rexpr_filter.filter_cls;
+    if (NULL == filter_cls
+        || !expr_value_type_mask_contains_dpath(filter_cls->value_type_mask)) {
+        box_setup_input_boundaries(box);
+        box_setup_overlay(box);
+        return BITPUNCH_OK;
+    }
+    f_instance = box->filter->ndat->u.rexpr_filter.f_instance;
+    if (NULL != f_instance->get_data_source_func) {
+        return box_apply_local_filter__data_source(box, bst);
+    }
+    return box_apply_local_filter__data_filter(box, bst);
 }
 
 bitpunch_status_t
@@ -1967,6 +2013,91 @@ box_get_n_items_internal(struct box *box, int64_t *n_itemsp,
     return bt_ret;
 }
 
+static bitpunch_status_t
+box_compute_size_internal(struct box *box,
+                          enum box_offset_type off_type,
+                          int64_t *sizep,
+                          struct browse_state *bst)
+{
+    int64_t size;
+    bitpunch_status_t bt_ret;
+
+    switch (off_type) {
+    case BOX_START_OFFSET_MIN_SPAN:
+    case BOX_END_OFFSET_MIN_SPAN:
+    case BOX_SIZE_MIN_SPAN:
+        bt_ret = box_compute_min_span_size(box, bst);
+        size = box->end_offset_min_span - box->start_offset_min_span;
+        break ;
+    case BOX_START_OFFSET_SPAN:
+    case BOX_END_OFFSET_SPAN:
+    case BOX_SIZE_SPAN:
+        bt_ret = box_compute_span_size(box, bst);
+        size = box->end_offset_span - box->start_offset_span;
+        break ;
+    case BOX_START_OFFSET_MAX_SPAN:
+    case BOX_END_OFFSET_MAX_SPAN:
+    case BOX_SIZE_MAX_SPAN:
+        bt_ret = box_compute_max_span_size(box, bst);
+        size = box->end_offset_max_span - box->start_offset_max_span;
+        break ;
+    case BOX_START_OFFSET_SLACK:
+    case BOX_END_OFFSET_SLACK:
+    case BOX_SIZE_SLACK:
+        bt_ret = box_compute_slack_size(box, bst);
+        size = box->end_offset_slack - box->start_offset_slack;
+        break ;
+    case BOX_START_OFFSET_PARENT:
+    case BOX_END_OFFSET_PARENT:
+    case BOX_SIZE_PARENT:
+        bt_ret = BITPUNCH_OK;
+        size = box->end_offset_parent - box->start_offset_parent;
+        break ;
+    case BOX_START_OFFSET_USED:
+    case BOX_END_OFFSET_USED:
+    case BOX_SIZE_USED:
+        bt_ret = box_compute_used_size(box, bst);
+        size = box->end_offset_used - box->start_offset_used;
+        break ;
+    default:
+        return BITPUNCH_INVALID_PARAM;
+    }
+    if (BITPUNCH_OK == bt_ret && NULL != sizep) {
+        *sizep = size;
+    }
+    return bt_ret;
+}
+
+static bitpunch_status_t
+box_compute_offset_internal(struct box *box,
+                            enum box_offset_type off_type,
+                            int64_t *offsetp,
+                            struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    int64_t offset;
+
+    bt_ret = box_apply_filter_internal(box, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    if ((0 == (box->flags & BOX_RALIGN)
+         && 0 != (off_type & BOX_END_OFFSETS)) ||
+        (0 != (box->flags & BOX_RALIGN)
+         && 0 != (off_type & BOX_START_OFFSETS))) {
+        bt_ret = box_compute_size_internal(box, off_type, NULL, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
+    }
+    offset = box_get_offset(box, off_type);
+    assert(-1 != offset);
+    if (NULL != offsetp) {
+        *offsetp = offset;
+    }
+    return BITPUNCH_OK;
+}
+
 bitpunch_status_t
 box_get_location_internal(struct box *box,
                           int64_t *offsetp, int64_t *sizep,
@@ -1975,10 +2106,11 @@ box_get_location_internal(struct box *box,
     bitpunch_status_t bt_ret;
 
     bt_ret = box_get_span_size(box, sizep, bst);
-    if (BITPUNCH_OK == bt_ret) {
-        *offsetp = box_get_start_offset(box);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
     }
-    return bt_ret;
+    return box_compute_offset_internal(box, BOX_START_OFFSET_SPAN,
+                                       offsetp, bst);
 }
 
 bitpunch_status_t
@@ -1989,16 +2121,16 @@ box_read_value_internal(struct box *box,
     bitpunch_status_t bt_ret;
     struct item_backend *b_item = NULL;
 
-    bt_ret = box_apply_parent_filter_internal(box, bst);
+    bt_ret = box_apply_filter_internal(box, bst);
     if (BITPUNCH_OK == bt_ret) {
-        bt_ret = box_compute_span_size(box, bst);
+        bt_ret = box_compute_used_size(box, bst);
     }
     if (BITPUNCH_OK == bt_ret) {
         b_item = &box->filter->ndat->u.rexpr_filter.f_instance->b_item;
         bt_ret = b_item->read_value(
             box->filter, box,
-            box->start_offset_span,
-            box->end_offset_span - box->start_offset_span,
+            box->start_offset_used,
+            box->end_offset_used - box->start_offset_used,
             valuep, bst);
     }
     if (BITPUNCH_OK == bt_ret && NULL != valuep) {
@@ -2010,50 +2142,26 @@ box_read_value_internal(struct box *box,
     return bt_ret;
 }
 
-static bitpunch_status_t
-box_compute_end_offset_internal(struct box *box,
-                                enum box_offset_type off_type,
-                                int64_t *end_offsetp,
-                                struct browse_state *bst)
+bitpunch_status_t
+box_get_filtered_data_internal(
+    struct box *box,
+    struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    int64_t end_offset;
+    int64_t used_size;
 
     bt_ret = box_apply_filter_internal(box, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
+    if (BITPUNCH_OK == bt_ret) {
+        bt_ret = box_get_used_size(box, &used_size, bst);
     }
-    switch (off_type) {
-    case BOX_END_OFFSET_PARENT:
-        bt_ret = BITPUNCH_OK;
-        end_offset = box->end_offset_parent;
-        break ;
-    case BOX_END_OFFSET_SLACK:
-        bt_ret = box_compute_slack_size(box, bst);
-        end_offset = box->end_offset_slack;
-        break ;
-    case BOX_END_OFFSET_MAX_SPAN:
-        bt_ret = box_compute_max_span_size(box, bst);
-        end_offset = box->end_offset_max_span;
-        break ;
-    case BOX_END_OFFSET_SPAN:
-        bt_ret = box_compute_span_size(box, bst);
-        end_offset = box->end_offset_span;
-        break ;
-    case BOX_END_OFFSET_MIN_SPAN:
-        bt_ret = box_compute_min_span_size(box, bst);
-        end_offset = box->end_offset_min_span;
-        break ;
-    default:
-        return BITPUNCH_INVALID_PARAM;
+    if (BITPUNCH_OK == bt_ret) {
+        assert(-1 != box->start_offset_used);
+        *dsp = box->ds_out;
+        *offsetp = box->start_offset_used;
+        *sizep = used_size;
     }
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    if (NULL != end_offsetp) {
-        *end_offsetp = end_offset;
-    }
-    return BITPUNCH_OK;
+    return bt_ret;
 }
 
 bitpunch_status_t
@@ -3525,6 +3633,41 @@ tracker_read_item_raw_internal(struct tracker *tk,
     return BITPUNCH_OK;
 }
 
+bitpunch_status_t
+tracker_get_filtered_data_internal(
+    struct tracker *tk,
+    struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    expr_dpath_t filtered_dpath;
+
+    bt_ret = tracker_get_filtered_dpath_internal(tk, &filtered_dpath, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    switch (filtered_dpath.type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        bt_ret = box_apply_filter_internal(filtered_dpath.tk->box, bst);
+        if (BITPUNCH_OK == bt_ret) {
+            bt_ret = tracker_get_item_location_internal(
+                filtered_dpath.tk, offsetp, sizep, bst);
+        }
+        if (BITPUNCH_OK == bt_ret) {
+            *dsp = filtered_dpath.tk->box->ds_out;
+        }
+        break ;
+    case EXPR_DPATH_TYPE_CONTAINER:
+        bt_ret = box_get_filtered_data_internal(filtered_dpath.box,
+                                                dsp, offsetp, sizep, bst);
+        break ;
+    default:
+        assert(0);
+    }
+    expr_dpath_destroy(filtered_dpath);
+    return bt_ret;
+}
+
 static bitpunch_status_t
 filtered_dpath_read_value_internal(expr_dpath_t dpath,
                                    expr_value_t *expr_valuep,
@@ -4104,6 +4247,20 @@ expr_dpath_get_location(expr_dpath_t dpath,
 }
 
 bitpunch_status_t
+expr_dpath_get_filtered_data(
+    expr_dpath_t dpath,
+    struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct tracker_error **errp)
+{
+    struct browse_state bst;
+
+    browse_state_init(&bst);
+    return transmit_error(
+        expr_dpath_get_filtered_data_internal(dpath, dsp, offsetp, sizep, &bst),
+        &bst, errp);
+}
+
+bitpunch_status_t
 box_get_n_items(struct box *box, int64_t *n_itemsp,
                 struct tracker_error **errp)
 {
@@ -4142,16 +4299,30 @@ box_read_value(struct box *box,
 }
 
 bitpunch_status_t
-box_compute_end_offset(struct box *box,
-                       enum box_offset_type off_type,
-                       int64_t *end_offsetp,
-                       struct tracker_error **errp)
+box_compute_offset(struct box *box,
+                   enum box_offset_type off_type,
+                   int64_t *offsetp,
+                   struct tracker_error **errp)
 {
     struct browse_state bst;
 
     browse_state_init(&bst);
     return transmit_error(
-        box_compute_end_offset_internal(box, off_type, end_offsetp, &bst),
+        box_compute_offset_internal(box, off_type, offsetp, &bst),
+        &bst, errp);
+}
+
+bitpunch_status_t
+box_compute_size(struct box *box,
+                 enum box_offset_type size_type,
+                 int64_t *sizep,
+                 struct tracker_error **errp)
+{
+    struct browse_state bst;
+
+    browse_state_init(&bst);
+    return transmit_error(
+        box_compute_size_internal(box, size_type, sizep, &bst),
         &bst, errp);
 }
 

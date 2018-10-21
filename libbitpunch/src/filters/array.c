@@ -336,6 +336,9 @@ box_get_n_items__array_non_slack(struct box *box, int64_t *item_countp,
             box->filter->ndat->u.rexpr_filter.f_instance;
         assert(0 != (array->item_count->ndat->u.rexpr.value_type_mask
                      & EXPR_VALUE_TYPE_INTEGER));
+        // XXX for generalization of data sources: box is not the
+        // proper scope: "box" is the array's data scope, not the
+        // semantic scope which may need other data sources
         bt_ret = expr_evaluate_value_internal(array->item_count, box,
                                               &item_count, bst);
         if (BITPUNCH_OK != bt_ret) {
@@ -427,8 +430,8 @@ box_get_n_items__array_slack_const_item_size(struct box *box,
          * the unit elem static size */
         box->u.array_generic.n_items =
             (box->end_offset_slack - box->start_offset_slack) / item_size;
-        /* now is a good time to set the span size as well */
-        bt_ret = box_set_span_size(
+        /* now is a good time to set the used size as well */
+        bt_ret = box_set_used_size(
             box, box->u.array_generic.n_items * item_size, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
@@ -779,21 +782,15 @@ tracker_goto_nth_item__array_const_item_size(struct tracker *tk,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    bt_ret = box_apply_filter_internal(xtk->box, bst);
+    bt_ret = tracker_set_item_offset_at_box(xtk, xtk->box, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
     item_size = ast_node_get_min_span_size(xtk->dpath.item);
-    /* no item cleanup, transform item info instead */
     if (0 != (xtk->flags & TRACKER_REVERSED)) {
-        assert(0 != (xtk->box->flags & BOX_RALIGN));
-        assert(-1 != xtk->box->end_offset_span);
-        xtk->item_offset = xtk->box->end_offset_span
-            - (n_items - index - 1) * item_size;
+        xtk->item_offset -= (n_items - index - 1) * item_size;
     } else {
-        assert(-1 != xtk->box->start_offset_span);
-        xtk->item_offset = xtk->box->start_offset_span
-            + index * item_size;
+        xtk->item_offset += index * item_size;
     }
     xtk->item_size = item_size;
     xtk->cur.u.array.index = index;

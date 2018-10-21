@@ -1213,6 +1213,26 @@ expr_dpath_get_location_internal(expr_dpath_t dpath,
 }
 
 bitpunch_status_t
+expr_dpath_get_filtered_data_internal(
+    expr_dpath_t dpath,
+    struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct browse_state *bst)
+{
+    switch (dpath.type) {
+    case EXPR_DPATH_TYPE_CONTAINER:
+        return box_get_filtered_data_internal(dpath.box,
+                                              dsp, offsetp, sizep, bst);
+        break ;
+    case EXPR_DPATH_TYPE_ITEM:
+        return tracker_get_filtered_data_internal(dpath.tk,
+                                                  dsp, offsetp, sizep, bst);
+        break ;
+    default:
+        assert(0);
+    }
+}
+
+bitpunch_status_t
 expr_dpath_evaluate_filter_internal(
     expr_dpath_t dpath,
     struct box *scope,
@@ -2417,6 +2437,7 @@ expr_transform_dpath_filter(struct ast_node_hdl *expr,
     bitpunch_status_t bt_ret;
     struct box *parent_box;
     struct box *filtered_data_box;
+    struct filter_instance *f_instance;
 
     switch (transformp->dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
@@ -2436,8 +2457,16 @@ expr_transform_dpath_filter(struct ast_node_hdl *expr,
         break ;
 
     case EXPR_DPATH_TYPE_NONE:
-        return node_error(BITPUNCH_DATA_ERROR, expr, bst,
-                          "no data source to compute dpath");
+        f_instance = expr->ndat->u.rexpr_filter.f_instance;
+        if (NULL == f_instance->get_data_source_func) {
+            return node_error(BITPUNCH_DATA_ERROR, expr, bst,
+                              "no data source to compute dpath");
+        }
+        filtered_data_box = box_new_filter_box(NULL, expr, bst);
+        if (NULL == filtered_data_box) {
+            return BITPUNCH_DATA_ERROR;
+        }
+        break ;
 
     default:
         assert(0);

@@ -115,13 +115,6 @@
         struct statement_list *attribute_list;
     };
 
-    typedef bitpunch_status_t (*filter_read_func_t)(
-        struct ast_node_hdl *filter,
-        struct box *scope,
-        expr_value_t *read_value,
-        const char *data, size_t span_size,
-        struct browse_state *bst);
-
     typedef expr_value_t
         (*expr_evalop_fn_t)(expr_value_t operands[]);
 
@@ -963,10 +956,6 @@ file_block: KW_FILE scope_block {
         $$.root->loc = @1;
         item = $$.root->ndat;
         item->u.filter_def.filter_type = "struct";
-        if (TAILQ_EMPTY(item->u.scope_def.block_stmt_list.field_list)) {
-            semantic_error(SEMANTIC_LOGLEVEL_WARNING, &@$,
-                           "file block has zero field");
-        }
         $$.root->flags = ASTFLAG_IS_ROOT_BLOCK;
     }
 

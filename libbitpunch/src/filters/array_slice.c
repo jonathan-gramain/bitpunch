@@ -58,10 +58,9 @@ box_array_slice_get_ancestor_array(struct box *box)
     array_box = box;
     while (AST_NODE_TYPE_ARRAY != array_box->filter->ndat->type &&
            AST_NODE_TYPE_BYTE_ARRAY != array_box->filter->ndat->type &&
-           AST_NODE_TYPE_SOURCE != array_box->filter->ndat->type) {
+           AST_NODE_TYPE_SOURCE != array_box->filter->ndat->type &&
+           NULL != array_box->parent_box) {
         array_box = array_box->parent_box;
-        /* An array slice box shall always have a real array ancestor. */
-        assert(NULL != array_box);
     }
     return array_box;
 }

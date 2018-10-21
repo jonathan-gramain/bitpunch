@@ -34,6 +34,11 @@
 
 #include "filters/array.h"
 
+bitpunch_status_t
+byte_array_box_init(struct box *box, struct browse_state *bst);
+void
+byte_array_box_destroy(struct box *box);
+
 void
 compile_node_backends__byte_array(struct ast_node_hdl *item);
 

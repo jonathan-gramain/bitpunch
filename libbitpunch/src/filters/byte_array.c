@@ -40,6 +40,18 @@
 #include "filters/byte_array.h"
 
 
+bitpunch_status_t
+byte_array_box_init(struct box *box, struct browse_state *bst)
+{
+    box->u.array_generic.n_items = -1;
+    return BITPUNCH_OK;
+}
+
+void
+byte_array_box_destroy(struct box *box)
+{
+}
+
 static bitpunch_status_t
 compute_item_size__byte_array_var_size(
     struct ast_node_hdl *item_filter, struct box *scope,
@@ -109,8 +121,7 @@ box_get_n_items__byte_array_slack(struct box *box, int64_t *item_countp,
         box->u.array_generic.n_items =
             box->end_offset_slack - box->start_offset_span;
         /* now is a good time to set the used size as well */
-        bt_ret = box_set_span_size(box, box->u.array_generic.n_items,
-                                   bst);
+        bt_ret = box_set_used_size(box, box->u.array_generic.n_items, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
@@ -217,7 +228,8 @@ tracker_goto_nth_item__byte_array_generic(
         DBG_TRACKER_CHECK_STATE(tk);
         return BITPUNCH_OK;
     }
-    tk->item_offset = tk->box->start_offset_span + index;
+    assert(-1 != tk->box->start_offset_used);
+    tk->item_offset = tk->box->start_offset_used + index;
     tk->item_size = 1;
     tk->cur = track_path_from_array_index(index);
     return tracker_check_item(tk, bst);
@@ -235,6 +247,8 @@ compile_node_backends__box__byte_array(struct ast_node_hdl *item)
     b_box = &array->filter.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
+    b_box->init = byte_array_box_init;
+    b_box->destroy = byte_array_box_destroy;
     b_box->compute_slack_size = box_compute_slack_size__as_container_slack;
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
     if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {

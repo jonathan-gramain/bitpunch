@@ -273,3 +273,6 @@ correctly (b_filter is empty)
 
 - BUG: track path dump of tracker in a slice should substract the
   slice's start index
+
+- BUG: mandatory filter attributes are not checked when filter is
+  declared without a block scope {...}

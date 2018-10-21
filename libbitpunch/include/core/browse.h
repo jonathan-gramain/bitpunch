@@ -398,13 +398,16 @@ bitpunch_status_t
 box_read_value(struct box *box,
                expr_value_t *valuep,
                struct tracker_error **errp);
-static inline int64_t
-box_get_start_offset(struct box *box) { return box->start_offset_span; }
 bitpunch_status_t
-box_compute_end_offset(struct box *box,
-                       enum box_offset_type off_type,
-                       int64_t *end_offsetp,
-                       struct tracker_error **errp);
+box_compute_offset(struct box *box,
+                   enum box_offset_type off_type,
+                   int64_t *offsetp,
+                   struct tracker_error **errp);
+bitpunch_status_t
+box_compute_size(struct box *box,
+                 enum box_offset_type size_type,
+                 int64_t *sizep,
+                 struct tracker_error **errp);
 bitpunch_status_t
 track_box_contents_internal(struct box *box,
                             struct tracker **tkp, struct browse_state *bst);
@@ -541,6 +544,12 @@ bitpunch_status_t
 expr_dpath_get_location(expr_dpath_t dpath,
                         int64_t *offsetp, int64_t *sizep,
                         struct tracker_error **errp);
+
+bitpunch_status_t
+expr_dpath_get_filtered_data(
+    expr_dpath_t dpath,
+    struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct tracker_error **errp);
 
 /* error reporting */
 
