@@ -1110,11 +1110,17 @@ box_new_filter_box(struct box *parent_box,
 {
     struct box *box;
     bitpunch_status_t bt_ret;
+    enum box_flag flags;
+    struct filter_instance *f_instance;
 
     box = new_safe(struct box);
-    bt_ret = box_construct(
-        box, parent_box, filter, -1,
-        BOX_FILTER | (parent_box->flags & BOX_RALIGN), bst);
+    flags = BOX_FILTER | (parent_box->flags & BOX_RALIGN);
+    assert(ast_node_is_rexpr_filter(filter));
+    f_instance = filter->ndat->u.rexpr_filter.f_instance;
+    if (NULL != f_instance->get_data_source_func) {
+        flags |= BOX_DATA_SOURCE;
+    }
+    bt_ret = box_construct(box, parent_box, filter, -1, flags, bst);
     if (BITPUNCH_OK != bt_ret) {
         box_delete_non_null(box);
         return NULL;
@@ -1188,7 +1194,8 @@ box_apply_local_filter__data_source(struct box *box, struct browse_state *bst)
     bt_ret = filter_instance_get_data_source(box->filter, box,
                                              &box->ds_out, bst);
     if (BITPUNCH_OK == bt_ret) {
-        box->flags |= BOX_DATA_SOURCE;
+        box->start_offset_used = 0;
+        box->end_offset_used = box->ds_out->ds_data_length;
     }
     return bt_ret;
 }
@@ -1197,6 +1204,7 @@ static bitpunch_status_t
 box_apply_local_filter(struct box *box, struct browse_state *bst)
 {
     const struct filter_class *filter_cls;
+    struct filter_instance *f_instance;
 
     assert(NULL == box->ds_out);
     assert(NULL != box->parent_box);
@@ -1208,10 +1216,11 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
         box_setup_overlay(box);
         return BITPUNCH_OK;
     }
-    if (NULL != box->ds_in) {
-        return box_apply_local_filter__data_filter(box, bst);
+    f_instance = box->filter->ndat->u.rexpr_filter.f_instance;
+    if (NULL != f_instance->get_data_source_func) {
+        return box_apply_local_filter__data_source(box, bst);
     }
-    return box_apply_local_filter__data_source(box, bst);
+    return box_apply_local_filter__data_filter(box, bst);
 }
 
 bitpunch_status_t

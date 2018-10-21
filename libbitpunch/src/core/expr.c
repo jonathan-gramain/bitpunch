@@ -2417,6 +2417,7 @@ expr_transform_dpath_filter(struct ast_node_hdl *expr,
     bitpunch_status_t bt_ret;
     struct box *parent_box;
     struct box *filtered_data_box;
+    struct filter_instance *f_instance;
 
     switch (transformp->dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
@@ -2436,8 +2437,17 @@ expr_transform_dpath_filter(struct ast_node_hdl *expr,
         break ;
 
     case EXPR_DPATH_TYPE_NONE:
-        return node_error(BITPUNCH_DATA_ERROR, expr, bst,
-                          "no data source to compute dpath");
+        f_instance = expr->ndat->u.rexpr_filter.f_instance;
+        if (NULL == f_instance->get_data_source_func) {
+            return node_error(BITPUNCH_DATA_ERROR, expr, bst,
+                              "no data source to compute dpath");
+        }
+        parent_box = transformp->dpath.box;
+        filtered_data_box = box_new_filter_box(parent_box, expr, bst);
+        if (NULL == filtered_data_box) {
+            return BITPUNCH_DATA_ERROR;
+        }
+        break ;
 
     default:
         assert(0);
