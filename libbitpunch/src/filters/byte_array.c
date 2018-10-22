@@ -40,14 +40,14 @@
 #include "filters/byte_array.h"
 
 
-static bitpunch_status_t
+bitpunch_status_t
 byte_array_box_init(struct box *box, struct browse_state *bst)
 {
     box->u.array_generic.n_items = -1;
     return BITPUNCH_OK;
 }
 
-static void
+void
 byte_array_box_destroy(struct box *box)
 {
 }
