@@ -1142,10 +1142,15 @@ box_apply_local_filter__data_filter(struct box *box, struct browse_state *bst)
     const char *filtered_data;
     int64_t filtered_size;
 
-    bt_ret = box_get_max_span_size(box, &unfiltered_size, bst);
+    if (0 != (box->flags & BOX_RALIGN)) {
+        bt_ret = box_get_span_size(box, &unfiltered_size, bst);
+    } else {
+        bt_ret = box_get_max_span_size(box, &unfiltered_size, bst);
+    }
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
+    assert(-1 != box->start_offset_span);
     bt_ret = filter_instance_read_value(
         box->filter, box,
         box->start_offset_span, unfiltered_size,
