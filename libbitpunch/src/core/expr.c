@@ -1213,6 +1213,26 @@ expr_dpath_get_location_internal(expr_dpath_t dpath,
 }
 
 bitpunch_status_t
+expr_dpath_get_filtered_data_internal(
+    expr_dpath_t dpath,
+    struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct browse_state *bst)
+{
+    switch (dpath.type) {
+    case EXPR_DPATH_TYPE_CONTAINER:
+        return box_get_filtered_data_internal(dpath.box,
+                                              dsp, offsetp, sizep, bst);
+        break ;
+    case EXPR_DPATH_TYPE_ITEM:
+        return tracker_get_filtered_data_internal(dpath.tk,
+                                                  dsp, offsetp, sizep, bst);
+        break ;
+    default:
+        assert(0);
+    }
+}
+
+bitpunch_status_t
 expr_dpath_evaluate_filter_internal(
     expr_dpath_t dpath,
     struct box *scope,

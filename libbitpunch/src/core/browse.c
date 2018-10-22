@@ -2042,6 +2042,28 @@ box_read_value_internal(struct box *box,
     return bt_ret;
 }
 
+bitpunch_status_t
+box_get_filtered_data_internal(
+    struct box *box,
+    struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    int64_t used_size;
+
+    bt_ret = box_apply_filter_internal(box, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        bt_ret = box_get_used_size(box, &used_size, bst);
+    }
+    if (BITPUNCH_OK == bt_ret) {
+        assert(-1 != box->start_offset_used);
+        *dsp = box->ds_out;
+        *offsetp = box->start_offset_used;
+        *sizep = used_size;
+    }
+    return bt_ret;
+}
+
 static bitpunch_status_t
 box_compute_end_offset_internal(struct box *box,
                                 enum box_offset_type off_type,
@@ -3557,6 +3579,41 @@ tracker_read_item_raw_internal(struct tracker *tk,
     return BITPUNCH_OK;
 }
 
+bitpunch_status_t
+tracker_get_filtered_data_internal(
+    struct tracker *tk,
+    struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    expr_dpath_t filtered_dpath;
+
+    bt_ret = tracker_get_filtered_dpath_internal(tk, &filtered_dpath, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    switch (filtered_dpath.type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        bt_ret = box_apply_filter_internal(filtered_dpath.tk->box, bst);
+        if (BITPUNCH_OK == bt_ret) {
+            bt_ret = tracker_get_item_location_internal(
+                filtered_dpath.tk, offsetp, sizep, bst);
+        }
+        if (BITPUNCH_OK == bt_ret) {
+            *dsp = filtered_dpath.tk->box->ds_out;
+        }
+        break ;
+    case EXPR_DPATH_TYPE_CONTAINER:
+        bt_ret = box_get_filtered_data_internal(filtered_dpath.box,
+                                                dsp, offsetp, sizep, bst);
+        break ;
+    default:
+        assert(0);
+    }
+    expr_dpath_destroy(filtered_dpath);
+    return bt_ret;
+}
+
 static bitpunch_status_t
 filtered_dpath_read_value_internal(expr_dpath_t dpath,
                                    expr_value_t *expr_valuep,
@@ -4132,6 +4189,20 @@ expr_dpath_get_location(expr_dpath_t dpath,
     browse_state_init(&bst);
     return transmit_error(
         expr_dpath_get_location_internal(dpath, offsetp, sizep, &bst),
+        &bst, errp);
+}
+
+bitpunch_status_t
+expr_dpath_get_filtered_data(
+    expr_dpath_t dpath,
+    struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct tracker_error **errp)
+{
+    struct browse_state bst;
+
+    browse_state_init(&bst);
+    return transmit_error(
+        expr_dpath_get_filtered_data_internal(dpath, dsp, offsetp, sizep, &bst),
         &bst, errp);
 }
 

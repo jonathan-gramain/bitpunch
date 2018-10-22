@@ -1631,9 +1631,7 @@ DataItem_bf_getbuffer(DataItemObject *exporter,
                       Py_buffer *view, int flags)
 {
     // TODO merge with Tracker_bf_getbuffer()
-    struct tracker *tk;
-    struct box *box;
-    expr_dpath_t filtered_dpath;
+    struct bitpunch_data_source *filtered_data_source;
     int64_t data_offset;
     int64_t data_size;
     bitpunch_status_t bt_ret;
@@ -1641,24 +1639,9 @@ DataItem_bf_getbuffer(DataItemObject *exporter,
     int64_t len;
     struct tracker_error *tk_err = NULL;
 
-    switch (exporter->dpath.type) {
-    case EXPR_DPATH_TYPE_CONTAINER:
-        box = exporter->dpath.box;
-        bt_ret = box_get_location(box, &data_offset, &data_size, &tk_err);
-        break ;
-    case EXPR_DPATH_TYPE_ITEM:
-        tk = exporter->dpath.tk;
-        bt_ret = tracker_get_filtered_dpath(tk, &filtered_dpath, &tk_err);
-        if (BITPUNCH_OK == bt_ret) {
-            bt_ret = expr_dpath_get_location(filtered_dpath,
-                                             &data_offset, &data_size, &tk_err);
-            expr_dpath_destroy(filtered_dpath);
-        }
-        box = tk->box;
-        break ;
-    default:
-        assert(0);
-    }
+    bt_ret = expr_dpath_get_filtered_data(
+        exporter->dpath,
+        &filtered_data_source, &data_offset, &data_size, &tk_err);
     if (BITPUNCH_OK != bt_ret) {
         PyObject *errobj;
 
@@ -1674,7 +1657,7 @@ DataItem_bf_getbuffer(DataItemObject *exporter,
         view->obj = NULL;
         return -1;
     }
-    buf = box->ds_in->ds_data + data_offset;
+    buf = filtered_data_source->ds_data + data_offset;
     len = data_size;
     return PyBuffer_FillInfo(view, (PyObject *)exporter,
                              (void *)buf, (Py_ssize_t)len,

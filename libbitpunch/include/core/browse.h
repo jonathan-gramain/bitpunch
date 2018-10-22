@@ -542,6 +542,12 @@ expr_dpath_get_location(expr_dpath_t dpath,
                         int64_t *offsetp, int64_t *sizep,
                         struct tracker_error **errp);
 
+bitpunch_status_t
+expr_dpath_get_filtered_data(
+    expr_dpath_t dpath,
+    struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct tracker_error **errp);
+
 /* error reporting */
 
 void
