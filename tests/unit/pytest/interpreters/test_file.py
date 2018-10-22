@@ -12,13 +12,12 @@ import conftest
 
 spec_file_1 = """
 
-let pouet = _file_ { @path = "/etc/hosts"; };
+let pouet = _file_ { @path = "/tmp/bitpunch.test.file"; };
 
 file {}
 """
 
 data_file_1 = """
-"Bonjour" 00 "Hello" 00 "Guten Tag" 00 "Hola" 00 "Privet" 00
 """
 
 
@@ -36,7 +35,7 @@ def test_file(params_file):
     params = params_file
     dtree = params['dtree']
 
-    assert len(dtree.string_table) == 5
-    for i, s in enumerate(dtree.string_table):
-        assert model.make_python_object(dtree.string_table) == \
-            ['Bonjour', 'Hello', 'Guten Tag', 'Hola', 'Privet']
+    with open('/tmp/bitpunch.test.file', 'w') as f:
+        f.write('foobar');
+
+    assert len(dtree.pouet) == 6

@@ -2462,8 +2462,7 @@ expr_transform_dpath_filter(struct ast_node_hdl *expr,
             return node_error(BITPUNCH_DATA_ERROR, expr, bst,
                               "no data source to compute dpath");
         }
-        parent_box = transformp->dpath.box;
-        filtered_data_box = box_new_filter_box(parent_box, expr, bst);
+        filtered_data_box = box_new_filter_box(NULL, expr, bst);
         if (NULL == filtered_data_box) {
             return BITPUNCH_DATA_ERROR;
         }

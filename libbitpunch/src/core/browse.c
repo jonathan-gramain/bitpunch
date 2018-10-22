@@ -1114,7 +1114,10 @@ box_new_filter_box(struct box *parent_box,
     struct filter_instance *f_instance;
 
     box = new_safe(struct box);
-    flags = BOX_FILTER | (parent_box->flags & BOX_RALIGN);
+    flags = BOX_FILTER;
+    if (NULL != parent_box) {
+        flags |= (parent_box->flags & BOX_RALIGN);
+    }
     assert(ast_node_is_rexpr_filter(filter));
     f_instance = filter->ndat->u.rexpr_filter.f_instance;
     if (NULL != f_instance->get_data_source_func) {
@@ -1207,7 +1210,6 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
     struct filter_instance *f_instance;
 
     assert(NULL == box->ds_out);
-    assert(NULL != box->parent_box);
 
     filter_cls = box->filter->ndat->u.rexpr_filter.filter_cls;
     if (NULL == filter_cls
@@ -2021,16 +2023,16 @@ box_read_value_internal(struct box *box,
     bitpunch_status_t bt_ret;
     struct item_backend *b_item = NULL;
 
-    bt_ret = box_apply_parent_filter_internal(box, bst);
+    bt_ret = box_apply_filter_internal(box, bst);
     if (BITPUNCH_OK == bt_ret) {
-        bt_ret = box_compute_span_size(box, bst);
+        bt_ret = box_compute_used_size(box, bst);
     }
     if (BITPUNCH_OK == bt_ret) {
         b_item = &box->filter->ndat->u.rexpr_filter.f_instance->b_item;
         bt_ret = b_item->read_value(
             box->filter, box,
-            box->start_offset_span,
-            box->end_offset_span - box->start_offset_span,
+            box->start_offset_used,
+            box->end_offset_used - box->start_offset_used,
             valuep, bst);
     }
     if (BITPUNCH_OK == bt_ret && NULL != valuep) {

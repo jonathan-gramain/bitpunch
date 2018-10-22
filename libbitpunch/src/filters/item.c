@@ -139,7 +139,7 @@ box_compute_slack_size__from_parent(struct box *box,
 
 bitpunch_status_t
 box_compute_slack_size__as_container_slack(struct box *box,
-                                        struct browse_state *bst)
+                                           struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     int get_left_offset;
