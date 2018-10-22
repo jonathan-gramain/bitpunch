@@ -215,14 +215,6 @@ let VarBlock = struct {
 };
 """
 
-data_var_length_block_trailer = """
-00 00 ff ff ff ff ff ff ff 02
-01 01 01 01 ff ff ff ff ff 01
-02 02 02 02 02 02 ff ff ff 00
-ff ff ff ff ff ff ff ff ff 03
-"""
-
-
 spec_var_length_subblock_trailer = """
 
 let u8 = byte <> integer { @signed = false; };
@@ -247,6 +239,13 @@ let VarBlock = struct {
         yet_another_padding_item: u16;
     };
 };
+"""
+
+data_var_length_block_trailer = """
+00 00 ff ff ff ff ff ff ff 02
+01 01 01 01 ff ff ff ff ff 01
+02 02 02 02 02 02 ff ff ff 00
+ff ff ff ff ff ff ff ff ff 03
 """
 
 
