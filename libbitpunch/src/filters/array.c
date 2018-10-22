@@ -336,6 +336,9 @@ box_get_n_items__array_non_slack(struct box *box, int64_t *item_countp,
             box->filter->ndat->u.rexpr_filter.f_instance;
         assert(0 != (array->item_count->ndat->u.rexpr.value_type_mask
                      & EXPR_VALUE_TYPE_INTEGER));
+        // XXX for generalization of data sources: box is not the
+        // proper scope: "box" is the array's data scope, not the
+        // semantic scope which may need other data sources
         bt_ret = expr_evaluate_value_internal(array->item_count, box,
                                               &item_count, bst);
         if (BITPUNCH_OK != bt_ret) {
