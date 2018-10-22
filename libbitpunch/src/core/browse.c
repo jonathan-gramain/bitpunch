@@ -815,14 +815,14 @@ box_construct(struct box *o_box,
     /* initialize internal state */
     switch (filter->ndat->type) {
     case AST_NODE_TYPE_ARRAY_SLICE:
-    case AST_NODE_TYPE_BYTE:
-    case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_SOURCE:
         o_box->u.array_generic.n_items = -1;
         break ;
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE:
+    case AST_NODE_TYPE_BYTE_ARRAY:
         if (NULL != filter->ndat->u.rexpr_filter.f_instance->b_box.init) {
             bt_ret = filter->ndat->u.rexpr_filter.f_instance->b_box.init(
                 o_box, bst);

@@ -35,7 +35,10 @@ def test_file(params_file):
     params = params_file
     dtree = params['dtree']
 
+    # since evaluation of file filter is deferred, it's ok to create
+    # the file after creating the dtree
     with open('/tmp/bitpunch.test.file', 'w') as f:
         f.write('foobar');
 
+    print repr(model.make_python_object(dtree.pouet))
     assert len(dtree.pouet) == 6
