@@ -956,10 +956,6 @@ file_block: KW_FILE scope_block {
         $$.root->loc = @1;
         item = $$.root->ndat;
         item->u.filter_def.filter_type = "struct";
-        if (TAILQ_EMPTY(item->u.scope_def.block_stmt_list.field_list)) {
-            semantic_error(SEMANTIC_LOGLEVEL_WARNING, &@$,
-                           "file block has zero field");
-        }
         $$.root->flags = ASTFLAG_IS_ROOT_BLOCK;
     }
 
