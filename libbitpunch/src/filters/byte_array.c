@@ -121,8 +121,7 @@ box_get_n_items__byte_array_slack(struct box *box, int64_t *item_countp,
         box->u.array_generic.n_items =
             box->end_offset_slack - box->start_offset_span;
         /* now is a good time to set the used size as well */
-        bt_ret = box_set_span_size(box, box->u.array_generic.n_items,
-                                   bst);
+        bt_ret = box_set_used_size(box, box->u.array_generic.n_items, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
@@ -230,7 +229,8 @@ tracker_goto_nth_item__byte_array_generic(
         DBG_TRACKER_CHECK_STATE(tk);
         return BITPUNCH_OK;
     }
-    tk->item_offset = tk->box->start_offset_span + index;
+    assert(-1 != tk->box->start_offset_used);
+    tk->item_offset = tk->box->start_offset_used + index;
     tk->item_size = 1;
     tk->cur = track_path_from_array_index(index);
     return tracker_check_item(tk, bst);

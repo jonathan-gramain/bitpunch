@@ -155,6 +155,9 @@ bitpunch_status_t
 box_set_max_span_size(struct box *box, int64_t max_span_size,
                       struct browse_state *bst);
 bitpunch_status_t
+box_set_used_size(struct box *box, int64_t used_size,
+                  struct browse_state *bst);
+bitpunch_status_t
 box_compute_max_span_size(struct box *box,
                           struct browse_state *bst);
 bitpunch_status_t

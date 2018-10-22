@@ -693,6 +693,13 @@ box_set_max_span_size(struct box *box, int64_t max_span_size,
     return box_set_size(box, max_span_size, BOX_SIZE_MAX_SPAN, bst);
 }
 
+bitpunch_status_t
+box_set_used_size(struct box *box, int64_t used_size,
+                  struct browse_state *bst)
+{
+    return box_set_size(box, used_size, BOX_SIZE_USED, bst);
+}
+
 
 static void
 box_set_boundary_offset(struct box *box,

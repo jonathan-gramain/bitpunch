@@ -427,8 +427,8 @@ box_get_n_items__array_slack_const_item_size(struct box *box,
          * the unit elem static size */
         box->u.array_generic.n_items =
             (box->end_offset_slack - box->start_offset_slack) / item_size;
-        /* now is a good time to set the span size as well */
-        bt_ret = box_set_span_size(
+        /* now is a good time to set the used size as well */
+        bt_ret = box_set_used_size(
             box, box->u.array_generic.n_items * item_size, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
