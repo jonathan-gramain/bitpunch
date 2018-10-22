@@ -290,7 +290,7 @@ scope_lookup_statement_in_anonymous_field_recur(
     struct scope_def *field_scope_def;
     int cond_eval;
     const struct field *field;
-    struct box *anon_scope;
+    struct box *anon_scope = NULL;
     struct tracker *tk;
 
     // optimization: check if the anonymous struct or its anonymous
