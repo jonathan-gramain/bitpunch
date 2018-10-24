@@ -117,8 +117,34 @@ filter_instance_read_value(struct ast_node_hdl *filter,
                            expr_value_t *valuep,
                            struct browse_state *bst);
 
+bitpunch_status_t
+filter_read_value__bytes(struct ast_node_hdl *item_filter,
+                         struct box *scope,
+                         int64_t item_offset,
+                         int64_t item_size,
+                         expr_value_t *valuep,
+                         struct browse_state *bst);
+bitpunch_status_t
+filter_read_value__filter(struct ast_node_hdl *filter,
+                          struct box *scope,
+                          int64_t item_offset,
+                          int64_t item_size,
+                          expr_value_t *valuep,
+                          struct browse_state *bst);
+
+void
+compile_node_backends__filter_generic(struct ast_node_hdl *filter);
 void
 compile_node_backends__filter__filter(struct ast_node_hdl *filter);
+void
+compile_node_backends__tracker__filter(struct ast_node_hdl *item);
+
+int
+compile_global_nodes__filter(struct compile_ctx *ctx);
+
+struct ast_node_hdl *
+filter_get_global_instance__source(void);
+
 
 /*
  * scope API

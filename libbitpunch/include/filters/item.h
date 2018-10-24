@@ -34,20 +34,6 @@
 
 #include "core/filter.h"
 
-bitpunch_status_t
-filter_read_value__bytes(struct ast_node_hdl *item_filter,
-                         struct box *scope,
-                         int64_t item_offset,
-                         int64_t item_size,
-                         expr_value_t *valuep,
-                         struct browse_state *bst);
-bitpunch_status_t
-filter_read_value__filter(struct ast_node_hdl *filter,
-                          struct box *scope,
-                          int64_t item_offset,
-                          int64_t item_size,
-                          expr_value_t *valuep,
-                          struct browse_state *bst);
 
 bitpunch_status_t
 box_compute_span_size__const_size(struct box *box,
@@ -101,16 +87,8 @@ compute_item_size__const_size(struct ast_node_hdl *item_filter,
                                struct browse_state *bst);
 
 void
-compile_node_backends__filter_generic(struct ast_node_hdl *filter);
-void
 compile_node_backends__item__generic(struct ast_node_hdl *item);
 void
 compile_node_backends__item(struct ast_node_hdl *item);
-
-int
-compile_global_nodes__item(struct compile_ctx *ctx);
-
-struct ast_node_hdl *
-filter_get_global_instance__source(void);
 
 #endif

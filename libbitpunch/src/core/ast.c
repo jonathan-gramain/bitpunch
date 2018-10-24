@@ -3237,7 +3237,7 @@ compile_global_nodes(void)
     struct compile_ctx ctx;
 
     compile_ctx_init(&ctx);
-    if (-1 == compile_global_nodes__item(&ctx)) {
+    if (-1 == compile_global_nodes__filter(&ctx)) {
         return -1;
     }
     if (-1 == compile_global_nodes__byte(&ctx)) {

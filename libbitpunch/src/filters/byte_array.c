@@ -141,10 +141,9 @@ tracker_goto_first_item__byte_array_slack(struct tracker *tk,
     /* slack arrays require a maintained item offset to browse their
      * elements */
     tk->flags |= TRACKER_NEED_ITEM_OFFSET;
-    if (0 != (tk->flags & TRACKER_REVERSED)) {
-        tk->item_offset = tk->box->end_offset_slack;
-    } else {
-        tk->item_offset = tk->box->start_offset_slack;
+    bt_ret = tracker_set_item_offset_at_box(tk, tk->box, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
     }
     tk->item_size = 1;
     tk->cur = track_path_from_array_index(0);
@@ -301,27 +300,6 @@ compile_node_backends__tracker__byte_array(struct ast_node_hdl *item)
     b_tk->goto_nil = tracker_goto_nil__array_generic;
 }
 
-
-void
-compile_node_backends__tracker__as_bytes(struct ast_node_hdl *item)
-{
-    struct filter_instance *as_bytes;
-    struct tracker_backend *b_tk;
-
-    as_bytes = item->ndat->u.rexpr_filter.f_instance;
-    b_tk = &as_bytes->b_tk;
-    memset(b_tk, 0, sizeof (*b_tk));
-
-    b_tk->get_item_key = tracker_get_item_key__array_generic;
-    b_tk->compute_item_size = tracker_compute_item_size__item_box;
-    b_tk->goto_first_item = tracker_goto_first_item__array_generic;
-    b_tk->goto_next_item = tracker_goto_next_item__byte_array_generic;
-    b_tk->goto_nth_item = tracker_goto_nth_item__byte_array_generic;
-    b_tk->goto_next_item_with_key = tracker_goto_next_item_with_key__default;
-    b_tk->goto_nth_item_with_key = tracker_goto_nth_item_with_key__default;
-    b_tk->goto_end_path = tracker_goto_end_path__array_generic;
-    b_tk->goto_nil = tracker_goto_nil__array_generic;
-}
 
 void
 compile_node_backends__byte_array(struct ast_node_hdl *item)

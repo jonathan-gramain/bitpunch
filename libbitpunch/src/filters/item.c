@@ -37,63 +37,6 @@
 #include "core/debug.h"
 #include "core/browse_internal.h"
 #include "filters/item.h"
-// FIXME should not need this, only for as_bytes tracker backend
-#include "filters/byte_array.h"
-
-struct ast_node_data shared_ast_node_data_source = {
-    .type = AST_NODE_TYPE_SOURCE,
-};
-struct ast_node_hdl shared_ast_node_source = {
-    .ndat = &shared_ast_node_data_source,
-};
-
-#define AST_NODE_SOURCE &shared_ast_node_source
-
-bitpunch_status_t
-filter_read_value__bytes(struct ast_node_hdl *item_filter,
-                         struct box *scope,
-                         int64_t item_offset,
-                         int64_t item_size,
-                         expr_value_t *valuep,
-                         struct browse_state *bst)
-{
-    if (NULL != valuep) {
-        memset(valuep, 0, sizeof(*valuep));
-        valuep->type = EXPR_VALUE_TYPE_BYTES;
-        valuep->bytes.buf = scope->ds_out->ds_data + item_offset;
-        valuep->bytes.len = item_size;
-    }
-    return BITPUNCH_OK;
-}
-
-bitpunch_status_t
-filter_read_value__filter(struct ast_node_hdl *filter,
-                          struct box *scope,
-                          int64_t item_offset,
-                          int64_t item_size,
-                          expr_value_t *valuep,
-                          struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-
-    // if box filter is a data filter, getting the value is reading
-    // the bytes from the filter output.
-    if (0 != (scope->flags & BOX_DATA_SOURCE)) {
-        bt_ret = box_apply_filter_internal(scope, bst);
-        if (BITPUNCH_OK == bt_ret) {
-            bt_ret = box_compute_used_size(scope, bst);
-        }
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        return filter_read_value__bytes(
-            filter, scope, scope->start_offset_used,
-            scope->end_offset_used - scope->start_offset_used, valuep, bst);
-    }
-    return filter_instance_read_value(filter, scope,
-                                      item_offset, item_size,
-                                      valuep, bst);
-}
 
 bitpunch_status_t
 box_compute_span_size__const_size(struct box *box,
@@ -362,14 +305,6 @@ box_compute_max_span_size__span_expr(struct box *box,
 }
 
 bitpunch_status_t
-box_compute_used_size__from_apply_filter(struct box *box,
-                                         struct browse_state *bst)
-{
-    DBG_BOX_DUMP(box);
-    return box_apply_filter_internal(box, bst);
-}
-
-bitpunch_status_t
 box_compute_used_size__as_span(struct box *box,
                                struct browse_state *bst)
 {
@@ -424,58 +359,6 @@ compute_item_size__const_size(struct ast_node_hdl *item_filter,
 
 
 void
-compile_node_backends__filter__filter(struct ast_node_hdl *filter)
-{
-    struct item_backend *b_item = NULL;
-
-    b_item = &filter->ndat->u.rexpr_filter.f_instance->b_item;
-    //memset(b_item, 0, sizeof (*b_item));
-
-    b_item->read_value = filter_read_value__filter;
-}
-
-static void
-compile_node_backends__box__filter(struct ast_node_hdl *item)
-{
-    struct filter_instance *f_instance;
-    struct item_backend *b_item;
-    struct box_backend *b_box;
-
-    f_instance = item->ndat->u.rexpr_filter.f_instance;
-    b_item = &f_instance->b_item;
-    b_box = &f_instance->b_box;
-    // FIXME avoid memset because filter may have set functions
-    // already, find a cleaner way to deal with this
-    //memset(b_box, 0, sizeof (*b_box));
-
-    b_box->compute_slack_size = box_compute_slack_size__as_container_slack;
-    b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
-    b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
-    if (NULL != b_item->compute_item_size) {
-        b_box->compute_span_size = box_compute_span_size__from_item_size;
-    } else {
-        b_box->compute_span_size = box_compute_span_size__as_slack;
-    }
-    b_box->get_n_items = box_get_n_items__as_used;
-    // FIXME should check for non-dpath filter only instead of
-    // specific value-type (i.e. output dpath == input dpath)
-    if (EXPR_VALUE_TYPE_INTEGER ==
-        item->ndat->u.rexpr_filter.filter_cls->value_type_mask) {
-        b_box->compute_used_size = box_compute_used_size__as_span;
-    } else {
-        b_box->compute_used_size = box_compute_used_size__from_apply_filter;
-    }
-}
-
-void
-compile_node_backends__filter_generic(struct ast_node_hdl *filter)
-{
-    compile_node_backends__filter__filter(filter);
-    compile_node_backends__box__filter(filter);
-    compile_node_backends__tracker__as_bytes(filter);
-}
-
-void
 compile_node_backends__item__generic(struct ast_node_hdl *item)
 {
     struct item_backend *b_item;
@@ -509,49 +392,4 @@ void
 compile_node_backends__item(struct ast_node_hdl *item)
 {
     item->ndat->u.rexpr_filter.f_instance = item_filter_instance_build(item);
-}
-
-static void
-compile_node_backends__box__source(struct ast_node_hdl *item)
-{
-    struct filter_instance *f_instance;
-    struct box_backend *b_box;
-
-    f_instance = item->ndat->u.rexpr_filter.f_instance;
-    b_box = &f_instance->b_box;
-    // FIXME avoid memset because filter may have set functions
-    // already, find a cleaner way to deal with this
-    //memset(b_box, 0, sizeof (*b_box));
-
-    // data sources do not provide span backends
-    b_box->compute_slack_size = box_compute__error;
-    b_box->compute_min_span_size = box_compute__error;
-    b_box->compute_max_span_size = box_compute__error;
-    b_box->compute_span_size = box_compute__error;
-
-    b_box->get_n_items = box_get_n_items__as_used;
-    b_box->compute_used_size = box_compute_used_size__from_apply_filter;
-}
-
-static void
-compile_node_backends__source(struct ast_node_hdl *item)
-{
-    item->ndat->u.rexpr_filter.f_instance = new_safe(struct filter_instance);
-
-    compile_node_backends__item__generic(item);
-    compile_node_backends__box__source(item);
-    compile_node_backends__tracker__as_bytes(item);
-}
-
-int
-compile_global_nodes__item(struct compile_ctx *ctx)
-{
-    compile_node_backends__source(AST_NODE_SOURCE);
-    return 0;
-}
-
-struct ast_node_hdl *
-filter_get_global_instance__source(void)
-{
-    return AST_NODE_SOURCE;
 }

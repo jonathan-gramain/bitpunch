@@ -36,7 +36,5 @@
 
 void
 compile_node_backends__byte_array(struct ast_node_hdl *item);
-void
-compile_node_backends__tracker__as_bytes(struct ast_node_hdl *item);
 
 #endif

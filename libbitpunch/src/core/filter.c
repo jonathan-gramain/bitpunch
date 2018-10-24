@@ -36,10 +36,23 @@
 #include <stddef.h>
 #include <assert.h>
 
+#include "core/debug.h"
 #include "core/filter.h"
 #include "core/browse_internal.h"
 #include "core/expr_internal.h"
 #include "filters/composite.h"
+#include "filters/byte.h"
+#include "filters/array.h"
+
+struct ast_node_data shared_ast_node_data_source = {
+    .type = AST_NODE_TYPE_SOURCE,
+};
+struct ast_node_hdl shared_ast_node_source = {
+    .ndat = &shared_ast_node_data_source,
+};
+
+#define AST_NODE_SOURCE &shared_ast_node_source
+
 
 #define MAX_FILTER_COUNT           256
 
@@ -296,4 +309,273 @@ filter_instance_read_value(struct ast_node_hdl *filter,
         expr_value_destroy(value);
     }
     return bt_ret;
+}
+
+bitpunch_status_t
+filter_read_value__bytes(struct ast_node_hdl *item_filter,
+                         struct box *scope,
+                         int64_t item_offset,
+                         int64_t item_size,
+                         expr_value_t *valuep,
+                         struct browse_state *bst)
+{
+    if (NULL != valuep) {
+        memset(valuep, 0, sizeof(*valuep));
+        valuep->type = EXPR_VALUE_TYPE_BYTES;
+        valuep->bytes.buf = scope->ds_out->ds_data + item_offset;
+        valuep->bytes.len = item_size;
+    }
+    return BITPUNCH_OK;
+}
+
+bitpunch_status_t
+filter_read_value__filter(struct ast_node_hdl *filter,
+                          struct box *scope,
+                          int64_t item_offset,
+                          int64_t item_size,
+                          expr_value_t *valuep,
+                          struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+
+    // if box filter is a data filter, getting the value is reading
+    // the bytes from the filter output.
+    if (0 != (scope->flags & BOX_DATA_SOURCE)) {
+        bt_ret = box_apply_filter_internal(scope, bst);
+        if (BITPUNCH_OK == bt_ret) {
+            bt_ret = box_compute_used_size(scope, bst);
+        }
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
+        return filter_read_value__bytes(
+            filter, scope, scope->start_offset_used,
+            scope->end_offset_used - scope->start_offset_used, valuep, bst);
+    }
+    return filter_instance_read_value(filter, scope,
+                                      item_offset, item_size,
+                                      valuep, bst);
+}
+
+/*
+ * tracking backends
+ */
+
+bitpunch_status_t
+box_compute_used_size__from_apply_filter(struct box *box,
+                                         struct browse_state *bst)
+{
+    DBG_BOX_DUMP(box);
+    return box_apply_filter_internal(box, bst);
+}
+
+static bitpunch_status_t
+tracker_goto_first_item__data_filter(struct tracker *tk,
+                                     struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    int64_t filtered_size;
+
+    DBG_TRACKER_DUMP(tk);
+    if (0 != (tk->flags & TRACKER_REVERSED) ||
+        0 != (tk->box->flags & BOX_RALIGN)) {
+        return tracker_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst,
+                             "tracker_goto_first_item() not implemented "
+                             "in reverse mode on data filters");
+    }
+    tk->flags |= TRACKER_NEED_ITEM_OFFSET;
+    bt_ret = box_get_used_size(tk->box, &filtered_size, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    if (0 == filtered_size) {
+        return BITPUNCH_NO_ITEM;
+    }
+    tk->item_offset = tk->box->start_offset_used;
+    tk->cur.u.array.index = 0;
+    tk->dpath.filter = filter_get_global_instance__byte();
+    DBG_TRACKER_CHECK_STATE(tk);
+    return BITPUNCH_OK;
+}
+
+static bitpunch_status_t
+tracker_goto_next_item__data_filter(struct tracker *tk,
+                                    struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    int64_t filtered_size;
+
+    DBG_TRACKER_DUMP(tk);
+    if (0 != (tk->flags & TRACKER_REVERSED) ||
+        0 != (tk->box->flags & BOX_RALIGN)) {
+        return tracker_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst,
+                             "tracker_goto_next_item() not implemented "
+                             "in reverse mode on data filters");
+    }
+    bt_ret = box_get_used_size(tk->box, &filtered_size, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    ++tk->cur.u.array.index;
+    tk->item_offset += 1;
+    if (tk->cur.u.array.index == filtered_size) {
+        (void) tracker_set_end(tk, bst);
+        return BITPUNCH_NO_ITEM;
+    }
+    /* check new item */
+    bt_ret = tracker_check_item(tk, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        /* rollback */
+        tk->item_offset -= 1;
+        --tk->cur.u.array.index;
+    }
+    DBG_TRACKER_CHECK_STATE(tk);
+    return bt_ret;
+}
+
+static bitpunch_status_t
+tracker_goto_nth_item__data_filter(
+    struct tracker *tk, int64_t index,
+    struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    int64_t filtered_size;
+
+    DBG_TRACKER_DUMP(tk);
+    if (0 != (tk->flags & TRACKER_REVERSED) ||
+        0 != (tk->box->flags & BOX_RALIGN)) {
+        return tracker_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst,
+                             "tracker_goto_nth_item() not implemented "
+                             "in reverse mode on data filters");
+    }
+    bt_ret = box_get_used_size(tk->box, &filtered_size, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    if (index >= filtered_size) {
+        return BITPUNCH_NO_ITEM;
+    }
+    tk->flags &= ~TRACKER_AT_END;
+    tk->dpath.filter = filter_get_global_instance__byte();
+    tk->item_offset = tk->box->start_offset_used + index;
+    tk->item_size = 1;
+    tk->cur = track_path_from_array_index(index);
+    return tracker_check_item(tk, bst);
+}
+
+void
+compile_node_backends__filter__filter(struct ast_node_hdl *filter)
+{
+    struct item_backend *b_item = NULL;
+
+    b_item = &filter->ndat->u.rexpr_filter.f_instance->b_item;
+    //memset(b_item, 0, sizeof (*b_item));
+
+    b_item->read_value = filter_read_value__filter;
+}
+
+static void
+compile_node_backends__box__filter(struct ast_node_hdl *item)
+{
+    struct filter_instance *f_instance;
+    struct item_backend *b_item;
+    struct box_backend *b_box;
+
+    f_instance = item->ndat->u.rexpr_filter.f_instance;
+    b_item = &f_instance->b_item;
+    b_box = &f_instance->b_box;
+    // FIXME avoid memset because filter may have set functions
+    // already, find a cleaner way to deal with this
+    //memset(b_box, 0, sizeof (*b_box));
+
+    b_box->compute_slack_size = box_compute_slack_size__as_container_slack;
+    b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
+    b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
+    if (NULL != b_item->compute_item_size) {
+        b_box->compute_span_size = box_compute_span_size__from_item_size;
+    } else {
+        b_box->compute_span_size = box_compute_span_size__as_slack;
+    }
+    b_box->get_n_items = box_get_n_items__as_used;
+    // FIXME should check for non-dpath filter only instead of
+    // specific value-type (i.e. output dpath == input dpath)
+    if (EXPR_VALUE_TYPE_INTEGER ==
+        item->ndat->u.rexpr_filter.filter_cls->value_type_mask) {
+        b_box->compute_used_size = box_compute_used_size__as_span;
+    } else {
+        b_box->compute_used_size = box_compute_used_size__from_apply_filter;
+    }
+}
+
+void
+compile_node_backends__tracker__filter(struct ast_node_hdl *item)
+{
+    struct filter_instance *as_bytes;
+    struct tracker_backend *b_tk;
+
+    as_bytes = item->ndat->u.rexpr_filter.f_instance;
+    b_tk = &as_bytes->b_tk;
+    memset(b_tk, 0, sizeof (*b_tk));
+
+    b_tk->get_item_key = tracker_get_item_key__array_generic;
+    b_tk->goto_first_item = tracker_goto_first_item__data_filter;
+    b_tk->goto_next_item = tracker_goto_next_item__data_filter;
+    b_tk->goto_nth_item = tracker_goto_nth_item__data_filter;
+    b_tk->goto_next_item_with_key = tracker_goto_next_item_with_key__default;
+    b_tk->goto_nth_item_with_key = tracker_goto_nth_item_with_key__default;
+    b_tk->goto_end_path = tracker_goto_end_path__array_generic;
+    b_tk->goto_nil = tracker_goto_nil__array_generic;
+}
+
+void
+compile_node_backends__filter_generic(struct ast_node_hdl *filter)
+{
+    compile_node_backends__filter__filter(filter);
+    compile_node_backends__box__filter(filter);
+    compile_node_backends__tracker__filter(filter);
+}
+
+static void
+compile_node_backends__box__source(struct ast_node_hdl *item)
+{
+    struct filter_instance *f_instance;
+    struct box_backend *b_box;
+
+    f_instance = item->ndat->u.rexpr_filter.f_instance;
+    b_box = &f_instance->b_box;
+    // FIXME avoid memset because filter may have set functions
+    // already, find a cleaner way to deal with this
+    //memset(b_box, 0, sizeof (*b_box));
+
+    // data sources do not provide span backends
+    b_box->compute_slack_size = box_compute__error;
+    b_box->compute_min_span_size = box_compute__error;
+    b_box->compute_max_span_size = box_compute__error;
+    b_box->compute_span_size = box_compute__error;
+
+    b_box->get_n_items = box_get_n_items__as_used;
+    b_box->compute_used_size = box_compute_used_size__from_apply_filter;
+}
+
+static void
+compile_node_backends__source(struct ast_node_hdl *item)
+{
+    item->ndat->u.rexpr_filter.f_instance = new_safe(struct filter_instance);
+
+    compile_node_backends__item__generic(item);
+    compile_node_backends__box__source(item);
+    compile_node_backends__tracker__filter(item);
+}
+
+int
+compile_global_nodes__filter(struct compile_ctx *ctx)
+{
+    compile_node_backends__source(AST_NODE_SOURCE);
+    return 0;
+}
+
+struct ast_node_hdl *
+filter_get_global_instance__source(void)
+{
+    return AST_NODE_SOURCE;
 }
