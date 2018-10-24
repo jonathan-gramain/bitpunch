@@ -205,8 +205,9 @@ box_get_n_items__slice_generic(struct box *box, int64_t *item_countp,
         }
         index_start = box->track_path.u.array.index;
         index_end = box->track_path.u.array_slice.index_end;
-        if (-1 == index_end || index_end > array_n_items) {
-            index_end = array_n_items;
+        if (-1 == index_end ||
+            index_end > index_start + array_n_items) {
+            index_end = index_start + array_n_items;
         }
         if (-1 == index_start) {
             index_start = 0;

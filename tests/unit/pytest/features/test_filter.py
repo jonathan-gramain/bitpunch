@@ -223,6 +223,7 @@ let AsContents = struct {
     data: [] byte;
 
     let ?data_preview = data[..10];
+    let ?data_glimpse = data[10..][4..7];
 };
 
 file {
@@ -246,6 +247,7 @@ let AsContents = struct {
     data: [] byte;
 
     let ?data_preview = data[..10];
+    let ?data_glimpse = data[10..][4..7];
 };
 
 file {
@@ -270,6 +272,7 @@ let AsContents = struct {
     data: [] byte;
 
     let ?data_preview = data[..10];
+    let ?data_glimpse = data[10..][4..7];
 };
 
 file {
@@ -311,7 +314,9 @@ def test_filter_2(params_filter_2):
     assert dtree.blocks[1].n == 18
     assert str(dtree.blocks[1].data) == 'more contents data'
     assert str(dtree.blocks[1]['?data_preview']) == 'more conte'
+    assert str(dtree.blocks[1]['?data_glimpse']) == 'dat'
     assert str(dtree.eval_expr('blocks[1].?data_preview')) == 'more conte'
+    assert str(dtree.eval_expr('blocks[1].?data_glimpse')) == 'dat'
     assert dtree.blocks[0].n == 16
     assert str(dtree.blocks[0].data) == 'as contents data'
     assert model.make_python_object(dtree.blocks[2]) == {
@@ -323,6 +328,7 @@ def test_filter_2(params_filter_2):
         'data': 'even more contents data'
     }
     assert dtree.eval_expr('blocks[1].?data_preview').get_size() == 10
+    assert dtree.eval_expr('blocks[1].?data_glimpse').get_size() == 3
 
     # up one ancestor => input for base64 filter
     daddy = dtree.eval_expr('^blocks[1]')
