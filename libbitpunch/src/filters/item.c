@@ -196,7 +196,7 @@ box_compute_span_size__from_item_size(struct box *box,
         return bt_ret;
     }
     bt_ret = b_item->compute_item_size(
-        box->filter, box,
+        box->filter,
         box->start_offset_max_span, box->end_offset_max_span,
         &span_size, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -228,11 +228,11 @@ box_compute_min_span_size__span_expr(struct box *box,
     DBG_BOX_DUMP(box);
     span_expr_defines_max = FALSE;
     bt_ret = filter_evaluate_attribute_internal(
-        box->filter, box, "@minspan", &span_stmt, &span_size, NULL, bst);
+        box->filter, "@minspan", &span_stmt, &span_size, NULL, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
         span_expr_defines_max = TRUE;
         bt_ret = filter_evaluate_attribute_internal(
-            box->filter, box, "@span", &span_stmt, &span_size, NULL, bst);
+            box->filter, "@span", &span_stmt, &span_size, NULL, bst);
     }
     switch (bt_ret) {
     case BITPUNCH_OK:
@@ -270,11 +270,11 @@ box_compute_max_span_size__span_expr(struct box *box,
     DBG_BOX_DUMP(box);
     span_expr_defines_min = FALSE;
     bt_ret = filter_evaluate_attribute_internal(
-        box->filter, box, "@maxspan", &span_stmt, &span_size, NULL, bst);
+        box->filter, "@maxspan", &span_stmt, &span_size, NULL, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
         span_expr_defines_min = TRUE;
         bt_ret = filter_evaluate_attribute_internal(
-            box->filter, box, "@span", &span_stmt, &span_size, NULL, bst);
+            box->filter, "@span", &span_stmt, &span_size, NULL, bst);
     }
     switch (bt_ret) {
     case BITPUNCH_OK:

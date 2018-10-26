@@ -162,7 +162,7 @@ box_compute_span_size__array_slice(struct box *box,
     array = (struct filter_instance_array *)
         array_node->ndat->u.rexpr_filter.f_instance;
     bt_ret = expr_evaluate_filter_type_internal(
-        array->item_type, box, FILTER_KIND_ITEM, &item_type, bst);
+        array->item_type, FILTER_KIND_ITEM, &item_type, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }

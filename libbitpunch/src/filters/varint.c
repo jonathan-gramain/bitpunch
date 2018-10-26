@@ -41,7 +41,6 @@
 
 static bitpunch_status_t
 compute_item_size__varint(struct ast_node_hdl *filter,
-                          struct box *scope,
                           int64_t item_offset,
                           int64_t max_span_offset,
                           int64_t *item_sizep,
@@ -50,7 +49,7 @@ compute_item_size__varint(struct ast_node_hdl *filter,
     const char *data;
     size_t bytepos;
 
-    data = scope->ds_in->ds_data + item_offset;
+    data = bst->scope->ds_in->ds_data + item_offset;
     for (bytepos = 0; bytepos < max_span_offset - item_offset; ++bytepos) {
         if (!(data[bytepos] & 0x80)) {
             *item_sizep = bytepos + 1;
@@ -63,7 +62,6 @@ compute_item_size__varint(struct ast_node_hdl *filter,
 
 static bitpunch_status_t
 varint_read(struct ast_node_hdl *filter,
-            struct box *scope,
             expr_value_t *read_value,
             const char *data, size_t span_size,
             struct browse_state *bst)

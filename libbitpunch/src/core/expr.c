@@ -1239,7 +1239,7 @@ expr_dpath_evaluate_filter_internal(
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
         return expr_evaluate_filter_type_internal(
-            dpath.tk->dpath.filter, dpath.tk->box,
+            dpath.tk->dpath.filter,
             FILTER_KIND_FILTER, filter_typep, bst);
 
     case EXPR_DPATH_TYPE_CONTAINER:
@@ -1687,7 +1687,7 @@ expr_evaluate_polymorphic_internal(struct ast_node_hdl *expr,
         bst->scope = bst->scope->scope;
         if (NULL == bst->scope) {
             bt_ret =box_error(
-                BITPUNCH_DATA_ERROR, scope, expr, bst,
+                BITPUNCH_DATA_ERROR, bst->scope, expr, bst,
                 "polymorphic identifier '%s' does not exist in "
                 "current evaluation context",
                 expr->ndat->u.rexpr_polymorphic.identifier);
@@ -1988,6 +1988,7 @@ expr_evaluate_field(struct ast_node_hdl *expr,
     bitpunch_status_t bt_ret;
     expr_dpath_t anchor_dpath;
     struct box *anchor_box;
+    struct box *orig_scope;
 
     bt_ret = expr_evaluate_dpath_anchor_common(expr, &anchor_dpath, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -2002,6 +2003,7 @@ expr_evaluate_field(struct ast_node_hdl *expr,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
+    orig_scope = bst->scope;
     bst->scope = anchor_box;
     bt_ret = evaluate_scoped_statement_internal(
         STATEMENT_TYPE_FIELD,

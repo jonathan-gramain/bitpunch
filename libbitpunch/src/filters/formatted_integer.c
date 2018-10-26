@@ -83,7 +83,7 @@ formatted_integer_read(struct ast_node_hdl *filter,
     // has to represent a valid formatted number in its entirety.
 
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@base", NULL, &attr_value, NULL, bst);
+        filter, "@base", NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK == bt_ret) {
         base = attr_value.integer;
     } else if (BITPUNCH_NO_ITEM == bt_ret) {
@@ -92,7 +92,7 @@ formatted_integer_read(struct ast_node_hdl *filter,
         return bt_ret;
     }
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@signed", NULL, &attr_value, NULL, bst);
+        filter, "@signed", NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK == bt_ret) {
         _signed = attr_value.boolean;
     } else if (BITPUNCH_NO_ITEM == bt_ret) {
@@ -102,7 +102,7 @@ formatted_integer_read(struct ast_node_hdl *filter,
     }
     if (0 == span_size) {
         bt_ret = filter_evaluate_attribute_internal(
-            filter, scope, "@empty_value", NULL, read_value, NULL, bst);
+            filter, "@empty_value", NULL, read_value, NULL, bst);
         if (BITPUNCH_NO_ITEM != bt_ret) {
             return bt_ret;
         }
@@ -234,7 +234,7 @@ formatted_integer_read_test(expr_value_t *resultp,
         filter_attach_native_attribute(filter, "@signed",
                                        expr_value_as_boolean(_signed));
     }
-    bt_ret = formatted_integer_read(filter, NULL, resultp,
+    bt_ret = formatted_integer_read(filter, resultp,
                                     buffer, strlen(buffer), NULL);
     if (BITPUNCH_OK == bt_ret) {
         ck_assert_int_eq(resultp->type, EXPR_VALUE_TYPE_INTEGER);

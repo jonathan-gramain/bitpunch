@@ -248,7 +248,7 @@ box_compute_span_size__array_const_item_size(struct box *box,
         box->filter->ndat->u.rexpr_filter.f_instance;
     //TODO optimize by storing the static size in the filter instance
     bt_ret = expr_evaluate_filter_type_internal(
-        array->item_type, box, FILTER_KIND_ITEM, &item_type, bst);
+        array->item_type, FILTER_KIND_ITEM, &item_type, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -411,7 +411,7 @@ box_get_n_items__array_slack_const_item_size(struct box *box,
             node->ndat->u.rexpr_filter.f_instance;
         //TODO optimize by storing the static size in the filter instance
         bt_ret = expr_evaluate_filter_type_internal(
-            array->item_type, box, FILTER_KIND_ITEM, &item_type, bst);
+            array->item_type, FILTER_KIND_ITEM, &item_type, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
@@ -520,6 +520,7 @@ tracker_get_item_key__indexed_array_internal(
     struct box *filtered_box;
     struct ast_node_hdl *key_expr;
     expr_value_t item_key;
+    struct box *orig_scope;
 
     DBG_TRACKER_DUMP(tk);
     assert(-1 != tk->cur.u.array.index);
@@ -529,9 +530,12 @@ tracker_get_item_key__indexed_array_internal(
     }
     bt_ret = box_apply_filter_internal(filtered_box, bst);
     if (BITPUNCH_OK == bt_ret) {
+        orig_scope = bst->scope;
+        bst->scope = filtered_box;
         key_expr = ast_node_get_key_expr(tk->box->filter);
-        bt_ret = expr_evaluate_value_internal(key_expr, filtered_box,
+        bt_ret = expr_evaluate_value_internal(key_expr,
                                               &item_key, bst);
+        bst->scope = orig_scope;
     }
     box_delete_non_null(filtered_box);
     if (BITPUNCH_OK != bt_ret) {
@@ -651,6 +655,7 @@ tracker_goto_next_item__array(struct tracker *tk,
     int64_t item_size;
     expr_value_t last_eval;
     int is_last;
+    struct box *orig_scope;
 
     DBG_TRACKER_DUMP(tk);
     bt_ret = tracker_compute_item_filter_internal(tk, bst);
@@ -664,10 +669,13 @@ tracker_goto_next_item__array(struct tracker *tk,
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
+        orig_scope = bst->scope;
+        bst->scope = filtered_box;
         bt_ret = filter_evaluate_attribute_internal(
-            filtered_box->filter, filtered_box, "@last",
+            filtered_box->filter, "@last",
             NULL, &last_eval, NULL, bst);
         box_delete_non_null(filtered_box);
+        bst->scope = orig_scope;
         switch (bt_ret) {
         case BITPUNCH_OK:
             assert(EXPR_VALUE_TYPE_BOOLEAN == last_eval.type);
@@ -927,6 +935,7 @@ tracker_goto_next_key_match__array(struct tracker *tk,
     bitpunch_status_t bt_ret;
     expr_value_t item_key;
     struct box *filtered_box;
+    struct box *orig_scope;
 
     DBG_TRACKER_DUMP(tk);
     assert(AST_NODE_TYPE_ARRAY == tk->box->filter->ndat->type);
@@ -952,8 +961,11 @@ tracker_goto_next_key_match__array(struct tracker *tk,
         }
         bt_ret = box_apply_filter_internal(filtered_box, bst);
         if (BITPUNCH_OK == bt_ret) {
-            bt_ret = expr_evaluate_value_internal(key_expr, filtered_box,
+            orig_scope = bst->scope;
+            bst->scope = filtered_box;
+            bt_ret = expr_evaluate_value_internal(key_expr,
                                                   &item_key, bst);
+            bst->scope = orig_scope;
         }
         box_delete_non_null(filtered_box);
         if (BITPUNCH_OK != bt_ret) {

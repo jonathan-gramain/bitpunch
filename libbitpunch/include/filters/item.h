@@ -80,7 +80,6 @@ tracker_compute_item_size__item_box(struct tracker *tk,
                                     struct browse_state *bst);
 bitpunch_status_t
 compute_item_size__const_size(struct ast_node_hdl *item_filter,
-                               struct box *scope,
                                int64_t item_offset,
                                int64_t max_span_offset,
                                int64_t *item_sizep,

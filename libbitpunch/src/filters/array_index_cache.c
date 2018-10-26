@@ -47,7 +47,7 @@ box_mark_offsets_repo_should_exist(struct box *box, int *should_existp,
     array = (struct filter_instance_array *)
         box->filter->ndat->u.rexpr_filter.f_instance;
     bt_ret = expr_evaluate_filter_type_internal(
-        array->item_type, box, FILTER_KIND_ITEM, &item_type, bst);
+        array->item_type, FILTER_KIND_ITEM, &item_type, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -472,7 +472,7 @@ tracker_goto_mark_internal(struct tracker *tk,
     array = (struct filter_instance_array *)
         tk->box->filter->ndat->u.rexpr_filter.f_instance;
     bt_ret = expr_evaluate_filter_type_internal(
-        array->item_type, tk->box, FILTER_KIND_ITEM, &array_item, bst);
+        array->item_type, FILTER_KIND_ITEM, &array_item, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }

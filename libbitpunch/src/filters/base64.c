@@ -219,7 +219,7 @@ START_TEST(test_base64)
     for (i = 0; i < N_ELEM(testcases); ++i)
         {
             tcase = &testcases[i];
-            bt_ret = base64_read(NULL, NULL, &decoded,
+            bt_ret = base64_read(NULL, &decoded,
                                  tcase->encoded, tcase->encoded_length, NULL);
             if (tcase->decoded_length != -1) {
                 ck_assert(BITPUNCH_OK == bt_ret);
