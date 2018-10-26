@@ -44,19 +44,19 @@ struct dpath_transform {
 };
 
 bitpunch_status_t
-expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
+expr_evaluate_internal(struct ast_node_hdl *expr,
                        expr_value_t *valuep, expr_dpath_t *dpathp,
                        struct browse_state *bst);
 bitpunch_status_t
-expr_evaluate_value_internal(struct ast_node_hdl *expr, struct box *scope,
+expr_evaluate_value_internal(struct ast_node_hdl *expr,
                              expr_value_t *valuep,
                              struct browse_state *bst);
 bitpunch_status_t
-expr_evaluate_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
+expr_evaluate_dpath_internal(struct ast_node_hdl *expr,
                              expr_dpath_t *dpathp,
                              struct browse_state *bst);
 bitpunch_status_t
-expr_transform_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
+expr_transform_dpath_internal(struct ast_node_hdl *expr,
                               struct dpath_transform *transformp,
                               struct browse_state *bst);
 bitpunch_status_t
@@ -76,7 +76,7 @@ expr_evaluate_filter_type_internal(struct ast_node_hdl *filter,
                                    struct ast_node_hdl **filter_typep,
                                    struct browse_state *bst);
 bitpunch_status_t
-evaluate_conditional_internal(struct ast_node_hdl *cond, struct box *scope,
+evaluate_conditional_internal(struct ast_node_hdl *cond,
                               int *evalp, struct browse_state *bst);
 
 bitpunch_status_t

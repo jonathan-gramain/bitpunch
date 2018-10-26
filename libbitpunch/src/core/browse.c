@@ -819,6 +819,7 @@ box_construct(struct box *o_box,
     } else {
         //box_inherit_boundary_offset(o_box);
     }
+    o_box->scope = bst->scope;
     /* initialize internal state */
     switch (filter->ndat->type) {
     case AST_NODE_TYPE_ARRAY_SLICE:
