@@ -47,37 +47,41 @@ filter_get_const_scope_def(const struct ast_node_hdl *filter)
 static inline struct statement_iterator
 filter_iter_statements(
     struct ast_node_hdl *filter,
-    enum statement_type stmt_mask, const char *identifier)
+    enum statement_type stmt_mask, const char *identifier,
+    struct browse_state *bst)
 {
   return scope_iter_statements(
-      filter_get_scope_def(filter), stmt_mask, identifier);
+      filter_get_scope_def(filter), stmt_mask, identifier, bst);
 }
 
 static inline struct statement_iterator
 filter_iter_statements_from(
     struct ast_node_hdl *filter,
-    const struct statement *stmt, const char *identifier)
+    const struct statement *stmt, const char *identifier,
+    struct browse_state *bst)
 {
   return scope_iter_statements_from(
-      filter_get_scope_def(filter), stmt, identifier);
+      filter_get_scope_def(filter), stmt, identifier, bst);
 }
 
 static inline struct statement_iterator
 filter_riter_statements(
     struct ast_node_hdl *filter,
-    enum statement_type stmt_mask, const char *identifier)
+    enum statement_type stmt_mask, const char *identifier,
+    struct browse_state *bst)
 {
   return scope_riter_statements(
-      filter_get_scope_def(filter), stmt_mask, identifier);
+      filter_get_scope_def(filter), stmt_mask, identifier, bst);
 }
 
 static inline struct statement_iterator
 filter_riter_statements_from(
     struct ast_node_hdl *filter,
-    const struct statement *stmt, const char *identifier)
+    const struct statement *stmt, const char *identifier,
+    struct browse_state *bst)
 {
   return scope_riter_statements_from(
-      filter_get_scope_def(filter), stmt, identifier);
+      filter_get_scope_def(filter), stmt, identifier, bst);
 }
 
 static inline bitpunch_status_t
@@ -134,13 +138,13 @@ filter_evaluate_attribute_internal(
 
 static inline bitpunch_status_t
 filter_evaluate_identifier(
-    struct ast_node_hdl *filter,
+    struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct tracker_error **errp)
 {
   return scope_evaluate_identifier(
-      filter_get_scope_def(filter), stmt_mask, identifier,
+      filter_get_scope_def(filter), scope, stmt_mask, identifier,
       valuep, dpathp, errp);
 }
 

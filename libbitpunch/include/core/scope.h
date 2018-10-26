@@ -53,23 +53,27 @@ typedef struct statement_iterator tstatement_iterator;
 
 struct statement_iterator
 scope_iter_statements(
-    struct scope_def *scope_def, struct box *scope,
-    enum statement_type stmt_mask, const char *identifier);
+    struct scope_def *scope_def,
+    enum statement_type stmt_mask, const char *identifier,
+    struct browse_state *bst);
 
 struct statement_iterator
 scope_iter_statements_from(
-    struct scope_def *scope_def, struct box *scope,
-    const struct statement *stmt, const char *identifier);
+    struct scope_def *scope_def,
+    const struct statement *stmt, const char *identifier,
+    struct browse_state *bst);
 
 struct statement_iterator
 scope_riter_statements(
-    struct scope_def *scope_def, struct box *scope,
-    enum statement_type stmt_mask, const char *identifier);
+    struct scope_def *scope_def,
+    enum statement_type stmt_mask, const char *identifier,
+    struct browse_state *bst);
 
 struct statement_iterator
 scope_riter_statements_from(
-    struct scope_def *scope_def, struct box *scope,
-    const struct statement *stmt, const char *identifier);
+    struct scope_def *scope_def,
+    const struct statement *stmt, const char *identifier,
+    struct browse_state *bst);
 
 bitpunch_status_t
 scope_iter_statements_next_internal(
@@ -79,7 +83,7 @@ scope_iter_statements_next_internal(
 
 bitpunch_status_t
 scope_lookup_statement_internal(
-    struct scope_def *scope_def, struct box *scope,
+    struct scope_def *scope_def,
     enum statement_type stmt_mask, const char *identifier,
     enum statement_type *stmt_typep, const struct named_statement **stmtp,
     struct box **scopep,
@@ -87,14 +91,14 @@ scope_lookup_statement_internal(
 
 bitpunch_status_t
 scope_get_n_statements_internal(
-    struct scope_def *scope_def, struct box *scope,
+    struct scope_def *scope_def,
     enum statement_type stmt_mask, const char *identifier,
     int64_t *stmt_countp,
     struct browse_state *bst);
 
 bitpunch_status_t
 scope_evaluate_identifier_internal(
-    struct scope_def *scope_def, struct box *scope,
+    struct scope_def *scope_def,
     enum statement_type stmt_mask, const char *identifier,
     enum statement_type *stmt_typep, const struct named_statement **stmtp,
     struct box **scopep,
@@ -103,7 +107,7 @@ scope_evaluate_identifier_internal(
 
 bitpunch_status_t
 scope_evaluate_attribute_internal(
-    struct scope_def *scope_def, struct box *scope,
+    struct scope_def *scope_def,
     const char *attr_name,
     const struct named_expr **attrp,
     expr_value_t *valuep, expr_dpath_t *dpathp,

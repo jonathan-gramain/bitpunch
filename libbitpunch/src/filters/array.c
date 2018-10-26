@@ -194,7 +194,6 @@ array_box_destroy(struct box *box)
 
 static bitpunch_status_t
 compute_item_size__array_const_item_size(struct ast_node_hdl *item_filter,
-                                          struct box *scope,
                                           int64_t item_offset,
                                           int64_t max_span_offset,
                                           int64_t *item_sizep,
@@ -208,17 +207,17 @@ compute_item_size__array_const_item_size(struct ast_node_hdl *item_filter,
 
     array = (struct filter_instance_array *)
         item_filter->ndat->u.rexpr_filter.f_instance;
-    bt_ret = expr_evaluate_value_internal(array->item_count, scope,
+    bt_ret = expr_evaluate_value_internal(array->item_count,
                                           &item_count, bst);
     if (BITPUNCH_OK != bt_ret) {
         // FIXME more appropriate context
         tracker_error_add_box_context(
-            scope, bst, "when evaluating array item count expression");
+            bst->scope, bst, "when evaluating array item count expression");
         return bt_ret;
     }
     //TODO optimize by storing the static size in the filter instance
     bt_ret = expr_evaluate_filter_type_internal(
-        array->item_type, scope, FILTER_KIND_ITEM, &item_type, bst);
+        array->item_type, FILTER_KIND_ITEM, &item_type, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -336,10 +335,7 @@ box_get_n_items__array_non_slack(struct box *box, int64_t *item_countp,
             box->filter->ndat->u.rexpr_filter.f_instance;
         assert(0 != (array->item_count->ndat->u.rexpr.value_type_mask
                      & EXPR_VALUE_TYPE_INTEGER));
-        // XXX for generalization of data sources: box is not the
-        // proper scope: "box" is the array's data scope, not the
-        // semantic scope which may need other data sources
-        bt_ret = expr_evaluate_value_internal(array->item_count, box,
+        bt_ret = expr_evaluate_value_internal(array->item_count,
                                               &item_count, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;

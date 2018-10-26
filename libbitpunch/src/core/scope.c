@@ -153,8 +153,9 @@ scope_iter_get_current_statement_type(struct statement_iterator *it)
 
 struct statement_iterator
 scope_iter_statements(
-    struct scope_def *scope_def, struct box *scope,
-    enum statement_type stmt_mask, const char *identifier)
+    struct scope_def *scope_def,
+    enum statement_type stmt_mask, const char *identifier,
+    struct browse_state *bst)
 {
     struct statement_iterator it;
 
@@ -162,7 +163,7 @@ scope_iter_statements(
     it.identifier = identifier;
     it.stmt_mask = stmt_mask;
     if (NULL != scope_def) {
-        it.scope = scope;
+        it.scope = bst->scope;
         it.stmt_lists = &scope_def->block_stmt_list;
         it.stmt_remaining = stmt_mask;
         scope_iter_start_list_internal(&it);
@@ -172,22 +173,24 @@ scope_iter_statements(
 
 struct statement_iterator
 scope_iter_statements_from(
-    struct scope_def *scope_def, struct box *scope,
-    const struct statement *stmt, const char *identifier)
+    struct scope_def *scope_def,
+    const struct statement *stmt, const char *identifier,
+    struct browse_state *bst)
 {
     struct statement_iterator it;
 
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
-    it.scope = scope;
+    it.scope = bst->scope;
     it.next_stmt = scope_iter_statements_advance_internal(&it, stmt);
     return it;
 }
 
 struct statement_iterator
 scope_riter_statements(
-    struct scope_def *scope_def, struct box *scope,
-    enum statement_type stmt_mask, const char *identifier)
+    struct scope_def *scope_def,
+    enum statement_type stmt_mask, const char *identifier,
+    struct browse_state *bst)
 {
     struct statement_iterator it;
 
@@ -196,7 +199,7 @@ scope_riter_statements(
     it.it_flags = STATEMENT_ITERATOR_FLAG_REVERSE;
     it.stmt_mask = stmt_mask;
     if (NULL != scope_def) {
-        it.scope = scope;
+        it.scope = bst->scope;
         it.stmt_lists = &scope_def->block_stmt_list;
         it.stmt_remaining = stmt_mask;
         scope_riter_start_list_internal(&it);
@@ -206,14 +209,15 @@ scope_riter_statements(
 
 struct statement_iterator
 scope_riter_statements_from(
-    struct scope_def *scope_def, struct box *scope,
-    const struct statement *stmt, const char *identifier)
+    struct scope_def *scope_def,
+    const struct statement *stmt, const char *identifier,
+    struct browse_state *bst)
 {
     struct statement_iterator it;
 
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
-    it.scope = scope;
+    it.scope = bst->scope;
     it.it_flags = STATEMENT_ITERATOR_FLAG_REVERSE;
     it.next_stmt = scope_iter_statements_advance_internal(&it, stmt);
     return it;
@@ -265,7 +269,7 @@ scope_iter_statements_next_internal(
 
 static bitpunch_status_t
 scope_lookup_statement_recur(
-    struct scope_def *scope_def, struct box *scope,
+    struct scope_def *scope_def,
     const struct block_stmt_list *stmt_lists,
     enum statement_type stmt_mask,
     const char *identifier,
@@ -276,7 +280,7 @@ scope_lookup_statement_recur(
 
 static bitpunch_status_t
 scope_lookup_statement_in_anonymous_field_recur(
-    struct scope_def *scope_def, struct box *scope,
+    struct scope_def *scope_def,
     enum statement_type stmt_mask,
     const char *identifier,
     const struct named_statement *stmt,
@@ -292,6 +296,7 @@ scope_lookup_statement_in_anonymous_field_recur(
     const struct field *field;
     struct box *anon_scope = NULL;
     struct tracker *tk;
+    struct box *orig_scope;
 
     // optimization: check if the anonymous struct or its anonymous
     // children (recursively) contain at least one field with the
@@ -303,7 +308,7 @@ scope_lookup_statement_in_anonymous_field_recur(
 
     field = (const struct field *)stmt;
     bt_ret = expr_evaluate_filter_type_internal(
-        field->filter, scope, FILTER_KIND_FILTER, &field_filter_type, bst);
+        field->filter, FILTER_KIND_FILTER, &field_filter_type, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -314,17 +319,17 @@ scope_lookup_statement_in_anonymous_field_recur(
         return BITPUNCH_NO_ITEM;
     }
 
-    bt_ret = evaluate_conditional_internal(stmt->stmt.cond, scope,
+    bt_ret = evaluate_conditional_internal(stmt->stmt.cond,
                                            &cond_eval, bst);
     if (BITPUNCH_OK != bt_ret) {
-        tracker_error_add_box_context(scope, bst,
+        tracker_error_add_box_context(bst->scope, bst,
                                       "when evaluating condition");
         return bt_ret;
     }
     if (!cond_eval) {
         return BITPUNCH_NO_ITEM;
     }
-    bt_ret = track_box_contents_internal(scope, &tk, bst);
+    bt_ret = track_box_contents_internal(bst->scope, &tk, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -335,30 +340,33 @@ scope_lookup_statement_in_anonymous_field_recur(
     }
     tracker_delete(tk);
     if (BITPUNCH_OK == bt_ret) {
+        orig_scope = bst->scope;
+        bst->scope = anon_scope;
         bt_ret = scope_lookup_statement_recur(
             field_scope_def, anon_scope, &field_scope_def->block_stmt_list,
             stmt_mask, identifier, stmt_typep, stmtp, scopep, bst);
+        bst->scope = orig_scope;
+        box_delete(anon_scope);
     }
-    box_delete(anon_scope);
     return bt_ret;
 }
 
 static bitpunch_status_t
 scope_get_first_statement_internal(
-    struct scope_def *scope_def, struct box *scope,
+    struct scope_def *scope_def,
     enum statement_type stmt_mask, const char *identifier,
     enum statement_type *stmt_typep, const struct statement **stmtp,
     struct browse_state *bst)
 {
     struct statement_iterator it;
 
-    it = scope_iter_statements(scope_def, scope, stmt_mask, identifier);
+    it = scope_iter_statements(scope_def, stmt_mask, identifier, bst);
     return scope_iter_statements_next_internal(&it, stmt_typep, stmtp, bst);
 }
 
 static bitpunch_status_t
 scope_lookup_statement_recur(
-    struct scope_def *scope_def, struct box *scope,
+    struct scope_def *scope_def,
     const struct block_stmt_list *stmt_lists,
     enum statement_type stmt_mask, const char *identifier,
     enum statement_type *stmt_typep, const struct named_statement **stmtp,
@@ -370,12 +378,12 @@ scope_lookup_statement_recur(
     bitpunch_status_t bt_ret;
 
     bt_ret = scope_get_first_statement_internal(
-        scope_def, scope, stmt_mask, identifier,
+        scope_def, stmt_mask, identifier,
         stmt_typep, (const struct statement **)stmtp, bst);
     if (BITPUNCH_OK == bt_ret) {
         if (NULL != scopep) {
-            *scopep = scope;
-            box_acquire(scope);
+            *scopep = bst->scope;
+            box_acquire(bst->scope);
         }
         return BITPUNCH_OK;
     }
@@ -390,7 +398,7 @@ scope_lookup_statement_recur(
             if (NULL == nstmt->name
                 && !(nstmt->stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
                 bt_ret = scope_lookup_statement_in_anonymous_field_recur(
-                    scope_def, scope, stmt_mask, identifier, nstmt,
+                    scope_def, stmt_mask, identifier, nstmt,
                     stmt_typep, stmtp, scopep, bst);
                 if (BITPUNCH_NO_ITEM != bt_ret) {
                     return bt_ret;
@@ -403,7 +411,7 @@ scope_lookup_statement_recur(
 
 bitpunch_status_t
 scope_lookup_statement_internal(
-    struct scope_def *scope_def, struct box *scope,
+    struct scope_def *scope_def,
     enum statement_type stmt_mask, const char *identifier,
     enum statement_type *stmt_typep, const struct named_statement **stmtp,
     struct box **scopep,
@@ -413,13 +421,13 @@ scope_lookup_statement_internal(
         return BITPUNCH_NO_ITEM;
     }
     return scope_lookup_statement_recur(
-        scope_def, scope, &scope_def->block_stmt_list, stmt_mask, identifier,
+        scope_def, &scope_def->block_stmt_list, stmt_mask, identifier,
         stmt_typep, stmtp, scopep, bst);
 }
 
 bitpunch_status_t
 scope_get_n_statements_internal(
-    struct scope_def *scope_def, struct box *scope,
+    struct scope_def *scope_def,
     enum statement_type stmt_mask, const char *identifier,
     int64_t *stmt_countp,
     struct browse_state *bst)
@@ -428,7 +436,7 @@ scope_get_n_statements_internal(
     struct statement_iterator it;
     int64_t stmt_count;
 
-    it = scope_iter_statements(scope_def, scope, stmt_mask, identifier);
+    it = scope_iter_statements(scope_def, stmt_mask, identifier, bst);
     stmt_count = -1;
     do {
         ++stmt_count;
@@ -446,7 +454,7 @@ scope_get_n_statements_internal(
 
 bitpunch_status_t
 scope_evaluate_identifier_internal(
-    struct scope_def *scope_def, struct box *scope,
+    struct scope_def *scope_def,
     enum statement_type stmt_mask, const char *identifier,
     enum statement_type *stmt_typep, const struct named_statement **stmtp,
     struct box **scopep,
@@ -459,7 +467,7 @@ scope_evaluate_identifier_internal(
     struct box *stmt_scope;
 
     bt_ret = scope_lookup_statement_internal(
-        scope_def, scope, stmt_mask, identifier,
+        scope_def, stmt_mask, identifier,
         &stmt_type, &named_stmt, &stmt_scope, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
@@ -484,14 +492,14 @@ scope_evaluate_identifier_internal(
 
 bitpunch_status_t
 scope_evaluate_attribute_internal(
-    struct scope_def *scope_def, struct box *scope,
+    struct scope_def *scope_def,
     const char *attr_name,
     const struct named_expr **attrp,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
     return scope_evaluate_identifier_internal(
-        scope_def, scope, STATEMENT_TYPE_ATTRIBUTE, attr_name,
+        scope_def, STATEMENT_TYPE_ATTRIBUTE, attr_name,
         NULL, (const struct named_statement **)attrp, NULL,
         valuep, dpathp, bst);
 }
@@ -508,7 +516,7 @@ scope_evaluate_identifier(
     browse_state_init(&bst);
     return transmit_error(
         scope_evaluate_identifier_internal(
-            scope_def, scope, stmt_mask, identifier,
+            scope_def, stmt_mask, identifier,
             NULL, NULL, NULL, valuep, dpathp, &bst),
         &bst, errp);
 }

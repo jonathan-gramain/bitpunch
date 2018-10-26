@@ -2560,7 +2560,6 @@ expr_evaluate_filter_type_named_expr(struct ast_node_hdl *filter,
 
 static bitpunch_status_t
 expr_evaluate_filter_type_op_filter(struct ast_node_hdl *filter,
-                                    struct box *scope,
                                     enum filter_kind kind,
                                     struct ast_node_hdl **filter_typep,
                                     struct browse_state *bst)
@@ -2586,7 +2585,6 @@ expr_evaluate_filter_type_op_filter(struct ast_node_hdl *filter,
 
 bitpunch_status_t
 expr_evaluate_filter_type_internal(struct ast_node_hdl *filter,
-                                   struct box *scope,
                                    enum filter_kind kind,
                                    struct ast_node_hdl **filter_typep,
                                    struct browse_state *bst)
@@ -2638,7 +2636,7 @@ evaluate_conditional_internal(struct ast_node_hdl *cond,
         }
     }
     bt_ret = expr_evaluate_value_internal(cond->ndat->u.conditional.cond_expr,
-                                          scope, &cond_eval, bst);
+                                          &cond_eval, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -2673,7 +2671,7 @@ evaluate_scoped_statement_internal(
         const struct field *field;
 
         field = (const struct field *)named_stmt;
-        bt_ret = track_box_contents_internal(scope, &tk, bst);
+        bt_ret = track_box_contents_internal(bst->scope, &tk, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }

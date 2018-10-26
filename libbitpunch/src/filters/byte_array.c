@@ -54,7 +54,7 @@ byte_array_box_destroy(struct box *box)
 
 static bitpunch_status_t
 compute_item_size__byte_array_var_size(
-    struct ast_node_hdl *item_filter, struct box *scope,
+    struct ast_node_hdl *item_filter,
     int64_t item_offset, int64_t max_span_offset,
     int64_t *item_sizep, struct browse_state *bst)
 {
@@ -65,23 +65,23 @@ compute_item_size__byte_array_var_size(
     array = (struct filter_instance_array *)
         item_filter->ndat->u.rexpr_filter.f_instance;
     bt_ret = expr_evaluate_value_internal(
-        array->item_count, scope, &byte_count, bst);
+        array->item_count, &byte_count, bst);
     if (BITPUNCH_OK != bt_ret) {
         // FIXME more appropriate context
         tracker_error_add_box_context(
-            scope, bst, "when evaluating byte array size expression");
+            bst->scope, bst, "when evaluating byte array size expression");
         return bt_ret;
     }
     if (EXPR_VALUE_TYPE_INTEGER != byte_count.type) {
         return box_error(
-            BITPUNCH_DATA_ERROR, scope, array->item_count, bst,
+            BITPUNCH_DATA_ERROR, bst->scope, array->item_count, bst,
             "evaluation of byte array size returned a value-type "
             "'%s', expect an integer",
             expr_value_type_str(byte_count.type));
     }
     if (byte_count.integer < 0) {
         return box_error(
-            BITPUNCH_DATA_ERROR, scope, array->item_count, bst,
+            BITPUNCH_DATA_ERROR, bst->scope, array->item_count, bst,
             "evaluation of byte array size gives negative value (%"PRIi64")",
             byte_count.integer);
     }

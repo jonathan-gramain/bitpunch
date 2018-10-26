@@ -71,7 +71,6 @@ enum filter_kind {
 
 bitpunch_status_t
 expr_evaluate_filter_type_internal(struct ast_node_hdl *filter,
-                                   struct box *scope,
                                    enum filter_kind kind,
                                    struct ast_node_hdl **filter_typep,
                                    struct browse_state *bst);
@@ -81,7 +80,6 @@ evaluate_conditional_internal(struct ast_node_hdl *cond,
 
 bitpunch_status_t
 evaluate_scoped_statement_internal(
-    struct box *scope,
     enum statement_type stmt_type, const struct named_statement *named_stmt,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst);
@@ -130,7 +128,6 @@ expr_dpath_get_filtered_data_internal(
 bitpunch_status_t
 expr_dpath_evaluate_filter_internal(
     expr_dpath_t dpath,
-    struct box *scope,
     struct ast_node_hdl **filter_typep,
     struct browse_state *bst);
 int

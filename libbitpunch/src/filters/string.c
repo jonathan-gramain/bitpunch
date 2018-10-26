@@ -46,7 +46,6 @@ string_box_init(struct box *box, struct browse_state *bst)
 static bitpunch_status_t
 string_read_no_boundary(
     struct ast_node_hdl *filter,
-    struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
     struct browse_state *bst)
@@ -78,7 +77,6 @@ string_build_no_boundary(void)
 static bitpunch_status_t
 compute_item_size__string__single_char_constant_boundary(
     struct ast_node_hdl *filter,
-    struct box *scope,
     int64_t item_offset,
     int64_t max_span_offset,
     int64_t *item_sizep,
@@ -90,7 +88,7 @@ compute_item_size__string__single_char_constant_boundary(
 
     f_instance = (struct string_single_char_constant_boundary *)
         filter->ndat->u.rexpr_filter.f_instance;
-    data = scope->ds_in->ds_data + item_offset;
+    data = bst->scope->ds_in->ds_data + item_offset;
     end = memchr(data, f_instance->boundary, max_span_offset - item_offset);
     if (NULL != end) {
         *item_sizep = end - data + 1;
@@ -103,7 +101,6 @@ compute_item_size__string__single_char_constant_boundary(
 static bitpunch_status_t
 string_read_single_char_constant_boundary(
     struct ast_node_hdl *filter,
-    struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
     struct browse_state *bst)
@@ -140,7 +137,6 @@ string_build_single_char_constant_boundary(char boundary)
 
 static bitpunch_status_t
 compute_item_size__string__generic(struct ast_node_hdl *filter,
-                                   struct box *scope,
                                    int64_t item_offset,
                                    int64_t max_span_offset,
                                    int64_t *item_sizep,
@@ -152,9 +148,9 @@ compute_item_size__string__generic(struct ast_node_hdl *filter,
     const char *end;
 
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@boundary", NULL, &attr_value, NULL, bst);
+        filter, "@boundary", NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK == bt_ret) {
-        data = scope->ds_in->ds_data + item_offset;
+        data = bst->scope->ds_in->ds_data + item_offset;
         end = memmem(data, max_span_offset - item_offset,
                      attr_value.string.str, attr_value.string.len);
         if (NULL != end) {
@@ -173,7 +169,6 @@ compute_item_size__string__generic(struct ast_node_hdl *filter,
 static bitpunch_status_t
 string_read_generic(
     struct ast_node_hdl *filter,
-    struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
     struct browse_state *bst)
@@ -183,7 +178,7 @@ string_read_generic(
     struct expr_value_string boundary;
 
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@boundary", NULL, &attr_value, NULL, bst);
+        filter, "@boundary", NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK == bt_ret) {
         boundary = attr_value.string;
         read_value->type = EXPR_VALUE_TYPE_STRING;

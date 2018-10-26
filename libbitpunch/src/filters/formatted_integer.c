@@ -62,7 +62,6 @@ static const char lookup[256] = {
 
 static bitpunch_status_t
 formatted_integer_read(struct ast_node_hdl *filter,
-                       struct box *scope,
                        expr_value_t *read_value,
                        const char *data, size_t span_size,
                        struct browse_state *bst)

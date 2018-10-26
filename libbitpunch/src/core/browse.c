@@ -3000,7 +3000,6 @@ bitpunch_status_t
 tracker_goto_index_internal(struct tracker *tk,
                             struct subscript_index index,
                             const char *index_desc,
-                            struct box *scope,
                             int allow_end_boundary,
                             int is_end_of_slice,
                             struct browse_state *bst)
@@ -3009,7 +3008,7 @@ tracker_goto_index_internal(struct tracker *tk,
     bitpunch_status_t bt_ret;
 
     if (NULL != index.key) {
-        bt_ret = expr_evaluate_value_internal(index.key, scope,
+        bt_ret = expr_evaluate_value_internal(index.key,
                                               &item_index, bst);
         if (BITPUNCH_OK != bt_ret) {
             tracker_error_add_tracker_context(
@@ -4109,7 +4108,6 @@ box_compute__error(struct box *box,
 
 bitpunch_status_t
 filter_read_value__operator_filter(struct ast_node_hdl *filter,
-                                   struct box *scope,
                                    int64_t item_offset,
                                    int64_t item_size,
                                    expr_value_t *valuep,
@@ -4121,13 +4119,13 @@ filter_read_value__operator_filter(struct ast_node_hdl *filter,
 
     filter_expr = filter->ndat->u.rexpr_op_filter.filter_expr;
     bt_ret = expr_evaluate_filter_type_internal(
-        filter_expr, scope, FILTER_KIND_FILTER,
+        filter_expr, FILTER_KIND_FILTER,
         &filter_type, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
     return filter_type->ndat->u.rexpr_filter.f_instance->b_item.read_value(
-        filter_type, scope, item_offset, item_size, valuep, bst);
+        filter_type, item_offset, item_size, valuep, bst);
 }
 
 

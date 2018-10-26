@@ -233,7 +233,6 @@ binary_integer_filter_instance_build(struct ast_node_hdl *filter,
 static bitpunch_status_t
 binary_integer_read_generic(
     struct ast_node_hdl *filter,
-    struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
     struct browse_state *bst)
@@ -244,7 +243,7 @@ binary_integer_read_generic(
     enum endian endian;
 
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@signed", NULL, &attr_value, NULL, bst);
+        filter, "@signed", NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK != bt_ret) {
         // @signed is a mandatory attribute so BITPUNCH_NO_ITEM shall
         // be considered an error
@@ -252,7 +251,7 @@ binary_integer_read_generic(
     }
     _signed = attr_value.boolean;
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@endian", NULL, &attr_value, NULL, bst);
+        filter, "@endian", NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK == bt_ret) {
         endian = str2endian(attr_value.string);
         if (endian == ENDIAN_BAD) {

@@ -48,7 +48,6 @@ file_box_init(struct box *box, struct browse_state *bst)
 static bitpunch_status_t
 file_get_data_source(
     struct ast_node_hdl *filter,
-    struct box *scope,
     struct bitpunch_data_source **ds_outp,
     struct browse_state *bst)
 {
@@ -58,12 +57,12 @@ file_get_data_source(
     char file_path[1024];
 
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@path", NULL, &path_value, NULL, bst);
+        filter, "@path", NULL, &path_value, NULL, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
     if (path_value.string.len >= sizeof (file_path)) {
-        return box_error(BITPUNCH_DATA_ERROR, scope, filter, bst,
+        return box_error(BITPUNCH_DATA_ERROR, bst->scope, filter, bst,
                          "file path \"%.20s\" is too long (%"PRIi64" "
                          "characters, max is %zu)",
                          path_value.string.str,

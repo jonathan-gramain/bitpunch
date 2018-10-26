@@ -53,13 +53,11 @@ struct tracker_error_slist {
 
 struct item_backend {
     bitpunch_status_t (*compute_item_size)(struct ast_node_hdl *item_filter,
-                                           struct box *scope,
                                            int64_t item_offset,
                                            int64_t max_span_offset,
                                            int64_t *item_sizep,
                                            struct browse_state *bst);
     bitpunch_status_t (*read_value)(struct ast_node_hdl *item_filter,
-                                    struct box *scope,
                                     int64_t item_offset,
                                     int64_t item_size,
                                     expr_value_t *valuep,
@@ -168,7 +166,6 @@ box_compute__error(struct box *box,
                    struct browse_state *bst);
 bitpunch_status_t
 filter_read_value__operator_filter(struct ast_node_hdl *filter,
-                                   struct box *scope,
                                    int64_t item_offset,
                                    int64_t item_size,
                                    expr_value_t *valuep,
@@ -354,7 +351,6 @@ bitpunch_status_t
 tracker_goto_index_internal(struct tracker *tk,
                             struct subscript_index index,
                             const char *index_desc,
-                            struct box *scope,
                             int allow_end_boundary,
                             int is_end_of_slice,
                             struct browse_state *bst);
