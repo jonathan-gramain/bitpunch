@@ -230,17 +230,21 @@ scope_iter_statements_next_internal(
     struct browse_state *bst)
 {
     const struct statement *stmt;
+    struct box *orig_scope;
 
     stmt = it->next_stmt;
+    orig_scope = bst->scope;
+    bst->scope = it->scope;
     while (NULL != stmt) {
         int cond_eval;
         bitpunch_status_t bt_ret;
 
-        bt_ret = evaluate_conditional_internal(stmt->cond, it->scope,
+        bt_ret = evaluate_conditional_internal(stmt->cond,
                                                &cond_eval, bst);
         if (BITPUNCH_OK != bt_ret) {
             tracker_error_add_box_context(it->scope, bst,
                                           "when evaluating condition");
+            bst->scope = orig_scope;
             return bt_ret;
         }
         if (cond_eval) {
@@ -251,11 +255,13 @@ scope_iter_statements_next_internal(
             if (NULL != stmtp) {
                 *stmtp = stmt;
             }
+            bst->scope = orig_scope;
             return BITPUNCH_OK;
         }
         // condition is false: go on with next statement
         stmt = scope_iter_statements_advance_internal(it, stmt);
     }
+    bst->scope = orig_scope;
     if (0 != it->stmt_remaining) {
         if (0 != (it->it_flags & STATEMENT_ITERATOR_FLAG_REVERSE)) {
             scope_riter_start_list_internal(it);
@@ -343,7 +349,7 @@ scope_lookup_statement_in_anonymous_field_recur(
         orig_scope = bst->scope;
         bst->scope = anon_scope;
         bt_ret = scope_lookup_statement_recur(
-            field_scope_def, anon_scope, &field_scope_def->block_stmt_list,
+            field_scope_def, &field_scope_def->block_stmt_list,
             stmt_mask, identifier, stmt_typep, stmtp, scopep, bst);
         bst->scope = orig_scope;
         box_delete(anon_scope);

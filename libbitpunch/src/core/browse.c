@@ -1713,7 +1713,7 @@ tracker_get_filtered_dpath_internal(struct tracker *tk,
     transform.dpath.tk = tracker_dup(tk);
     transform.dpath_is_data_source = TRUE;
     bt_ret = expr_transform_dpath_internal(
-        tk->dpath.filter, tk->box, &transform, bst);
+        tk->dpath.filter, &transform, bst);
     if (BITPUNCH_OK == bt_ret) {
         *filtered_dpathp = transform.dpath;
     } else {
@@ -2129,7 +2129,7 @@ box_read_value_internal(struct box *box,
     if (BITPUNCH_OK == bt_ret) {
         b_item = &box->filter->ndat->u.rexpr_filter.f_instance->b_item;
         bt_ret = b_item->read_value(
-            box->filter, box,
+            box->filter,
             box->start_offset_used,
             box->end_offset_used - box->start_offset_used,
             valuep, bst);
@@ -2227,7 +2227,7 @@ tracker_compute_item_filter_internal(struct tracker *tk,
         return BITPUNCH_OK;
     }
     bt_ret = expr_evaluate_filter_type_internal(
-        tk->dpath.filter, tk->box, FILTER_KIND_ITEM, &tk->dpath.item, bst);
+        tk->dpath.filter, FILTER_KIND_ITEM, &tk->dpath.item, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -2603,10 +2603,10 @@ tracker_goto_field_int_recur(struct tracker *tk,
         }
         if (0 != (tk->flags & TRACKER_REVERSED)) {
             stit = filter_riter_statements(
-                xtk->box->filter, xtk->box, STATEMENT_TYPE_FIELD, NULL);
+                xtk->box->filter, STATEMENT_TYPE_FIELD, NULL, bst);
         } else {
             stit = filter_iter_statements(
-                xtk->box->filter, xtk->box, STATEMENT_TYPE_FIELD, NULL);
+                xtk->box->filter, STATEMENT_TYPE_FIELD, NULL, bst);
         }
         bt_ret = scope_iter_statements_next_internal(&stit, NULL, &stmt, bst);
         if (BITPUNCH_OK != bt_ret) {
@@ -2724,10 +2724,10 @@ tracker_goto_first_field_internal(struct tracker *tk, int flat,
     }
     if (0 != (tk->flags & TRACKER_REVERSED)) {
         stit = filter_riter_statements(
-            tk->box->filter, tk->box, STATEMENT_TYPE_FIELD, NULL);
+            tk->box->filter, STATEMENT_TYPE_FIELD, NULL, bst);
     } else {
         stit = filter_iter_statements(
-            tk->box->filter, tk->box, STATEMENT_TYPE_FIELD, NULL);
+            tk->box->filter, STATEMENT_TYPE_FIELD, NULL, bst);
     }
     bt_ret = scope_iter_statements_next_internal(&stit, NULL, &stmt, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -2776,12 +2776,12 @@ tracker_goto_next_field_internal(struct tracker *tk, int flat,
         tracker_reset_item_cache(tk);
         if (reversed) {
             stit = filter_riter_statements_from(
-                tk->box->filter, tk->box,
-                (const struct statement *)tk->cur.u.field, NULL);
+                tk->box->filter,
+                (const struct statement *)tk->cur.u.field, NULL, bst);
         } else {
             stit = filter_iter_statements_from(
-                tk->box->filter, tk->box,
-                (const struct statement *)tk->cur.u.field, NULL);
+                tk->box->filter,
+                (const struct statement *)tk->cur.u.field, NULL, bst);
         }
         bt_ret = scope_iter_statements_next_internal(&stit, NULL, &stmt, bst);
         if (BITPUNCH_NO_ITEM != bt_ret) {
@@ -2872,6 +2872,7 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
     bitpunch_status_t bt_ret;
     expr_dpath_t eval_dpath;
     struct tracker *tk_tmp;
+    struct box *orig_scope;
 
     DBG_TRACKER_DUMP(tk);
     /*TODO clarify lifetime of parser_ctx */
@@ -2891,8 +2892,11 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
         free(parser_ctx);
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
-    bt_ret = expr_evaluate_dpath_internal(expr_node, root_box,
+    orig_scope = bst->scope;
+    bst->scope = root_box;
+    bt_ret = expr_evaluate_dpath_internal(expr_node,
                                           &eval_dpath, bst);
+    bst->scope = orig_scope;
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_tracker_context(
             tk, bst, "when evaluating dpath expression");
@@ -3059,7 +3063,7 @@ tracker_goto_index_internal(struct tracker *tk,
             expr_value_t twin_index;
 
             if (NULL != index.twin) {
-                bt_ret = expr_evaluate_value_internal(index.twin, tk->box,
+                bt_ret = expr_evaluate_value_internal(index.twin,
                                                       &twin_index, bst);
                 if (BITPUNCH_OK != bt_ret) {
                     tracker_error_add_tracker_context(
@@ -3452,7 +3456,7 @@ tracker_compute_item_size_internal(struct tracker *tk,
     f_instance = tk->dpath.item->ndat->u.rexpr_filter.f_instance;
     if (NULL != f_instance->b_item.compute_item_size) {
         return f_instance->b_item.compute_item_size(
-            tk->dpath.item, tk->box,
+            tk->dpath.item,
             tk->item_offset, max_span_offset, item_sizep, bst);
     }
     /* use the whole available slack space when filter does not define
@@ -3724,7 +3728,7 @@ tracker_read_item_value_direct_internal(struct tracker *tk,
         return bt_ret;
     }
     bt_ret = expr_evaluate_filter_type_internal(
-        tk->dpath.filter, tk->box, FILTER_KIND_FILTER,
+        tk->dpath.filter, FILTER_KIND_FILTER,
         &filter_type, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
@@ -3736,7 +3740,7 @@ tracker_read_item_value_direct_internal(struct tracker *tk,
             "filter does not implement read_value() item backend function");
     }
     bt_ret = f_instance->b_item.read_value(
-        filter_type, tk->box, item_offset, item_size, valuep, bst);
+        filter_type, item_offset, item_size, valuep, bst);
     if (BITPUNCH_OK == bt_ret && NULL != valuep) {
         expr_value_attach_box(valuep, tk->box);
     }
