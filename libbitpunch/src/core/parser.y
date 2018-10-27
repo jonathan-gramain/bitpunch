@@ -450,7 +450,6 @@
             struct ast_node_hdl *object,
             struct statement_list *params,
             int n_params,
-            struct box *scope,
             expr_value_t *valuep,
             expr_dpath_t *dpathp,
             struct browse_state *bst);

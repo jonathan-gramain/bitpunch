@@ -366,8 +366,7 @@ filter_read_value__filter(struct ast_node_hdl *filter,
             return bt_ret;
         }
         return filter_read_value__bytes(
-            filter, scope, scope->start_offset_used,
-            scope->end_offset_used - scope->start_offset_used, valuep, bst);
+            filter, scope, item_offset, item_size, valuep, bst);
     }
     return filter_instance_read_value(filter, scope,
                                       item_offset, item_size,

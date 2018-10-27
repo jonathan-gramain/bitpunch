@@ -166,10 +166,66 @@ browse_state_init(struct browse_state *bst)
 }
 
 void
+browse_state_init_scope(struct browse_state *bst, struct box *scope)
+{
+    browse_state_init(bst);
+    bst->scope = scope;
+}
+
+void
+browse_state_init_box(struct browse_state *bst, struct box *box)
+{
+    browse_state_init_scope(bst, box);
+}
+
+void
+browse_state_init_tracker(struct browse_state *bst, struct tracker *tk)
+{
+    browse_state_init_box(bst, tk->box);
+}
+
+void
+browse_state_init_dpath(struct browse_state *bst, expr_dpath_t dpath)
+{
+    browse_state_init(bst);
+    switch (dpath.type) {
+    case EXPR_DPATH_TYPE_ITEM:
+        browse_state_init_tracker(bst, dpath.tk);
+        break ;
+    case EXPR_DPATH_TYPE_CONTAINER:
+        browse_state_init_box(bst, dpath.box);
+        break ;
+    default:
+        assert(0);
+    }
+}
+
+void
 browse_state_cleanup(struct browse_state *bst)
 {
     if (NULL != bst) {
         tracker_error_destroy(bst->last_error);
+    }
+}
+
+void
+browse_state_push_scope(struct browse_state *bst, struct box *scope,
+                        struct box **storagep)
+{
+    if (NULL != scope) {
+        *storagep = bst->scope;
+        assert(NULL != *storagep);
+        bst->scope = scope;
+    }
+}
+
+void
+browse_state_pop_scope(struct browse_state *bst, struct box *scope,
+                       struct box **storagep)
+{
+    if (NULL != scope) {
+        assert(NULL != *storagep);
+        bst->scope = *storagep;
     }
 }
 
@@ -775,6 +831,7 @@ bitpunch_status_t
 box_construct(struct box *o_box,
               struct box *parent_box,
               struct ast_node_hdl *filter,
+              struct box *scope,
               int64_t boundary_offset,
               enum box_flag box_flags,
               struct browse_state *bst)
@@ -814,6 +871,8 @@ box_construct(struct box *o_box,
         o_box->depth_level = parent_box->depth_level + 1;
         box_acquire(parent_box);
     }
+    o_box->scope = scope;
+    box_acquire(scope);
     if (-1 != boundary_offset) {
         box_set_boundary_offset(o_box, boundary_offset, -1);
     } else {
@@ -1078,7 +1137,8 @@ box_new_from_file_internal(const struct bitpunch_schema *def_hdl,
     assert(NULL != root_filter);
     source_box = new_safe(struct box);
     bt_ret = box_construct(source_box, NULL,
-                           filter_get_global_instance__source(), 0, 0u, bst);
+                           filter_get_global_instance__source(), bst->scope,
+                           0, 0u, bst);
     if (BITPUNCH_OK != bt_ret) {
         /* TODO error reporting */
         box_delete_non_null(source_box);
@@ -1097,6 +1157,10 @@ box_new_from_file_internal(const struct bitpunch_schema *def_hdl,
     if (NULL == composite_box) {
         box_delete_non_null(source_box);
     }
+    // root scope (FIXME: doing this only because file box is the root
+    // box for now)
+    assert(NULL != composite_box);
+    bst->scope = composite_box;
     return composite_box;
 }
 
@@ -1130,7 +1194,7 @@ box_new_filter_box(struct box *parent_box,
     if (NULL != f_instance->get_data_source_func) {
         flags |= BOX_DATA_SOURCE;
     }
-    bt_ret = box_construct(box, parent_box, filter, -1, flags, bst);
+    bt_ret = box_construct(box, parent_box, filter, bst->scope, -1, flags, bst);
     if (BITPUNCH_OK != bt_ret) {
         box_delete_non_null(box);
         return NULL;
@@ -1322,6 +1386,7 @@ box_delete_non_null(struct box *box)
     --box->use_count;
     if (0 == box->use_count) {
         box_delete(box->parent_box);
+        box_delete(box->scope);
         box_free(box);
     }
 }
@@ -1654,7 +1719,9 @@ tracker_create_item_box_internal(struct tracker *tk,
         }
         item_box = new_safe(struct box);
         // it's an item box, so the filter is the item here
+        assert(NULL != bst->scope);
         bt_ret = box_construct(item_box, xtk->box, xtk->dpath.item,
+                               bst->scope,
                                xtk->item_offset, box_flags, bst);
         if (BITPUNCH_OK != bt_ret) {
             box_delete_non_null(item_box);
@@ -1751,6 +1818,7 @@ box_compute_min_span_size(struct box *box,
                           struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
+    struct box *scope_storage;
 
     if (-1 != box->start_offset_min_span && -1 != box->end_offset_min_span) {
         /* nothing to do */
@@ -1760,8 +1828,11 @@ box_compute_min_span_size(struct box *box,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    return box->filter->ndat->u.rexpr_filter.f_instance->b_box.compute_min_span_size(
+    browse_state_push_scope(bst, box, &scope_storage);
+    bt_ret = box->filter->ndat->u.rexpr_filter.f_instance->b_box.compute_min_span_size(
         box, bst);
+    browse_state_pop_scope(bst, box, &scope_storage);
+    return bt_ret;
 }
 
 bitpunch_status_t
@@ -1787,6 +1858,7 @@ box_compute_span_size(struct box *box,
 {
     bitpunch_status_t bt_ret;
     int call_backend;
+    struct box *scope_storage;
 
     if (-1 != box->start_offset_span && -1 != box->end_offset_span) {
         /* nothing to do */
@@ -1814,9 +1886,10 @@ box_compute_span_size(struct box *box,
             }
         }
         if (call_backend) {
-            bt_ret =
-                box->filter->ndat->u.rexpr_filter.f_instance->b_box.compute_span_size(
-                    box, bst);
+            browse_state_push_scope(bst, box, &scope_storage);
+            bt_ret = box->filter->ndat->u.rexpr_filter.f_instance->b_box.compute_span_size(
+                box, bst);
+            browse_state_pop_scope(bst, box, &scope_storage);
         }
     }
     if (BITPUNCH_OK != bt_ret) {
@@ -1830,6 +1903,7 @@ bitpunch_status_t
 box_compute_used_size(struct box *box, struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
+    struct box *scope_storage;
 
     if (-1 != box->start_offset_used && -1 != box->end_offset_used) {
         /* nothing to do */
@@ -1839,8 +1913,11 @@ box_compute_used_size(struct box *box, struct browse_state *bst)
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    return box->filter->ndat->u.rexpr_filter.f_instance->b_box.compute_used_size(
+    browse_state_push_scope(bst, box, &scope_storage);
+    bt_ret = box->filter->ndat->u.rexpr_filter.f_instance->b_box.compute_used_size(
         box, bst);
+    browse_state_pop_scope(bst, box, &scope_storage);
+    return bt_ret;
 }
 
 bitpunch_status_t
@@ -1912,6 +1989,7 @@ box_compute_max_span_size(struct box *box,
                           struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
+    struct box *scope_storage;
 
     bt_ret = box_apply_parent_filter_internal(box, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -1923,7 +2001,9 @@ box_compute_max_span_size(struct box *box,
         return BITPUNCH_OK;
     }
     box->flags |= COMPUTING_SPAN_SIZE;
+    browse_state_push_scope(bst, box, &scope_storage);
     bt_ret = box->filter->ndat->u.rexpr_filter.f_instance->b_box.compute_max_span_size(box, bst);
+    browse_state_pop_scope(bst, box, &scope_storage);
     box->flags &= ~COMPUTING_SPAN_SIZE;
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_box_context(
@@ -1940,6 +2020,7 @@ box_compute_slack_size(struct box *box,
                        struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
+    struct box *scope_storage;
 
     if (-1 != box->start_offset_slack && -1 != box->end_offset_slack) {
         /* nothing to do */
@@ -1949,8 +2030,10 @@ box_compute_slack_size(struct box *box,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
+    browse_state_push_scope(bst, box, &scope_storage);
     bt_ret = box->filter->ndat->u.rexpr_filter.f_instance->b_box.compute_slack_size(
         box, bst);
+    browse_state_pop_scope(bst, box, &scope_storage);
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_box_context(
             box, bst, "when computing slack size");
@@ -1967,6 +2050,7 @@ box_get_slack_child_allocation(struct box *box,
     bitpunch_status_t bt_ret;
     int flag_set = FALSE;
     struct filter_instance *f_instance;
+    struct box *scope_storage;
 
     // check for circular dependency
     if (!(box->flags & COMPUTING_SLACK_CHILD_ALLOCATION)) {
@@ -1979,8 +2063,10 @@ box_get_slack_child_allocation(struct box *box,
     }
     f_instance = box->filter->ndat->u.rexpr_filter.f_instance;
     if (NULL != f_instance->b_box.get_slack_child_allocation) {
+        browse_state_push_scope(bst, box, &scope_storage);
         bt_ret = f_instance->b_box.get_slack_child_allocation(
             box, get_left_offset, max_slack_offsetp, bst);
+        browse_state_pop_scope(bst, box, &scope_storage);
     } else {
         if (get_left_offset) {
             *max_slack_offsetp = box_get_known_start_offset(box);
@@ -2003,9 +2089,12 @@ box_get_n_items_internal(struct box *box, int64_t *n_itemsp,
                          struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
+    struct box *scope_storage;
 
+    browse_state_push_scope(bst, box, &scope_storage);
     bt_ret = box->filter->ndat->u.rexpr_filter.f_instance->b_box.get_n_items(
         box, n_itemsp, bst);
+    browse_state_pop_scope(bst, box, &scope_storage);
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_box_context(
             box, bst, "when computing number of array items");
@@ -2126,6 +2215,8 @@ box_read_value_internal(struct box *box,
         bt_ret = box_compute_used_size(box, bst);
     }
     if (BITPUNCH_OK == bt_ret) {
+        // FIXME we should pass a data source object from which to
+        // read from, in addition to the lexical scope box
         b_item = &box->filter->ndat->u.rexpr_filter.f_instance->b_item;
         bt_ret = b_item->read_value(
             box->filter, box,
@@ -2226,7 +2317,8 @@ tracker_compute_item_filter_internal(struct tracker *tk,
         return BITPUNCH_OK;
     }
     bt_ret = expr_evaluate_filter_type_internal(
-        tk->dpath.filter, tk->box, FILTER_KIND_ITEM, &tk->dpath.item, bst);
+        tk->dpath.filter, tk->box, FILTER_KIND_ITEM,
+        &tk->dpath.item, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -2999,7 +3091,6 @@ bitpunch_status_t
 tracker_goto_index_internal(struct tracker *tk,
                             struct subscript_index index,
                             const char *index_desc,
-                            struct box *scope,
                             int allow_end_boundary,
                             int is_end_of_slice,
                             struct browse_state *bst)
@@ -3008,7 +3099,7 @@ tracker_goto_index_internal(struct tracker *tk,
     bitpunch_status_t bt_ret;
 
     if (NULL != index.key) {
-        bt_ret = expr_evaluate_value_internal(index.key, scope,
+        bt_ret = expr_evaluate_value_internal(index.key, NULL,
                                               &item_index, bst);
         if (BITPUNCH_OK != bt_ret) {
             tracker_error_add_tracker_context(
@@ -3059,7 +3150,7 @@ tracker_goto_index_internal(struct tracker *tk,
             expr_value_t twin_index;
 
             if (NULL != index.twin) {
-                bt_ret = expr_evaluate_value_internal(index.twin, tk->box,
+                bt_ret = expr_evaluate_value_internal(index.twin, NULL,
                                                       &twin_index, bst);
                 if (BITPUNCH_OK != bt_ret) {
                     tracker_error_add_tracker_context(
@@ -3493,6 +3584,8 @@ tracker_get_item_size_internal(struct tracker *tk, int64_t *item_sizep,
     bitpunch_status_t bt_ret;
 
     DBG_TRACKER_DUMP(tk);
+    // FIXME tracker_compute_item_size_internal() also calls this,
+    // seems redundant
     bt_ret = tracker_compute_item_filter_internal(tk, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
@@ -4214,7 +4307,7 @@ expr_dpath_to_dpath(expr_dpath_t src_dpath,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_dpath(&bst, src_dpath);
     return transmit_error(
         expr_dpath_to_dpath_internal(src_dpath, dst_type, dst_dpathp, &bst),
         &bst, errp);
@@ -4227,7 +4320,7 @@ expr_dpath_get_size(expr_dpath_t dpath,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_dpath(&bst, dpath);
     return transmit_error(
         expr_dpath_get_size_internal(dpath, dpath_sizep, &bst),
         &bst, errp);
@@ -4240,7 +4333,7 @@ expr_dpath_get_location(expr_dpath_t dpath,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_dpath(&bst, dpath);
     return transmit_error(
         expr_dpath_get_location_internal(dpath, offsetp, sizep, &bst),
         &bst, errp);
@@ -4254,7 +4347,7 @@ expr_dpath_get_filtered_data(
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_dpath(&bst, dpath);
     return transmit_error(
         expr_dpath_get_filtered_data_internal(dpath, dsp, offsetp, sizep, &bst),
         &bst, errp);
@@ -4266,7 +4359,7 @@ box_get_n_items(struct box *box, int64_t *n_itemsp,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_box(&bst, box);
     return transmit_error(
         box_get_n_items_internal(box, n_itemsp, &bst),
         &bst, errp);
@@ -4279,7 +4372,7 @@ box_get_location(struct box *box,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_box(&bst, box);
     return transmit_error(
         box_get_location_internal(box, offsetp, sizep, &bst),
         &bst, errp);
@@ -4292,7 +4385,7 @@ box_read_value(struct box *box,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_box(&bst, box);
     return transmit_error(
         box_read_value_internal(box, valuep, &bst),
         &bst, errp);
@@ -4306,7 +4399,7 @@ box_compute_offset(struct box *box,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_box(&bst, box);
     return transmit_error(
         box_compute_offset_internal(box, off_type, offsetp, &bst),
         &bst, errp);
@@ -4320,7 +4413,7 @@ box_compute_size(struct box *box,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_box(&bst, box);
     return transmit_error(
         box_compute_size_internal(box, size_type, sizep, &bst),
         &bst, errp);
@@ -4332,7 +4425,7 @@ box_apply_filter(struct box *box,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_box(&bst, box);
     return transmit_error(
         box_apply_filter_internal(box, &bst), &bst, errp);
 }
@@ -4344,7 +4437,7 @@ track_item_contents(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         track_item_contents_internal(tk, tkp, &bst),
         &bst, errp);
@@ -4374,7 +4467,7 @@ track_dpath_contents(expr_dpath_t dpath,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_dpath(&bst, dpath);
     return transmit_error(
         track_dpath_contents_internal(dpath, tkp, &bst),
         &bst, errp);
@@ -4386,7 +4479,7 @@ tracker_get_n_items(struct tracker *tk, int64_t *item_countp,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_get_n_items_internal(tk, item_countp, &bst),
         &bst, errp);
@@ -4398,7 +4491,7 @@ tracker_goto_first_item(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_goto_first_item_internal(tk, &bst),
         &bst, errp);
@@ -4410,7 +4503,7 @@ tracker_goto_next_item(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_goto_next_item_internal(tk, &bst),
         &bst, errp);
@@ -4422,7 +4515,7 @@ tracker_goto_nth_item(struct tracker *tk, int64_t index,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_goto_nth_item_internal(tk, index, &bst),
         &bst, errp);
@@ -4434,7 +4527,7 @@ tracker_goto_nth_position(struct tracker *tk, int64_t index,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_goto_nth_position_internal(tk, index, &bst),
         &bst, errp);
@@ -4446,7 +4539,7 @@ tracker_goto_named_item(struct tracker *tk, const char *name,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_goto_named_item_internal(tk, name, &bst),
         &bst, errp);
@@ -4459,7 +4552,7 @@ tracker_goto_first_item_with_key(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_goto_first_item_with_key_internal(tk, item_key, &bst),
         &bst, errp);
@@ -4472,7 +4565,7 @@ tracker_goto_next_item_with_key(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_goto_next_item_with_key_internal(tk, item_key, &bst),
         &bst, errp);
@@ -4486,7 +4579,7 @@ tracker_goto_nth_item_with_key(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_goto_nth_item_with_key_internal(tk, item_key, nth_twin,
                                                 &bst),
@@ -4499,7 +4592,7 @@ tracker_goto_abs_dpath(struct tracker *tk, const char *dpath_expr,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_goto_abs_dpath_internal(tk, dpath_expr, &bst),
         &bst, errp);
@@ -4511,7 +4604,7 @@ tracker_goto_end(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_goto_end_internal(tk, &bst),
         &bst, errp);
@@ -4523,7 +4616,7 @@ tracker_enter_item(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_enter_item_internal(tk, &bst),
         &bst, errp);
@@ -4536,7 +4629,7 @@ tracker_return(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_return_internal(tk, &bst),
         &bst, errp);
@@ -4549,7 +4642,7 @@ tracker_get_item_filter(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_get_item_filter_internal(tk, item_filterp, &bst),
         &bst, errp);
@@ -4561,7 +4654,7 @@ tracker_get_item_offset(struct tracker *tk, int64_t *item_offsetp,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_get_item_offset_internal(tk, item_offsetp, &bst),
         &bst, errp);
@@ -4574,7 +4667,7 @@ tracker_get_item_size(struct tracker *tk, int64_t *item_sizep,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_get_item_size_internal(tk, item_sizep, &bst),
         &bst, errp);
@@ -4588,7 +4681,7 @@ tracker_get_item_key(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_get_item_key_internal(tk, keyp, &bst),
         &bst, errp);
@@ -4603,7 +4696,7 @@ tracker_get_item_key_multi(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_get_item_key_multi_internal(tk, keyp, nth_twinp, &bst),
         &bst, errp);
@@ -4618,7 +4711,7 @@ tracker_get_item_location(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_get_item_location_internal(tk, item_offsetp, item_sizep,
                                            &bst),
@@ -4634,7 +4727,7 @@ tracker_read_item_raw(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_read_item_raw_internal(tk, item_contentsp, item_sizep,
                                        &bst),
@@ -4649,7 +4742,7 @@ tracker_read_item_value(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_read_item_value_internal(tk, valuep, &bst),
         &bst, errp);
@@ -4662,7 +4755,7 @@ tracker_get_filtered_dpath(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_get_filtered_dpath_internal(tk, filtered_dpathp, &bst),
         &bst, errp);
@@ -4675,7 +4768,7 @@ tracker_get_filtered_item_box(struct tracker *tk,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_get_filtered_item_box_internal(tk, filtered_boxp, &bst),
         &bst, errp);
@@ -4688,7 +4781,7 @@ track_box_contents(struct box *box,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_box(&bst, box);
     return transmit_error(
         track_box_contents_internal(box, tkp, &bst), &bst, errp);
 }

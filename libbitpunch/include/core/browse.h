@@ -47,6 +47,7 @@ struct box;
 enum filter_kind;
 
 struct browse_state {
+    struct box *scope;
     struct tracker_error_slist *expected_errors;
     struct tracker_error *last_error;
 };
@@ -137,6 +138,7 @@ struct box {
     struct ast_node_hdl *filter;
     struct bitpunch_data_source *ds_in;
     struct bitpunch_data_source *ds_out;
+    struct box *scope;
 
     /** [ds_in] inherited parent's max offset */
     int64_t start_offset_parent;
