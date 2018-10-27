@@ -249,7 +249,7 @@ box_compute_span_size__array_const_item_size(struct box *box,
         box->filter->ndat->u.rexpr_filter.f_instance;
     //TODO optimize by storing the static size in the filter instance
     bt_ret = expr_evaluate_filter_type_internal(
-        array->item_type, box, FILTER_KIND_ITEM, &item_type, bst);
+        array->item_type, box->scope, FILTER_KIND_ITEM, &item_type, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -339,8 +339,8 @@ box_get_n_items__array_non_slack(struct box *box, int64_t *item_countp,
         // XXX for generalization of data sources: box is not the
         // proper scope: "box" is the array's data scope, not the
         // semantic scope which may need other data sources
-        bt_ret = expr_evaluate_value_internal(array->item_count, box,
-                                              &item_count, bst);
+        bt_ret = expr_evaluate_value_internal(
+            array->item_count, box->scope, &item_count, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
@@ -415,7 +415,7 @@ box_get_n_items__array_slack_const_item_size(struct box *box,
             node->ndat->u.rexpr_filter.f_instance;
         //TODO optimize by storing the static size in the filter instance
         bt_ret = expr_evaluate_filter_type_internal(
-            array->item_type, box, FILTER_KIND_ITEM, &item_type, bst);
+            array->item_type, box->scope, FILTER_KIND_ITEM, &item_type, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
@@ -534,8 +534,8 @@ tracker_get_item_key__indexed_array_internal(
     bt_ret = box_apply_filter_internal(filtered_box, bst);
     if (BITPUNCH_OK == bt_ret) {
         key_expr = ast_node_get_key_expr(tk->box->filter);
-        bt_ret = expr_evaluate_value_internal(key_expr, filtered_box,
-                                              &item_key, bst);
+        bt_ret = expr_evaluate_value_internal(
+            key_expr, filtered_box->scope, &item_key, bst);
     }
     box_delete_non_null(filtered_box);
     if (BITPUNCH_OK != bt_ret) {
@@ -669,7 +669,7 @@ tracker_goto_next_item__array(struct tracker *tk,
             return bt_ret;
         }
         bt_ret = filter_evaluate_attribute_internal(
-            filtered_box->filter, filtered_box, "@last",
+            filtered_box->filter, filtered_box->scope, "@last",
             NULL, &last_eval, NULL, bst);
         box_delete_non_null(filtered_box);
         switch (bt_ret) {
@@ -956,8 +956,8 @@ tracker_goto_next_key_match__array(struct tracker *tk,
         }
         bt_ret = box_apply_filter_internal(filtered_box, bst);
         if (BITPUNCH_OK == bt_ret) {
-            bt_ret = expr_evaluate_value_internal(key_expr, filtered_box,
-                                                  &item_key, bst);
+            bt_ret = expr_evaluate_value_internal(
+                key_expr, filtered_box->scope, &item_key, bst);
         }
         box_delete_non_null(filtered_box);
         if (BITPUNCH_OK != bt_ret) {

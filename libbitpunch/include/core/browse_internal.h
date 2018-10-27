@@ -132,12 +132,27 @@ track_path_eq(struct track_path p1, struct track_path p2);
 void
 browse_state_init(struct browse_state *bst);
 void
+browse_state_init_scope(struct browse_state *bst, struct box *scope);
+void
+browse_state_init_box(struct browse_state *bst, struct box *box);
+void
+browse_state_init_tracker(struct browse_state *bst, struct tracker *tk);
+void
+browse_state_init_dpath(struct browse_state *bst, expr_dpath_t dpath);
+void
 browse_state_cleanup(struct browse_state *bst);
+void
+browse_state_push_scope(struct browse_state *bst, struct box *scope,
+                        struct box **storagep);
+void
+browse_state_pop_scope(struct browse_state *bst, struct box *scope,
+                       struct box **storagep);
 
 bitpunch_status_t
 box_construct(struct box *o_box,
               struct box *parent_box,
               struct ast_node_hdl *filter,
+              struct box *scope,
               int64_t boundary_offset,
               enum box_flag box_flags,
               struct browse_state *bst);
@@ -354,7 +369,6 @@ bitpunch_status_t
 tracker_goto_index_internal(struct tracker *tk,
                             struct subscript_index index,
                             const char *index_desc,
-                            struct box *scope,
                             int allow_end_boundary,
                             int is_end_of_slice,
                             struct browse_state *bst);

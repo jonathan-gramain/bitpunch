@@ -928,7 +928,7 @@ def test_dynamic_filter_param_integer(params_dynamic_filter_param_integer):
     dtree, error = params['dtree'], params['error']
 
     if error:
-        with pytest.raises(model.DataError):
-            print dtree.values[0]
+        with pytest.raises(ValueError):
+            print int(dtree.values[0])
     else:
         assert model.make_python_object(dtree.values) == [1, 2, 3, 4, 5]

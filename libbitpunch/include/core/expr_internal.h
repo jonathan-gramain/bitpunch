@@ -130,7 +130,6 @@ expr_dpath_get_filtered_data_internal(
 bitpunch_status_t
 expr_dpath_evaluate_filter_internal(
     expr_dpath_t dpath,
-    struct box *scope,
     struct ast_node_hdl **filter_typep,
     struct browse_state *bst);
 int

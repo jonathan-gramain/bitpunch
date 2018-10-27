@@ -43,7 +43,7 @@ enum endian {
     ENDIAN_BIG,
     ENDIAN_LITTLE,
     ENDIAN_NATIVE,
-    ENDIAN_DEFAULT = ENDIAN_BIG
+    ENDIAN_DEFAULT = ENDIAN_NATIVE
 };
 
 static enum endian str2endian(struct expr_value_string string)
@@ -264,6 +264,13 @@ binary_integer_read_generic(
             return BITPUNCH_INVALID_PARAM;
         }
     } else if (BITPUNCH_NO_ITEM == bt_ret) {
+        if (span_size > 1) {
+            return box_error(
+                BITPUNCH_INVALID_PARAM, scope, filter, bst,
+                "missing endian value: "
+                "mandatory for source larger than one byte (got %zu)",
+                span_size);
+        }
         endian = ENDIAN_DEFAULT;
     } else {
         return bt_ret;

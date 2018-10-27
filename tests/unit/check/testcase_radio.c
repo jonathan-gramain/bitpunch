@@ -207,7 +207,7 @@ static void check_codename_entry(struct radio_source_info *info,
     bt_ret = tracker_enter_item(tk2, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = filter_evaluate_identifier(
-        tk2->box->filter, tk2->box,
+        tk2->box->filter, tk2->box->scope,
         STATEMENT_TYPE_FIELD | STATEMENT_TYPE_NAMED_EXPR |
         STATEMENT_TYPE_ATTRIBUTE,
         "codename", &value, NULL, NULL);

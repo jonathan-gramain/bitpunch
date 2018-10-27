@@ -133,6 +133,7 @@ box_new_slice_box(struct tracker *slice_start,
     slice_box = new_safe(struct box);
     bt_ret = box_construct(slice_box,
                            slice_start->box, slice_filter,
+                           slice_start->box->scope,
                            slice_start_offset_span, 0u, bst);
     if (BITPUNCH_OK != bt_ret) {
         box_delete_non_null(slice_box);
@@ -527,7 +528,7 @@ tracker_enter_slice(struct tracker *tk, struct tracker *slice_end,
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk);
     return transmit_error(
         tracker_enter_slice_internal(tk, slice_end, &bst),
         &bst, errp);

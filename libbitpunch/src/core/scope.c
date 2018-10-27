@@ -505,7 +505,7 @@ scope_evaluate_identifier(
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_scope(&bst, scope);
     return transmit_error(
         scope_evaluate_identifier_internal(
             scope_def, scope, stmt_mask, identifier,
@@ -521,7 +521,7 @@ scope_iter_statements_next(
 {
     struct browse_state bst;
 
-    browse_state_init(&bst);
+    browse_state_init_scope(&bst, it->scope);
     return transmit_error(
         scope_iter_statements_next_internal(it, stmt_typep, stmtp, &bst),
         &bst, errp);

@@ -1781,7 +1781,7 @@ DataItem_eval_attr(DataItemObject *self, const char *attr_str,
         return NULL;
     }
     bt_ret = filter_evaluate_identifier(
-        self->dpath.box->filter, self->dpath.box,
+        self->dpath.box->filter, self->dpath.box->scope,
         STATEMENT_TYPE_FIELD |
         STATEMENT_TYPE_NAMED_EXPR |
         STATEMENT_TYPE_ATTRIBUTE, attr_str,
@@ -2002,7 +2002,7 @@ DataItem_get_slice(DataItemObject *self, PyObject *key)
         set_tracker_error(tk_err, bt_ret);
         goto end;
     }
-    browse_state_init(&bst);
+    browse_state_init_tracker(&bst, tk_start);
     slice_box = box_new_slice_box(tk_start, tk_end, &bst);
     if (NULL == slice_box) {
         if (NULL != bst.last_error) {
