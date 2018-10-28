@@ -1086,6 +1086,7 @@ static PyTypeObject DataItemType = {
     Py_TPFLAGS_BASETYPE |
     Py_TPFLAGS_HAVE_NEWBUFFER |
     Py_TPFLAGS_HAVE_RICHCOMPARE |
+    Py_TPFLAGS_HAVE_ITER |
     Py_TPFLAGS_CHECKTYPES,       /* tp_flags */
     DataItem__doc__,             /* tp_doc */
     0,                           /* tp_traverse */
@@ -2941,7 +2942,8 @@ static PyTypeObject TrackerType = {
     &Tracker_as_buffer,        /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT |
     Py_TPFLAGS_BASETYPE |
-    Py_TPFLAGS_HAVE_NEWBUFFER, /* tp_flags */
+    Py_TPFLAGS_HAVE_NEWBUFFER |
+    Py_TPFLAGS_HAVE_ITER,      /* tp_flags */
     Tracker__doc__,            /* tp_doc */
     0,                         /* tp_traverse */
     0,                         /* tp_clear */
@@ -3095,7 +3097,10 @@ static PyObject *
 Tracker_iternext(TrackerObject *self)
 {
     if (TRACKER_ITER_ATTRIBUTE_NAMES != self->current_iter_mode) {
-        if (NULL == Tracker_goto_next_item(self)) {
+        PyObject *iter;
+
+        iter = Tracker_goto_next_item(self);
+        if (NULL == iter) {
             if (PyErr_ExceptionMatches(BitpunchExc_NoItemError)) {
                 PyErr_Clear();
                 if (TRACKER_ITER_MEMBER_NAMES == self->current_iter_mode) {
@@ -3111,6 +3116,8 @@ Tracker_iternext(TrackerObject *self)
             } else {
                 return NULL;
             }
+        } else {
+            Py_DECREF(iter);
         }
     }
     switch (self->current_iter_mode) {
