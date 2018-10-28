@@ -303,8 +303,6 @@ filter_instance_read_value(struct ast_node_hdl *filter,
             value.type = EXPR_VALUE_TYPE_BYTES;
             value.bytes.buf = item_data;
             value.bytes.len = span_size;
-            value.bytes.from_box = scope;
-            box_acquire(scope);
         }
     }
     if (BITPUNCH_OK == bt_ret && NULL != valuep) {

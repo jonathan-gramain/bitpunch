@@ -1663,7 +1663,7 @@ tracker_create_item_box_internal(struct tracker *tk,
                                  struct browse_state *bst)
 {
     struct tracker *xtk;
-    struct box *item_box;
+    struct box *item_box = NULL;
     int item_box_is_right_aligned;
     enum box_flag box_flags;
     int reverse_tracker;
@@ -1724,8 +1724,6 @@ tracker_create_item_box_internal(struct tracker *tk,
                                bst->scope,
                                xtk->item_offset, box_flags, bst);
         if (BITPUNCH_OK != bt_ret) {
-            box_delete_non_null(item_box);
-            DBG_TRACKER_CHECK_STATE(xtk);
             goto end;
         }
     }
@@ -1737,15 +1735,10 @@ tracker_create_item_box_internal(struct tracker *tk,
     } else if (-1 != xtk->item_size) {
         bt_ret = box_set_span_size(item_box, xtk->item_size, bst);
         if (BITPUNCH_OK != bt_ret) {
-            box_delete_non_null(item_box);
-            DBG_TRACKER_CHECK_STATE(xtk);
             goto end;
         }
     }
     box_update_cache(item_box, bst);
-    if (-1 != xtk->item_size) {
-        box_set_span_size(item_box, xtk->item_size, bst);
-    }
     if (BITPUNCH_OK == bt_ret && reverse_tracker) {
         bt_ret = tracker_reverse_direction_internal(xtk, bst);
         if (BITPUNCH_OK == bt_ret) {
@@ -1759,6 +1752,8 @@ tracker_create_item_box_internal(struct tracker *tk,
     }
     if (BITPUNCH_OK == bt_ret) {
         *item_boxp = item_box;
+    } else {
+        box_delete(item_box);
     }
     return bt_ret;
 }

@@ -276,3 +276,8 @@ correctly (b_filter is empty)
 
 - BUG: mandatory filter attributes are not checked when filter is
   declared without a block scope {...}
+
+- improvement: instead of "self" syntax, propose another more flexible
+  syntax that refers to the closest dpath bound to a given named
+  filter type (e.g. "<>filter_type", i.e. filter operator as unary
+  operator).

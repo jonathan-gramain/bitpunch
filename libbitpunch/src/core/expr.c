@@ -2287,10 +2287,7 @@ expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
         transform.dpath.type = EXPR_DPATH_TYPE_NONE;
         transform.dpath_is_data_source = FALSE;
         bt_ret = expr_transform_dpath_internal(expr, NULL, &transform, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            break ;
-        }
-        if (NULL != valuep) {
+        if (BITPUNCH_OK == bt_ret && NULL != valuep) {
             bt_ret = dpath_read_value_internal(transform.dpath, valuep, bst);
         }
         if (BITPUNCH_OK == bt_ret && NULL != dpathp) {

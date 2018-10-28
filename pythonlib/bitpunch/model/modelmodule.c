@@ -59,6 +59,9 @@ static PyObject *
 expr_value_to_native_PyObject(struct DataTreeObject *dtree,
                               expr_value_t value_eval);
 static PyObject *
+expr_value_to_native_PyObject_nodestroy(struct DataTreeObject *dtree,
+                                        expr_value_t value_eval);
+static PyObject *
 eval_expr_as_python_object(struct DataItemObject *cont, const char *expr);
 
 static PyObject *
@@ -1115,6 +1118,7 @@ DataItem_new(PyTypeObject *subtype,
         return NULL;
     }
     self->dpath = expr_dpath_none();
+    self->value = expr_value_unset();
     return (PyObject *)self;
 }
 
@@ -1154,6 +1158,8 @@ DataItem_clear(DataItemObject *self)
 {
     expr_dpath_destroy(self->dpath);
     self->dpath = expr_dpath_none();
+    expr_value_destroy(self->value);
+    self->value = expr_value_unset();
     Py_CLEAR(self->dtree);
     return 0;
 }
@@ -1387,7 +1393,7 @@ DataItem_get_value(DataItemObject *self)
         && -1 == DataItem_read_value(self)) {
         return NULL;
     }
-    return expr_value_to_native_PyObject(self->dtree, self->value);
+    return expr_value_to_native_PyObject_nodestroy(self->dtree, self->value);
 }
 
 static PyObject *
@@ -3292,36 +3298,41 @@ expr_value_from_PyObject(PyObject *py_expr,
 
 /**
  * @brief convert an expression into a native-typed python object
+ */
+static PyObject *
+expr_value_to_native_PyObject_nodestroy(DataTreeObject *dtree,
+                                        expr_value_t value_eval)
+{
+    switch (value_eval.type) {
+    case EXPR_VALUE_TYPE_INTEGER:
+        return Py_BuildValue("l", value_eval.integer);
+    case EXPR_VALUE_TYPE_BOOLEAN:
+        return PyBool_FromLong(value_eval.boolean);
+    case EXPR_VALUE_TYPE_STRING:
+        return PyString_FromStringAndSize(value_eval.string.str,
+                                          (Py_ssize_t)value_eval.string.len);
+    case EXPR_VALUE_TYPE_BYTES:
+        return PyString_FromStringAndSize(value_eval.bytes.buf,
+                                          (Py_ssize_t)value_eval.bytes.len);
+    default:
+        return PyErr_Format(PyExc_ValueError,
+                            "unsupported expression type '%d'",
+                            (int)value_eval.type);
+    }
+}
+
+/**
+ * @brief convert an expression into a native-typed python object
  *
- * @note this function call always destroys @ref value_eval
+ * @note this function call destroys @ref value_eval
  */
 static PyObject *
 expr_value_to_native_PyObject(DataTreeObject *dtree,
                               expr_value_t value_eval)
 {
-    PyObject *res = NULL;
+    PyObject *res;
 
-    switch (value_eval.type) {
-    case EXPR_VALUE_TYPE_INTEGER:
-        res = Py_BuildValue("l", value_eval.integer);
-        break ;
-    case EXPR_VALUE_TYPE_BOOLEAN:
-        res = PyBool_FromLong(value_eval.boolean);
-        break ;
-    case EXPR_VALUE_TYPE_STRING:
-        res = PyString_FromStringAndSize(value_eval.string.str,
-                                         (Py_ssize_t)value_eval.string.len);
-        break ;
-    case EXPR_VALUE_TYPE_BYTES:
-        res = PyString_FromStringAndSize(value_eval.bytes.buf,
-                                         (Py_ssize_t)value_eval.bytes.len);
-        break ;
-    default:
-        PyErr_Format(PyExc_ValueError,
-                     "unsupported expression type '%d'",
-                     (int)value_eval.type);
-        break ;
-    }
+    res = expr_value_to_native_PyObject_nodestroy(dtree, value_eval);
     expr_value_destroy(value_eval);
     return res;
 }
@@ -3330,7 +3341,8 @@ expr_value_to_native_PyObject(DataTreeObject *dtree,
  * @brief convert an expression into a DataItem if expression refers
  * to a data source item, or a native-typed python object otherwise
  *
- * @note this function call always destroys @ref value and @ref dpath
+ * @note this function call destroys or steals @ref value and @ref
+ * dpath
  */
 static PyObject *
 expr_value_and_dpath_to_PyObject(DataTreeObject *dtree,
