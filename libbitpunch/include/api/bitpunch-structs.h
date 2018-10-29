@@ -79,6 +79,10 @@ struct bitpunch_schema {
 
 struct bitpunch_data_source;
 
+enum bitpunch_data_source_flag {
+    BITPUNCH_DATA_SOURCE_CACHED = (1u<<0),
+};
+
 typedef int (*bitpunch_data_source_close_func_t)(
     struct bitpunch_data_source *ds);
 
@@ -87,6 +91,7 @@ struct bitpunch_data_source_backend {
 };
 
 struct bitpunch_data_source {
+    enum bitpunch_data_source_flag flags;
     struct bitpunch_data_source_backend backend;
     const char        *ds_data;
     size_t            ds_data_length;

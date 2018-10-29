@@ -42,9 +42,64 @@
 #include <fcntl.h>
 #include <assert.h>
 #include <errno.h>
+#include <string.h>
 
+#include "utils/queue.h"
 #include "core/browse.h"
 #include "api/bitpunch_api.h"
+
+static int
+data_source_free(struct bitpunch_data_source *ds);
+
+struct cached_file_source {
+    LIST_ENTRY(cached_file_source) list;
+    struct bitpunch_file_source *fs;
+};
+
+LIST_HEAD(cached_file_source_list, cached_file_source) cached_file_sources;
+
+void
+data_source_global_init(void)
+{
+    LIST_INIT(&cached_file_sources);
+}
+
+void
+data_source_global_destroy(void)
+{
+    struct cached_file_source *cfs, *tcfs;
+
+    LIST_FOREACH_SAFE(cfs, &cached_file_sources, list, tcfs) {
+        data_source_free((struct bitpunch_data_source *)cfs->fs);
+        free(cfs);
+    }
+}
+
+static struct bitpunch_file_source *
+lookup_cached_file_source(const char *path)
+{
+    struct cached_file_source *cfs, *tcfs;
+
+    LIST_FOREACH_SAFE(cfs, &cached_file_sources, list, tcfs) {
+        if (NULL != cfs->fs->path && 0 == strcmp(cfs->fs->path, path)) {
+            LIST_REMOVE(cfs, list);
+            LIST_INSERT_HEAD(&cached_file_sources, cfs, list);
+            return cfs->fs;
+        }
+    }
+    return NULL;
+}
+
+static void
+add_file_source_to_cache(struct bitpunch_file_source *fs)
+{
+    struct cached_file_source *cfs;
+
+    cfs = new_safe(struct cached_file_source);
+    cfs->fs = fs;
+    cfs->fs->ds.flags = BITPUNCH_DATA_SOURCE_CACHED;
+    LIST_INSERT_HEAD(&cached_file_sources, cfs, list);
+}
 
 static int
 open_data_source_from_fd(struct bitpunch_file_source *fs, int fd)
@@ -95,23 +150,26 @@ bitpunch_data_source_create_from_file_path(
     assert(NULL != path);
     assert(NULL != dsp);
 
-    fd = open(path, O_RDONLY);
-    if (-1 == fd) {
-        fprintf(stderr, "Unable to open binary file %s: open failed: %s\n",
-                path, strerror(errno));
-        return -1;
-    }
-    fs = new_safe(struct bitpunch_file_source);
-    fs->ds.backend.close = data_source_close_file_path;
+    fs = lookup_cached_file_source(path);
+    if (NULL == fs) {
+        fd = open(path, O_RDONLY);
+        if (-1 == fd) {
+            fprintf(stderr, "Unable to open binary file %s: open failed: %s\n",
+                    path, strerror(errno));
+            return -1;
+        }
+        fs = new_safe(struct bitpunch_file_source);
+        fs->ds.backend.close = data_source_close_file_path;
 
-    if (-1 == open_data_source_from_fd(fs, fd)) {
-        fprintf(stderr, "Error loading binary file %s\n", path);
-        (void)close(fd);
-        free(fs);
-        return -1;
+        if (-1 == open_data_source_from_fd(fs, fd)) {
+            fprintf(stderr, "Error loading binary file %s\n", path);
+            (void)close(fd);
+            free(fs);
+            return -1;
+        }
+        fs->path = strdup_safe(path);
+        add_file_source_to_cache(fs);
     }
-    fs->path = strdup_safe(path);
-
     *dsp = &fs->ds;
     return 0;
 }
@@ -172,29 +230,42 @@ bitpunch_data_source_create_from_memory(
     return 0;
 }
 
-int
-bitpunch_data_source_close(struct bitpunch_data_source *ds)
+static int
+data_source_close(struct bitpunch_data_source *ds)
 {
+    int ret;
+
     if (NULL == ds || NULL == ds->backend.close) {
         return 0;
     }
-    if (0 != ds->backend.close(ds)) {
-        return -1;
-    }
+    ret = ds->backend.close(ds);
     ds->ds_data = NULL;
     ds->ds_data_length = 0;
-    return 0;
+    return ret;
 }
 
-int
-bitpunch_data_source_free(struct bitpunch_data_source *ds)
+static int
+data_source_free(struct bitpunch_data_source *ds)
 {
-    if (-1 == bitpunch_data_source_close(ds))
-        return -1;
+    int ret;
+
+    ret = data_source_close(ds);
     if (NULL != ds->box_cache) {
         box_cache_free(ds->box_cache);
     }
     free(ds);
-    return 0;
+    return ret;
 }
 
+int
+bitpunch_data_source_release(struct bitpunch_data_source *ds)
+{
+    if (NULL == ds) {
+        return 0;
+    }
+    if (0 == (ds->flags & BITPUNCH_DATA_SOURCE_CACHED)) {
+        return data_source_free(ds);
+    }
+    // we could implement cleanup for less-used cache entries here
+    return 0;
+}

@@ -165,7 +165,7 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
     }
     tracker_delete(tk);
 
-    ret = bitpunch_data_source_free(ds_in);
+    ret = bitpunch_data_source_release(ds_in);
     ck_assert_int_eq(ret, 0);
 }
 
@@ -262,7 +262,7 @@ check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
 
     tracker_delete(tk);
 
-    ret = bitpunch_data_source_free(ds_in);
+    ret = bitpunch_data_source_release(ds_in);
     ck_assert_int_eq(ret, 0);
 }
 
@@ -345,7 +345,7 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
 
     tracker_delete(tk);
 
-    ret = bitpunch_data_source_free(ds_in);
+    ret = bitpunch_data_source_release(ds_in);
     ck_assert_int_eq(ret, 0);
 }
 

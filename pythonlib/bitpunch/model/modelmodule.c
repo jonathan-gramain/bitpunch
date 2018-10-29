@@ -2218,14 +2218,14 @@ DataTree_new(PyTypeObject *subtype,
 
     self = (DataTreeObject *)DataItem_new(subtype, NULL, NULL);
     if (NULL == self) {
-        (void) bitpunch_data_source_close(ds);
+        (void) bitpunch_data_source_release(ds);
         return NULL;
     }
     container_box = box_new_from_file(fmt->schema, ds);
     if (NULL == container_box) {
         PyErr_SetString(PyExc_OSError, "Error creating top-level box");
         Py_DECREF((PyObject *)self);
-        (void) bitpunch_data_source_close(ds);
+        (void) bitpunch_data_source_release(ds);
         return NULL;
     }
     DataItem_construct(&self->item, self);
@@ -2244,7 +2244,7 @@ DataTree_clear(DataTreeObject *self)
     DataItem_clear(&self->item);
 
     if (NULL != self->ds) {
-        bitpunch_data_source_free(self->ds);
+        bitpunch_data_source_release(self->ds);
         self->ds = NULL;
     }
     tmp = (PyObject *)self->fmt;

@@ -1364,9 +1364,8 @@ box_free(struct box *box)
         }
     }
     if (0 != (box->flags & BOX_DATA_SOURCE)) {
-        (void)bitpunch_data_source_close(
+        (void)bitpunch_data_source_release(
             (struct bitpunch_data_source *)box->ds_out);
-        free((struct bitpunch_data_source *)box->ds_out);
     }
     free(box);
 }

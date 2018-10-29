@@ -64,9 +64,10 @@ file_get_data_source(
     }
     if (path_value.string.len >= sizeof (file_path)) {
         return box_error(BITPUNCH_DATA_ERROR, scope, filter, bst,
-                         "file path \"%.20s\" is too long (%"PRIi64" "
+                         "file path \"%.20s...%.20s\" is too long (%"PRIi64" "
                          "characters, max is %zu)",
                          path_value.string.str,
+                         path_value.string.str + path_value.string.len - 20,
                          path_value.string.len, sizeof (file_path) - 1);
     }
     memcpy(file_path, path_value.string.str, path_value.string.len);

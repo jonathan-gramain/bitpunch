@@ -29,64 +29,13 @@
  * DAMAGE.
  */
 
-#ifndef __BITPUNCH_API_H__
-#define __BITPUNCH_API_H__
-
-#include "core/parser.h"
-#include PATH_TO_PARSER_TAB_H
-
-#if defined DEBUG
-extern int tracker_debug_mode;
-#endif
-
-struct bitpunch_schema;
-
-int
-bitpunch_init(void);
-void
-bitpunch_cleanup(void);
-int
-bitpunch_schema_create_from_path(
-    struct bitpunch_schema **schemap, const char *path);
-int
-bitpunch_schema_create_from_file_descriptor(
-    struct bitpunch_schema **schemap, int fd);
-int
-bitpunch_schema_create_from_buffer(
-    struct bitpunch_schema **schemap, const char *buf, size_t buf_size);
-int
-bitpunch_schema_create_from_string(
-    struct bitpunch_schema **schemap, const char *str);
+#ifndef __DATA_SOURCE_INTERNAL_H__
+#define __DATA_SOURCE_INTERNAL_H__
 
 void
-bitpunch_schema_free(struct bitpunch_schema *schema);
+data_source_global_init(void);
 
-int
-bitpunch_data_source_create_from_file_path(
-    struct bitpunch_data_source **dsp, const char *path);
-
-int
-bitpunch_data_source_create_from_file_descriptor(
-    struct bitpunch_data_source **dsp, int fd);
-
-int
-bitpunch_data_source_create_from_memory(
-    struct bitpunch_data_source **dsp,
-    const char *data, size_t data_size, int manage_buffer);
-
-int
-bitpunch_data_source_release(struct bitpunch_data_source *ds);
-
-
-int
-bitpunch_eval_expr(struct bitpunch_schema *schema,
-                   struct bitpunch_data_source *ds,
-                   const char *expr,
-                   struct box *scope,
-                   expr_value_t *valuep, expr_dpath_t *dpathp,
-                   struct tracker_error **errp);
-
-const char *
-bitpunch_status_pretty(bitpunch_status_t bt_ret);
+void
+data_source_global_destroy(void);
 
 #endif

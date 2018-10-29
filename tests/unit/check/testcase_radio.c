@@ -140,7 +140,7 @@ static void testcase_radio_teardown(void)
     for (i = 0; i < N_ELEM(radio_sources); ++i) {
         info = &radio_source_info[i];
         bitpunch_schema_free(info->bp);
-        bitpunch_data_source_free(info->bin);
+        bitpunch_data_source_release(info->bin);
     }
 }
 
