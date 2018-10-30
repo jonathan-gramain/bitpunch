@@ -3455,7 +3455,7 @@ ast_node_get_target_filter(struct ast_node_hdl *node)
         case AST_NODE_TYPE_BYTE_SLICE:
             return anchor_target;
         default:
-            assert(0);
+            return NULL;
         }
     }
     case AST_NODE_TYPE_REXPR_OP_ANCESTOR:

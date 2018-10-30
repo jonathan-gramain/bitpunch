@@ -90,6 +90,22 @@ lookup_cached_file_source(const char *path)
     return NULL;
 }
 
+static int
+remove_cached_file_source(const char *path)
+{
+    struct cached_file_source *cfs, *tcfs;
+
+    LIST_FOREACH_SAFE(cfs, &cached_file_sources, list, tcfs) {
+        if (NULL != cfs->fs->path && 0 == strcmp(cfs->fs->path, path)) {
+            LIST_REMOVE(cfs, list);
+            data_source_free((struct bitpunch_data_source *)cfs->fs);
+            free(cfs);
+            return 0;
+        }
+    }
+    return -1;
+}
+
 static void
 add_file_source_to_cache(struct bitpunch_file_source *fs)
 {
@@ -172,6 +188,12 @@ bitpunch_data_source_create_from_file_path(
     }
     *dsp = &fs->ds;
     return 0;
+}
+
+void
+bitpunch_data_source_notify_file_change(const char *path)
+{
+    (void) remove_cached_file_source(path);
 }
 
 static int

@@ -3510,6 +3510,19 @@ mod_bitpunch_get_builtin_names(PyObject *self,
 }
 
 static PyObject *
+mod_bitpunch_notify_file_change(PyObject *self, PyObject *args)
+{
+    const char *path;
+
+    if (!PyArg_ParseTuple(args, "s", &path)) {
+        return NULL;
+    }
+    bitpunch_data_source_notify_file_change(path);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject *
 mod_bitpunch_enable_debug_mode(PyObject *self)
 {
     tracker_debug_mode = TRUE;
@@ -3542,6 +3555,12 @@ static PyMethodDef bitpunch_methods[] = {
       "Keyword arguments:\n"
       "prefix -- if provided, a list of the built-in function names\n"
       "          starting with prefix is returned."
+    },
+
+    { "notify_file_change", (PyCFunction)mod_bitpunch_notify_file_change,
+      METH_VARARGS,
+      "notify bitpunch when an underlying file used as data source has "
+      "changed (so to refresh the cache)"
     },
 
 #ifdef DEBUG

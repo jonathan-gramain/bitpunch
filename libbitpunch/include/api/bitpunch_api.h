@@ -65,6 +65,9 @@ int
 bitpunch_data_source_create_from_file_path(
     struct bitpunch_data_source **dsp, const char *path);
 
+void
+bitpunch_data_source_notify_file_change(const char *path);
+
 int
 bitpunch_data_source_create_from_file_descriptor(
     struct bitpunch_data_source **dsp, int fd);
