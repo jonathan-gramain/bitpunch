@@ -2180,7 +2180,7 @@ expr_evaluate_ancestor(
     } else {
         box = opd_dpath.box;
     }
-    if (0 != (box->flags & BOX_FILTER)) {
+    if (0 != (box->flags & BOX_FILTER) && NULL != box->parent_box) {
         ancestor_box = box->parent_box;
         assert(NULL != ancestor_box);
         box_acquire(ancestor_box);

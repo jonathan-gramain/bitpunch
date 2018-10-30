@@ -178,5 +178,7 @@ def test_file_string_array(params_file_string_array):
     assert model.make_python_object(dtree.root) == ['hello', 'hola', 'bonjour']
     assert dtree.eval_expr('root[1]') == 'hola'
     assert dtree.eval_expr('^root[1]') == 'hola'
+    assert dtree.eval_expr('^root') == 'hello\nhola\nbonjour\n'
+    assert dtree.eval_expr('^^root') == 'hello\nhola\nbonjour\n'
 
     os.unlink(TEST_FILE_PATH)
