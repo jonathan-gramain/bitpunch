@@ -153,6 +153,32 @@ bitpunch_compile_schema(struct bitpunch_schema *schema)
     return 0;
 }
 
+int
+bitpunch_compile_env(struct bitpunch_env *env)
+{
+    struct ast_node_hdl *ast_root;
+
+    ast_root = env->ast_root;
+    if (-1 == resolve_identifiers(ast_root, NULL,
+                                  RESOLVE_EXPECT_TYPE |
+                                  RESOLVE_EXPECT_FILTER,
+                                  RESOLVE_TYPE_IDENTIFIERS)) {
+        return -1;
+    }
+    if (-1 == resolve_identifiers(ast_root, NULL,
+                                  RESOLVE_EXPECT_TYPE |
+                                  RESOLVE_EXPECT_FILTER,
+                                  RESOLVE_EXPRESSION_IDENTIFIERS)) {
+        return -1;
+    }
+    if (-1 == compile_ast_node_all(ast_root,
+                                   RESOLVE_EXPECT_TYPE |
+                                   RESOLVE_EXPECT_FILTER)) {
+        return -1;
+    }
+    return 0;
+}
+
 static void
 compile_ctx_init(struct compile_ctx *ctx)
 {

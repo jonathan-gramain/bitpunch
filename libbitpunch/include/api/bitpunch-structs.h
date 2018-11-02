@@ -106,4 +106,21 @@ struct bitpunch_file_source {
     size_t    map_length;
 };
 
+enum bitpunch_env_map_item_type {
+    BITPUNCH_ENV_MAP_ITEM_DATA_SOURCE,
+};
+
+struct bitpunch_env_map_item {
+    char *name;
+    enum bitpunch_env_map_item_type type;
+    union {
+        struct bitpunch_data_source *ds;
+    } u;
+};
+
+struct bitpunch_env {
+    /** root node for the environment, of type AST_NODE_TYPE_SCOPE_DEF */
+    struct ast_node_hdl *ast_root;
+};
+
 #endif

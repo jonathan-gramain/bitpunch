@@ -62,7 +62,7 @@ bitpunch_cleanup(void)
 
 int
 bitpunch_eval_expr(struct bitpunch_schema *schema,
-                   struct bitpunch_data_source *ds,
+                   struct bitpunch_env *env,
                    const char *expr,
                    struct box *scope,
                    expr_value_t *valuep, expr_dpath_t *dpathp,
@@ -77,6 +77,9 @@ bitpunch_eval_expr(struct bitpunch_schema *schema,
 
     if (-1 == bitpunch_parse_expr(expr, &expr_node, &parser_ctx)) {
         return -1;
+    }
+    if (NULL != env) {
+        bitpunch_compile_env(env);
     }
     if (NULL != schema && NULL != ds) {
         if (NULL == scope) {
@@ -106,6 +109,25 @@ bitpunch_eval_expr(struct bitpunch_schema *schema,
     return ret;
 }
 
+int
+bitpunch_eval_expr_legacy(struct bitpunch_schema *schema,
+                          struct bitpunch_data_source *ds,
+                          const char *expr,
+                          struct box *scope,
+                          expr_value_t *valuep, expr_dpath_t *dpathp,
+                          struct tracker_error **errp)
+{
+    struct bitpunch_env *env;
+    int ret;
+
+    env = bitpunch_env_new();
+    bitpunch_env_add_data_source(env, "DATA", ds);
+
+    ret = bitpunch_eval_expr(schema, env, expr, scope, valuep, dpathp, errp);
+
+    bitpunch_env_free(env);
+    return ret;
+}
 
 const char *
 bitpunch_status_pretty(bitpunch_status_t bt_ret)

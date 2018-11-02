@@ -81,13 +81,35 @@ int
 bitpunch_data_source_release(struct bitpunch_data_source *ds);
 
 
+struct bitpunch_env *
+bitpunch_env_new(void);
+
+void
+bitpunch_env_free(
+    struct bitpunch_env *env);
+
+void
+bitpunch_env_add_data_source(
+    struct bitpunch_env *env,
+    const char *name,
+    struct bitpunch_data_source *ds);
+
+
 int
 bitpunch_eval_expr(struct bitpunch_schema *schema,
-                   struct bitpunch_data_source *ds,
+                   struct bitpunch_env *env,
                    const char *expr,
                    struct box *scope,
                    expr_value_t *valuep, expr_dpath_t *dpathp,
                    struct tracker_error **errp);
+
+int
+bitpunch_eval_expr_legacy(struct bitpunch_schema *schema,
+                          struct bitpunch_data_source *ds,
+                          const char *expr,
+                          struct box *scope,
+                          expr_value_t *valuep, expr_dpath_t *dpathp,
+                          struct tracker_error **errp);
 
 const char *
 bitpunch_status_pretty(bitpunch_status_t bt_ret);

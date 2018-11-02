@@ -89,6 +89,9 @@ int
 bitpunch_compile_schema(struct bitpunch_schema *schema);
 
 int
+bitpunch_compile_env(struct bitpunch_env *env);
+
+int
 bitpunch_resolve_expr(struct ast_node_hdl *expr, struct box *scope);
 
 int
