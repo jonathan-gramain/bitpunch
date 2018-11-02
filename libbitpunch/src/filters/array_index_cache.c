@@ -60,8 +60,7 @@ void
 box_init_mark_offsets_repo(struct box *box)
 {
     box->u.array.mark_offsets_exists = TRUE;
-    ARRAY_INIT(&box->u.array.mark_offsets, 0,
-               struct index_cache_mark_offset);
+    ARRAY_INIT(&box->u.array.mark_offsets, 0);
 }
 
 static int
@@ -116,8 +115,7 @@ box_array_add_mark_offset(struct box *box,
     assert(ARRAY_SIZE(&box->u.array.mark_offsets) == mark);
 
     mark_offset.item_offset = item_offset;
-    ARRAY_APPEND(&box->u.array.mark_offsets, mark_offset,
-                 struct index_cache_mark_offset);
+    ARRAY_APPEND(&box->u.array.mark_offsets, mark_offset);
 }
 
 static void

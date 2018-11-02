@@ -49,11 +49,11 @@ START_TEST(test_dynarray)
     struct test_item item;
     int i;
 
-    ARRAY_INIT(&array, 0, struct test_item);
+    ARRAY_INIT(&array, 0);
     for (i = 0; i < 26; ++i) {
         item.a = 1 + i;
         item.b = 'a' + i;
-        ARRAY_APPEND(&array, item, struct test_item);
+        ARRAY_APPEND(&array, item);
     }
     for (i = 25; i >= 0; --i) {
         ck_assert_int_eq(ARRAY_ITEM(&array, i).a, 1 + i);
@@ -61,14 +61,14 @@ START_TEST(test_dynarray)
     }
     ARRAY_DESTROY(&array);
 
-    ARRAY_INIT(&array, 2, struct test_item);
+    ARRAY_INIT(&array, 2);
     for (i = 0; i < 26; ++i) {
         item.a = 1 + i;
         item.b = 'a' + i;
         if (i < 2)
             ARRAY_ITEM(&array, i) = item;
         else
-            ARRAY_APPEND(&array, item, struct test_item);
+            ARRAY_APPEND(&array, item);
     }
     ck_assert_int_eq(ARRAY_FIRST(&array).a, 1);
     ck_assert_int_eq(ARRAY_LAST(&array).a, 26);
@@ -79,18 +79,18 @@ START_TEST(test_dynarray)
     ARRAY_DESTROY(&array);
 
 #ifdef ENABLE_LENGTHY_TESTS
-    ARRAY_INIT(&array, 1234, struct test_item);
+    ARRAY_INIT(&array, 1234);
     for (i = 0; i < 200000; ++i) {
         item.a = i;
         item.b = 42;
         if (i < 1234)
             ARRAY_ITEM(&array, i) = item;
         else
-            ARRAY_APPEND(&array, item, struct test_item);
+            ARRAY_APPEND(&array, item);
     }
     for (i = 199999; i >= 0; --i) {
         ck_assert_int_eq(ARRAY_ITEM(&array, i).b, 42);
-        ck_assert_int_eq(ARRAY_POP(&array, struct test_item).a, i);
+        ck_assert_int_eq(ARRAY_POP(&array).a, i);
 
     }
     ARRAY_DESTROY(&array);
