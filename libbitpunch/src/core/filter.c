@@ -581,11 +581,10 @@ compile_node_backends__source(struct ast_node_hdl *item)
     compile_node_backends__tracker__filter(item);
 }
 
-int
+void
 compile_global_nodes__filter(struct compile_ctx *ctx)
 {
     compile_node_backends__source(AST_NODE_SOURCE);
-    return 0;
 }
 
 struct ast_node_hdl *

@@ -34,7 +34,7 @@
 
 #include "filters/array_slice.h"
 
-int
+void
 compile_global_nodes__byte_slice(struct compile_ctx *ctx);
 
 struct ast_node_hdl *

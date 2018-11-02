@@ -545,9 +545,8 @@ compile_node_backends__array_slice(struct ast_node_hdl *filter)
     compile_node_backends__filter__filter(filter);
 }
 
-int
+void
 compile_global_nodes__array_slice(struct compile_ctx *ctx)
 {
     compile_node_backends__array_slice(AST_NODE_ARRAY_SLICE);
-    return 0;
 }

@@ -111,11 +111,10 @@ compile_node_backends__byte_slice(struct ast_node_hdl *item)
     compile_node_backends__filter__filter(item);
 }
 
-int
+void
 compile_global_nodes__byte_slice(struct compile_ctx *ctx)
 {
     compile_node_backends__byte_slice(AST_NODE_BYTE_SLICE);
-    return 0;
 }
 
 struct ast_node_hdl *

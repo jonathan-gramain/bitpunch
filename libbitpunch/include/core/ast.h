@@ -82,6 +82,9 @@ struct compile_ctx {
 
 ARRAY_GENERATE_API_DECLS(ast_node_hdl_array, struct ast_node_hdl *)
 
+void
+compile_global_nodes(void);
+
 int
 bitpunch_compile_schema(struct bitpunch_schema *schema);
 

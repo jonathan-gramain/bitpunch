@@ -123,8 +123,6 @@ compile_subscript_index_cb(struct compile_ctx *ctx,
                            struct dep_resolver_node *_node,
                            dep_resolver_tagset_t tags,
                            void *arg);
-static int
-compile_global_nodes(void);
 
 ARRAY_GENERATE_API_DEFS(ast_node_hdl_array, struct ast_node_hdl *)
 
@@ -150,9 +148,6 @@ bitpunch_compile_schema(struct bitpunch_schema *schema)
     if (-1 == compile_ast_node_all(ast_root,
                                    RESOLVE_EXPECT_TYPE |
                                    RESOLVE_EXPECT_FILTER)) {
-        return -1;
-    }
-    if (-1 == compile_global_nodes()) {
         return -1;
     }
     return 0;
@@ -3231,26 +3226,17 @@ compile_dpath_span_size(struct dpath_node *node, struct compile_ctx *ctx)
  *
  */
 
-static int
+void
 compile_global_nodes(void)
 {
     struct compile_ctx ctx;
 
     compile_ctx_init(&ctx);
-    if (-1 == compile_global_nodes__filter(&ctx)) {
-        return -1;
-    }
-    if (-1 == compile_global_nodes__byte(&ctx)) {
-        return -1;
-    }
-    if (-1 == compile_global_nodes__array_slice(&ctx)) {
-        return -1;
-    }
-    if (-1 == compile_global_nodes__byte_slice(&ctx)) {
-        return -1;
-    }
+    compile_global_nodes__filter(&ctx);
+    compile_global_nodes__byte(&ctx);
+    compile_global_nodes__array_slice(&ctx);
+    compile_global_nodes__byte_slice(&ctx);
     compile_ctx_destroy(&ctx);
-    return 0;
 }
 
 

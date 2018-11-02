@@ -133,13 +133,12 @@ filter_class_declare_byte(void)
     assert(0 == ret);
 }
 
-int
+void
 compile_global_nodes__byte(struct compile_ctx *ctx)
 {
     (void)compile_span_size_byte(AST_NODE_BYTE, NULL, NULL);
 
     compile_node_backends__byte(AST_NODE_BYTE);
-    return 0;
 }
 
 struct ast_node_hdl *

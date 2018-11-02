@@ -73,7 +73,7 @@ bitpunch_status_t
 tracker_goto_end_path__array_slice(struct tracker *tk,
                                    struct browse_state *bst);
 
-int
+void
 compile_global_nodes__array_slice(struct compile_ctx *ctx);
 
 #endif

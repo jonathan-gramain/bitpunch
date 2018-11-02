@@ -158,7 +158,7 @@ compile_node_backends__filter__filter(struct ast_node_hdl *filter);
 void
 compile_node_backends__tracker__filter(struct ast_node_hdl *item);
 
-int
+void
 compile_global_nodes__filter(struct compile_ctx *ctx);
 
 struct ast_node_hdl *

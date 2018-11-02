@@ -36,7 +36,7 @@
 
 void
 compile_node_backends__byte(struct ast_node_hdl *item);
-int
+void
 compile_global_nodes__byte(struct compile_ctx *ctx);
 
 struct ast_node_hdl *

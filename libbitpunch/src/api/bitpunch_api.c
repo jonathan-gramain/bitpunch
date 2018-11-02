@@ -50,6 +50,7 @@ bitpunch_init(void)
 {
     filter_class_declare_std();
     data_source_global_init();
+    compile_global_nodes();
     return 0;
 }
 
