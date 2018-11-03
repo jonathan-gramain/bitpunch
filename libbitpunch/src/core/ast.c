@@ -2971,18 +2971,6 @@ compile_rexpr_self(
 }
 
 static int
-compile_rexpr_data_source(
-    struct ast_node_hdl *expr,
-    dep_resolver_tagset_t tags,
-    struct compile_ctx *ctx)
-{
-    if (0 != (tags & COMPILE_TAG_BROWSE_BACKENDS)) {
-        compile_node_backends__item(expr);
-    }
-    return 0;
-}
-
-static int
 compile_node_type_int(struct ast_node_hdl *node,
                       dep_resolver_tagset_t tags,
                       struct compile_ctx *ctx,
@@ -3002,6 +2990,7 @@ compile_node_type_int(struct ast_node_hdl *node,
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
+    case AST_NODE_TYPE_REXPR_DATA_SOURCE:
         return compile_rexpr_filter(node, tags, ctx);
     case AST_NODE_TYPE_CONDITIONAL:
         return compile_conditional(node, tags, ctx);
@@ -3089,8 +3078,6 @@ compile_node_type_int(struct ast_node_hdl *node,
         return compile_rexpr_file(node, tags, ctx);
     case AST_NODE_TYPE_REXPR_SELF:
         return compile_rexpr_self(node, tags, ctx);
-    case AST_NODE_TYPE_REXPR_DATA_SOURCE:
-        return compile_rexpr_data_source(node, tags, ctx);
     default:
         /* nothing to do */
         return 0;
@@ -3358,6 +3345,7 @@ ast_node_is_rexpr_filter(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_OP_FILTER:
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_SOURCE:
+    case AST_NODE_TYPE_REXPR_DATA_SOURCE:
         return TRUE;
     default:
         return FALSE;

@@ -850,7 +850,7 @@ box_construct(struct box *o_box,
                          "reached maximum box nesting level %d",
                          BOX_MAX_DEPTH_LEVEL);
     }
-    assert(ast_node_is_rexpr_filter(filter));
+    //assert(ast_node_is_rexpr_filter(filter));
     o_box->filter = filter;
     o_box->flags = box_flags;
     o_box->start_offset_parent = -1;
@@ -1331,7 +1331,9 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
     struct filter_instance *f_instance;
 
     assert(NULL == box->ds_out);
-
+    if (0 == (box->flags & BOX_FILTER)) {
+        return BITPUNCH_OK;
+    }
     filter_cls = box->filter->ndat->u.rexpr_filter.filter_cls;
     if (NULL == filter_cls
         || !expr_value_type_mask_contains_dpath(filter_cls->value_type_mask)) {
@@ -1360,7 +1362,9 @@ box_apply_parent_filter_internal(struct box *box,
             return bt_ret;
         }
         box->ds_in = box->parent_box->ds_out;
-        box_inherit_boundary_offset(box);
+        if (NULL != box->ds_in) {
+            box_inherit_boundary_offset(box);
+        }
     }
     return BITPUNCH_OK;
 }
@@ -1382,7 +1386,6 @@ box_apply_filter_internal(struct box *box,
     }
     bt_ret = box_apply_local_filter(box, bst);
     if (BITPUNCH_OK == bt_ret) {
-        assert(NULL != box->ds_out);
         box->flags |= BOX_FILTER_APPLIED;
     }
     return bt_ret;
