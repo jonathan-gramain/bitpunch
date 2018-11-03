@@ -81,9 +81,9 @@ bitpunch_eval_expr(struct bitpunch_schema *schema,
     if (NULL != env) {
         bitpunch_compile_env(env);
     }
-    if (NULL != schema && NULL != ds) {
+    if (NULL != schema) {
         if (NULL == scope) {
-            scope = box_new_from_file(schema, ds);
+            scope = box_new_root_box(schema, env);
             if (NULL == scope) {
                 goto end;
             }

@@ -2517,6 +2517,7 @@ expr_transform_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
+    case AST_NODE_TYPE_REXPR_DATA_SOURCE:
         bt_ret = expr_transform_dpath_filter(expr, transformp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_FILE:

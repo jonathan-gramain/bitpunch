@@ -1119,6 +1119,49 @@ box_lookup_cached_child(struct box *box, struct track_path path,
 }
 
 static struct box *
+box_new_root_box_internal(struct bitpunch_schema *schema,
+                          struct bitpunch_env *env,
+                          struct browse_state *bst)
+{
+    struct box *env_box;
+    struct box *root_box;
+    bitpunch_status_t bt_ret;
+
+    env_box = new_safe(struct box);
+    bt_ret = box_construct(env_box, NULL, env->ast_root, NULL,
+                           0, 0u, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        /* TODO error reporting */
+        box_delete_non_null(env_box);
+        return NULL;
+    }
+    env_box->ds_in = NULL;
+    env_box->ds_out = NULL;
+
+    root_box = new_safe(struct box);
+    bt_ret = box_construct(root_box, env_box, schema->file_block.root, env_box,
+                           0, 0u, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        /* TODO error reporting */
+        box_delete_non_null(root_box);
+        box_delete_non_null(env_box);
+        return NULL;
+    }
+    bst->scope = root_box;
+    return root_box;
+}
+
+struct box *
+box_new_root_box(struct bitpunch_schema *schema,
+                 struct bitpunch_env *env)
+{
+    struct browse_state bst;
+
+    browse_state_init(&bst);
+    return box_new_root_box_internal(schema, env, &bst);
+}
+
+static struct box *
 box_new_from_file_internal(const struct bitpunch_schema *def_hdl,
                            struct bitpunch_data_source *ds_in,
                            struct browse_state *bst)
@@ -1173,6 +1216,8 @@ box_new_from_file(const struct bitpunch_schema *def_hdl,
     browse_state_init(&bst);
     return box_new_from_file_internal(def_hdl, ds_in, &bst);
 }
+
+
 
 struct box *
 box_new_filter_box(struct box *parent_box,

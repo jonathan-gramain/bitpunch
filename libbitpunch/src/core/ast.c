@@ -2971,6 +2971,18 @@ compile_rexpr_self(
 }
 
 static int
+compile_rexpr_data_source(
+    struct ast_node_hdl *expr,
+    dep_resolver_tagset_t tags,
+    struct compile_ctx *ctx)
+{
+    if (0 != (tags & COMPILE_TAG_BROWSE_BACKENDS)) {
+        compile_node_backends__item(expr);
+    }
+    return 0;
+}
+
+static int
 compile_node_type_int(struct ast_node_hdl *node,
                       dep_resolver_tagset_t tags,
                       struct compile_ctx *ctx,
@@ -3077,6 +3089,8 @@ compile_node_type_int(struct ast_node_hdl *node,
         return compile_rexpr_file(node, tags, ctx);
     case AST_NODE_TYPE_REXPR_SELF:
         return compile_rexpr_self(node, tags, ctx);
+    case AST_NODE_TYPE_REXPR_DATA_SOURCE:
+        return compile_rexpr_data_source(node, tags, ctx);
     default:
         /* nothing to do */
         return 0;
@@ -3316,6 +3330,7 @@ ast_node_is_rexpr(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_OP_FCALL:
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
+    case AST_NODE_TYPE_REXPR_DATA_SOURCE:
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
@@ -3669,6 +3684,7 @@ ast_node_is_item(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_SOURCE:
     case AST_NODE_TYPE_REXPR_FILTER:
+    case AST_NODE_TYPE_REXPR_DATA_SOURCE:
         return TRUE;
     default:
         return FALSE;
@@ -4432,6 +4448,7 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         break ;
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
+    case AST_NODE_TYPE_REXPR_DATA_SOURCE:
         dump_ast_rexpr(node, out);
         fprintf(out, "\n");
         break ;
@@ -4465,6 +4482,7 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_REXPR_NATIVE:
     case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
+    case AST_NODE_TYPE_REXPR_DATA_SOURCE:
         /* leaf */
         fprintf(out, "%*s|- (%s) ", depth * INDENT_N_SPACES, "",
                 ast_node_type_str(node->ndat->type));

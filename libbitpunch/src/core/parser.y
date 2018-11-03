@@ -280,6 +280,7 @@
             AST_NODE_TYPE_REXPR_OP_FCALL,
             AST_NODE_TYPE_REXPR_FILE,
             AST_NODE_TYPE_REXPR_SELF,
+            AST_NODE_TYPE_REXPR_DATA_SOURCE,
         } type;
         enum ast_node_data_flag flags;
         union {
@@ -343,6 +344,10 @@
                 struct rexpr_filter rexpr_filter; /* inherits */
                 struct ast_node_hdl *item_type;
             } rexpr_self;
+            struct rexpr_data_source {
+                struct rexpr_filter rexpr_filter; /* inherits */
+                struct bitpunch_data_source *data_source;
+            } rexpr_data_source;
             struct rexpr_native {
                 struct rexpr rexpr; /* inherits */
                 expr_value_t value;
@@ -487,6 +492,9 @@
         __attribute__((format(printf,3,4)));
     const char *ast_node_type_str(enum ast_node_type type);
     struct ast_node_hdl *ast_node_hdl_new(void);
+    struct ast_node_hdl *
+    ast_node_hdl_create(enum ast_node_type type,
+                        const struct parser_location *loc);
     void init_block_stmt_list(struct block_stmt_list *dst);
 }
 
@@ -525,7 +533,7 @@
         TAILQ_INIT(dst->attribute_list);
     }
 
-    static struct ast_node_hdl *
+    struct ast_node_hdl *
     ast_node_hdl_create(enum ast_node_type type,
                         const struct parser_location *loc)
     {
@@ -1208,6 +1216,7 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_REXPR_FILE: return "'file' expr";
     case AST_NODE_TYPE_EXPR_SELF:
     case AST_NODE_TYPE_REXPR_SELF: return "'self' expr";
+    case AST_NODE_TYPE_REXPR_DATA_SOURCE: return "data source";
     case AST_NODE_TYPE_OP_EQ:
     case AST_NODE_TYPE_REXPR_OP_EQ: return "operator '=='";
     case AST_NODE_TYPE_OP_NE:

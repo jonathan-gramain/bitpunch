@@ -34,14 +34,7 @@
  * @brief bitpunch schema API
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <assert.h>
-#include <errno.h>
-
+#include "core/parser.h"
 #include "api/bitpunch_api.h"
 
 struct bitpunch_env *
@@ -50,7 +43,8 @@ bitpunch_env_new(void)
     struct bitpunch_env *env;
 
     env = new_safe(struct bitpunch_env);
-    env->ast_root = ast_node_hdl_create(AST_NODE_TYPE_SCOPE_DEF);
+    env->ast_root = ast_node_hdl_create(AST_NODE_TYPE_SCOPE_DEF, NULL);
+    init_block_stmt_list(&env->ast_root->ndat->u.scope_def.block_stmt_list);
     return env;
 }
 
@@ -62,16 +56,33 @@ bitpunch_env_free(
     free(env);
 }
 
+static void
+env_add_named_expr(
+    struct bitpunch_env *env,
+    const char *name,
+    struct ast_node_hdl *expr)
+{
+    struct scope_def *scope_def;
+    struct named_expr *named_expr;
+
+    scope_def = &env->ast_root->ndat->u.scope_def;
+    named_expr = new_safe(struct named_expr);
+    named_expr->nstmt.name = strdup_safe(name);
+    named_expr->expr = expr;
+
+    TAILQ_INSERT_TAIL(scope_def->block_stmt_list.named_expr_list,
+                      (struct statement *)named_expr, list);
+}
+
 void
 bitpunch_env_add_data_source(
     struct bitpunch_env *env,
     const char *name,
     struct bitpunch_data_source *ds)
 {
-    struct bitpunch_env_map_item item;
+    struct ast_node_hdl *source_node;
 
-    item.name = strdup_safe(name);
-    item.type = BITPUNCH_ENV_MAP_ITEM_DATA_SOURCE;
-    item.u.ds = ds;
-    ARRAY_APPEND(&env->env_map, item);
+    source_node = ast_node_hdl_create(AST_NODE_TYPE_REXPR_DATA_SOURCE, NULL);
+    source_node->ndat->u.rexpr_data_source.data_source = ds;
+    env_add_named_expr(env, name, source_node);
 }

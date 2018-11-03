@@ -347,6 +347,9 @@ box_get_index_type(const struct box *box);
 struct ast_node_hdl *
 box_get_index_expr(const struct box *box);
 struct box *
+box_new_root_box(struct bitpunch_schema *schema,
+                 struct bitpunch_env *env);
+struct box *
 box_new_from_file(const struct bitpunch_schema *def_hdl,
                   struct bitpunch_data_source *ds_in);
 void
