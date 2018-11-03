@@ -548,6 +548,22 @@ scope_attach_native_attribute(
 }
 
 struct ast_node_hdl *
+scope_get_first_declared_named_expr(
+    const struct scope_def *scope_def,
+    const char *name)
+{
+    struct named_expr *named_expr;
+
+    STATEMENT_FOREACH(
+        named_expr, named_expr,
+        scope_def->block_stmt_list.named_expr_list, list) {
+        if (0 == strcmp(named_expr->nstmt.name, name)) {
+            return named_expr->expr;
+        }
+    }
+    return NULL;
+}
+struct ast_node_hdl *
 scope_get_first_declared_attribute(
     const struct scope_def *scope_def,
     const char *attr_name)

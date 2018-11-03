@@ -107,7 +107,7 @@ let Contents = struct {
     b: u32;
 };
 
-env.IN <> struct {
+env("IN") <> struct {
     contents_struct: Contents;
 };
 

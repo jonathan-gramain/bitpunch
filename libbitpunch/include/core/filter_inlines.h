@@ -154,6 +154,15 @@ filter_attach_native_attribute(
 }
 
 static inline struct ast_node_hdl *
+filter_get_first_declared_named_expr(
+    const struct ast_node_hdl *filter,
+    const char *name)
+{
+  return scope_get_first_declared_named_expr(
+      filter_get_const_scope_def(filter), name);
+}
+
+static inline struct ast_node_hdl *
 filter_get_first_declared_attribute(
     const struct ast_node_hdl *filter,
     const char *attr_name)

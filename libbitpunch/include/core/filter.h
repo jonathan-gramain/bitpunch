@@ -240,6 +240,11 @@ filter_attach_native_attribute(
     const char *attr_name, expr_value_t value);
 
 static inline struct ast_node_hdl *
+filter_get_first_declared_named_expr(
+    const struct ast_node_hdl *filter,
+    const char *name);
+
+static inline struct ast_node_hdl *
 filter_get_first_declared_attribute(
     const struct ast_node_hdl *filter,
     const char *attr_name);

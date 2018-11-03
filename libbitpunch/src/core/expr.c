@@ -769,6 +769,67 @@ expr_lookup_evaluator(enum ast_node_type op_type,
 
 
 static bitpunch_status_t
+expr_eval_builtin_env(struct ast_node_hdl *object,
+                      struct statement_list *params,
+                      int n_params,
+                      expr_value_t *valuep,
+                      expr_dpath_t *dpathp,
+                      struct browse_state *bst)
+{
+    struct ast_node_hdl *expr;
+    bitpunch_status_t bt_ret;
+    expr_value_t name_eval;
+    char name_buf[256];
+    struct box *root_box;
+    struct ast_node_hdl *env_node;
+    struct ast_node_hdl *env_value_node = NULL;
+
+    expr = ((struct named_expr *)TAILQ_FIRST(params))->expr;
+    if (expr->ndat->u.rexpr.value_type_mask != EXPR_VALUE_TYPE_STRING) {
+        return node_error(BITPUNCH_INVALID_PARAM, expr, bst,
+                          "cannot evaluate 'env' with parameter of type '%s': "
+                          "must be a string",
+                          expr_value_type_str(
+                              expr->ndat->u.rexpr.value_type_mask));
+    }
+    bt_ret = expr_evaluate_value_internal(expr, NULL, &name_eval, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        assert(EXPR_VALUE_TYPE_STRING == name_eval.type);
+        if (name_eval.string.len < sizeof (name_buf)) {
+            memcpy(name_buf, name_eval.string.str, name_eval.string.len);
+            name_buf[name_eval.string.len] = '\0';
+            root_box = bst->scope;
+            assert(NULL != root_box);
+            while (NULL != root_box->parent_box) {
+                root_box = root_box->parent_box;
+            }
+            env_node = root_box->filter;
+            assert(AST_NODE_TYPE_SCOPE_DEF == env_node->ndat->type);
+            env_value_node = scope_get_first_declared_named_expr(
+                &env_node->ndat->u.scope_def, name_buf);
+            if (NULL == env_value_node) {
+                bt_ret = node_error(
+                    BITPUNCH_NO_ITEM, expr, bst,
+                    "cannot evaluate 'env': no value '%s' present "
+                    "in environment",
+                    name_buf);
+            }
+        } else {
+            bt_ret = node_error(
+                BITPUNCH_INVALID_PARAM, expr, bst,
+                "cannot evaluate 'env': name too long '%.20s' (max %zu chars)",
+                name_eval.string.str, sizeof (name_buf) - 1);
+        }
+        expr_value_destroy(name_eval);
+    }
+    if (BITPUNCH_OK == bt_ret) {
+        bt_ret = expr_evaluate_internal(env_value_node, NULL,
+                                        valuep, dpathp, bst);
+    }
+    return bt_ret;
+}
+
+static bitpunch_status_t
 expr_eval_builtin_index(struct ast_node_hdl *object,
                         struct statement_list *params,
                         int n_params,
@@ -907,6 +968,14 @@ expr_eval_builtin_len(struct ast_node_hdl *object,
 /* this array must be alphabetically ordered by builtin name */
 static const struct expr_builtin_fn
 expr_builtin_fns[] = {
+    {
+        .builtin_name = "env",
+        .res_value_type_mask = EXPR_VALUE_TYPE_BYTES,
+        .res_dpath_type_mask = EXPR_DPATH_TYPE_CONTAINER,
+        .eval_fn = expr_eval_builtin_env,
+        .min_n_params = 1,
+        .max_n_params = 1,
+    },
     {
         .builtin_name = "index",
         .res_value_type_mask = EXPR_VALUE_TYPE_INTEGER,
