@@ -613,7 +613,6 @@
     struct field *field;
     struct block_stmt_list block_stmt_list;
     struct statement_list *statement_list;
-    struct file_block file_block;
     struct named_expr *named_expr;
     struct func_param *func_param;
     struct subscript_index subscript_index;
@@ -655,8 +654,7 @@
 %right OP_ARRAY_DECL
 %left  OP_BRACKETS
 
-%type <ast_node_hdl> g_integer g_boolean g_identifier g_literal scope_block filter_block expr opt_expr twin_index opt_twin_index
-%type <file_block> file_block
+%type <ast_node_hdl> schema g_integer g_boolean g_identifier g_literal scope_block filter_block expr opt_expr twin_index opt_twin_index
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
 %type <statement_list> func_params func_param_nonempty_list
 %type <named_expr> let_stmt field_stmt attribute_stmt func_param
@@ -915,55 +913,19 @@ func_param:
 
 
 schema:
-    block_stmt_list file_block block_stmt_list {
-        struct statement *stmt, *tstmt;
-        struct named_expr *field;
-
-        if (-1 == merge_block_stmt_list(&$1, &$3)) {
-            YYERROR;
-        }
-        TAILQ_FOREACH_SAFE(stmt, $1.field_list, list, tstmt) {
-            field = (struct named_expr *)stmt;
-            semantic_error(SEMANTIC_LOGLEVEL_WARNING, &stmt->loc,
-                           "top-level field declared outside file{} block");
-            free(field->nstmt.name);
-            free(field);
-        }
-        /* ignore fields outside file{} */
-        TAILQ_INIT($1.field_list);
-        assert(AST_NODE_TYPE_FILTER_DEF == $file_block.root->ndat->type);
-        if (-1 == merge_block_stmt_list(
-                &$file_block.root->ndat->u.scope_def.block_stmt_list,
-                &$1)) {
-            YYERROR;
-        }
-        memcpy(out_param, &$file_block, sizeof($file_block));
+    block_stmt_list {
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_SCOPE_DEF, &@$);
+        $$->loc = @1;
+        $$->ndat->u.scope_def.block_stmt_list = $block_stmt_list;
+        $$->ndat->flags = ASTFLAG_IS_ROOT_BLOCK;
+        memcpy(out_param, &$$, sizeof($$));
     }
-  | block_stmt_list {
-      struct block_stmt_list __attribute__((unused)) *stmt_list = &$block_stmt_list;
-
-      semantic_error(SEMANTIC_LOGLEVEL_ERROR, NULL,
-                     "missing top-level \"file {}\" block in "
-                     "binary definition file");
-      YYERROR;
-  }
 
 scope_block:
     '{' block_stmt_list '}' {
         $$ = ast_node_hdl_create(AST_NODE_TYPE_SCOPE_DEF, &@$);
         $$->loc = @1;
         $$->ndat->u.scope_def.block_stmt_list = $block_stmt_list;
-    }
-
-file_block: KW_FILE scope_block {
-        struct ast_node_data *item;
-
-        $$.root = $scope_block;
-        $$.root->ndat->type = AST_NODE_TYPE_FILTER_DEF;
-        $$.root->loc = @1;
-        item = $$.root->ndat;
-        item->u.filter_def.filter_type = "struct";
-        $$.root->flags = ASTFLAG_IS_ROOT_BLOCK;
     }
 
 filter_block:
