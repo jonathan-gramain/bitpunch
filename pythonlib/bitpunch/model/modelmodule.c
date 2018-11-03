@@ -2218,7 +2218,7 @@ DataTree_new(PyTypeObject *subtype,
     }
 
     env = bitpunch_env_new();
-    bitpunch_env_add_data_source(env, "INPUT", ds);
+    bitpunch_env_add_data_source(env, "IN", ds);
 
     self = (DataTreeObject *)DataItem_new(subtype, NULL, NULL);
     if (NULL == self) {

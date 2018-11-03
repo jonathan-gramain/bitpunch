@@ -58,10 +58,6 @@ struct parser_ctx {
     int         start_token;
 };
 
-struct file_block {
-    struct ast_node_hdl *root;
-};
-
 enum bitpunch_schema_type {
     BITPUNCH_SCHEMA_TYPE_UNSET = 0,
     BITPUNCH_SCHEMA_TYPE_FILEPATH,
@@ -74,7 +70,7 @@ struct bitpunch_schema {
     size_t data_length;
     char *file_path;
     struct parser_ctx parser_ctx;
-    struct file_block file_block;
+    struct ast_node_hdl *ast_root;
 };
 
 struct bitpunch_data_source;

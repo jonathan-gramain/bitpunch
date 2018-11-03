@@ -132,7 +132,7 @@ bitpunch_compile_schema(struct bitpunch_schema *schema)
 {
     struct ast_node_hdl *ast_root;
 
-    ast_root = schema->file_block.root;
+    ast_root = schema->ast_root;
     if (-1 == resolve_identifiers(ast_root, NULL,
                                   RESOLVE_EXPECT_TYPE |
                                   RESOLVE_EXPECT_FILTER,
@@ -726,36 +726,22 @@ resolve_identifiers_in_stmt_lists(
 }
 
 static int
-resolve_identifiers_in_filter_body(
-    struct ast_node_hdl *filter,
-    const struct list_of_visible_refs *outer_refs,
-    enum resolve_identifiers_tag resolve_tags)
+resolve_identifiers_scope_def(struct ast_node_hdl *scope_def,
+                              const struct list_of_visible_refs *visible_refs,
+                              enum resolve_expect_mask expect_mask,
+                              enum resolve_identifiers_tag resolve_tags)
 {
     struct block_stmt_list *stmt_lists;
-    struct list_of_visible_refs visible_refs;
+    struct list_of_visible_refs inner_refs;
 
-    assert(AST_NODE_TYPE_FILTER_DEF == filter->ndat->type);
-    stmt_lists = &filter->ndat->u.scope_def.block_stmt_list;
+    stmt_lists = &scope_def->ndat->u.scope_def.block_stmt_list;
     /* add current refs to the chain of visible refs */
-    visible_refs.outer_refs = outer_refs;
-    visible_refs.cur_filter = filter;
-    visible_refs.cur_lists = stmt_lists;
+    inner_refs.outer_refs = visible_refs;
+    inner_refs.cur_filter = scope_def;
+    inner_refs.cur_lists = stmt_lists;
 
-    return resolve_identifiers_in_stmt_lists(stmt_lists, &visible_refs,
+    return resolve_identifiers_in_stmt_lists(stmt_lists, &inner_refs,
                                              resolve_tags);
-}
-
-static int
-resolve_identifiers_filter(struct ast_node_hdl *filter,
-                           const struct list_of_visible_refs *visible_refs,
-                           enum resolve_expect_mask expect_mask,
-                           enum resolve_identifiers_tag resolve_tags)
-{
-    if (-1 == resolve_identifiers_in_filter_body(filter, visible_refs,
-                                                 resolve_tags)) {
-        return -1;
-    }
-    return 0;
 }
 
 static int
@@ -1047,9 +1033,10 @@ resolve_identifiers(struct ast_node_hdl *node,
     case AST_NODE_TYPE_IDENTIFIER:
         return resolve_identifiers_identifier(node, visible_refs,
                                               expect_mask, resolve_tags);
+    case AST_NODE_TYPE_SCOPE_DEF:
     case AST_NODE_TYPE_FILTER_DEF:
-        return resolve_identifiers_filter(node, visible_refs,
-                                          expect_mask, resolve_tags);
+        return resolve_identifiers_scope_def(node, visible_refs,
+                                             expect_mask, resolve_tags);
     case AST_NODE_TYPE_CONDITIONAL:
         return resolve_identifiers_conditional(node, visible_refs,
                                                expect_mask, resolve_tags);

@@ -623,7 +623,7 @@
 %token <integer> INTEGER
 %token <literal> LITERAL
 %token <boolean> KW_TRUE KW_FALSE
-%token KW_FILE KW_IF KW_ELSE KW_SELF KW_LET
+%token KW_FILE KW_IF KW_ELSE KW_SELF KW_LET KW_ENV
 
 %token <ast_node_type> '|' '^' '&' '>' '<' '+' '-' '*' '/' '%' '!' '~' '.' ':'
 %token <ast_node_type> TOK_LOR "||"

@@ -1139,7 +1139,7 @@ box_new_root_box_internal(struct bitpunch_schema *schema,
     env_box->ds_out = NULL;
 
     root_box = new_safe(struct box);
-    bt_ret = box_construct(root_box, env_box, schema->file_block.root, env_box,
+    bt_ret = box_construct(root_box, env_box, schema->ast_root, env_box,
                            0, 0u, bst);
     if (BITPUNCH_OK != bt_ret) {
         /* TODO error reporting */
@@ -1176,7 +1176,7 @@ box_new_from_file_internal(const struct bitpunch_schema *def_hdl,
     // dpath, which can be chained with a composite or other type of
     // (usually trackable) filter
 
-    root_filter = def_hdl->file_block.root;
+    root_filter = def_hdl->ast_root;
     assert(NULL != root_filter);
     source_box = new_safe(struct box);
     bt_ret = box_construct(source_box, NULL,
