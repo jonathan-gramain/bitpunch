@@ -1214,7 +1214,7 @@ resolve_expr_scoped_recur(struct ast_node_hdl *expr,
     struct list_of_visible_refs visible_refs;
 
     while (NULL != cur_scope
-           && !ast_node_is_filter(cur_scope->filter)) {
+           && !ast_node_is_scope(cur_scope->filter)) {
         cur_scope = cur_scope->parent_box;
     }
     if (NULL == cur_scope) {
@@ -1223,7 +1223,7 @@ resolve_expr_scoped_recur(struct ast_node_hdl *expr,
     visible_refs.outer_refs = NULL;
     visible_refs.cur_filter = cur_scope->filter;
     visible_refs.cur_lists =
-        &filter_get_scope_def(cur_scope->filter)->block_stmt_list;
+        &ast_node_get_scope_def(cur_scope->filter)->block_stmt_list;
     if (NULL != inner_refs) {
         inner_refs->outer_refs = &visible_refs;
     }
@@ -3706,6 +3706,25 @@ ast_node_is_type(const struct ast_node_hdl *node)
     return ast_node_is_item(node);
 }
 
+
+int
+ast_node_is_scope(const struct ast_node_hdl *node)
+{
+    return AST_NODE_TYPE_SCOPE_DEF == node->ndat->type ||
+        ast_node_is_filter(node);
+}
+
+struct scope_def *
+ast_node_get_scope_def(struct ast_node_hdl *node)
+{
+    if (ast_node_is_scope(node)) {
+        return &node->ndat->u.scope_def;
+    }
+    if (ast_node_is_filter(node)) {
+        return filter_get_scope_def(node);
+    }
+    return NULL;
+}
 
 int
 ast_node_is_filter(const struct ast_node_hdl *node)

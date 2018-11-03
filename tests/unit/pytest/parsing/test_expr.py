@@ -107,9 +107,9 @@ let Contents = struct {
     b: u32;
 };
 
-file {
+INPUT <> struct {
     contents_struct: Contents;
-}
+};
 
 """
 

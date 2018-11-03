@@ -190,6 +190,10 @@ ast_node_is_trackable(const struct ast_node_hdl *node);
 int
 ast_node_is_type(const struct ast_node_hdl *node);
 int
+ast_node_is_scope(const struct ast_node_hdl *node);
+struct scope_def *
+ast_node_get_scope_def(struct ast_node_hdl *node);
+int
 ast_node_is_filter(const struct ast_node_hdl *node);
 struct ast_node_hdl *
 ast_node_filter_get_last_in_chain(struct ast_node_hdl *filter);
