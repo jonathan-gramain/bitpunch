@@ -121,7 +121,7 @@ bitpunch_eval_expr_legacy(struct bitpunch_schema *schema,
     int ret;
 
     env = bitpunch_env_new();
-    bitpunch_env_add_data_source(env, "DATA", ds);
+    bitpunch_env_add_data_source(env, "INPUT", ds);
 
     ret = bitpunch_eval_expr(schema, env, expr, scope, valuep, dpathp, errp);
 
