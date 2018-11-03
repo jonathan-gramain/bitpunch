@@ -132,6 +132,9 @@ bitpunch_compile_schema(struct bitpunch_schema *schema)
 {
     struct ast_node_hdl *ast_root;
 
+    if (0 != (schema->flags & BITPUNCH_SCHEMA_COMPILED)) {
+        return 0;
+    }
     ast_root = schema->ast_root;
     if (-1 == resolve_identifiers(ast_root, NULL,
                                   RESOLVE_EXPECT_TYPE |
@@ -150,6 +153,7 @@ bitpunch_compile_schema(struct bitpunch_schema *schema)
                                    RESOLVE_EXPECT_FILTER)) {
         return -1;
     }
+    schema->flags |= BITPUNCH_SCHEMA_COMPILED;
     return 0;
 }
 
@@ -158,6 +162,9 @@ bitpunch_compile_env(struct bitpunch_env *env)
 {
     struct ast_node_hdl *ast_root;
 
+    if (0 != (env->flags & BITPUNCH_ENV_COMPILED)) {
+        return 0;
+    }
     ast_root = env->ast_root;
     if (-1 == resolve_identifiers(ast_root, NULL,
                                   RESOLVE_EXPECT_TYPE |
@@ -176,6 +183,7 @@ bitpunch_compile_env(struct bitpunch_env *env)
                                    RESOLVE_EXPECT_FILTER)) {
         return -1;
     }
+    env->flags |= BITPUNCH_ENV_COMPILED;
     return 0;
 }
 

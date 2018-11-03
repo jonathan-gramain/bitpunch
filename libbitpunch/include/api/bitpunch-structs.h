@@ -65,12 +65,17 @@ enum bitpunch_schema_type {
     BITPUNCH_SCHEMA_TYPE_BUFFER,
 };
 
+enum bitpunch_schema_flag {
+    BITPUNCH_SCHEMA_COMPILED = (1u<<0),
+};
+
 struct bitpunch_schema {
     char *data;
     size_t data_length;
     char *file_path;
     struct parser_ctx parser_ctx;
     struct ast_node_hdl *ast_root;
+    enum bitpunch_schema_flag flags;
 };
 
 struct bitpunch_data_source;
@@ -102,21 +107,14 @@ struct bitpunch_file_source {
     size_t    map_length;
 };
 
-enum bitpunch_env_map_item_type {
-    BITPUNCH_ENV_MAP_ITEM_DATA_SOURCE,
-};
-
-struct bitpunch_env_map_item {
-    char *name;
-    enum bitpunch_env_map_item_type type;
-    union {
-        struct bitpunch_data_source *ds;
-    } u;
+enum bitpunch_env_flag {
+    BITPUNCH_ENV_COMPILED = (1u<<0),
 };
 
 struct bitpunch_env {
     /** root node for the environment, of type AST_NODE_TYPE_SCOPE_DEF */
     struct ast_node_hdl *ast_root;
+    enum bitpunch_env_flag flags;
 };
 
 #endif
