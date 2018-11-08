@@ -1311,7 +1311,18 @@ box_apply_local_filter__data_filter(struct box *box, struct browse_state *bst)
 }
 
 static bitpunch_status_t
-box_apply_local_filter__data_source(struct box *box, struct browse_state *bst)
+box_apply_local_filter__data_source(
+    struct box *box, struct browse_state *bst)
+{
+    box->ds_out = box->filter->ndat->u.rexpr_data_source.data_source;
+    box->start_offset_used = 0;
+    box->end_offset_used = box->ds_out->ds_data_length;
+    return BITPUNCH_OK;
+}
+
+static bitpunch_status_t
+box_apply_local_filter__get_data_source(
+    struct box *box, struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
 
@@ -1332,7 +1343,11 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
 
     assert(NULL == box->ds_out);
     if (0 == (box->flags & BOX_FILTER)) {
+        box_setup_overlay(box);
         return BITPUNCH_OK;
+    }
+    if (AST_NODE_TYPE_REXPR_DATA_SOURCE == box->filter->ndat->type) {
+        return box_apply_local_filter__data_source(box, bst);
     }
     filter_cls = box->filter->ndat->u.rexpr_filter.filter_cls;
     if (NULL == filter_cls
@@ -1343,7 +1358,7 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
     }
     f_instance = box->filter->ndat->u.rexpr_filter.f_instance;
     if (NULL != f_instance->get_data_source_func) {
-        return box_apply_local_filter__data_source(box, bst);
+        return box_apply_local_filter__get_data_source(box, bst);
     }
     return box_apply_local_filter__data_filter(box, bst);
 }
@@ -1386,6 +1401,7 @@ box_apply_filter_internal(struct box *box,
     }
     bt_ret = box_apply_local_filter(box, bst);
     if (BITPUNCH_OK == bt_ret) {
+        assert(NULL != box->ds_out);
         box->flags |= BOX_FILTER_APPLIED;
     }
     return bt_ret;

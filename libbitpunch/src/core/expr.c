@@ -1981,6 +1981,33 @@ expr_evaluate_polymorphic(
 }
 
 static bitpunch_status_t
+expr_evaluate_data_source(struct ast_node_hdl *expr,
+                          expr_value_t *valuep, expr_dpath_t *dpathp,
+                          struct browse_state *bst)
+{
+    struct box *ds_box;
+    expr_dpath_t dpath;
+    bitpunch_status_t bt_ret;
+
+    ds_box = new_safe(struct box);
+    bt_ret = box_construct(ds_box, NULL, expr, bst->scope, 0, BOX_FILTER, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        box_delete_non_null(ds_box);
+        return bt_ret;
+    }
+    dpath = expr_dpath_as_container(ds_box);
+    if (NULL != valuep) {
+        bt_ret = dpath_read_value_internal(dpath, valuep, bst);
+    }
+    if (BITPUNCH_OK == bt_ret && NULL != dpathp) {
+        *dpathp = dpath;
+    } else {
+        expr_dpath_destroy(dpath);
+    }
+    return bt_ret;
+}
+
+static bitpunch_status_t
 expr_evaluate_file(struct ast_node_hdl *expr,
                    expr_value_t *valuep, expr_dpath_t *dpathp,
                    struct browse_state *bst)
@@ -2327,6 +2354,9 @@ expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
     case AST_NODE_TYPE_REXPR_POLYMORPHIC:
         bt_ret = expr_evaluate_polymorphic(expr, valuep, dpathp, bst);
         break ;
+    case AST_NODE_TYPE_REXPR_DATA_SOURCE:
+        bt_ret = expr_evaluate_data_source(expr, valuep, dpathp, bst);
+        break ;
     case AST_NODE_TYPE_REXPR_FILE:
         bt_ret = expr_evaluate_file(expr, valuep, dpathp, bst);
         break ;
@@ -2546,13 +2576,10 @@ expr_transform_dpath_filter(
         break ;
 
     case EXPR_DPATH_TYPE_NONE:
-        if (AST_NODE_TYPE_REXPR_DATA_SOURCE == expr->ndat->type) {
-        } else {
-            f_instance = expr->ndat->u.rexpr_filter.f_instance;
-            if (NULL == f_instance->get_data_source_func) {
-                return node_error(BITPUNCH_DATA_ERROR, expr, bst,
-                                  "no data source to compute dpath");
-            }
+        f_instance = expr->ndat->u.rexpr_filter.f_instance;
+        if (NULL == f_instance->get_data_source_func) {
+            return node_error(BITPUNCH_DATA_ERROR, expr, bst,
+                              "no data source to compute dpath");
         }
         filtered_data_box = box_new_filter_box(NULL, expr, bst);
         if (NULL == filtered_data_box) {
@@ -2594,7 +2621,6 @@ expr_transform_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
-    case AST_NODE_TYPE_REXPR_DATA_SOURCE:
         bt_ret = expr_transform_dpath_filter(expr, transformp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_FILE:
@@ -2604,6 +2630,7 @@ expr_transform_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE:
     case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
     case AST_NODE_TYPE_REXPR_OP_FCALL:
+    case AST_NODE_TYPE_REXPR_DATA_SOURCE:
         bt_ret = expr_transform_dpath_generic_internal(expr, transformp, bst);
         break ;
     default:
