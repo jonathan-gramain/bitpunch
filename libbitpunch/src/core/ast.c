@@ -3705,7 +3705,8 @@ ast_node_is_type(const struct ast_node_hdl *node)
 int
 ast_node_is_scope(const struct ast_node_hdl *node)
 {
-    return AST_NODE_TYPE_SCOPE_DEF == node->ndat->type;
+    return ast_node_is_filter(node) ||
+        AST_NODE_TYPE_SCOPE_DEF == node->ndat->type;
 }
 
 struct scope_def *
@@ -3714,7 +3715,7 @@ ast_node_get_scope_def(struct ast_node_hdl *node)
     if (ast_node_is_filter(node)) {
         return filter_get_scope_def(node);
     }
-    if (ast_node_is_scope(node)) {
+    if (AST_NODE_TYPE_SCOPE_DEF == node->ndat->type) {
         return &node->ndat->u.scope_def;
     }
     return NULL;
