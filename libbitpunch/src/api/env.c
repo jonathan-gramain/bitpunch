@@ -43,7 +43,8 @@ bitpunch_env_new(void)
     struct bitpunch_env *env;
 
     env = new_safe(struct bitpunch_env);
-    env->ast_root = ast_node_hdl_create(AST_NODE_TYPE_SCOPE_DEF, NULL);
+    env->ast_root = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, NULL);
+    env->ast_root->ndat->u.filter_def.filter_type = "scope";
     init_block_stmt_list(&env->ast_root->ndat->u.scope_def.block_stmt_list);
     return env;
 }

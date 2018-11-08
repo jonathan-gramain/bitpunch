@@ -783,6 +783,7 @@ expr_eval_builtin_env(struct ast_node_hdl *object,
     struct box *root_box;
     struct ast_node_hdl *env_node;
     struct ast_node_hdl *env_value_node = NULL;
+    struct scope_def *scope_def;
 
     expr = ((struct named_expr *)TAILQ_FIRST(params))->expr;
     if (expr->ndat->u.rexpr.value_type_mask != EXPR_VALUE_TYPE_STRING) {
@@ -804,9 +805,11 @@ expr_eval_builtin_env(struct ast_node_hdl *object,
                 root_box = root_box->parent_box;
             }
             env_node = root_box->filter;
-            assert(AST_NODE_TYPE_SCOPE_DEF == env_node->ndat->type);
+            assert(AST_NODE_TYPE_REXPR_FILTER == env_node->ndat->type);
+            scope_def = filter_get_scope_def(env_node);
+            assert(NULL != scope_def);
             env_value_node = scope_get_first_declared_named_expr(
-                &env_node->ndat->u.scope_def, name_buf);
+                scope_def, name_buf);
             if (NULL == env_value_node) {
                 bt_ret = node_error(
                     BITPUNCH_NO_ITEM, expr, bst,
@@ -2397,8 +2400,10 @@ expr_transform_dpath_generic_internal(
     expr_dpath_t filtered_dpath;
 
     if (EXPR_DPATH_TYPE_NONE != transformp->dpath.type) {
-        return node_error(BITPUNCH_INVALID_PARAM, expr, bst,
-                          "cannot evaluate filtered dpath: multiple sources");
+        /* return node_error(BITPUNCH_INVALID_PARAM, expr, bst, */
+        /*                   "cannot evaluate filtered dpath: multiple sources"); */
+        expr_dpath_destroy(transformp->dpath);
+        transformp->dpath.type = EXPR_DPATH_TYPE_NONE;
     }
     bt_ret = expr_evaluate_dpath_internal(expr, NULL,
                                           &transformp->dpath, bst);
