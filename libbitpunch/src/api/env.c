@@ -85,6 +85,8 @@ bitpunch_env_add_data_source(
     struct ast_node_hdl *source_node;
 
     source_node = ast_node_hdl_create(AST_NODE_TYPE_REXPR_DATA_SOURCE, NULL);
+    source_node->ndat->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_BYTES;
+    source_node->ndat->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_CONTAINER;
     source_node->ndat->u.rexpr_data_source.data_source = ds;
     env_add_named_expr(env, name, source_node);
 }

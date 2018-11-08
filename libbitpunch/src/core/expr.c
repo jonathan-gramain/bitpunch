@@ -2546,10 +2546,13 @@ expr_transform_dpath_filter(
         break ;
 
     case EXPR_DPATH_TYPE_NONE:
-        f_instance = expr->ndat->u.rexpr_filter.f_instance;
-        if (NULL == f_instance->get_data_source_func) {
-            return node_error(BITPUNCH_DATA_ERROR, expr, bst,
-                              "no data source to compute dpath");
+        if (AST_NODE_TYPE_REXPR_DATA_SOURCE == expr->ndat->type) {
+        } else {
+            f_instance = expr->ndat->u.rexpr_filter.f_instance;
+            if (NULL == f_instance->get_data_source_func) {
+                return node_error(BITPUNCH_DATA_ERROR, expr, bst,
+                                  "no data source to compute dpath");
+            }
         }
         filtered_data_box = box_new_filter_box(NULL, expr, bst);
         if (NULL == filtered_data_box) {
