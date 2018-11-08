@@ -2219,7 +2219,10 @@ DataTree_new(PyTypeObject *subtype,
 
     env = bitpunch_env_new();
     bitpunch_env_add_data_source(env, "IN", ds);
-
+    if (-1 == bitpunch_compile_env(env)) {
+        PyErr_SetString(PyExc_OSError, "Error compiling environment");
+        return NULL;
+    }
     self = (DataTreeObject *)DataItem_new(subtype, NULL, NULL);
     if (NULL == self) {
         (void) bitpunch_data_source_release(ds);

@@ -14,9 +14,9 @@ let AsContents = struct {
     data: [n] byte;
 };
 
-file {
+env("IN") <> struct {
     contents: [] byte <> AsContents;
-}
+};
 
 """
 
@@ -34,9 +34,9 @@ let AsContents = struct {
     data: [n] byte;
 };
 
-file {
+env("IN") <> struct {
     contents: [] byte <> DummyStruct <> AsContents;
-}
+};
 
 """
 
@@ -53,9 +53,9 @@ let AsContents = struct {
     data: [] byte;
 };
 
-file {
+env("IN") <> struct {
     contents: [] byte <> HopStruct;
-}
+};
 
 """
 
@@ -73,11 +73,11 @@ let AsContents = struct {
     data: [n] byte;
 };
 
-file {
+env("IN") <> struct {
     header: [30] byte;
     contents: [20] byte <> AsContents;
     footer: [30] byte;
-}
+};
 
 """
 
@@ -108,9 +108,9 @@ let AsContents = struct {
     data: [] byte;
 };
 
-file {
+env("IN") <> struct {
     contents: [] byte <> Base64Block;
-}
+};
 
 """
 
@@ -128,9 +128,9 @@ let AsContents = struct {
     data: [] byte;
 };
 
-file {
+env("IN") <> struct {
     contents: [] byte <> Base64Block;
-}
+};
 
 """
 
@@ -226,9 +226,9 @@ let AsContents = struct {
     let ?data_glimpse = data[10..][4..7];
 };
 
-file {
+env("IN") <> struct {
     blocks: [] Base64Block;
-}
+};
 
 """
 
@@ -250,9 +250,9 @@ let AsContents = struct {
     let ?data_glimpse = data[10..][4..7];
 };
 
-file {
+env("IN") <> struct {
     blocks: [] Base64Block;
-}
+};
 
 """
 
@@ -275,9 +275,9 @@ let AsContents = struct {
     let ?data_glimpse = data[10..][4..7];
 };
 
-file {
+env("IN") <> struct {
     blocks: [] Base64Block;
-}
+};
 
 """
 
@@ -374,7 +374,7 @@ let UnusedByteStruct = struct {
     by: [1] byte;
 };
 
-file {
+env("IN") <> struct {
     a: [1] byte;
     b: [2] byte;
 
@@ -389,7 +389,7 @@ file {
     } else {
         let ?nb_as_struct = ?b_as_struct;
     }
-}
+};
 
 """
 
@@ -451,13 +451,13 @@ let B64Message = Base64Line <> struct {
     };
 };
 
-file {
+env("IN") <> struct {
     hdr:      B64Header;
     messages: [hdr.?nb_messages] B64Message;
     garbage:  [] byte;
 
     let ?first_message_data_3_chars = messages[0].data <> [3] byte <> string;
-}
+};
 
 """
 
@@ -494,11 +494,11 @@ let B64Message = Base64Line <> struct {
     };
 };
 
-file {
+env("IN") <> struct {
     base64 <> DecodedFile;
 
     let ?first_message_data_3_chars = messages[0].data <> [3] byte <> string;
-}
+};
 
 let DecodedFile = struct {
     hdr:      B64Header;
@@ -550,13 +550,13 @@ let Message = struct {
     };
 };
 
-file {
+env("IN") <> struct {
     hdr:      B64Header;
     messages: [hdr.?nb_messages] Message;
     garbage:  [] byte;
 
     let ?first_message_data_3_chars = messages[0].data <> [3] byte <> string;
-}
+};
 
 """
 
@@ -612,9 +612,9 @@ spec_file_filter_file_as_single_integer_1 = """
 
 let UnsignedTemplate = integer { @signed = false; @endian = 'little'; };
 
-file {
+env("IN") <> struct {
     value: UnsignedTemplate;
-}
+};
 
 """
 
@@ -622,11 +622,11 @@ spec_file_filter_file_as_single_integer_2 = """
 
 let UnsignedTemplate = integer { @signed = false; @endian = 'little'; };
 
-file {
+env("IN") <> struct {
     value: ?ref;
 
     let ?ref = UnsignedTemplate;
-}
+};
 
 """
 
@@ -654,9 +654,9 @@ def test_filter_file_as_single_integer(params_filter_file_as_single_integer):
 
 spec_file_filter_invalid_bad_filter_type = """
 
-file {
+env("IN") <> struct {
     value: 42;
-}
+};
 
 """
 
@@ -745,9 +745,9 @@ spec_file_ancestor_of_u8 = """
 
 let u8 = byte <> integer { @signed = false; };
 
-file {
+env("IN") <> struct {
     contents: [5] u8;
-}
+};
 
 """
 
@@ -782,9 +782,9 @@ spec_file_non_slack_array_filtered = """
 
 let NullTermFixedString = [8] byte <> string { @boundary = '\\0'; };
 
-file {
+env("IN") <> struct {
     contents: NullTermFixedString;
-}
+};
 
 """
 
@@ -832,9 +832,9 @@ let Base64Line = string { @boundary = '\\n'; } <> Base64;
 
 let Item = Base64Line <> string { @boundary = ' '; };
 
-file {
+env("IN") <> struct {
     contents: [] Item;
-}
+};
 
 """
 
@@ -867,7 +867,7 @@ spec_file_dynamic_filter_param_integer = """
 
 let u8 = byte <> integer { @signed = false; };
 
-file {
+env("IN") <> struct {
     little_endian: u8;
     if (little_endian == 1) {
         let ?endian = 'little';
@@ -879,7 +879,7 @@ file {
     let u16 = [2] byte <> Integer;
 
     values: [5] u16;
-}
+};
 
 """
 

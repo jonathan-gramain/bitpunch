@@ -1401,7 +1401,6 @@ box_apply_filter_internal(struct box *box,
     }
     bt_ret = box_apply_local_filter(box, bst);
     if (BITPUNCH_OK == bt_ret) {
-        assert(NULL != box->ds_out);
         box->flags |= BOX_FILTER_APPLIED;
     }
     return bt_ret;

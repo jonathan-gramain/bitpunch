@@ -78,8 +78,8 @@ bitpunch_eval_expr(struct bitpunch_schema *schema,
     if (-1 == bitpunch_parse_expr(expr, &expr_node, &parser_ctx)) {
         return -1;
     }
-    if (NULL != env) {
-        bitpunch_compile_env(env);
+    if (NULL != env && -1 == bitpunch_compile_env(env)) {
+        return -1;
     }
     if (NULL != schema) {
         if (NULL == scope) {
