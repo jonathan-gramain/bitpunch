@@ -3705,18 +3705,17 @@ ast_node_is_type(const struct ast_node_hdl *node)
 int
 ast_node_is_scope(const struct ast_node_hdl *node)
 {
-    return AST_NODE_TYPE_SCOPE_DEF == node->ndat->type ||
-        ast_node_is_filter(node);
+    return AST_NODE_TYPE_SCOPE_DEF == node->ndat->type;
 }
 
 struct scope_def *
 ast_node_get_scope_def(struct ast_node_hdl *node)
 {
-    if (ast_node_is_scope(node)) {
-        return &node->ndat->u.scope_def;
-    }
     if (ast_node_is_filter(node)) {
         return filter_get_scope_def(node);
+    }
+    if (ast_node_is_scope(node)) {
+        return &node->ndat->u.scope_def;
     }
     return NULL;
 }

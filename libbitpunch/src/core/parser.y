@@ -914,8 +914,9 @@ func_param:
 
 schema:
     block_stmt_list {
-        $$ = ast_node_hdl_create(AST_NODE_TYPE_SCOPE_DEF, &@$);
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, &@$);
         $$->loc = @1;
+        $$->ndat->u.filter_def.filter_type = "scope";
         $$->ndat->u.scope_def.block_stmt_list = $block_stmt_list;
         $$->ndat->flags = ASTFLAG_IS_ROOT_BLOCK;
         memcpy(out_param, &$$, sizeof($$));
