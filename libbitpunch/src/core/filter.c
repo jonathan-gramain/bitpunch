@@ -148,6 +148,8 @@ filter_class_lookup(const char *name)
     return NULL;
 }
 
+void filter_class_declare_scope(void);
+
 void filter_class_declare_data_source(void);
 void filter_class_declare_file(void);
 
@@ -166,6 +168,8 @@ void filter_class_declare_formatted_integer(void);
 void
 filter_class_declare_std(void)
 {
+    filter_class_declare_scope();
+
     filter_class_declare_file();
 
     filter_class_declare_byte();
