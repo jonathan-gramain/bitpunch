@@ -780,9 +780,11 @@ def test_ancestor_of_u8(params_ancestor_of_u8):
 
 spec_file_non_slack_array_filtered = """
 
+let FILE = env("FILE");
+
 let NullTermFixedString = [8] byte <> string { @boundary = '\\0'; };
 
-env("FILE") <> struct {
+FILE <> struct {
     contents: NullTermFixedString;
 };
 
@@ -806,7 +808,7 @@ def test_non_slack_array_filtered(params_non_slack_array_filtered):
     params = params_non_slack_array_filtered
     dtree = params['dtree']
 
-    assert str(dtree) == 'hello\0\0\0'
+    assert str(dtree.FILE) == 'hello\0\0\0'
     assert str(dtree.contents) == 'hello'
     assert str(dtree.contents[1:]) == 'ello'
     assert model.make_python_object(

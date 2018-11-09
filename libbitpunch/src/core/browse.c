@@ -1345,7 +1345,8 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
         return box_apply_local_filter__data_source(box, bst);
     }
     filter_cls = box->filter->ndat->u.rexpr_filter.filter_cls;
-    if (EXPR_VALUE_TYPE_UNSET == filter_cls->value_type_mask) {
+    // FIXME generalize this check
+    if (NULL != filter_cls && 0 == strcmp(filter_cls->name, "scope")) {
         // no data source (scope-only filter)
         return BITPUNCH_OK;
     }
