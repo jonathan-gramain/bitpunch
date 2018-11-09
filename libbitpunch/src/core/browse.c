@@ -805,8 +805,6 @@ box_setup_input_boundaries(struct box *box)
 {
     int box_is_right_aligned;
 
-    assert(NULL != box->parent_box);
-
     if (0 != (box->flags & BOX_RALIGN)) {
         box_is_right_aligned =
             0 == (box->track_path.flags & TRACK_PATH_HEADER);
@@ -1295,7 +1293,7 @@ box_apply_local_filter__data_filter(struct box *box, struct browse_state *bst)
     }
     if (filtered_data >= box->ds_in->ds_data &&
         filtered_data < box->ds_in->ds_data + box->ds_in->ds_data_length) {
-        box->ds_out = box->ds_in;
+        box_setup_overlay(box);
         box->start_offset_used = filtered_data - box->ds_out->ds_data;
         box->end_offset_used =
             (filtered_data + filtered_size) - box->ds_out->ds_data;
@@ -1342,14 +1340,15 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
     struct filter_instance *f_instance;
 
     assert(NULL == box->ds_out);
-    if (0 == (box->flags & BOX_FILTER)) {
-        box_setup_overlay(box);
-        return BITPUNCH_OK;
-    }
+
     if (AST_NODE_TYPE_REXPR_DATA_SOURCE == box->filter->ndat->type) {
         return box_apply_local_filter__data_source(box, bst);
     }
     filter_cls = box->filter->ndat->u.rexpr_filter.filter_cls;
+    if (EXPR_VALUE_TYPE_UNSET == filter_cls->value_type_mask) {
+        // no data source (scope-only filter)
+        return BITPUNCH_OK;
+    }
     if (NULL == filter_cls
         || !expr_value_type_mask_contains_dpath(filter_cls->value_type_mask)) {
         box_setup_input_boundaries(box);
@@ -1752,8 +1751,6 @@ tracker_create_item_box_internal(struct tracker *tk,
         xtk = tk;
         bt_ret = BITPUNCH_OK;
     }
-    box_flags = 0 != (xtk->flags & TRACKER_REVERSED) ?
-        BOX_RALIGN | BOX_OVERLAY : BOX_OVERLAY;
     if (tracker_is_dangling(xtk)) {
         bt_ret = BITPUNCH_NO_ITEM;
         goto end;
@@ -1765,6 +1762,8 @@ tracker_create_item_box_internal(struct tracker *tk,
         }
         assert(xtk->item_offset >= 0);
     }
+    box_flags = 0 != (xtk->flags & TRACKER_REVERSED) ?
+        BOX_RALIGN | BOX_OVERLAY : BOX_OVERLAY;
     item_box = box_lookup_cached_child(xtk->box, xtk->cur, box_flags);
     if (NULL != item_box) {
 #ifdef DEBUG

@@ -14,7 +14,7 @@ let AsContents = struct {
     data: [n] byte;
 };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     contents: [] byte <> AsContents;
 };
 
@@ -34,7 +34,7 @@ let AsContents = struct {
     data: [n] byte;
 };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     contents: [] byte <> DummyStruct <> AsContents;
 };
 
@@ -53,7 +53,7 @@ let AsContents = struct {
     data: [] byte;
 };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     contents: [] byte <> HopStruct;
 };
 
@@ -73,7 +73,7 @@ let AsContents = struct {
     data: [n] byte;
 };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     header: [30] byte;
     contents: [20] byte <> AsContents;
     footer: [30] byte;
@@ -108,7 +108,7 @@ let AsContents = struct {
     data: [] byte;
 };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     contents: [] byte <> Base64Block;
 };
 
@@ -128,7 +128,7 @@ let AsContents = struct {
     data: [] byte;
 };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     contents: [] byte <> Base64Block;
 };
 
@@ -226,7 +226,7 @@ let AsContents = struct {
     let ?data_glimpse = data[10..][4..7];
 };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     blocks: [] Base64Block;
 };
 
@@ -250,7 +250,7 @@ let AsContents = struct {
     let ?data_glimpse = data[10..][4..7];
 };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     blocks: [] Base64Block;
 };
 
@@ -275,7 +275,7 @@ let AsContents = struct {
     let ?data_glimpse = data[10..][4..7];
 };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     blocks: [] Base64Block;
 };
 
@@ -374,7 +374,7 @@ let UnusedByteStruct = struct {
     by: [1] byte;
 };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     a: [1] byte;
     b: [2] byte;
 
@@ -451,7 +451,7 @@ let B64Message = Base64Line <> struct {
     };
 };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     hdr:      B64Header;
     messages: [hdr.?nb_messages] B64Message;
     garbage:  [] byte;
@@ -494,7 +494,7 @@ let B64Message = Base64Line <> struct {
     };
 };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     base64 <> DecodedFile;
 
     let ?first_message_data_3_chars = messages[0].data <> [3] byte <> string;
@@ -550,7 +550,7 @@ let Message = struct {
     };
 };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     hdr:      B64Header;
     messages: [hdr.?nb_messages] Message;
     garbage:  [] byte;
@@ -612,7 +612,7 @@ spec_file_filter_file_as_single_integer_1 = """
 
 let UnsignedTemplate = integer { @signed = false; @endian = 'little'; };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     value: UnsignedTemplate;
 };
 
@@ -622,7 +622,7 @@ spec_file_filter_file_as_single_integer_2 = """
 
 let UnsignedTemplate = integer { @signed = false; @endian = 'little'; };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     value: ?ref;
 
     let ?ref = UnsignedTemplate;
@@ -654,7 +654,7 @@ def test_filter_file_as_single_integer(params_filter_file_as_single_integer):
 
 spec_file_filter_invalid_bad_filter_type = """
 
-env("IN") <> struct {
+env("FILE") <> struct {
     value: 42;
 };
 
@@ -745,7 +745,7 @@ spec_file_ancestor_of_u8 = """
 
 let u8 = byte <> integer { @signed = false; };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     contents: [5] u8;
 };
 
@@ -782,7 +782,7 @@ spec_file_non_slack_array_filtered = """
 
 let NullTermFixedString = [8] byte <> string { @boundary = '\\0'; };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     contents: NullTermFixedString;
 };
 
@@ -832,7 +832,7 @@ let Base64Line = string { @boundary = '\\n'; } <> Base64;
 
 let Item = Base64Line <> string { @boundary = ' '; };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     contents: [] Item;
 };
 
@@ -867,7 +867,7 @@ spec_file_dynamic_filter_param_integer = """
 
 let u8 = byte <> integer { @signed = false; };
 
-env("IN") <> struct {
+env("FILE") <> struct {
     little_endian: u8;
     if (little_endian == 1) {
         let ?endian = 'little';
