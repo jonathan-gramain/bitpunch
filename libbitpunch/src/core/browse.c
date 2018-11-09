@@ -170,7 +170,7 @@ browse_state_init_scope(struct browse_state *bst, struct box *scope)
 {
     browse_state_init(bst);
     bst->scope = scope;
-    bst->env = scope->env;
+    bst->env = scope ? scope->env : NULL;
 }
 
 void
