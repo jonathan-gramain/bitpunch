@@ -591,7 +591,7 @@ def test_filter_messages(params_filter_messages):
     dtree = params['dtree']
 
     assert len(dtree.messages) == 3
-    assert dtree.eval_expr('file.hdr.nb_messages') == 3
+    assert dtree.eval_expr('hdr.nb_messages') == 3
     assert len(dtree.messages[0].data) == 5
     assert str(dtree.messages[0].data) == 'hello'
     assert len(dtree.messages[1].data) == 9
