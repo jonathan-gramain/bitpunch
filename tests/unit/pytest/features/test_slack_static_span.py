@@ -341,7 +341,7 @@ env("FILE") <> struct {{
     big_blocks:   [] BigBlock;
     avg_blocks:   [] AvgBlock;
     small_blocks: [] SmallBlock;
-}}
+}};
 
 let VarBlock = struct {{
     length:   u8;
