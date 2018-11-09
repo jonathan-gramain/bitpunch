@@ -14,4 +14,4 @@ env("FILE") <> struct {
         codename: [radio_item_sizes[index(codes, self)]] byte <> string;
         @key = codename;
     };
-}
+};

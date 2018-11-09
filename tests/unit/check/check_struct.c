@@ -66,7 +66,7 @@ static const char *check_struct_def =
     "    ms2: MyStruct;\n"
     "    mu3: MyUnion;\n"
     "    u4: u32;\n"
-    "}\n";
+    "};\n";
 
 static struct bitpunch_schema *check_struct_def_hdl;
 
@@ -306,7 +306,7 @@ static const char *check_vstruct_def =
     "    ms2: MyStruct;\n"
     "    mu3: MyUnion;\n"
     "    u4: u32;\n"
-    "}\n";
+    "};\n";
 
 static struct bitpunch_schema *check_vstruct_def_hdl;
 

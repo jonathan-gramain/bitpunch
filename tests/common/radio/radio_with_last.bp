@@ -16,4 +16,4 @@ let RadioCode = struct {
 env("FILE") <> struct {
     codes: [] RadioCode;
     garbage: [] byte;
-}
+};

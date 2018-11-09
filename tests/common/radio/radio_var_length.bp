@@ -12,4 +12,4 @@ let RadioCode = struct {
 env("FILE") <> struct {
      n_codes: u32;
      codes: [n_codes] RadioCode;
-}
+};

@@ -18,4 +18,4 @@ env("FILE") <> struct {
         let codename = data[start..start+len] <> string;
         @key = codename;
     };
-}
+};

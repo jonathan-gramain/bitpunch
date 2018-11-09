@@ -53,7 +53,7 @@ static const char *check_sarray_contents_def =
     "let u32 = [4] byte <> integer { @signed = false; @endian = 'big'; };\n"
     "env(\"FILE\") <> struct {\n"
     "    int_array: [5] u32;\n"
-    "}\n";
+    "};\n";
 
 static struct bitpunch_schema *check_sarray_def_hdl;
 
@@ -190,7 +190,7 @@ static const char *check_varray_contents_def =
     "env(\"FILE\") <> struct {\n"
     "    int_array_size: u32;\n"
     "    int_array: [(2 + int_array_size)] u32;\n"
-    "}\n";
+    "};\n";
 
 static struct bitpunch_schema *check_varray_def_hdl;
 

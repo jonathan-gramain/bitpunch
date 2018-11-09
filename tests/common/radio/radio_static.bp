@@ -11,4 +11,4 @@ let RadioCode = struct {
 
 env("FILE") <> struct {
      codes: [26] RadioCode;
-}
+};
