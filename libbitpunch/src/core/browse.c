@@ -170,6 +170,7 @@ browse_state_init_scope(struct browse_state *bst, struct box *scope)
 {
     browse_state_init(bst);
     bst->scope = scope;
+    bst->env = scope->env;
 }
 
 void
@@ -853,6 +854,7 @@ box_construct(struct box *o_box,
     // reference to the box)
     TAILQ_INIT(&o_box->cached_children);
     o_box->use_count = 1;
+    o_box->env = bst->env;
 
     if (NULL != parent_box
         && parent_box->depth_level == BOX_MAX_DEPTH_LEVEL) {
@@ -1147,11 +1149,17 @@ box_new_root_box_internal(struct bitpunch_schema *schema,
 }
 
 struct box *
-box_new_root_box(struct bitpunch_schema *schema)
+box_new_root_box(struct bitpunch_schema *schema,
+                 struct bitpunch_env *env)
 {
     struct browse_state bst;
- 
+    bitpunch_status_t bt_ret;
+
     browse_state_init(&bst);
+    bt_ret = browse_state_set_environment(&bst, env);
+    if (BITPUNCH_OK != bt_ret) {
+        return NULL;
+    }
     return box_new_root_box_internal(schema, &bst);
 }
 
@@ -2312,26 +2320,31 @@ bitpunch_status_t
 track_box_contents_internal(struct box *box,
                             struct tracker **tkp, struct browse_state *bst)
 {
+    assert(bst->env == box->env);
     *tkp = tracker_new(box);
     return BITPUNCH_OK;
 }
 
 struct tracker *
-track_file(const struct bitpunch_schema *def_hdl,
-           struct bitpunch_data_source *ds_in,
-           struct tracker_error **errp)
+track_data_source(struct bitpunch_schema *schema,
+                  const char *ds_name, struct bitpunch_data_source *ds,
+                  struct tracker_error **errp)
 {
-    struct box *box;
+    struct box *root_box;
+    struct bitpunch_env *env;
     struct tracker *tk;
     bitpunch_status_t bt_ret;
 
-    /* TODO issue warning if root node min span size > file length */
-    box = box_new_from_file(def_hdl, ds_in);
-    if (NULL == box) {
+    // FIXME tracker should steal environment to manage its lifetime
+    env = bitpunch_env_new();
+    bitpunch_env_add_data_source(env, ds_name, ds);
+
+    root_box = box_new_root_box(schema, env);
+    if (NULL == root_box) {
         return NULL;
     }
-    bt_ret = track_box_contents(box, &tk, errp);
-    box_delete_non_null(box);
+    bt_ret = track_box_contents(root_box, &tk, errp);
+    box_delete_non_null(root_box);
     if (BITPUNCH_OK != bt_ret) {
         return NULL;
     }

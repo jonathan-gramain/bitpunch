@@ -2218,17 +2218,14 @@ DataTree_new(PyTypeObject *subtype,
 
     env = bitpunch_env_new();
     bitpunch_env_add_data_source(env, "FILE", ds);
-    if (-1 == bitpunch_compile_env(env)) {
-        PyErr_SetString(PyExc_OSError, "Error compiling environment");
-        return NULL;
-    }
+
     self = (DataTreeObject *)DataItem_new(subtype, NULL, NULL);
     if (NULL == self) {
         (void) bitpunch_data_source_release(ds);
         bitpunch_env_free(env);
         return NULL;
     }
-    root_box = box_new_root_box(fmt->schema);
+    root_box = box_new_root_box(fmt->schema, env);
     if (NULL == root_box) {
         PyErr_SetString(PyExc_OSError, "Error creating root box");
         Py_DECREF((PyObject *)self);

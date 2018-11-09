@@ -140,6 +140,7 @@ struct box {
     struct bitpunch_data_source *ds_in;
     struct bitpunch_data_source *ds_out;
     struct box *scope;
+    struct bitpunch_env *env;
 
     /** [ds_in] inherited parent's max offset */
     int64_t start_offset_parent;
@@ -270,6 +271,8 @@ struct tracker {
 
     /** internal tracking state */
     struct track_path cur;
+
+    struct bitpunch_env *env; /**< attached environment */
 };
 
 enum tracker_state {
@@ -348,7 +351,8 @@ box_get_index_type(const struct box *box);
 struct ast_node_hdl *
 box_get_index_expr(const struct box *box);
 struct box *
-box_new_root_box(struct bitpunch_schema *schema);
+box_new_root_box(struct bitpunch_schema *schema,
+                 struct bitpunch_env *env);
 struct box *
 box_new_from_file(const struct bitpunch_schema *def_hdl,
                   struct bitpunch_data_source *ds_in);
@@ -389,9 +393,9 @@ static inline int
 tracker_is_dangling(const struct tracker *tk);
 
 struct tracker *
-track_file(const struct bitpunch_schema *def_hdl,
-           struct bitpunch_data_source *ds_in,
-           struct tracker_error **errp);
+track_data_source(struct bitpunch_schema *schema,
+                  const char *ds_name, struct bitpunch_data_source *ds,
+                  struct tracker_error **errp);
 bitpunch_status_t
 box_get_n_items(struct box *box, int64_t *n_itemsp,
                 struct tracker_error **errp);
