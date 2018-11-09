@@ -12,7 +12,7 @@ let RadioCode = struct {
        @span = item_span.value;
 };
 
-file {
+env("FILE") <> struct {
      n_codes: u32;
      codes: [n_codes] RadioCode;
 }

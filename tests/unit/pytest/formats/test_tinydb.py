@@ -22,9 +22,9 @@ let TinyDBValue = struct {
     value:      [value_size] byte;
 };
 
-file {
+env("FILE") <> struct {
     values: [] TinyDBValue;
-}
+};
 """
 
     return FormatSpec(tinydb_fmt)

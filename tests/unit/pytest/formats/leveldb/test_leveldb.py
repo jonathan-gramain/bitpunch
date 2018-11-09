@@ -28,7 +28,7 @@ def spec_log():
     let FixInt16 = [2] byte <> FixInt;
     let FixInt32 = [4] byte <> FixInt;
 
-    file {
+    env("FILE") <> struct {
         head_blocks: [] LogBlock;
         tail_block: LogTailBlock;
     }
@@ -234,7 +234,7 @@ def spec_ldb():
         @span = 48;
     };
 
-    file {
+    env("FILE") <> struct {
         payload: [] byte;
         footer:  Footer;
 

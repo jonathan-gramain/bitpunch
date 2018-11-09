@@ -20,7 +20,7 @@ let VarInt   = varint;
 
 // Describe LDB file structure
 
-file {
+env("FILE") <> struct {
     payload: [] byte;
     footer:  struct {
         metaindex_handle: BlockHandle;

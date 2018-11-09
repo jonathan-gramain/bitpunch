@@ -12,10 +12,10 @@ import conftest
 spec_embedded = """
 let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
 
-file {
+env("FILE") <> struct {
     greeting_set: GreetingSet;
     garbage: [] byte;
-}
+};
 
 let Greeting = struct {
     size: u32;

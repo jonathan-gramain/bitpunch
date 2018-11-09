@@ -7,10 +7,10 @@ import conftest
 
 spec_empty_struct = """
 
-file {
+env("FILE") <> struct {
     empty: struct {};
     foo: byte;
-}
+};
 
 """
 

@@ -10,10 +10,10 @@ import conftest
 #
 
 spec_varint = """
-file {
+env("FILE") <> struct {
     value:   varint;
     trailer: [] byte;
-}
+};
 """
 
 tcases_varint = [{ 'spec': spec_varint,
@@ -50,7 +50,7 @@ let v32 = [4] byte <> varint;
 let v64 = [8] byte <> varint;
 let vx = varint;
 
-file {
+env("FILE") <> struct {
     v8_count:  u8;
     v8_array:  [v8_count] v8;
     v16_count: u8;
@@ -61,7 +61,7 @@ file {
     v64_array: [v64_count] v64;
     vx_count:  u8;
     vx_array:  [vx_count] vx;
-}
+};
 """
 
 data_varint_pools_1 = """
@@ -128,9 +128,9 @@ def test_varint_pools(params_varint_pools):
 spec_varint_in_blocks = """
 let VarInt = varint;
 
-file {
+env("FILE") <> struct {
     blocks: [] Block;
-}
+};
 
 let Block = struct {
     length: VarInt;

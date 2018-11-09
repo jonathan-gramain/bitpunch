@@ -13,7 +13,7 @@ let OctalInt = NullTerminatedString <> formatted_integer {
     @empty_value = 0;
 };
 
-file {
+env("FILE") <> struct {
     files: [] FileEntry;
 }
 

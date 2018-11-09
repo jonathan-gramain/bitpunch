@@ -18,7 +18,7 @@ spec_file_basic = """
 
 let root = _file_ {{ @path = "{file_path}"; }};
 
-file {{}}
+env("FILE") <> struct {{}}
 """.format(file_path=TEST_FILE_PATH)
 
 data_file_basic = """
@@ -56,7 +56,7 @@ let root = _file_ {{ @path = "{file_path}"; }} <> struct {{
     contents: [] byte;
 }};
 
-file {{}}
+env("FILE") <> struct {{}}
 """.format(file_path=TEST_FILE_PATH)
 
 data_file_struct = """
@@ -96,7 +96,7 @@ spec_file_with_outer_scope = """
 let UnsignedInt = integer {{ @signed = false; @endian = 'little'; }};
 let u8  = [1] byte <> UnsignedInt;
 
-file {{
+env("FILE") <> struct {{
     file_attr: struct {{
         nb_bytes: u8;
     }};
@@ -151,7 +151,7 @@ spec_file_string_array = """
 let root = _file_ {{ @path = "{file_path}"; }}
     <> [] string {{ @boundary = '\\n'; }};
 
-file {{}}
+env("FILE") <> struct {{}}
 """.format(file_path=TEST_FILE_PATH)
 
 data_file_string_array = """

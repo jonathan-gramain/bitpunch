@@ -9,7 +9,7 @@ spec_file_anonymous_struct_embedded = """
 
 let u32 = [4] byte <> integer { @endian = 'little'; @signed = false; };
 
-file {
+env("FILE") <> struct {
     struct {
         a: u32;
         struct {
@@ -21,7 +21,7 @@ file {
             d: u32;
         };
     };
-}
+};
 
 """
 
@@ -39,11 +39,11 @@ let Bar = struct {
     @span = 8;
 };
 
-file {
+env("FILE") <> struct {
     Foo;
     Bar;
     d: u32;
-}
+};
 
 """
 
@@ -63,11 +63,11 @@ let Bar = struct {
     @span = 8;
 };
 
-file {
+env("FILE") <> struct {
     Foo;
     Bar;
     d: u32;
-}
+};
 
 """
 
@@ -110,12 +110,12 @@ let Trailer = struct {
     d: u32;
 };
 
-file {
+env("FILE") <> struct {
     Foo;
     Bar;
     SlackBody;
     Trailer;
-}
+};
 
 """
 

@@ -15,13 +15,13 @@ let Int = integer { @signed = false; @endian = 'little'; };
 let u8 = byte <> Int;
 let u16 = [2] byte <> Int;
 
-file {
+env("FILE") <> struct {
     hdr:     Header;
     contents: [] byte;
 
     let ?raw_catalog = (file <> bytes)[hdr.catalog_location..];
     let ?catalog = ?raw_catalog <> [hdr.nb_catalog_entries] Entry;
-}
+};
 
 let Header = struct {
     catalog_location:    u16;

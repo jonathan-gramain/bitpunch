@@ -13,13 +13,13 @@ let Foobar = struct {
     value: [6] byte <> string;
 };
 
-file {
+env("FILE") <> struct {
     foobars: [5] Foobar;
 
     let ?foobar_slice = foobars[2..];
     let ?last_foobar = ?foobar_slice[-1];
     let ?last_foobar_value = ?last_foobar.value;
-}
+};
 """
 
 @pytest.fixture(
@@ -48,9 +48,9 @@ let Foobar = struct {
     $foo: 42; // invalid
 };
 
-file {
+env("FILE") <> struct {
     foobars: [5] Foobar;
-}
+};
 """
 
 @pytest.fixture(

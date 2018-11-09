@@ -13,7 +13,7 @@ let RadioCode = struct {
     }
 };
 
-file {
+env("FILE") <> struct {
     codes: [] RadioCode;
     garbage: [] byte;
 }

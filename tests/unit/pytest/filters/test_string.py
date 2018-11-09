@@ -13,9 +13,9 @@ import conftest
 spec_string_table = """
 let cstr = string { @boundary = '\\0'; };
 
-file {
+env("FILE") <> struct {
     string_table: [] cstr;
-}
+};
 """
 
 data_string_table_1 = """
@@ -27,9 +27,9 @@ data_string_table_1 = """
 spec_string_table_multi_char_boundary = """
 let cstr = string { @boundary = '--delimiter--'; };
 
-file {
+env("FILE") <> struct {
     string_table: [] cstr;
-}
+};
 """
 
 data_string_table_multi_char_boundary = """
@@ -46,12 +46,12 @@ data_string_table_multi_char_boundary = """
 
 
 spec_string_table_dynamic_boundary_1 = """
-file {
+env("FILE") <> struct {
     let cstr = string { @boundary = delimiter; };
 
     delimiter: string { @boundary = "\\0"; };
     string_table: [] cstr;
-}
+};
 """
 
 data_string_table_dynamic_boundary_1 = """
@@ -68,7 +68,7 @@ data_string_table_dynamic_boundary_1 = """
 """
 
 spec_string_table_conditional_boundary = """
-file {
+env("FILE") <> struct {
     let cstr = string {
         if (is_multichar == 1) {
             @boundary = "|---|";
@@ -79,7 +79,7 @@ file {
 
     is_multichar: byte <> integer { @signed = false; };
     string_table: [] cstr;
-}
+};
 """
 
 data_string_table_conditional_boundary_single = """
@@ -96,14 +96,14 @@ spec_file_string_table_dynamic_boundary_2 = """
 
 let u8 = byte <> integer { @signed = false; };
 
-file {
+env("FILE") <> struct {
     let BoundedString = string { @boundary = boundary; };
 
     boundary_size: u8;
     boundary: [boundary_size] byte <> string;
 
     string_table: [] BoundedString;
-}
+};
 
 """
 

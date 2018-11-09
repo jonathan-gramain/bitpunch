@@ -63,7 +63,7 @@ static const char *check_cond_def =
     "    }\n"
     "    @span = sizeof (hdr) + hdr.size;\n"
     "};\n"
-    "file {\n"
+    "env(\"FILE\") <> struct {\n"
     "    ifs: [2] IfStruct;\n"
     "}\n";
 

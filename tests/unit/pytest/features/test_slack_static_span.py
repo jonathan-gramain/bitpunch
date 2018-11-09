@@ -9,9 +9,9 @@ spec_static_span_and_slack = """
 
 let u8 = byte <> integer { @signed = false; };
 
-file {
+env("FILE") <> struct {
     blocks: [] VarBlock;
-}
+};
 
 let VarBlock = struct {
     contents: [] byte;
@@ -32,9 +32,9 @@ spec_static_span_and_slack_sized = """
 
 let u8 = byte <> integer { @signed = false; };
 
-file {
+env("FILE") <> struct {
     blocks: [] VarBlock;
-}
+};
 
 let VarBlock = struct {
     contents: string { @boundary = '\x42'; };
@@ -48,9 +48,9 @@ spec_static_span_and_slack_sized_subblock = """
 
 let u8 = byte <> integer { @signed = false; };
 
-file {
+env("FILE") <> struct {
     blocks: [] VarBlock;
-}
+};
 
 let VarBlock = struct {
     let BlockContents = struct {
@@ -75,9 +75,9 @@ spec_static_minspan_conditional = """
 
 let u8 = byte <> integer { @signed = false; };
 
-file {
+env("FILE") <> struct {
     blocks: [] VarBlock;
-}
+};
 
 let VarBlock = struct {
     length:   u8;
@@ -103,9 +103,9 @@ spec_length_in_trailer = """
 
 let u8 = byte <> integer { @signed = false; };
 
-file {
+env("FILE") <> struct {
     blocks: [] VarBlock;
-}
+};
 
 let VarBlock = struct {
     contents: [length] byte;
@@ -119,9 +119,9 @@ spec_length_in_trailer_conditional = """
 
 let u8 = byte <> integer { @signed = false; };
 
-file {
+env("FILE") <> struct {
     blocks: [] VarBlock;
-}
+};
 
 let VarBlock = struct {
     if (length <= 9) {
@@ -147,9 +147,9 @@ spec_var_length_trailer = """
 
 let u8 = byte <> integer { @signed = false; };
 
-file {
+env("FILE") <> struct {
     blocks: [] VarBlock;
-}
+};
 
 let VarBlock = struct {
     contents:       [] byte;
@@ -172,9 +172,9 @@ spec_var_length_array_trailer = """
 let u8 = byte <> integer { @signed = false; };
 let u16 = [2] byte <> integer { @signed = false; };
 
-file {
+env("FILE") <> struct {
     blocks: [] VarBlock;
-}
+};
 
 let VarBlock = struct {
     contents:        [] byte;
@@ -197,9 +197,9 @@ spec_var_length_block_trailer = """
 let u8 = byte <> integer { @signed = false; };
 let u16 = [2] byte <> integer { @signed = false; };
 
-file {
+env("FILE") <> struct {
     blocks: [] VarBlock;
-}
+};
 
 let VarBlock = struct {
     contents:        [] byte;
@@ -220,9 +220,9 @@ spec_var_length_subblock_trailer = """
 let u8 = byte <> integer { @signed = false; };
 let u16 = [2] byte <> integer { @signed = false; };
 
-file {
+env("FILE") <> struct {
     blocks: [] VarBlock;
-}
+};
 
 let VarBlock = struct {
     contents:        [] byte;
@@ -336,7 +336,7 @@ spec_static_span_template = """
 
 let u8 = byte <> integer {{ @signed = false; }};
 
-file {{
+env("FILE") <> struct {{
     huge_blocks:  [] HugeBlock;
     big_blocks:   [] BigBlock;
     avg_blocks:   [] AvgBlock;

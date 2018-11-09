@@ -243,6 +243,6 @@ let Box = struct {
     @key = hdr.atom;
 };
 
-file {
+env("FILE") <> struct {
      boxes: [] Box;
 }
