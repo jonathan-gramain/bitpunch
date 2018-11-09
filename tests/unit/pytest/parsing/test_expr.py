@@ -100,6 +100,8 @@ def test_string_literals():
 
 spec_file_expr_parsing = """
 
+let FILE = env("FILE");
+
 let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
 
 let Contents = struct {
@@ -107,7 +109,7 @@ let Contents = struct {
     b: u32;
 };
 
-env("IN") <> struct {
+FILE <> struct {
     contents_struct: Contents;
 };
 

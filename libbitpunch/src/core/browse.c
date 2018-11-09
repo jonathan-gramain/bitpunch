@@ -4250,9 +4250,8 @@ box_compute__error(struct box *box,
                    struct browse_state *bst)
 {
     // TODO more precise error
-    /* return box_error(BITPUNCH_DATA_ERROR, box, box->filter, bst, */
-    /*                  "invalid filter operation requested"); */
-    return BITPUNCH_OK;
+    return box_error(BITPUNCH_DATA_ERROR, box, box->filter, bst,
+                     "invalid filter operation requested");
 }
 
 

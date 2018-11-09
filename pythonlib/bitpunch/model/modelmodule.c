@@ -2218,7 +2218,7 @@ DataTree_new(PyTypeObject *subtype,
     }
 
     env = bitpunch_env_new();
-    bitpunch_env_add_data_source(env, "IN", ds);
+    bitpunch_env_add_data_source(env, "FILE", ds);
     if (-1 == bitpunch_compile_env(env)) {
         PyErr_SetString(PyExc_OSError, "Error compiling environment");
         return NULL;
