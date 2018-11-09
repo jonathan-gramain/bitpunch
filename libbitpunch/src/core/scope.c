@@ -498,20 +498,14 @@ scope_evaluate_attribute_internal(
 
 bitpunch_status_t
 scope_evaluate_identifier(
-    struct scope_def *scope_def,
-    struct box *scope, struct bitpunch_env *env,
+    struct scope_def *scope_def, struct box *scope,
     enum statement_type stmt_mask, const char *identifier,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct tracker_error **errp)
 {
     struct browse_state bst;
-    bitpunch_status_t bt_ret;
 
     browse_state_init_scope(&bst, scope);
-    bt_ret = browse_state_set_environment(&bst, env);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
     return transmit_error(
         scope_evaluate_identifier_internal(
             scope_def, scope, stmt_mask, identifier,

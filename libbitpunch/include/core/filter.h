@@ -229,8 +229,7 @@ filter_evaluate_attribute_internal(
 
 static inline bitpunch_status_t
 filter_evaluate_identifier(
-    struct ast_node_hdl *filter,
-    struct box *scope, struct bitpunch_env *env,
+    struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct tracker_error **errp);
