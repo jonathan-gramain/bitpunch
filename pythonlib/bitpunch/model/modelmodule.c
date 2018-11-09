@@ -2229,7 +2229,7 @@ DataTree_new(PyTypeObject *subtype,
         bitpunch_env_free(env);
         return NULL;
     }
-    root_box = box_new_root_box(fmt->schema, env);
+    root_box = box_new_root_box(fmt->schema);
     if (NULL == root_box) {
         PyErr_SetString(PyExc_OSError, "Error creating root box");
         Py_DECREF((PyObject *)self);

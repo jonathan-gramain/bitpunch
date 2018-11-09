@@ -208,6 +208,18 @@ browse_state_cleanup(struct browse_state *bst)
     }
 }
 
+bitpunch_status_t
+browse_state_set_environment(struct browse_state *bst,
+                             struct bitpunch_env *env)
+{
+    bst->env = env;
+    if (NULL != env && -1 == bitpunch_compile_env(env)) {
+        // TODO log
+        return BITPUNCH_DATA_ERROR;
+    }
+    return BITPUNCH_OK;
+}
+
 void
 browse_state_push_scope(struct browse_state *bst, struct box *scope,
                         struct box **storagep)
@@ -1118,45 +1130,29 @@ box_lookup_cached_child(struct box *box, struct track_path path,
 
 static struct box *
 box_new_root_box_internal(struct bitpunch_schema *schema,
-                          struct bitpunch_env *env,
                           struct browse_state *bst)
 {
-    struct box *env_box;
     struct box *root_box;
     bitpunch_status_t bt_ret;
 
-    env_box = new_safe(struct box);
-    bt_ret = box_construct(env_box, NULL, env->ast_root, NULL,
-                           0, 0u, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        /* TODO error reporting */
-        box_delete_non_null(env_box);
-        return NULL;
-    }
-    env_box->ds_in = NULL;
-    env_box->ds_out = NULL;
-
     root_box = new_safe(struct box);
-    bt_ret = box_construct(root_box, env_box, schema->ast_root, env_box,
+    bt_ret = box_construct(root_box, NULL, schema->ast_root, NULL,
                            0, 0u, bst);
     if (BITPUNCH_OK != bt_ret) {
         /* TODO error reporting */
         box_delete_non_null(root_box);
-        box_delete_non_null(env_box);
         return NULL;
     }
-    bst->scope = root_box;
     return root_box;
 }
 
 struct box *
-box_new_root_box(struct bitpunch_schema *schema,
-                 struct bitpunch_env *env)
+box_new_root_box(struct bitpunch_schema *schema)
 {
     struct browse_state bst;
-
+ 
     browse_state_init(&bst);
-    return box_new_root_box_internal(schema, env, &bst);
+    return box_new_root_box_internal(schema, &bst);
 }
 
 static struct box *
@@ -3027,7 +3023,7 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
     root_box = tk->box;
-    while (0 == (root_box->filter->flags & ASTFLAG_IS_ROOT_BLOCK)) {
+    while (NULL != root_box->parent_box) {
         root_box = root_box->parent_box;
     }
     if (-1 == bitpunch_resolve_expr(expr_node, root_box)) {

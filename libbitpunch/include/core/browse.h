@@ -47,6 +47,7 @@ struct box;
 enum filter_kind;
 
 struct browse_state {
+    struct bitpunch_env *env;
     struct box *scope;
     struct tracker_error_slist *expected_errors;
     struct tracker_error *last_error;
@@ -347,8 +348,7 @@ box_get_index_type(const struct box *box);
 struct ast_node_hdl *
 box_get_index_expr(const struct box *box);
 struct box *
-box_new_root_box(struct bitpunch_schema *schema,
-                 struct bitpunch_env *env);
+box_new_root_box(struct bitpunch_schema *schema);
 struct box *
 box_new_from_file(const struct bitpunch_schema *def_hdl,
                   struct bitpunch_data_source *ds_in);

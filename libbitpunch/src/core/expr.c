@@ -780,7 +780,6 @@ expr_eval_builtin_env(struct ast_node_hdl *object,
     bitpunch_status_t bt_ret;
     expr_value_t name_eval;
     char name_buf[256];
-    struct box *root_box;
     struct ast_node_hdl *env_node;
     struct ast_node_hdl *env_value_node = NULL;
     struct scope_def *scope_def;
@@ -799,17 +798,16 @@ expr_eval_builtin_env(struct ast_node_hdl *object,
         if (name_eval.string.len < sizeof (name_buf)) {
             memcpy(name_buf, name_eval.string.str, name_eval.string.len);
             name_buf[name_eval.string.len] = '\0';
-            root_box = bst->scope;
-            assert(NULL != root_box);
-            while (NULL != root_box->parent_box) {
-                root_box = root_box->parent_box;
+            if (NULL != bst->env) {
+                env_node = bst->env->ast_root;
+                assert(AST_NODE_TYPE_REXPR_FILTER == env_node->ndat->type);
+                scope_def = filter_get_scope_def(env_node);
+                assert(NULL != scope_def);
+                env_value_node = scope_get_first_declared_named_expr(
+                    scope_def, name_buf);
+            } else {
+                env_value_node = NULL;
             }
-            env_node = root_box->filter;
-            assert(AST_NODE_TYPE_REXPR_FILTER == env_node->ndat->type);
-            scope_def = filter_get_scope_def(env_node);
-            assert(NULL != scope_def);
-            env_value_node = scope_get_first_declared_named_expr(
-                scope_def, name_buf);
             if (NULL == env_value_node) {
                 bt_ret = node_error(
                     BITPUNCH_NO_ITEM, expr, bst,
@@ -2909,58 +2907,82 @@ expr_value_type_mask_contains_dpath(enum expr_value_type value_type_mask)
  */
 
 bitpunch_status_t
-expr_evaluate(struct ast_node_hdl *expr, struct box *scope,
+expr_evaluate(struct ast_node_hdl *expr,
+              struct box *scope, struct bitpunch_env *env,
               expr_value_t *valuep, expr_dpath_t *dpathp,
               struct tracker_error **errp)
 {
     struct browse_state bst;
+    bitpunch_status_t bt_ret;
 
     assert(NULL != valuep || NULL != dpathp);
 
     browse_state_init_scope(&bst, scope);
+    bt_ret = browse_state_set_environment(&bst, env);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     return transmit_error(
         expr_evaluate_internal(expr, scope, valuep, dpathp, &bst),
         &bst, errp);
 }
 
 bitpunch_status_t
-expr_evaluate_value(struct ast_node_hdl *expr, struct box *scope,
+expr_evaluate_value(struct ast_node_hdl *expr,
+                    struct box *scope, struct bitpunch_env *env,
                     expr_value_t *valuep,
                     struct tracker_error **errp)
 {
     struct browse_state bst;
+    bitpunch_status_t bt_ret;
 
     assert(NULL != valuep);
 
     browse_state_init_scope(&bst, scope);
+    bt_ret = browse_state_set_environment(&bst, env);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     return transmit_error(
         expr_evaluate_value_internal(expr, scope, valuep, &bst),
         &bst, errp);
 }
 
 bitpunch_status_t
-expr_evaluate_dpath(struct ast_node_hdl *expr, struct box *scope,
+expr_evaluate_dpath(struct ast_node_hdl *expr,
+                    struct box *scope, struct bitpunch_env *env,
                     expr_dpath_t *dpathp,
                     struct tracker_error **errp)
 {
     struct browse_state bst;
+    bitpunch_status_t bt_ret;
 
     assert(NULL != dpathp);
 
     browse_state_init_scope(&bst, scope);
+    bt_ret = browse_state_set_environment(&bst, env);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     return transmit_error(
         expr_evaluate_dpath_internal(expr, scope, dpathp, &bst),
         &bst, errp);
 }
 
 bitpunch_status_t
-evaluate_conditional(struct ast_node_hdl *cond, struct box *scope,
+evaluate_conditional(struct ast_node_hdl *cond,
+                     struct box *scope, struct bitpunch_env *env,
                      int *evalp,
                      struct tracker_error **errp)
 {
     struct browse_state bst;
+    bitpunch_status_t bt_ret;
 
     browse_state_init_scope(&bst, scope);
+    bt_ret = browse_state_set_environment(&bst, env);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     return transmit_error(
         evaluate_conditional_internal(cond, scope, evalp, &bst),
         &bst, errp);

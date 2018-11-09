@@ -83,7 +83,7 @@ bitpunch_eval_expr(struct bitpunch_schema *schema,
     }
     if (NULL != schema) {
         if (NULL == scope) {
-            scope = box_new_root_box(schema, env);
+            scope = box_new_root_box(schema);
             if (NULL == scope) {
                 goto end;
             }
@@ -97,7 +97,7 @@ bitpunch_eval_expr(struct bitpunch_schema *schema,
         goto end;
     }
     assert(ast_node_is_rexpr(expr_node));
-    bt_ret = expr_evaluate(expr_node, scope, valuep, dpathp, errp);
+    bt_ret = expr_evaluate(expr_node, scope, env, valuep, dpathp, errp);
     if (BITPUNCH_OK == bt_ret) {
         ret = 0;
     }

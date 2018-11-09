@@ -111,7 +111,8 @@ scope_evaluate_attribute_internal(
 
 bitpunch_status_t
 scope_evaluate_identifier(
-    struct scope_def *scope_def, struct box *scope,
+    struct scope_def *scope_def,
+    struct box *scope, struct bitpunch_env *env,
     enum statement_type stmt_mask, const char *identifier,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct tracker_error **errp);
