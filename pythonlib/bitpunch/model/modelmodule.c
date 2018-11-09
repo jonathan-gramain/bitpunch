@@ -1793,7 +1793,7 @@ DataItem_eval_attr(DataItemObject *self, const char *attr_str,
         return NULL;
     }
     bt_ret = filter_evaluate_identifier(
-        self->dpath.box->filter, self->dpath.box, self->dtree->env,
+        self->dpath.box->filter, self->dpath.box,
         STATEMENT_TYPE_FIELD |
         STATEMENT_TYPE_NAMED_EXPR |
         STATEMENT_TYPE_ATTRIBUTE, attr_str,
