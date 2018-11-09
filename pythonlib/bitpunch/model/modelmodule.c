@@ -766,6 +766,11 @@ typedef struct DataItemObject {
     expr_dpath_t dpath;
 } DataItemObject;
 
+typedef struct DataTreeObject {
+    DataItemObject item;
+    FormatSpecObject *fmt;
+    struct bitpunch_env *env;
+} DataTreeObject;
 
 static int
 DataItem_bf_getbuffer(DataItemObject *exporter,
@@ -1788,7 +1793,7 @@ DataItem_eval_attr(DataItemObject *self, const char *attr_str,
         return NULL;
     }
     bt_ret = filter_evaluate_identifier(
-        self->dpath.box->filter, self->dpath.box,
+        self->dpath.box->filter, self->dpath.box, self->dtree->env,
         STATEMENT_TYPE_FIELD |
         STATEMENT_TYPE_NAMED_EXPR |
         STATEMENT_TYPE_ATTRIBUTE, attr_str,
@@ -2099,12 +2104,6 @@ box_to_native_PyObject(struct DataTreeObject *dtree, struct box *box)
 
 PyDoc_STRVAR(DataTree__doc__,
              "Represents the data tree of flat binary contents");
-
-typedef struct DataTreeObject {
-    DataItemObject item;
-    FormatSpecObject *fmt;
-    struct bitpunch_env *env;
-} DataTreeObject;
 
 static PyTypeObject DataTreeType = {
     PyObject_HEAD_INIT(NULL)
