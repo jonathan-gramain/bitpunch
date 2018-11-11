@@ -1210,7 +1210,7 @@ resolve_expr_scoped_recur(struct ast_node_hdl *expr,
 
     while (NULL != cur_scope
            && !ast_node_is_scope(cur_scope->filter)) {
-        cur_scope = cur_scope->parent_box;
+        cur_scope = cur_scope->scope;
     }
     if (NULL == cur_scope) {
         return resolve_expr_internal(expr, inmost_refs);
