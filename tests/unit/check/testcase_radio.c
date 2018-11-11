@@ -43,15 +43,15 @@
 #include "core/debug.h"
 
 static const char *radio_sources[] = {
-    "static",
-    "var_length",
-    "var_item_length",
-    "item_span",
-    "item_cond_span",
-    "var_item_span",
+    /* "static", */
+    /* "var_length", */
+    /* "var_item_length", */
+    /* "item_span", */
+    /* "item_cond_span", */
+    /* "var_item_span", */
     "item_size_table",
-    "named_exprs_shuffled",
-    "with_last",
+    /* "named_exprs_shuffled", */
+    /* "with_last", */
 };
 
 static const char *radio_codenames[] = {

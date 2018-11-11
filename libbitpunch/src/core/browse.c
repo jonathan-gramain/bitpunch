@@ -945,6 +945,10 @@ box_dump_flags(const struct box *box, FILE *out)
 static void
 box_dump_internal(const struct box *box, FILE *out, int indent)
 {
+    if (NULL == box) {
+        fprintf(out, "<null>\n");
+        return ;
+    }
     if (NULL != box->parent_box) {
         box_dump_internal(box->parent_box, out, indent);
     }
@@ -1671,6 +1675,10 @@ tracker_dump(const struct tracker *tk)
 void
 tracker_fdump(const struct tracker *tk, FILE *out)
 {
+    if (NULL == tk) {
+        fprintf(out, "<null>\n");
+        return ;
+    }
     fprintf(out,
             "TRACKER @");
     tracker_dump_abs_dpath(tk, out);
@@ -1787,8 +1795,7 @@ tracker_create_item_box_internal(struct tracker *tk,
         // it's an item box, so the filter is the item here
         assert(NULL != bst->scope);
         bt_ret = box_construct(item_box, xtk->box, xtk->dpath.item,
-                               bst->scope,
-                               xtk->item_offset, box_flags, bst);
+                               xtk->box, xtk->item_offset, box_flags, bst);
         if (BITPUNCH_OK != bt_ret) {
             goto end;
         }
@@ -3036,8 +3043,8 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
     root_box = tk->box;
-    while (NULL != root_box->parent_box) {
-        root_box = root_box->parent_box;
+    while (NULL != root_box->scope) {
+        root_box = root_box->scope;
     }
     if (-1 == bitpunch_resolve_expr(expr_node, root_box)) {
         free(parser_ctx);
