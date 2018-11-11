@@ -18,7 +18,7 @@ spec_file_basic = """
 
 let root = _file_ {{ @path = "{file_path}"; }};
 
-env("FILE") <> struct {{}}
+env("FILE") <> struct {{}};
 """.format(file_path=TEST_FILE_PATH)
 
 data_file_basic = """
@@ -56,7 +56,7 @@ let root = _file_ {{ @path = "{file_path}"; }} <> struct {{
     contents: [] byte;
 }};
 
-env("FILE") <> struct {{}}
+env("FILE") <> struct {{}};
 """.format(file_path=TEST_FILE_PATH)
 
 data_file_struct = """
@@ -104,7 +104,7 @@ env("FILE") <> struct {{
         contents: [file_attr.nb_bytes] byte;
         junk: [] byte;
     }};
-}}
+}};
 """.format(file_path=TEST_FILE_PATH)
 
 data_file_with_outer_scope = """
@@ -151,7 +151,7 @@ spec_file_string_array = """
 let root = _file_ {{ @path = "{file_path}"; }}
     <> [] string {{ @boundary = '\\n'; }};
 
-env("FILE") <> struct {{}}
+env("FILE") <> struct {{}};
 """.format(file_path=TEST_FILE_PATH)
 
 data_file_string_array = """

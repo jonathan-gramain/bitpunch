@@ -31,7 +31,7 @@ def spec_log():
     env("FILE") <> struct {
         head_blocks: [] LogBlock;
         tail_block: LogTailBlock;
-    }
+    };
 
     let LogBlock = struct {
            records: [] Record;
@@ -240,7 +240,7 @@ def spec_ldb():
 
         let ?index =     footer.index_handle;
         let ?metaindex = footer.metaindex_handle;
-    }
+    };
     """
 
 @pytest.fixture
