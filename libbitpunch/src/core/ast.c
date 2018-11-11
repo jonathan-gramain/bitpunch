@@ -295,7 +295,7 @@ append_named_statement_spec(
 static int
 lookup_visible_statements_in_lists_internal(
     enum statement_type stmt_mask,
-    const char *identifier,
+    const char *lookup_identifier, struct ast_node_hdl *lookup_filter,
     const struct block_stmt_list *stmt_lists,
     int anonymous_member,
     struct named_statement_spec **visible_statementsp,
@@ -304,7 +304,7 @@ lookup_visible_statements_in_lists_internal(
 static int
 lookup_visible_statements_in_anonymous_field(
     enum statement_type stmt_mask,
-    const char *identifier,
+    const char *lookup_identifier, struct ast_node_hdl *lookup_filter,
     struct field *field,
     struct named_statement_spec **visible_statementsp,
     int *visible_statements_indexp)
@@ -324,7 +324,7 @@ lookup_visible_statements_in_anonymous_field(
         }
         if (NULL != stmt_lists) {
             ret = lookup_visible_statements_in_lists_internal(
-                stmt_mask, identifier, stmt_lists, TRUE,
+                stmt_mask, lookup_identifier, lookup_filter, stmt_lists, TRUE,
                 visible_statementsp, visible_statements_indexp);
             if (0 != ret) {
                 return ret;
@@ -337,7 +337,7 @@ lookup_visible_statements_in_anonymous_field(
 static int
 lookup_visible_statements_in_lists_internal(
     enum statement_type stmt_mask,
-    const char *identifier,
+    const char *lookup_identifier, struct ast_node_hdl *lookup_filter,
     const struct block_stmt_list *stmt_lists,
     int anonymous_member,
     struct named_statement_spec **visible_statementsp,
@@ -359,7 +359,7 @@ lookup_visible_statements_in_lists_internal(
     int i;
     int ret;
 
-    if (identifier[0] == '@') {
+    if (lookup_identifier[0] == '@') {
         stmt_types_by_prio = attribute_types_by_prio;
         n_stmt_types_by_prio = N_ELEM(attribute_types_by_prio);
     } else {
@@ -376,7 +376,7 @@ lookup_visible_statements_in_lists_internal(
         TAILQ_FOREACH(stmt, stmt_list, list) {
             nstmt = (struct named_statement *)stmt;
             if (NULL != nstmt->name
-                && 0 == strcmp(identifier, nstmt->name)) {
+                && 0 == strcmp(lookup_identifier, nstmt->name)) {
                 if (-1 == append_named_statement_spec(
                         stmt_type, nstmt, NULL, anonymous_member,
                         visible_statementsp, visible_statements_indexp)) {
@@ -397,7 +397,8 @@ lookup_visible_statements_in_lists_internal(
         if (NULL == nstmt->name
             && !(nstmt->stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
             ret = lookup_visible_statements_in_anonymous_field(
-                stmt_mask, identifier, (struct field *)nstmt,
+                stmt_mask, lookup_identifier, lookup_filter,
+                (struct field *)nstmt,
                 visible_statementsp, visible_statements_indexp);
             if (0 != ret) {
                 return ret;
@@ -442,7 +443,7 @@ lookup_all_visible_statements(
          refs_level = refs_level->outer_refs) {
         last_visible_statements_index = visible_statements_index;
         ret = lookup_visible_statements_in_lists_internal(
-            stmt_mask, identifier, refs_level->cur_lists, FALSE,
+            stmt_mask, identifier, NULL, refs_level->cur_lists, FALSE,
             &visible_statements, &visible_statements_index);
         if (-1 == ret) {
             free(visible_statements);
@@ -472,7 +473,7 @@ lookup_visible_statements_in_lists(
     visible_statements = NULL;
     visible_statements_index = 0;
     ret = lookup_visible_statements_in_lists_internal(
-        stmt_mask, identifier, stmt_lists, FALSE,
+        stmt_mask, identifier, NULL, stmt_lists, FALSE,
         &visible_statements, &visible_statements_index);
     if (-1 == ret) {
         free(visible_statements);
@@ -491,7 +492,7 @@ identifier_is_visible_in_block_stmt_lists(
     // -1 means that there was more names to lookup than the maximum
     // requested (0), so at least one.
     return -1 == lookup_visible_statements_in_lists_internal(
-        stmt_mask, identifier, stmt_lists, FALSE,
+        stmt_mask, identifier, NULL, stmt_lists, FALSE,
         NULL, NULL);
 }
 
