@@ -221,7 +221,7 @@ def spec_ldb():
         size:   VarInt;
 
         let ?stored_block =
-            file.payload[offset .. offset + size + sizeof(BlockTrailer)]
+            payload[offset .. offset + size + sizeof(BlockTrailer)]
                  <> FileBlock;
     };
 
