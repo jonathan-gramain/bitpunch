@@ -1795,7 +1795,7 @@ tracker_create_item_box_internal(struct tracker *tk,
         // it's an item box, so the filter is the item here
         assert(NULL != bst->scope);
         bt_ret = box_construct(item_box, xtk->box, xtk->dpath.item,
-                               xtk->box, xtk->item_offset, box_flags, bst);
+                               bst->scope, xtk->item_offset, box_flags, bst);
         if (BITPUNCH_OK != bt_ret) {
             goto end;
         }

@@ -315,6 +315,9 @@ lookup_visible_statements_in_anonymous_field(
 
     filter = ast_node_get_as_type(field->filter);
     if (NULL != filter) {
+        if (filter == lookup_filter) {
+            return -1;
+        }
         if (AST_NODE_TYPE_FILTER_DEF == filter->ndat->type) {
             stmt_lists = &filter->ndat->u.scope_def.block_stmt_list;
         } else if (ast_node_is_rexpr_filter(filter)) {
@@ -359,34 +362,36 @@ lookup_visible_statements_in_lists_internal(
     int i;
     int ret;
 
-    if (lookup_identifier[0] == '@') {
-        stmt_types_by_prio = attribute_types_by_prio;
-        n_stmt_types_by_prio = N_ELEM(attribute_types_by_prio);
-    } else {
-        stmt_types_by_prio = named_stmt_types_by_prio;
-        n_stmt_types_by_prio = N_ELEM(named_stmt_types_by_prio);
-    }
-    for (i = 0; i < n_stmt_types_by_prio; ++i) {
-        stmt_type = stmt_types_by_prio[i];
-        if (0 == (stmt_mask & stmt_type)) {
-            continue ;
+    if (NULL != lookup_identifier) {
+        if (lookup_identifier[0] == '@') {
+            stmt_types_by_prio = attribute_types_by_prio;
+            n_stmt_types_by_prio = N_ELEM(attribute_types_by_prio);
+        } else {
+            stmt_types_by_prio = named_stmt_types_by_prio;
+            n_stmt_types_by_prio = N_ELEM(named_stmt_types_by_prio);
         }
-        stmt_list = block_stmt_lists_get_list(stmt_type, stmt_lists);
-        // local fields with no anonymous component have priority
-        TAILQ_FOREACH(stmt, stmt_list, list) {
-            nstmt = (struct named_statement *)stmt;
-            if (NULL != nstmt->name
-                && 0 == strcmp(lookup_identifier, nstmt->name)) {
-                if (-1 == append_named_statement_spec(
-                        stmt_type, nstmt, NULL, anonymous_member,
-                        visible_statementsp, visible_statements_indexp)) {
-                    return -1;
-                }
-                if (NULL == nstmt->stmt.cond) {
-                    // current scoped expression is unconditional, no
-                    // need to go any further by decreasing visibility
-                    // order
-                    return LOOKUP_END;
+        for (i = 0; i < n_stmt_types_by_prio; ++i) {
+            stmt_type = stmt_types_by_prio[i];
+            if (0 == (stmt_mask & stmt_type)) {
+                continue ;
+            }
+            stmt_list = block_stmt_lists_get_list(stmt_type, stmt_lists);
+            // local fields with no anonymous component have priority
+            TAILQ_FOREACH(stmt, stmt_list, list) {
+                nstmt = (struct named_statement *)stmt;
+                if (NULL != nstmt->name
+                    && 0 == strcmp(lookup_identifier, nstmt->name)) {
+                    if (-1 == append_named_statement_spec(
+                            stmt_type, nstmt, NULL, anonymous_member,
+                            visible_statementsp, visible_statements_indexp)) {
+                        return -1;
+                    }
+                    if (NULL == nstmt->stmt.cond) {
+                        // current scoped expression is unconditional, no
+                        // need to go any further by decreasing visibility
+                        // order
+                        return LOOKUP_END;
+                    }
                 }
             }
         }
@@ -493,6 +498,28 @@ identifier_is_visible_in_block_stmt_lists(
     // requested (0), so at least one.
     return -1 == lookup_visible_statements_in_lists_internal(
         stmt_mask, identifier, NULL, stmt_lists, FALSE,
+        NULL, NULL);
+}
+
+int
+filter_exists_in_scoped_filter(
+    struct ast_node_hdl *scoped_filter,
+    struct ast_node_hdl *lookup_filter)
+{
+    struct filter_def *filter_def;
+
+    if (scoped_filter == lookup_filter) {
+        return TRUE;
+    }
+    filter_def = scoped_filter->ndat->u.rexpr_filter.filter_def;
+    if (NULL == filter_def) {
+        return FALSE;
+    }
+    // -1 means that there was more names to lookup than the maximum
+    // requested (0), so at least one.
+    return -1 == lookup_visible_statements_in_lists_internal(
+        STATEMENT_TYPE_FIELD,
+        NULL, lookup_filter, &filter_def->scope_def.block_stmt_list, FALSE,
         NULL, NULL);
 }
 

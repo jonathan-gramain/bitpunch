@@ -1613,7 +1613,8 @@ expr_evaluate_dpath_anchor_common(struct ast_node_hdl *expr,
      * from inner to outer scope */
     anchor_scope = bst->scope;
     while (NULL != anchor_scope) {
-        if (anchor_scope->filter->ndat == anchor_filter->ndat) {
+        if (filter_exists_in_scoped_filter(anchor_scope->filter,
+                                           anchor_filter)) {
             *dpathp = expr_dpath_as_container(anchor_scope);
             box_acquire(anchor_scope);
             return BITPUNCH_OK;

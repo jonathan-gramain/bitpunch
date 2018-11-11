@@ -101,6 +101,11 @@ identifier_is_visible_in_block_stmt_lists(
     const struct block_stmt_list *stmt_lists);
 
 int
+filter_exists_in_scoped_filter(
+    struct ast_node_hdl *scoped_filter,
+    struct ast_node_hdl *lookup_filter);
+
+int
 compile_node(struct ast_node_hdl *node,
              struct compile_ctx *ctx,
              dep_resolver_tagset_t tags_pre,
