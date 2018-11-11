@@ -256,8 +256,8 @@ def test_ldb(spec_ldb, data_ldb):
                         data_ldb['nb_entries'])
     dtree = model.DataTree(data, spec_ldb)
     index = dtree.eval_expr('?index')
-    # assert index.offset == 265031
-    # assert index.size == 5676
+    assert index.offset == 265031
+    assert index.size == 5676
     index_block = index['?stored_block']
     # # 5 more bytes than the stored size because block size includes
     # # the trailer
