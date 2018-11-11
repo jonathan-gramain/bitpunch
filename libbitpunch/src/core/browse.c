@@ -3461,8 +3461,7 @@ box_get_abs_dpath(const struct box *box,
     }
     n_out += track_path_elem_dump_to_buf(
         box->track_path,
-        /* dump separator? */
-        0 == (box->parent_box->filter->flags & ASTFLAG_IS_ROOT_BLOCK),
+        n_out > 0, // dump separator?
         dpath_expr_buf, buf_size);
     return n_out;
 }
@@ -3527,8 +3526,7 @@ tracker_get_abs_dpath(const struct tracker *tk,
     }
     n_out += track_path_elem_dump_to_buf(
         tk->cur,
-        /* dump separator? */
-        0 == (tk->box->filter->flags & ASTFLAG_IS_ROOT_BLOCK),
+        n_out > 0, // dump separator?
         dpath_expr_buf, buf_size);
     return n_out;
 }
