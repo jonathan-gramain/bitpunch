@@ -19,7 +19,7 @@ let FixInt32 = [4] byte <> FixInt;
 env("FILE") <> struct {
     head_blocks: [] LogBlock;
     tail_block: LogTailBlock;
-}
+};
 
 let LogBlock = struct {
        records: [] Record;

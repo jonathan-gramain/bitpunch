@@ -14,7 +14,7 @@ let u32 = [4] byte <> UnsignedInt;
 
 env("FILE") <> struct {
     ogg_pages: [] OggPage;
-}
+};
 
 let OggPage = struct {
     hdr:      OggPageHdr;

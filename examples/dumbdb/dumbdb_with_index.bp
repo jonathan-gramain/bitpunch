@@ -16,6 +16,6 @@ let DumbDBValue = struct {
     @key = key_data;
 };
 
-file {
+env("FILE") <> struct {
     values: [] DumbDBValue;
-}
+};

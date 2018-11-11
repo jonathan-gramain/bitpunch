@@ -245,4 +245,4 @@ let Box = struct {
 
 env("FILE") <> struct {
      boxes: [] Box;
-}
+};

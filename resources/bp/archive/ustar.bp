@@ -15,7 +15,7 @@ let OctalInt = NullTerminatedString <> formatted_integer {
 
 env("FILE") <> struct {
     files: [] FileEntry;
-}
+};
 
 let FileEntry = struct {
     header: FileHeader;
