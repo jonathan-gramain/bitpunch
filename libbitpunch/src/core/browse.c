@@ -3573,6 +3573,7 @@ bitpunch_status_t
 tracker_get_filtered_data_internal(
     struct tracker *tk,
     struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct box **exported_data_boxp,
     struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
@@ -3591,11 +3592,17 @@ tracker_get_filtered_data_internal(
         }
         if (BITPUNCH_OK == bt_ret) {
             *dsp = filtered_dpath.tk->box->ds_out;
+            *exported_data_boxp = filtered_dpath.tk->box;
+            box_acquire(filtered_dpath.tk->box);
         }
         break ;
     case EXPR_DPATH_TYPE_CONTAINER:
         bt_ret = box_get_filtered_data_internal(filtered_dpath.box,
                                                 dsp, offsetp, sizep, bst);
+        if (BITPUNCH_OK == bt_ret) {
+            *exported_data_boxp = filtered_dpath.box;
+            box_acquire(filtered_dpath.box);
+        }
         break ;
     default:
         assert(0);
@@ -4185,13 +4192,15 @@ bitpunch_status_t
 expr_dpath_get_filtered_data(
     expr_dpath_t dpath,
     struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct box **exported_data_boxp,
     struct tracker_error **errp)
 {
     struct browse_state bst;
 
     browse_state_init_dpath(&bst, dpath);
     return transmit_error(
-        expr_dpath_get_filtered_data_internal(dpath, dsp, offsetp, sizep, &bst),
+        expr_dpath_get_filtered_data_internal(dpath, dsp, offsetp, sizep,
+                                              exported_data_boxp, &bst),
         &bst, errp);
 }
 
