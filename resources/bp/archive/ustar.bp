@@ -13,9 +13,9 @@ let OctalInt = NullTerminatedString <> formatted_integer {
     @empty_value = 0;
 };
 
-file {
+env("DATASOURCE") <> struct {
     files: [] FileEntry;
-}
+};
 
 let FileEntry = struct {
     header: FileHeader;

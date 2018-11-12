@@ -128,6 +128,11 @@ scope_attach_native_attribute(
     const char *attr_name, expr_value_t value);
 
 struct ast_node_hdl *
+scope_get_first_declared_named_expr(
+    const struct scope_def *scope_def,
+    const char *name);
+
+struct ast_node_hdl *
 scope_get_first_declared_attribute(
     const struct scope_def *scope_def,
     const char *attr_name);

@@ -132,7 +132,10 @@ bitpunch_compile_schema(struct bitpunch_schema *schema)
 {
     struct ast_node_hdl *ast_root;
 
-    ast_root = schema->file_block.root;
+    if (0 != (schema->flags & BITPUNCH_SCHEMA_COMPILED)) {
+        return 0;
+    }
+    ast_root = schema->ast_root;
     if (-1 == resolve_identifiers(ast_root, NULL,
                                   RESOLVE_EXPECT_TYPE |
                                   RESOLVE_EXPECT_FILTER,
@@ -150,6 +153,37 @@ bitpunch_compile_schema(struct bitpunch_schema *schema)
                                    RESOLVE_EXPECT_FILTER)) {
         return -1;
     }
+    schema->flags |= BITPUNCH_SCHEMA_COMPILED;
+    return 0;
+}
+
+int
+bitpunch_compile_env(struct bitpunch_env *env)
+{
+    struct ast_node_hdl *ast_root;
+
+    if (0 != (env->flags & BITPUNCH_ENV_COMPILED)) {
+        return 0;
+    }
+    ast_root = env->ast_root;
+    if (-1 == resolve_identifiers(ast_root, NULL,
+                                  RESOLVE_EXPECT_TYPE |
+                                  RESOLVE_EXPECT_FILTER,
+                                  RESOLVE_TYPE_IDENTIFIERS)) {
+        return -1;
+    }
+    if (-1 == resolve_identifiers(ast_root, NULL,
+                                  RESOLVE_EXPECT_TYPE |
+                                  RESOLVE_EXPECT_FILTER,
+                                  RESOLVE_EXPRESSION_IDENTIFIERS)) {
+        return -1;
+    }
+    if (-1 == compile_ast_node_all(ast_root,
+                                   RESOLVE_EXPECT_TYPE |
+                                   RESOLVE_EXPECT_FILTER)) {
+        return -1;
+    }
+    env->flags |= BITPUNCH_ENV_COMPILED;
     return 0;
 }
 
@@ -261,7 +295,7 @@ append_named_statement_spec(
 static int
 lookup_visible_statements_in_lists_internal(
     enum statement_type stmt_mask,
-    const char *identifier,
+    const char *lookup_identifier, struct ast_node_hdl *lookup_filter,
     const struct block_stmt_list *stmt_lists,
     int anonymous_member,
     struct named_statement_spec **visible_statementsp,
@@ -270,7 +304,7 @@ lookup_visible_statements_in_lists_internal(
 static int
 lookup_visible_statements_in_anonymous_field(
     enum statement_type stmt_mask,
-    const char *identifier,
+    const char *lookup_identifier, struct ast_node_hdl *lookup_filter,
     struct field *field,
     struct named_statement_spec **visible_statementsp,
     int *visible_statements_indexp)
@@ -281,6 +315,9 @@ lookup_visible_statements_in_anonymous_field(
 
     filter = ast_node_get_as_type(field->filter);
     if (NULL != filter) {
+        if (filter == lookup_filter) {
+            return -1;
+        }
         if (AST_NODE_TYPE_FILTER_DEF == filter->ndat->type) {
             stmt_lists = &filter->ndat->u.scope_def.block_stmt_list;
         } else if (ast_node_is_rexpr_filter(filter)) {
@@ -290,7 +327,7 @@ lookup_visible_statements_in_anonymous_field(
         }
         if (NULL != stmt_lists) {
             ret = lookup_visible_statements_in_lists_internal(
-                stmt_mask, identifier, stmt_lists, TRUE,
+                stmt_mask, lookup_identifier, lookup_filter, stmt_lists, TRUE,
                 visible_statementsp, visible_statements_indexp);
             if (0 != ret) {
                 return ret;
@@ -303,7 +340,7 @@ lookup_visible_statements_in_anonymous_field(
 static int
 lookup_visible_statements_in_lists_internal(
     enum statement_type stmt_mask,
-    const char *identifier,
+    const char *lookup_identifier, struct ast_node_hdl *lookup_filter,
     const struct block_stmt_list *stmt_lists,
     int anonymous_member,
     struct named_statement_spec **visible_statementsp,
@@ -325,34 +362,36 @@ lookup_visible_statements_in_lists_internal(
     int i;
     int ret;
 
-    if (identifier[0] == '@') {
-        stmt_types_by_prio = attribute_types_by_prio;
-        n_stmt_types_by_prio = N_ELEM(attribute_types_by_prio);
-    } else {
-        stmt_types_by_prio = named_stmt_types_by_prio;
-        n_stmt_types_by_prio = N_ELEM(named_stmt_types_by_prio);
-    }
-    for (i = 0; i < n_stmt_types_by_prio; ++i) {
-        stmt_type = stmt_types_by_prio[i];
-        if (0 == (stmt_mask & stmt_type)) {
-            continue ;
+    if (NULL != lookup_identifier) {
+        if (lookup_identifier[0] == '@') {
+            stmt_types_by_prio = attribute_types_by_prio;
+            n_stmt_types_by_prio = N_ELEM(attribute_types_by_prio);
+        } else {
+            stmt_types_by_prio = named_stmt_types_by_prio;
+            n_stmt_types_by_prio = N_ELEM(named_stmt_types_by_prio);
         }
-        stmt_list = block_stmt_lists_get_list(stmt_type, stmt_lists);
-        // local fields with no anonymous component have priority
-        TAILQ_FOREACH(stmt, stmt_list, list) {
-            nstmt = (struct named_statement *)stmt;
-            if (NULL != nstmt->name
-                && 0 == strcmp(identifier, nstmt->name)) {
-                if (-1 == append_named_statement_spec(
-                        stmt_type, nstmt, NULL, anonymous_member,
-                        visible_statementsp, visible_statements_indexp)) {
-                    return -1;
-                }
-                if (NULL == nstmt->stmt.cond) {
-                    // current scoped expression is unconditional, no
-                    // need to go any further by decreasing visibility
-                    // order
-                    return LOOKUP_END;
+        for (i = 0; i < n_stmt_types_by_prio; ++i) {
+            stmt_type = stmt_types_by_prio[i];
+            if (0 == (stmt_mask & stmt_type)) {
+                continue ;
+            }
+            stmt_list = block_stmt_lists_get_list(stmt_type, stmt_lists);
+            // local fields with no anonymous component have priority
+            TAILQ_FOREACH(stmt, stmt_list, list) {
+                nstmt = (struct named_statement *)stmt;
+                if (NULL != nstmt->name
+                    && 0 == strcmp(lookup_identifier, nstmt->name)) {
+                    if (-1 == append_named_statement_spec(
+                            stmt_type, nstmt, NULL, anonymous_member,
+                            visible_statementsp, visible_statements_indexp)) {
+                        return -1;
+                    }
+                    if (NULL == nstmt->stmt.cond) {
+                        // current scoped expression is unconditional, no
+                        // need to go any further by decreasing visibility
+                        // order
+                        return LOOKUP_END;
+                    }
                 }
             }
         }
@@ -363,7 +402,8 @@ lookup_visible_statements_in_lists_internal(
         if (NULL == nstmt->name
             && !(nstmt->stmt.stmt_flags & FIELD_FLAG_HIDDEN)) {
             ret = lookup_visible_statements_in_anonymous_field(
-                stmt_mask, identifier, (struct field *)nstmt,
+                stmt_mask, lookup_identifier, lookup_filter,
+                (struct field *)nstmt,
                 visible_statementsp, visible_statements_indexp);
             if (0 != ret) {
                 return ret;
@@ -408,7 +448,7 @@ lookup_all_visible_statements(
          refs_level = refs_level->outer_refs) {
         last_visible_statements_index = visible_statements_index;
         ret = lookup_visible_statements_in_lists_internal(
-            stmt_mask, identifier, refs_level->cur_lists, FALSE,
+            stmt_mask, identifier, NULL, refs_level->cur_lists, FALSE,
             &visible_statements, &visible_statements_index);
         if (-1 == ret) {
             free(visible_statements);
@@ -438,7 +478,7 @@ lookup_visible_statements_in_lists(
     visible_statements = NULL;
     visible_statements_index = 0;
     ret = lookup_visible_statements_in_lists_internal(
-        stmt_mask, identifier, stmt_lists, FALSE,
+        stmt_mask, identifier, NULL, stmt_lists, FALSE,
         &visible_statements, &visible_statements_index);
     if (-1 == ret) {
         free(visible_statements);
@@ -457,7 +497,29 @@ identifier_is_visible_in_block_stmt_lists(
     // -1 means that there was more names to lookup than the maximum
     // requested (0), so at least one.
     return -1 == lookup_visible_statements_in_lists_internal(
-        stmt_mask, identifier, stmt_lists, FALSE,
+        stmt_mask, identifier, NULL, stmt_lists, FALSE,
+        NULL, NULL);
+}
+
+int
+filter_exists_in_scoped_filter(
+    struct ast_node_hdl *scoped_filter,
+    struct ast_node_hdl *lookup_filter)
+{
+    struct filter_def *filter_def;
+
+    if (scoped_filter == lookup_filter) {
+        return TRUE;
+    }
+    filter_def = scoped_filter->ndat->u.rexpr_filter.filter_def;
+    if (NULL == filter_def) {
+        return FALSE;
+    }
+    // -1 means that there was more names to lookup than the maximum
+    // requested (0), so at least one.
+    return -1 == lookup_visible_statements_in_lists_internal(
+        STATEMENT_TYPE_FIELD,
+        NULL, lookup_filter, &filter_def->scope_def.block_stmt_list, FALSE,
         NULL, NULL);
 }
 
@@ -700,36 +762,22 @@ resolve_identifiers_in_stmt_lists(
 }
 
 static int
-resolve_identifiers_in_filter_body(
-    struct ast_node_hdl *filter,
-    const struct list_of_visible_refs *outer_refs,
-    enum resolve_identifiers_tag resolve_tags)
+resolve_identifiers_scope_def(struct ast_node_hdl *scope_def,
+                              const struct list_of_visible_refs *visible_refs,
+                              enum resolve_expect_mask expect_mask,
+                              enum resolve_identifiers_tag resolve_tags)
 {
     struct block_stmt_list *stmt_lists;
-    struct list_of_visible_refs visible_refs;
+    struct list_of_visible_refs inner_refs;
 
-    assert(AST_NODE_TYPE_FILTER_DEF == filter->ndat->type);
-    stmt_lists = &filter->ndat->u.scope_def.block_stmt_list;
+    stmt_lists = &scope_def->ndat->u.scope_def.block_stmt_list;
     /* add current refs to the chain of visible refs */
-    visible_refs.outer_refs = outer_refs;
-    visible_refs.cur_filter = filter;
-    visible_refs.cur_lists = stmt_lists;
+    inner_refs.outer_refs = visible_refs;
+    inner_refs.cur_filter = scope_def;
+    inner_refs.cur_lists = stmt_lists;
 
-    return resolve_identifiers_in_stmt_lists(stmt_lists, &visible_refs,
+    return resolve_identifiers_in_stmt_lists(stmt_lists, &inner_refs,
                                              resolve_tags);
-}
-
-static int
-resolve_identifiers_filter(struct ast_node_hdl *filter,
-                           const struct list_of_visible_refs *visible_refs,
-                           enum resolve_expect_mask expect_mask,
-                           enum resolve_identifiers_tag resolve_tags)
-{
-    if (-1 == resolve_identifiers_in_filter_body(filter, visible_refs,
-                                                 resolve_tags)) {
-        return -1;
-    }
-    return 0;
 }
 
 static int
@@ -899,35 +947,6 @@ resolve_identifiers_operator_filter(
 }
 
 static int
-resolve_identifiers_expr_file(
-    struct ast_node_hdl *expr,
-    const struct list_of_visible_refs *visible_refs,
-    enum resolve_expect_mask expect_mask,
-    enum resolve_identifiers_tag resolve_tags)
-{
-    const struct list_of_visible_refs *toplevel_refs;
-    struct ast_node_data *compiled_type;
-
-    if (NULL == visible_refs) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                       "need a binary file loaded to use 'file' in "
-                       "expression");
-        return -1;
-    }
-    toplevel_refs = visible_refs;
-    while (NULL != toplevel_refs->outer_refs) {
-        toplevel_refs = toplevel_refs->outer_refs;
-    }
-    compiled_type = new_safe(struct ast_node_data);
-    compiled_type->type = AST_NODE_TYPE_REXPR_FILE;
-    // const-cast
-    compiled_type->u.rexpr_file.item_type =
-        (struct ast_node_hdl *)toplevel_refs->cur_filter;
-    expr->ndat = compiled_type;
-    return 0;
-}
-
-static int
 resolve_identifiers_expr_self(
     struct ast_node_hdl *expr,
     const struct list_of_visible_refs *visible_refs,
@@ -1021,9 +1040,10 @@ resolve_identifiers(struct ast_node_hdl *node,
     case AST_NODE_TYPE_IDENTIFIER:
         return resolve_identifiers_identifier(node, visible_refs,
                                               expect_mask, resolve_tags);
+    case AST_NODE_TYPE_SCOPE_DEF:
     case AST_NODE_TYPE_FILTER_DEF:
-        return resolve_identifiers_filter(node, visible_refs,
-                                          expect_mask, resolve_tags);
+        return resolve_identifiers_scope_def(node, visible_refs,
+                                             expect_mask, resolve_tags);
     case AST_NODE_TYPE_CONDITIONAL:
         return resolve_identifiers_conditional(node, visible_refs,
                                                expect_mask, resolve_tags);
@@ -1077,9 +1097,6 @@ resolve_identifiers(struct ast_node_hdl *node,
     case AST_NODE_TYPE_OP_FCALL:
         return resolve_identifiers_op_fcall(node, visible_refs,
                                             expect_mask, resolve_tags);
-    case AST_NODE_TYPE_EXPR_FILE:
-        return resolve_identifiers_expr_file(node, visible_refs,
-                                             expect_mask, resolve_tags);
     case AST_NODE_TYPE_EXPR_SELF:
         return resolve_identifiers_expr_self(node, visible_refs,
                                              expect_mask, resolve_tags);
@@ -1188,8 +1205,8 @@ resolve_expr_scoped_recur(struct ast_node_hdl *expr,
     struct list_of_visible_refs visible_refs;
 
     while (NULL != cur_scope
-           && !ast_node_is_filter(cur_scope->filter)) {
-        cur_scope = cur_scope->parent_box;
+           && !ast_node_is_scope(cur_scope->filter)) {
+        cur_scope = cur_scope->scope;
     }
     if (NULL == cur_scope) {
         return resolve_expr_internal(expr, inmost_refs);
@@ -1197,11 +1214,11 @@ resolve_expr_scoped_recur(struct ast_node_hdl *expr,
     visible_refs.outer_refs = NULL;
     visible_refs.cur_filter = cur_scope->filter;
     visible_refs.cur_lists =
-        &filter_get_scope_def(cur_scope->filter)->block_stmt_list;
+        &ast_node_get_scope_def(cur_scope->filter)->block_stmt_list;
     if (NULL != inner_refs) {
         inner_refs->outer_refs = &visible_refs;
     }
-    return resolve_expr_scoped_recur(expr, cur_scope->parent_box,
+    return resolve_expr_scoped_recur(expr, cur_scope->scope,
                                      &visible_refs,
                                      (NULL != inmost_refs ?
                                       inmost_refs : &visible_refs));
@@ -2921,30 +2938,6 @@ compile_rexpr_member(
 }
 
 static int
-compile_rexpr_file(
-    struct ast_node_hdl *expr,
-    dep_resolver_tagset_t tags,
-    struct compile_ctx *ctx)
-{
-    if (0 != (tags & COMPILE_TAG_BROWSE_BACKENDS)) {
-        compile_node_backends__item(expr);
-    }
-    return 0;
-}
-
-static int
-compile_rexpr_self(
-    struct ast_node_hdl *expr,
-    dep_resolver_tagset_t tags,
-    struct compile_ctx *ctx)
-{
-    if (0 != (tags & COMPILE_TAG_BROWSE_BACKENDS)) {
-        compile_node_backends__item(expr);
-    }
-    return 0;
-}
-
-static int
 compile_node_type_int(struct ast_node_hdl *node,
                       dep_resolver_tagset_t tags,
                       struct compile_ctx *ctx,
@@ -3047,10 +3040,6 @@ compile_node_type_int(struct ast_node_hdl *node,
         return compile_rexpr_named_expr(node, tags, ctx);
     case AST_NODE_TYPE_REXPR_POLYMORPHIC:
         return compile_rexpr_polymorphic(node, tags, ctx);
-    case AST_NODE_TYPE_REXPR_FILE:
-        return compile_rexpr_file(node, tags, ctx);
-    case AST_NODE_TYPE_REXPR_SELF:
-        return compile_rexpr_self(node, tags, ctx);
     default:
         /* nothing to do */
         return 0;
@@ -3232,7 +3221,6 @@ compile_global_nodes(void)
     struct compile_ctx ctx;
 
     compile_ctx_init(&ctx);
-    compile_global_nodes__filter(&ctx);
     compile_global_nodes__byte(&ctx);
     compile_global_nodes__array_slice(&ctx);
     compile_global_nodes__byte_slice(&ctx);
@@ -3288,13 +3276,11 @@ ast_node_is_rexpr(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE:
     case AST_NODE_TYPE_REXPR_OP_MEMBER:
     case AST_NODE_TYPE_REXPR_OP_FCALL:
-    case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_REXPR_FILTER:
-    case AST_NODE_TYPE_SOURCE:
         return TRUE;
     default:
         return FALSE;
@@ -3316,7 +3302,6 @@ ast_node_is_rexpr_filter(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_REXPR_OP_FILTER:
     case AST_NODE_TYPE_REXPR_FILTER:
-    case AST_NODE_TYPE_SOURCE:
         return TRUE;
     default:
         return FALSE;
@@ -3398,8 +3383,6 @@ ast_node_get_target_item(struct ast_node_hdl *node)
     }
     case AST_NODE_TYPE_REXPR_OP_FILTER:
         return ast_node_get_target_item(node->ndat->u.rexpr_op_filter.target);
-    case AST_NODE_TYPE_REXPR_FILE:
-        return node->ndat->u.rexpr_file.item_type;
     case AST_NODE_TYPE_REXPR_SELF:
         return node->ndat->u.rexpr_self.item_type;
     case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
@@ -3566,7 +3549,6 @@ ast_node_is_container(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
-    case AST_NODE_TYPE_SOURCE:
         return TRUE;
     default:
         return FALSE;
@@ -3580,7 +3562,6 @@ ast_node_is_origin_container(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
-    case AST_NODE_TYPE_SOURCE:
         return TRUE;
     default:
         return FALSE;
@@ -3593,7 +3574,6 @@ ast_node_is_byte_container(const struct ast_node_hdl *node)
     switch (node->ndat->type) {
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
-    case AST_NODE_TYPE_SOURCE:
         return TRUE;
     default:
         return FALSE;
@@ -3608,7 +3588,6 @@ ast_node_is_subscriptable_container(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
-    case AST_NODE_TYPE_SOURCE:
         return TRUE;
     default:
         return FALSE;
@@ -3641,7 +3620,6 @@ ast_node_is_item(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
-    case AST_NODE_TYPE_SOURCE:
     case AST_NODE_TYPE_REXPR_FILTER:
         return TRUE;
     default:
@@ -3676,6 +3654,25 @@ ast_node_is_type(const struct ast_node_hdl *node)
     return ast_node_is_item(node);
 }
 
+
+int
+ast_node_is_scope(const struct ast_node_hdl *node)
+{
+    return ast_node_is_filter(node) ||
+        AST_NODE_TYPE_SCOPE_DEF == node->ndat->type;
+}
+
+struct scope_def *
+ast_node_get_scope_def(struct ast_node_hdl *node)
+{
+    if (ast_node_is_filter(node)) {
+        return filter_get_scope_def(node);
+    }
+    if (AST_NODE_TYPE_SCOPE_DEF == node->ndat->type) {
+        return &node->ndat->u.scope_def;
+    }
+    return NULL;
+}
 
 int
 ast_node_is_filter(const struct ast_node_hdl *node)
@@ -3719,9 +3716,6 @@ ast_node_get_as_type__rexpr(const struct ast_node_hdl *expr)
             return as_type;
         }
         return ast_node_get_as_type(expr->ndat->u.rexpr_op_filter.target);
-
-    case AST_NODE_TYPE_REXPR_FILE:
-        return expr->ndat->u.rexpr_file.item_type;
 
     case AST_NODE_TYPE_REXPR_SELF:
         return expr->ndat->u.rexpr_self.item_type;
@@ -4106,7 +4100,6 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
     }
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
-    case AST_NODE_TYPE_SOURCE:
         fprintf(out, "\n%*s\\_ static node (%s)\n",
                 (depth + 1) * INDENT_N_SPACES, "",
                 ast_node_type_str(node->ndat->type));
@@ -4404,12 +4397,10 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
                             depth + 2, visible_refs, out);
         }
         break ;
-    case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
         dump_ast_rexpr(node, out);
         fprintf(out, "\n");
         break ;
-    case AST_NODE_TYPE_EXPR_FILE:
     case AST_NODE_TYPE_EXPR_SELF:
     case AST_NODE_TYPE_NONE:
         fprintf(out, "\n");
@@ -4433,11 +4424,8 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_IDENTIFIER:
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
-    case AST_NODE_TYPE_SOURCE:
-    case AST_NODE_TYPE_EXPR_FILE:
     case AST_NODE_TYPE_EXPR_SELF:
     case AST_NODE_TYPE_REXPR_NATIVE:
-    case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
         /* leaf */
         fprintf(out, "%*s|- (%s) ", depth * INDENT_N_SPACES, "",

@@ -769,6 +769,68 @@ expr_lookup_evaluator(enum ast_node_type op_type,
 
 
 static bitpunch_status_t
+expr_eval_builtin_env(struct ast_node_hdl *object,
+                      struct statement_list *params,
+                      int n_params,
+                      expr_value_t *valuep,
+                      expr_dpath_t *dpathp,
+                      struct browse_state *bst)
+{
+    struct ast_node_hdl *expr;
+    bitpunch_status_t bt_ret;
+    expr_value_t name_eval;
+    char name_buf[256];
+    struct ast_node_hdl *env_node;
+    struct ast_node_hdl *env_value_node = NULL;
+    struct scope_def *scope_def;
+
+    expr = ((struct named_expr *)TAILQ_FIRST(params))->expr;
+    if (expr->ndat->u.rexpr.value_type_mask != EXPR_VALUE_TYPE_STRING) {
+        return node_error(BITPUNCH_INVALID_PARAM, expr, bst,
+                          "cannot evaluate 'env' with parameter of type '%s': "
+                          "must be a string",
+                          expr_value_type_str(
+                              expr->ndat->u.rexpr.value_type_mask));
+    }
+    bt_ret = expr_evaluate_value_internal(expr, NULL, &name_eval, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        assert(EXPR_VALUE_TYPE_STRING == name_eval.type);
+        if (name_eval.string.len < sizeof (name_buf)) {
+            memcpy(name_buf, name_eval.string.str, name_eval.string.len);
+            name_buf[name_eval.string.len] = '\0';
+            if (NULL != bst->env) {
+                env_node = bst->env->ast_root;
+                assert(AST_NODE_TYPE_REXPR_FILTER == env_node->ndat->type);
+                scope_def = filter_get_scope_def(env_node);
+                assert(NULL != scope_def);
+                env_value_node = scope_get_first_declared_named_expr(
+                    scope_def, name_buf);
+            } else {
+                env_value_node = NULL;
+            }
+            if (NULL == env_value_node) {
+                bt_ret = node_error(
+                    BITPUNCH_NO_ITEM, expr, bst,
+                    "cannot evaluate 'env': no value '%s' present "
+                    "in environment",
+                    name_buf);
+            }
+        } else {
+            bt_ret = node_error(
+                BITPUNCH_INVALID_PARAM, expr, bst,
+                "cannot evaluate 'env': name too long '%.20s' (max %zu chars)",
+                name_eval.string.str, sizeof (name_buf) - 1);
+        }
+        expr_value_destroy(name_eval);
+    }
+    if (BITPUNCH_OK == bt_ret) {
+        bt_ret = expr_evaluate_internal(env_value_node, NULL,
+                                        valuep, dpathp, bst);
+    }
+    return bt_ret;
+}
+
+static bitpunch_status_t
 expr_eval_builtin_index(struct ast_node_hdl *object,
                         struct statement_list *params,
                         int n_params,
@@ -907,6 +969,14 @@ expr_eval_builtin_len(struct ast_node_hdl *object,
 /* this array must be alphabetically ordered by builtin name */
 static const struct expr_builtin_fn
 expr_builtin_fns[] = {
+    {
+        .builtin_name = "env",
+        .res_value_type_mask = EXPR_VALUE_TYPE_BYTES,
+        .res_dpath_type_mask = EXPR_DPATH_TYPE_CONTAINER,
+        .eval_fn = expr_eval_builtin_env,
+        .min_n_params = 1,
+        .max_n_params = 1,
+    },
     {
         .builtin_name = "index",
         .res_value_type_mask = EXPR_VALUE_TYPE_INTEGER,
@@ -1543,7 +1613,8 @@ expr_evaluate_dpath_anchor_common(struct ast_node_hdl *expr,
      * from inner to outer scope */
     anchor_scope = bst->scope;
     while (NULL != anchor_scope) {
-        if (anchor_scope->filter->ndat == anchor_filter->ndat) {
+        if (filter_exists_in_scoped_filter(anchor_scope->filter,
+                                           anchor_filter)) {
             *dpathp = expr_dpath_as_container(anchor_scope);
             box_acquire(anchor_scope);
             return BITPUNCH_OK;
@@ -1909,37 +1980,6 @@ expr_evaluate_polymorphic(
 }
 
 static bitpunch_status_t
-expr_evaluate_file(struct ast_node_hdl *expr,
-                   expr_value_t *valuep, expr_dpath_t *dpathp,
-                   struct browse_state *bst)
-{
-    struct box *file_box;
-    expr_dpath_t dpath;
-    bitpunch_status_t bt_ret;
-
-    // TODO "file" expression should yield the source filter in the
-    // future, as containers should be declared as filters on top of
-    // the source.
-    file_box = bst->scope;
-    while (NULL != file_box->parent_box
-           && AST_NODE_TYPE_SOURCE != file_box->parent_box->filter->ndat->type) {
-        file_box = file_box->parent_box;
-    }
-    box_acquire(file_box);
-    dpath = expr_dpath_as_container(file_box);
-    bt_ret = BITPUNCH_OK;
-    if (NULL != valuep) {
-        bt_ret = dpath_read_value_internal(dpath, valuep, bst);
-    }
-    if (BITPUNCH_OK == bt_ret && NULL != dpathp) {
-        *dpathp = dpath;
-    } else {
-        expr_dpath_destroy(dpath);
-    }
-    return bt_ret;
-}
-
-static bitpunch_status_t
 expr_evaluate_self(struct ast_node_hdl *expr,
                    expr_value_t *valuep, expr_dpath_t *dpathp,
                    struct browse_state *bst)
@@ -2255,9 +2295,6 @@ expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
     case AST_NODE_TYPE_REXPR_POLYMORPHIC:
         bt_ret = expr_evaluate_polymorphic(expr, valuep, dpathp, bst);
         break ;
-    case AST_NODE_TYPE_REXPR_FILE:
-        bt_ret = expr_evaluate_file(expr, valuep, dpathp, bst);
-        break ;
     case AST_NODE_TYPE_REXPR_SELF:
         bt_ret = expr_evaluate_self(expr, valuep, dpathp, bst);
         break ;
@@ -2328,8 +2365,10 @@ expr_transform_dpath_generic_internal(
     expr_dpath_t filtered_dpath;
 
     if (EXPR_DPATH_TYPE_NONE != transformp->dpath.type) {
-        return node_error(BITPUNCH_INVALID_PARAM, expr, bst,
-                          "cannot evaluate filtered dpath: multiple sources");
+        /* return node_error(BITPUNCH_INVALID_PARAM, expr, bst, */
+        /*                   "cannot evaluate filtered dpath: multiple sources"); */
+        expr_dpath_destroy(transformp->dpath);
+        transformp->dpath.type = EXPR_DPATH_TYPE_NONE;
     }
     bt_ret = expr_evaluate_dpath_internal(expr, NULL,
                                           &transformp->dpath, bst);
@@ -2519,7 +2558,6 @@ expr_transform_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
     case AST_NODE_TYPE_BYTE_ARRAY:
         bt_ret = expr_transform_dpath_filter(expr, transformp, bst);
         break ;
-    case AST_NODE_TYPE_REXPR_FILE:
     case AST_NODE_TYPE_REXPR_SELF:
     case AST_NODE_TYPE_REXPR_FIELD:
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT:
@@ -2804,58 +2842,82 @@ expr_value_type_mask_contains_dpath(enum expr_value_type value_type_mask)
  */
 
 bitpunch_status_t
-expr_evaluate(struct ast_node_hdl *expr, struct box *scope,
+expr_evaluate(struct ast_node_hdl *expr,
+              struct box *scope, struct bitpunch_env *env,
               expr_value_t *valuep, expr_dpath_t *dpathp,
               struct tracker_error **errp)
 {
     struct browse_state bst;
+    bitpunch_status_t bt_ret;
 
     assert(NULL != valuep || NULL != dpathp);
 
     browse_state_init_scope(&bst, scope);
+    bt_ret = browse_state_set_environment(&bst, env);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     return transmit_error(
         expr_evaluate_internal(expr, scope, valuep, dpathp, &bst),
         &bst, errp);
 }
 
 bitpunch_status_t
-expr_evaluate_value(struct ast_node_hdl *expr, struct box *scope,
+expr_evaluate_value(struct ast_node_hdl *expr,
+                    struct box *scope, struct bitpunch_env *env,
                     expr_value_t *valuep,
                     struct tracker_error **errp)
 {
     struct browse_state bst;
+    bitpunch_status_t bt_ret;
 
     assert(NULL != valuep);
 
     browse_state_init_scope(&bst, scope);
+    bt_ret = browse_state_set_environment(&bst, env);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     return transmit_error(
         expr_evaluate_value_internal(expr, scope, valuep, &bst),
         &bst, errp);
 }
 
 bitpunch_status_t
-expr_evaluate_dpath(struct ast_node_hdl *expr, struct box *scope,
+expr_evaluate_dpath(struct ast_node_hdl *expr,
+                    struct box *scope, struct bitpunch_env *env,
                     expr_dpath_t *dpathp,
                     struct tracker_error **errp)
 {
     struct browse_state bst;
+    bitpunch_status_t bt_ret;
 
     assert(NULL != dpathp);
 
     browse_state_init_scope(&bst, scope);
+    bt_ret = browse_state_set_environment(&bst, env);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     return transmit_error(
         expr_evaluate_dpath_internal(expr, scope, dpathp, &bst),
         &bst, errp);
 }
 
 bitpunch_status_t
-evaluate_conditional(struct ast_node_hdl *cond, struct box *scope,
+evaluate_conditional(struct ast_node_hdl *cond,
+                     struct box *scope, struct bitpunch_env *env,
                      int *evalp,
                      struct tracker_error **errp)
 {
     struct browse_state bst;
+    bitpunch_status_t bt_ret;
 
     browse_state_init_scope(&bst, scope);
+    bt_ret = browse_state_set_environment(&bst, env);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     return transmit_error(
         evaluate_conditional_internal(cond, scope, evalp, &bst),
         &bst, errp);

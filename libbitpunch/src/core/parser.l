@@ -99,7 +99,6 @@ int lit_alloc;
     }
 %}
 
-file       { return KW_FILE; }
 if         { return KW_IF; }
 else       { return KW_ELSE; }
 self       { return KW_SELF; }
@@ -290,7 +289,7 @@ bitpunch_parse_schema(struct bitpunch_schema *schema)
     yylex_init(&scanner);
     yyset_in(fstream, scanner);
     ret = yyparse(scanner, &schema->parser_ctx,
-                  &schema->file_block);
+                  &schema->ast_root);
     yylex_destroy(scanner);
     fclose(fstream);
     if (0 != ret) {

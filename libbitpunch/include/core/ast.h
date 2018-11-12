@@ -89,6 +89,9 @@ int
 bitpunch_compile_schema(struct bitpunch_schema *schema);
 
 int
+bitpunch_compile_env(struct bitpunch_env *env);
+
+int
 bitpunch_resolve_expr(struct ast_node_hdl *expr, struct box *scope);
 
 int
@@ -96,6 +99,11 @@ identifier_is_visible_in_block_stmt_lists(
     enum statement_type stmt_mask,
     const char *identifier,
     const struct block_stmt_list *stmt_lists);
+
+int
+filter_exists_in_scoped_filter(
+    struct ast_node_hdl *scoped_filter,
+    struct ast_node_hdl *lookup_filter);
 
 int
 compile_node(struct ast_node_hdl *node,
@@ -186,6 +194,10 @@ int
 ast_node_is_trackable(const struct ast_node_hdl *node);
 int
 ast_node_is_type(const struct ast_node_hdl *node);
+int
+ast_node_is_scope(const struct ast_node_hdl *node);
+struct scope_def *
+ast_node_get_scope_def(struct ast_node_hdl *node);
 int
 ast_node_is_filter(const struct ast_node_hdl *node);
 struct ast_node_hdl *

@@ -44,16 +44,6 @@
 #include "filters/byte.h"
 #include "filters/array.h"
 
-struct ast_node_data shared_ast_node_data_source = {
-    .type = AST_NODE_TYPE_SOURCE,
-};
-struct ast_node_hdl shared_ast_node_source = {
-    .ndat = &shared_ast_node_data_source,
-};
-
-#define AST_NODE_SOURCE &shared_ast_node_source
-
-
 #define MAX_FILTER_COUNT           256
 
 struct filter_class filter_class_table[MAX_FILTER_COUNT];
@@ -148,6 +138,9 @@ filter_class_lookup(const char *name)
     return NULL;
 }
 
+void filter_class_declare_scope(void);
+
+void filter_class_declare_data_source(void);
 void filter_class_declare_file(void);
 
 void filter_class_declare_byte(void);
@@ -165,6 +158,9 @@ void filter_class_declare_formatted_integer(void);
 void
 filter_class_declare_std(void)
 {
+    filter_class_declare_scope();
+
+    filter_class_declare_data_source();
     filter_class_declare_file();
 
     filter_class_declare_byte();
@@ -547,48 +543,4 @@ compile_node_backends__filter_generic(struct ast_node_hdl *filter)
     compile_node_backends__filter__filter(filter);
     compile_node_backends__box__filter(filter);
     compile_node_backends__tracker__filter(filter);
-}
-
-static void
-compile_node_backends__box__source(struct ast_node_hdl *item)
-{
-    struct filter_instance *f_instance;
-    struct box_backend *b_box;
-
-    f_instance = item->ndat->u.rexpr_filter.f_instance;
-    b_box = &f_instance->b_box;
-    // FIXME avoid memset because filter may have set functions
-    // already, find a cleaner way to deal with this
-    //memset(b_box, 0, sizeof (*b_box));
-
-    // data sources do not provide span backends
-    b_box->compute_slack_size = box_compute__error;
-    b_box->compute_min_span_size = box_compute__error;
-    b_box->compute_max_span_size = box_compute__error;
-    b_box->compute_span_size = box_compute__error;
-
-    b_box->get_n_items = box_get_n_items__as_used;
-    b_box->compute_used_size = box_compute_used_size__from_apply_filter;
-}
-
-static void
-compile_node_backends__source(struct ast_node_hdl *item)
-{
-    item->ndat->u.rexpr_filter.f_instance = new_safe(struct filter_instance);
-
-    compile_node_backends__filter__filter(item);
-    compile_node_backends__box__source(item);
-    compile_node_backends__tracker__filter(item);
-}
-
-void
-compile_global_nodes__filter(struct compile_ctx *ctx)
-{
-    compile_node_backends__source(AST_NODE_SOURCE);
-}
-
-struct ast_node_hdl *
-filter_get_global_instance__source(void)
-{
-    return AST_NODE_SOURCE;
 }

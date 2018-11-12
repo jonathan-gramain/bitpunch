@@ -370,26 +370,3 @@ compile_node_backends__item__generic(struct ast_node_hdl *item)
         b_item->compute_item_size = compute_item_size__const_size;
     }
 }
-
-static struct filter_instance *
-item_filter_instance_build(struct ast_node_hdl *item)
-{
-    struct filter_instance *filter;
-    struct item_backend *b_item;
-
-    filter = new_safe(struct filter_instance);
-    b_item = &filter->b_item;
-    memset(b_item, 0, sizeof (*b_item));
-
-    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
-        b_item->compute_item_size = compute_item_size__const_size;
-    }
-    b_item->read_value = filter_read_value__bytes;
-    return filter;
-}
-
-void
-compile_node_backends__item(struct ast_node_hdl *item)
-{
-    item->ndat->u.rexpr_filter.f_instance = item_filter_instance_build(item);
-}

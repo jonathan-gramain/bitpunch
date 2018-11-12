@@ -58,7 +58,6 @@ box_array_slice_get_ancestor_array(struct box *box)
     array_box = box;
     while (AST_NODE_TYPE_ARRAY != array_box->filter->ndat->type &&
            AST_NODE_TYPE_BYTE_ARRAY != array_box->filter->ndat->type &&
-           AST_NODE_TYPE_SOURCE != array_box->filter->ndat->type &&
            NULL != array_box->parent_box) {
         array_box = array_box->parent_box;
     }
@@ -93,7 +92,6 @@ box_new_slice_box(struct tracker *slice_start,
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
     case AST_NODE_TYPE_REXPR_FILTER:
-    case AST_NODE_TYPE_SOURCE:
         slice_filter = filter_get_global_instance__byte_slice();
         break ;
     default:

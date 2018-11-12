@@ -88,7 +88,5 @@ compute_item_size__const_size(struct ast_node_hdl *item_filter,
 
 void
 compile_node_backends__item__generic(struct ast_node_hdl *item);
-void
-compile_node_backends__item(struct ast_node_hdl *item);
 
 #endif

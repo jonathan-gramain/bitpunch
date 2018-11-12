@@ -208,7 +208,6 @@
             AST_NODE_TYPE_BYTE_ARRAY,
             AST_NODE_TYPE_ARRAY_SLICE,
             AST_NODE_TYPE_BYTE_SLICE,
-            AST_NODE_TYPE_SOURCE,
             AST_NODE_TYPE_CONDITIONAL,
             AST_NODE_TYPE_OP_EQ,
             AST_NODE_TYPE_OP_NE,
@@ -240,7 +239,6 @@
             AST_NODE_TYPE_OP_MEMBER,
             AST_NODE_TYPE_OP_FILTER,
             AST_NODE_TYPE_OP_FCALL,
-            AST_NODE_TYPE_EXPR_FILE,
             AST_NODE_TYPE_EXPR_SELF,
             AST_NODE_TYPE_REXPR_NATIVE,
             AST_NODE_TYPE_REXPR_OP_EQ,
@@ -278,7 +276,6 @@
             AST_NODE_TYPE_REXPR_OP_SUBSCRIPT,
             AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE,
             AST_NODE_TYPE_REXPR_OP_FCALL,
-            AST_NODE_TYPE_REXPR_FILE,
             AST_NODE_TYPE_REXPR_SELF,
         } type;
         enum ast_node_data_flag flags;
@@ -335,12 +332,8 @@
                 struct ast_node_hdl *filter_expr;
                 struct ast_node_hdl *target;
             } rexpr_op_filter;
-            struct rexpr_file {
-                struct rexpr_filter rexpr_filter; /* inherits */
-                struct ast_node_hdl *item_type;
-            } rexpr_file;
             struct rexpr_self {
-                struct rexpr_filter rexpr_filter; /* inherits */
+                struct rexpr rexpr; /* inherits */
                 struct ast_node_hdl *item_type;
             } rexpr_self;
             struct rexpr_native {
@@ -487,6 +480,9 @@
         __attribute__((format(printf,3,4)));
     const char *ast_node_type_str(enum ast_node_type type);
     struct ast_node_hdl *ast_node_hdl_new(void);
+    struct ast_node_hdl *
+    ast_node_hdl_create(enum ast_node_type type,
+                        const struct parser_location *loc);
     void init_block_stmt_list(struct block_stmt_list *dst);
 }
 
@@ -525,7 +521,7 @@
         TAILQ_INIT(dst->attribute_list);
     }
 
-    static struct ast_node_hdl *
+    struct ast_node_hdl *
     ast_node_hdl_create(enum ast_node_type type,
                         const struct parser_location *loc)
     {
@@ -605,7 +601,6 @@
     struct field *field;
     struct block_stmt_list block_stmt_list;
     struct statement_list *statement_list;
-    struct file_block file_block;
     struct named_expr *named_expr;
     struct func_param *func_param;
     struct subscript_index subscript_index;
@@ -616,7 +611,7 @@
 %token <integer> INTEGER
 %token <literal> LITERAL
 %token <boolean> KW_TRUE KW_FALSE
-%token KW_FILE KW_IF KW_ELSE KW_SELF KW_LET
+%token KW_IF KW_ELSE KW_SELF KW_LET KW_ENV
 
 %token <ast_node_type> '|' '^' '&' '>' '<' '+' '-' '*' '/' '%' '!' '~' '.' ':'
 %token <ast_node_type> TOK_LOR "||"
@@ -647,8 +642,7 @@
 %right OP_ARRAY_DECL
 %left  OP_BRACKETS
 
-%type <ast_node_hdl> g_integer g_boolean g_identifier g_literal scope_block filter_block expr opt_expr twin_index opt_twin_index
-%type <file_block> file_block
+%type <ast_node_hdl> schema g_integer g_boolean g_identifier g_literal scope_block filter_block expr opt_expr twin_index opt_twin_index
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
 %type <statement_list> func_params func_param_nonempty_list
 %type <named_expr> let_stmt field_stmt attribute_stmt func_param
@@ -711,9 +705,6 @@ expr:
   | g_boolean
   | g_identifier
   | g_literal
-  | KW_FILE {
-        $$ = ast_node_hdl_create(AST_NODE_TYPE_EXPR_FILE, &@KW_FILE);
-    }
   | KW_SELF {
         $$ = ast_node_hdl_create(AST_NODE_TYPE_EXPR_SELF, &@KW_SELF);
     }
@@ -907,55 +898,20 @@ func_param:
 
 
 schema:
-    block_stmt_list file_block block_stmt_list {
-        struct statement *stmt, *tstmt;
-        struct named_expr *field;
-
-        if (-1 == merge_block_stmt_list(&$1, &$3)) {
-            YYERROR;
-        }
-        TAILQ_FOREACH_SAFE(stmt, $1.field_list, list, tstmt) {
-            field = (struct named_expr *)stmt;
-            semantic_error(SEMANTIC_LOGLEVEL_WARNING, &stmt->loc,
-                           "top-level field declared outside file{} block");
-            free(field->nstmt.name);
-            free(field);
-        }
-        /* ignore fields outside file{} */
-        TAILQ_INIT($1.field_list);
-        assert(AST_NODE_TYPE_FILTER_DEF == $file_block.root->ndat->type);
-        if (-1 == merge_block_stmt_list(
-                &$file_block.root->ndat->u.scope_def.block_stmt_list,
-                &$1)) {
-            YYERROR;
-        }
-        memcpy(out_param, &$file_block, sizeof($file_block));
+    block_stmt_list {
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, &@$);
+        $$->loc = @1;
+        $$->ndat->u.filter_def.filter_type = "scope";
+        $$->ndat->u.scope_def.block_stmt_list = $block_stmt_list;
+        $$->ndat->flags = ASTFLAG_IS_ROOT_BLOCK;
+        memcpy(out_param, &$$, sizeof($$));
     }
-  | block_stmt_list {
-      struct block_stmt_list __attribute__((unused)) *stmt_list = &$block_stmt_list;
-
-      semantic_error(SEMANTIC_LOGLEVEL_ERROR, NULL,
-                     "missing top-level \"file {}\" block in "
-                     "binary definition file");
-      YYERROR;
-  }
 
 scope_block:
     '{' block_stmt_list '}' {
         $$ = ast_node_hdl_create(AST_NODE_TYPE_SCOPE_DEF, &@$);
         $$->loc = @1;
         $$->ndat->u.scope_def.block_stmt_list = $block_stmt_list;
-    }
-
-file_block: KW_FILE scope_block {
-        struct ast_node_data *item;
-
-        $$.root = $scope_block;
-        $$.root->ndat->type = AST_NODE_TYPE_FILTER_DEF;
-        $$.root->loc = @1;
-        item = $$.root->ndat;
-        item->u.filter_def.filter_type = "struct";
-        $$.root->flags = ASTFLAG_IS_ROOT_BLOCK;
     }
 
 filter_block:
@@ -1199,13 +1155,10 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_BYTE_ARRAY: return "byte array";
     case AST_NODE_TYPE_ARRAY_SLICE: return "slice";
     case AST_NODE_TYPE_BYTE_SLICE: return "byte slice";
-    case AST_NODE_TYPE_SOURCE: return "source";
     case AST_NODE_TYPE_CONDITIONAL: return "conditional";
     case AST_NODE_TYPE_REXPR_NATIVE: return "native type";
     case AST_NODE_TYPE_OP_FCALL:
     case AST_NODE_TYPE_REXPR_OP_FCALL: return "function call";
-    case AST_NODE_TYPE_EXPR_FILE:
-    case AST_NODE_TYPE_REXPR_FILE: return "'file' expr";
     case AST_NODE_TYPE_EXPR_SELF:
     case AST_NODE_TYPE_REXPR_SELF: return "'self' expr";
     case AST_NODE_TYPE_OP_EQ:

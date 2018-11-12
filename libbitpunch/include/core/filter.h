@@ -158,12 +158,6 @@ compile_node_backends__filter__filter(struct ast_node_hdl *filter);
 void
 compile_node_backends__tracker__filter(struct ast_node_hdl *item);
 
-void
-compile_global_nodes__filter(struct compile_ctx *ctx);
-
-struct ast_node_hdl *
-filter_get_global_instance__source(void);
-
 
 /*
  * scope API
@@ -238,6 +232,11 @@ static inline void
 filter_attach_native_attribute(
     struct ast_node_hdl *filter,
     const char *attr_name, expr_value_t value);
+
+static inline struct ast_node_hdl *
+filter_get_first_declared_named_expr(
+    const struct ast_node_hdl *filter,
+    const char *name);
 
 static inline struct ast_node_hdl *
 filter_get_first_declared_attribute(

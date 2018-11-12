@@ -29,81 +29,65 @@
  * DAMAGE.
  */
 
-#ifndef __BITPUNCH_API_H__
-#define __BITPUNCH_API_H__
+/**
+ * @file
+ * @brief bitpunch schema API
+ */
+
+#include <assert.h>
 
 #include "core/parser.h"
-#include PATH_TO_PARSER_TAB_H
-
-#if defined DEBUG
-extern int tracker_debug_mode;
-#endif
-
-struct bitpunch_schema;
-
-int
-bitpunch_init(void);
-void
-bitpunch_cleanup(void);
-int
-bitpunch_schema_create_from_path(
-    struct bitpunch_schema **schemap, const char *path);
-int
-bitpunch_schema_create_from_file_descriptor(
-    struct bitpunch_schema **schemap, int fd);
-int
-bitpunch_schema_create_from_buffer(
-    struct bitpunch_schema **schemap, const char *buf, size_t buf_size);
-int
-bitpunch_schema_create_from_string(
-    struct bitpunch_schema **schemap, const char *str);
-
-void
-bitpunch_schema_free(struct bitpunch_schema *schema);
-
-int
-bitpunch_data_source_create_from_file_path(
-    struct bitpunch_data_source **dsp, const char *path);
-
-void
-bitpunch_data_source_notify_file_change(const char *path);
-
-int
-bitpunch_data_source_create_from_file_descriptor(
-    struct bitpunch_data_source **dsp, int fd);
-
-int
-bitpunch_data_source_create_from_memory(
-    struct bitpunch_data_source **dsp,
-    const char *data, size_t data_size, int manage_buffer);
-
-int
-bitpunch_data_source_release(struct bitpunch_data_source *ds);
-
+#include "filters/data_source.h"
+#include "api/bitpunch_api.h"
 
 struct bitpunch_env *
-bitpunch_env_new(void);
+bitpunch_env_new(void)
+{
+    struct bitpunch_env *env;
+
+    env = new_safe(struct bitpunch_env);
+    env->ast_root = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, NULL);
+    env->ast_root->ndat->u.filter_def.filter_type = "scope";
+    init_block_stmt_list(&env->ast_root->ndat->u.scope_def.block_stmt_list);
+    return env;
+}
 
 void
 bitpunch_env_free(
-    struct bitpunch_env *env);
+    struct bitpunch_env *env)
+{
+    free(env->ast_root);
+    free(env);
+}
+
+static void
+env_add_named_expr(
+    struct bitpunch_env *env,
+    const char *name,
+    struct ast_node_hdl *expr)
+{
+    struct scope_def *scope_def;
+    struct named_expr *named_expr;
+
+    env->flags &= ~BITPUNCH_ENV_COMPILED;
+    scope_def = &env->ast_root->ndat->u.scope_def;
+    named_expr = new_safe(struct named_expr);
+    named_expr->nstmt.name = strdup_safe(name);
+    named_expr->expr = expr;
+
+    TAILQ_INSERT_TAIL(scope_def->block_stmt_list.named_expr_list,
+                      (struct statement *)named_expr, list);
+}
 
 void
 bitpunch_env_add_data_source(
     struct bitpunch_env *env,
     const char *name,
-    struct bitpunch_data_source *ds);
+    struct bitpunch_data_source *ds)
+{
+    struct ast_node_hdl *source_node;
 
-
-int
-bitpunch_eval_expr(struct bitpunch_schema *schema,
-                   struct bitpunch_env *env,
-                   const char *expr,
-                   struct box *scope,
-                   expr_value_t *valuep, expr_dpath_t *dpathp,
-                   struct tracker_error **errp);
-
-const char *
-bitpunch_status_pretty(bitpunch_status_t bt_ret);
-
-#endif
+    source_node = ast_node_hdl_create_data_source(ds);
+    assert(NULL != source_node);
+    env_add_named_expr(env, name, source_node);
+}

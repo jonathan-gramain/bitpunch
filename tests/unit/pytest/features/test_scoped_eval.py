@@ -22,10 +22,10 @@ let AsArray = struct {
     values: [4] u8;
 };
 
-file {
+env("DATASOURCE") <> struct {
     nb_things: u8;
     things:    [nb_things] Thing;
-}
+};
 
 """
 

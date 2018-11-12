@@ -88,7 +88,10 @@
     __ARRAY_ALLOC_SIZE((array)->n_item * sizeof (type))
 #define ARRAY_DESTROY(array) do { free((array)->data); } while (0)
 
-
+#define ARRAY_FOREACH(array, pvar)                              \
+    for ((pvar) = &ARRAY_FIRST(array);                          \
+         (pvar) != &ARRAY_ITEM(array, ARRAY_SIZE(array));       \
+         ++(pvar))
 
 #define ARRAY_GENERATE_API_DECLS(name, type)            \
     ARRAY_HEAD(name, type);                             \

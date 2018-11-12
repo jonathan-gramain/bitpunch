@@ -14,10 +14,10 @@ let Number = struct {
     let ?value = raw <> integer { @signed = false; @endian = 'little'; };
 };
 
-file {
+env("DATASOURCE") <> struct {
     typed:   [3] u16;
     untyped: [3] Number;
-}
+};
 
 """
 
@@ -38,10 +38,10 @@ let Number = struct {
     let ?value = raw <> integer { @signed = false; @endian = 'little'; };
 };
 
-file {
+env("DATASOURCE") <> struct {
     typed:   [3] u16;
     untyped: [3] Number;
-}
+};
 
 """
 
@@ -67,10 +67,10 @@ let Number = struct {
     @key = raw <> integer { @signed = false; @endian = 'little'; };
 };
 
-file {
+env("DATASOURCE") <> struct {
     typed:   [3] u16;
     untyped: [3] Number;
-}
+};
 
 """
 
@@ -110,12 +110,12 @@ spec_file_named_exprs_2_1 = """
 
 let u16 = [2] byte <> integer { @signed = false; @endian = 'little'; };
 
-file {
+env("DATASOURCE") <> struct {
     typed:   [3] u16;
     untyped: [6] byte;
 
     let ?untyped_as_typed = untyped <> [] u16;
-}
+};
 
 """
 
@@ -127,12 +127,12 @@ let Foo = struct {
     bar: [] byte;
 };
 
-file {
+env("DATASOURCE") <> struct {
     typed:   [3] u16;
     untyped: [6] byte;
 
     let ?untyped_as_typed = untyped <> [] byte <> [] u16;
-}
+};
 
 """
 
@@ -174,12 +174,12 @@ let Number = struct {
     @key = value;
 };
 
-file {
+env("DATASOURCE") <> struct {
     typed:   [3] u16;
     numbers: [3] Number;
 
     let ?numbers = numbers;
-}
+};
 
 """
 
@@ -216,10 +216,10 @@ let Number = struct {
     value: u16;
 };
 
-file {
+env("DATASOURCE") <> struct {
     data: [] byte;
     let ?second_and_third_numbers = data[sizeof(Number)..] <> [] Number;
-}
+};
 
 """
 
@@ -267,14 +267,14 @@ let Series = struct {
     let ?series_length = series_length[?my_index];
 };
 
-file {
+env("DATASOURCE") <> struct {
     nb_series:     u8;
     series_length: [nb_series] u8;
     series:        [nb_series] Series;
     let ?series_type = Series;
     let ?first_series = series[0];
     let ?first_series_first_value = series[0].values[0];
-}
+};
 
 """
 
@@ -339,9 +339,9 @@ let T = struct {
     }
 };
 
-file {
+env("DATASOURCE") <> struct {
     items: [] T;
-}
+};
 
 """
 
@@ -381,9 +381,9 @@ let SubT = struct {
     }
 };
 
-file {
+env("DATASOURCE") <> struct {
     items: [] T;
-}
+};
 
 """
 
@@ -458,9 +458,9 @@ let T = struct {
     }
 };
 
-file {
+env("DATASOURCE") <> struct {
     items: [] T;
-}
+};
 
 """
 
@@ -555,9 +555,9 @@ let SubT = struct {
     }
 };
 
-file {
+env("DATASOURCE") <> struct {
     items: [] T;
-}
+};
 
 """
 
@@ -588,7 +588,7 @@ def test_named_exprs_polymorphic_hydra(params_named_exprs_polymorphic_hydra):
 
 spec_file_named_exprs_polymorphic_attribute = """
 
-file {
+env("DATASOURCE") <> struct {
     encoded: byte <> integer { @signed = false; };
     data: [] byte;
     if (encoded == 0) {
@@ -601,7 +601,7 @@ file {
         value: byte <> integer { @signed = false; };
         @last = value == 0;
     };
-}
+};
 
 """
 
@@ -652,10 +652,10 @@ let Number = struct {
     value: u16;
 };
 
-file {
+env("DATASOURCE") <> struct {
     data: [] byte;
     let ?something = does_not_exist;
-}
+};
 
 """
 
@@ -667,10 +667,10 @@ let Number = struct {
     value: u16;
 };
 
-file {
+env("DATASOURCE") <> struct {
     data: [] byte;
     let ?something = ?does_not_exist;
-}
+};
 
 """
 

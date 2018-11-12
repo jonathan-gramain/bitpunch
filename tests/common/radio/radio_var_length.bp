@@ -9,7 +9,7 @@ let RadioCode = struct {
        @key = codename;
 };
 
-file {
+env("DATASOURCE") <> struct {
      n_codes: u32;
      codes: [n_codes] RadioCode;
-}
+};

@@ -5,7 +5,7 @@ let u32 = [4] byte <> RadioInt;
 let u64 = [8] byte <> RadioInt;
 
 
-file {
+env("DATASOURCE") <> struct {
     n_codes: u32;
     codes: [n_codes] RadioCode;
     data: [] byte;
@@ -18,4 +18,4 @@ file {
         let codename = data[start..start+len] <> string;
         @key = codename;
     };
-}
+};

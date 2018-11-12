@@ -63,9 +63,9 @@ static const char *check_cond_def =
     "    }\n"
     "    @span = sizeof (hdr) + hdr.size;\n"
     "};\n"
-    "file {\n"
+    "env(\"DATASOURCE\") <> struct {\n"
     "    ifs: [2] IfStruct;\n"
-    "}\n";
+    "};\n";
 
 static struct bitpunch_schema *check_cond_def_hdl;
 

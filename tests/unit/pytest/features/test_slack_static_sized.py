@@ -19,12 +19,12 @@ BLOCK_SIZES = [100, 30, 10, 3]
 
 spec_const_sized = """
 
-file {
+env("DATASOURCE") <> struct {
     huge_blocks: [] HugeBlock;
     big_blocks: [] BigBlock;
     avg_blocks: [] AvgBlock;
     small_blocks: [] SmallBlock;
-}
+};
 
 let HugeBlock = struct {
     // will be filled with 0x00 bytes

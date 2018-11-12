@@ -16,9 +16,8 @@ TEST_FILE_PATH = '/tmp/bitpunch.test.file'
 
 spec_file_basic = """
 
-let root = _file_ {{ @path = "{file_path}"; }};
+let root = file {{ @path = "{file_path}"; }};
 
-file {{}}
 """.format(file_path=TEST_FILE_PATH)
 
 data_file_basic = """
@@ -52,11 +51,10 @@ def test_file_basic(params_file_basic):
 
 spec_file_struct = """
 
-let root = _file_ {{ @path = "{file_path}"; }} <> struct {{
+let root = file {{ @path = "{file_path}"; }} <> struct {{
     contents: [] byte;
 }};
 
-file {{}}
 """.format(file_path=TEST_FILE_PATH)
 
 data_file_struct = """
@@ -96,15 +94,15 @@ spec_file_with_outer_scope = """
 let UnsignedInt = integer {{ @signed = false; @endian = 'little'; }};
 let u8  = [1] byte <> UnsignedInt;
 
-file {{
+env("DATASOURCE") <> struct {{
     file_attr: struct {{
         nb_bytes: u8;
     }};
-    let root = _file_ {{ @path = "{file_path}"; }} <> struct {{
+    let root = file {{ @path = "{file_path}"; }} <> struct {{
         contents: [file_attr.nb_bytes] byte;
         junk: [] byte;
     }};
-}}
+}};
 """.format(file_path=TEST_FILE_PATH)
 
 data_file_with_outer_scope = """
@@ -148,10 +146,9 @@ def test_file_with_outer_scope(params_file_with_outer_scope):
 
 spec_file_string_array = """
 
-let root = _file_ {{ @path = "{file_path}"; }}
+let root = file {{ @path = "{file_path}"; }}
     <> [] string {{ @boundary = '\\n'; }};
 
-file {{}}
 """.format(file_path=TEST_FILE_PATH)
 
 data_file_string_array = """

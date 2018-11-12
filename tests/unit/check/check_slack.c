@@ -50,10 +50,10 @@ static const char *check_slack_def =
     "let MyHdr = struct {\n"
     "    magic: [5] byte;\n"
     "};\n"
-    "file {\n"
+    "env(\"DATASOURCE\") <> struct {\n"
     "    hdr: MyHdr;\n"
     "    slack_array: [] u32;\n"
-    "}\n";
+    "};\n";
 
 static struct bitpunch_schema *check_slack_def_hdl;
 
@@ -132,11 +132,11 @@ static const char *check_slack_byte_array_def =
     "let MyFtr = struct {\n"
     "    bye: [3] byte;\n"
     "};\n"
-    "file {\n"
+    "env(\"DATASOURCE\") <> struct {\n"
     "    hdr: MyHdr;\n"
     "    padding: [] byte;\n"
     "    ftr: MyFtr;\n"
-    "}\n";
+    "};\n";
 
 static struct bitpunch_schema *check_slack_byte_array_def_hdl;
 
@@ -194,12 +194,12 @@ static const char *check_slack_trailing_field_def =
     "let MyHdr = struct {\n"
     "    magic: [5] byte;\n"
     "};\n"
-    "file {\n"
+    "env(\"DATASOURCE\") <> struct {\n"
     "    hdr: MyHdr;\n"
     "    slack_array: [] u32;\n"
     "    [] byte;\n" // to ensure slack space is filled
     "    trailer: [7] byte;\n"
-    "}\n";
+    "};\n";
 
 static struct bitpunch_schema *check_slack_trailing_field_def_hdl;
 
@@ -287,11 +287,11 @@ static const char *check_slack_trailing_field_recur_def =
     "\n"
     "    @span = size;\n"
     "};\n"
-    "file {\n"
+    "env(\"DATASOURCE\") <> struct {\n"
     "     hello_str:  [6] byte <> string;\n"
     "     boxes:      [] BOX;\n"
     "     end_str:    [10] byte <> string;\n"
-    "}\n";
+    "};\n";
 
 
 static struct bitpunch_schema *check_slack_trailing_field_recur_def_hdl;
