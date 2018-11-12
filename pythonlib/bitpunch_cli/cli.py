@@ -256,8 +256,6 @@ class CLI(NestedCmd):
                 return
             item += item_complement
         else:
-            if 'file'.startswith(completion_base):
-                yield completion_prefix + 'file'
             obj = None
             if 'sizeof'.startswith(completion_base):
                 yield completion_prefix + 'sizeof('
