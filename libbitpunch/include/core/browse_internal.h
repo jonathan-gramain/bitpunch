@@ -449,6 +449,7 @@ bitpunch_status_t
 tracker_get_filtered_data_internal(
     struct tracker *tk,
     struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct box **exported_data_boxp,
     struct browse_state *bst);
 bitpunch_status_t
 tracker_reverse_direction_internal(struct tracker *tk,

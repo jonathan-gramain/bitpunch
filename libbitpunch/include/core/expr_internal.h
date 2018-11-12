@@ -126,6 +126,7 @@ bitpunch_status_t
 expr_dpath_get_filtered_data_internal(
     expr_dpath_t dpath,
     struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct box **exported_data_boxp,
     struct browse_state *bst);
 bitpunch_status_t
 expr_dpath_evaluate_filter_internal(

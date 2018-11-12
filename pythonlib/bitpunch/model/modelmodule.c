@@ -765,6 +765,8 @@ typedef struct DataItemObject {
     struct DataTreeObject *dtree;
     expr_value_t value;
     expr_dpath_t dpath;
+
+    struct box *filtered_box;
 } DataItemObject;
 
 typedef struct DataTreeObject {
@@ -1169,6 +1171,7 @@ DataItem_clear(DataItemObject *self)
     expr_value_destroy(self->value);
     self->value = expr_value_unset();
     Py_CLEAR(self->dtree);
+    box_delete(self->filtered_box);
     return 0;
 }
 
@@ -1639,31 +1642,34 @@ DataItem_bf_getbuffer(DataItemObject *exporter,
     int64_t data_size;
     bitpunch_status_t bt_ret;
     const char *buf;
-    int64_t len;
     struct tracker_error *tk_err = NULL;
 
-    bt_ret = expr_dpath_get_filtered_data(
-        exporter->dpath,
-        &filtered_data_source, &data_offset, &data_size, &tk_err);
-    if (BITPUNCH_OK != bt_ret) {
-        PyObject *errobj;
+    if (NULL == exporter->filtered_box){
+        bt_ret = expr_dpath_get_filtered_data(
+            exporter->dpath,
+            &filtered_data_source, &data_offset, &data_size,
+            &exporter->filtered_box, &tk_err);
+        if (BITPUNCH_OK != bt_ret) {
+            PyObject *errobj;
 
-        if (NULL != tk_err) {
-            errobj = tracker_error_get_info_as_PyObject(tk_err);
-        } else {
-            Py_INCREF(Py_None);
-            errobj = Py_None;
+            if (NULL != tk_err) {
+                errobj = tracker_error_get_info_as_PyObject(tk_err);
+            } else {
+                Py_INCREF(Py_None);
+                errobj = Py_None;
+            }
+            PyErr_SetObject(PyExc_BufferError, errobj);
+            Py_DECREF(errobj);
+            tracker_error_destroy(tk_err);
+            view->obj = NULL;
+            return -1;
         }
-        PyErr_SetObject(PyExc_BufferError, errobj);
-        Py_DECREF(errobj);
-        tracker_error_destroy(tk_err);
-        view->obj = NULL;
-        return -1;
+    } else {
+        filtered_data_source = exporter->filtered_box->ds_out;
     }
     buf = filtered_data_source->ds_data + data_offset;
-    len = data_size;
     return PyBuffer_FillInfo(view, (PyObject *)exporter,
-                             (void *)buf, (Py_ssize_t)len,
+                             (void *)buf, (Py_ssize_t)data_size,
                              TRUE /* read-only */, flags);
 }
 
@@ -3194,7 +3200,6 @@ Tracker_bf_getbuffer(TrackerObject *exporter,
     int64_t item_size;
     bitpunch_status_t bt_ret;
     const char *buf;
-    int64_t len;
     struct tracker_error *tk_err = NULL;
 
     tk = exporter->tk;
@@ -3220,9 +3225,8 @@ Tracker_bf_getbuffer(TrackerObject *exporter,
         return -1;
     }
     buf = tk->box->ds_in->ds_data + item_offset;
-    len = item_size;
     return PyBuffer_FillInfo(view, (PyObject *)exporter,
-                             (void *)buf, (Py_ssize_t)len,
+                             (void *)buf, (Py_ssize_t)item_size,
                              TRUE /* read-only */, flags);
 }
 

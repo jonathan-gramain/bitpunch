@@ -1284,17 +1284,24 @@ bitpunch_status_t
 expr_dpath_get_filtered_data_internal(
     expr_dpath_t dpath,
     struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
+    struct box **exported_data_boxp,
     struct browse_state *bst)
 {
+    bitpunch_status_t bt_ret;
+
     switch (dpath.type) {
     case EXPR_DPATH_TYPE_CONTAINER:
-        return box_get_filtered_data_internal(dpath.box,
-                                              dsp, offsetp, sizep, bst);
-        break ;
+        bt_ret = box_get_filtered_data_internal(dpath.box,
+                                                dsp, offsetp, sizep, bst);
+        if (BITPUNCH_OK == bt_ret) {
+            *exported_data_boxp = dpath.box;
+            box_acquire(dpath.box);
+        }
+        return bt_ret;
     case EXPR_DPATH_TYPE_ITEM:
         return tracker_get_filtered_data_internal(dpath.tk,
-                                                  dsp, offsetp, sizep, bst);
-        break ;
+                                                  dsp, offsetp, sizep,
+                                                  exported_data_boxp, bst);
     default:
         assert(0);
     }
