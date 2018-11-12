@@ -16,9 +16,8 @@ TEST_FILE_PATH = '/tmp/bitpunch.test.file'
 
 spec_file_basic = """
 
-let root = _file_ {{ @path = "{file_path}"; }};
+let root = file {{ @path = "{file_path}"; }};
 
-file {{}}
 """.format(file_path=TEST_FILE_PATH)
 
 data_file_basic = """
@@ -49,14 +48,12 @@ def test_file_basic(params_file_basic):
     os.unlink(TEST_FILE_PATH)
 
 
-
 spec_file_struct = """
 
-let root = _file_ {{ @path = "{file_path}"; }} <> struct {{
+let root = file {{ @path = "{file_path}"; }} <> struct {{
     contents: [] byte;
 }};
 
-file {{}}
 """.format(file_path=TEST_FILE_PATH)
 
 data_file_struct = """
@@ -91,20 +88,92 @@ def test_file_struct(params_file_struct):
     os.unlink(TEST_FILE_PATH)
 
 
+spec_file_anonymous_struct = """
+
+let FILE = file {{ @path = "{file_path}"; }};
+
+FILE <> struct {{
+    contents: [] byte;
+}};
+
+""".format(file_path=TEST_FILE_PATH)
+
+data_file_anonymous_struct = """
+"""
+
+
+spec_file_top_level_field_1 = """
+
+let FILE = file {{ @path = "{file_path}"; }};
+
+let ?contents = FILE <> [] byte;
+
+contents: ?contents;
+
+""".format(file_path=TEST_FILE_PATH)
+
+spec_file_top_level_field_2 = """
+
+let FILE = file {{ @path = "{file_path}"; }};
+
+let ?contents = FILE;
+
+contents: ?contents;
+
+""".format(file_path=TEST_FILE_PATH)
+
+data_file_top_level_field = """
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_anonymous_struct,
+        'data': data_file_anonymous_struct,
+    }, {
+        'spec': spec_file_top_level_field_1,
+        'data': data_file_top_level_field,
+    }, {
+        'spec': spec_file_top_level_field_2,
+        'data': data_file_top_level_field,
+    }])
+def params_file_with_contents(request):
+    return conftest.make_testcase(request.param)
+
+def test_file_with_contents(params_file_with_contents):
+    params = params_file_with_contents
+    dtree = params['dtree']
+
+    model.notify_file_change(TEST_FILE_PATH)
+    with open(TEST_FILE_PATH, 'w') as f:
+        f.write('foobar');
+
+    assert len(dtree.contents) == 6
+    assert dtree.contents == 'foobar'
+    assert dtree.eval_expr('contents') == 'foobar'
+    assert model.make_python_object(dtree) == {
+        'contents': 'foobar',
+    }
+    assert dtree.contents[:3] == 'foo'
+    assert dtree.eval_expr('contents[..3]') == 'foo'
+
+    os.unlink(TEST_FILE_PATH)
+
+
 spec_file_with_outer_scope = """
 
 let UnsignedInt = integer {{ @signed = false; @endian = 'little'; }};
 let u8  = [1] byte <> UnsignedInt;
 
-file {{
+env("DATASOURCE") <> struct {{
     file_attr: struct {{
         nb_bytes: u8;
     }};
-    let root = _file_ {{ @path = "{file_path}"; }} <> struct {{
+    let root = file {{ @path = "{file_path}"; }} <> struct {{
         contents: [file_attr.nb_bytes] byte;
         junk: [] byte;
     }};
-}}
+}};
 """.format(file_path=TEST_FILE_PATH)
 
 data_file_with_outer_scope = """
@@ -148,10 +217,9 @@ def test_file_with_outer_scope(params_file_with_outer_scope):
 
 spec_file_string_array = """
 
-let root = _file_ {{ @path = "{file_path}"; }}
+let root = file {{ @path = "{file_path}"; }}
     <> [] string {{ @boundary = '\\n'; }};
 
-file {{}}
 """.format(file_path=TEST_FILE_PATH)
 
 data_file_string_array = """

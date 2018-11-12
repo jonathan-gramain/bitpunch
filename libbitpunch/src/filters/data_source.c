@@ -35,72 +35,78 @@
 #include <assert.h>
 #include <string.h>
 
-#include "api/data_source_internal.h"
+#include "api/bitpunch_api.h"
 #include "core/filter.h"
 
+struct filter_instance_data_source {
+    struct filter_instance filter; /* inherits */
+    struct bitpunch_data_source *data_source;
+};
+
+struct ast_node_hdl *
+ast_node_hdl_create_data_source(struct bitpunch_data_source *ds)
+{
+    struct filter_class *filter_cls;
+    struct ast_node_hdl *node;
+    int ret;
+    struct filter_instance_data_source *f_instance;
+
+    filter_cls = filter_class_lookup("__data_source__");
+    assert(NULL != filter_cls);
+
+    node = ast_node_hdl_new();
+    ret = filter_instance_build(node, filter_cls,
+                                filter_def_create_empty("__data_source__"));
+    assert(0 == ret);
+
+    f_instance = (struct filter_instance_data_source *)
+        node->ndat->u.rexpr_filter.f_instance;
+    f_instance->data_source = ds;
+
+    return node;
+}
+
 static bitpunch_status_t
-file_box_init(struct box *box, struct browse_state *bst)
+data_source_box_init(struct box *box, struct browse_state *bst)
 {
     box->u.array_generic.n_items = -1;
     return BITPUNCH_OK;
 }
 
 static bitpunch_status_t
-file_get_data_source(
+data_source_get_data_source(
     struct ast_node_hdl *filter,
     struct box *scope,
     struct bitpunch_data_source **ds_outp,
     struct browse_state *bst)
 {
-    bitpunch_status_t bt_ret;
-    expr_value_t path_value;
-    int ret;
-    char file_path[1024];
+    struct filter_instance_data_source *f_instance;
 
-    bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@path", NULL, &path_value, NULL, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    if (path_value.string.len >= sizeof (file_path)) {
-        return box_error(BITPUNCH_DATA_ERROR, scope, filter, bst,
-                         "file path \"%.20s...%.20s\" is too long (%"PRIi64" "
-                         "characters, max is %zu)",
-                         path_value.string.str,
-                         path_value.string.str + path_value.string.len - 20,
-                         path_value.string.len, sizeof (file_path) - 1);
-    }
-    memcpy(file_path, path_value.string.str, path_value.string.len);
-    file_path[path_value.string.len] = '\0';
-    ret = data_source_create_from_file_path_internal(ds_outp, file_path, FALSE);
-    expr_value_destroy(path_value);
-    if (-1 == ret) {
-        return BITPUNCH_DATA_ERROR;
-    }
+    f_instance = (struct filter_instance_data_source *)
+        filter->ndat->u.rexpr_filter.f_instance;
+    *ds_outp = f_instance->data_source;
     return BITPUNCH_OK;
 }
 
 static struct filter_instance *
-file_filter_instance_build(struct ast_node_hdl *filter)
+data_source_filter_instance_build(struct ast_node_hdl *filter)
 {
-    struct filter_instance *f_instance;
+    struct filter_instance_data_source *f_instance;
 
-    f_instance = new_safe(struct filter_instance);
-    f_instance->get_data_source_func = file_get_data_source;
-    f_instance->b_box.init = file_box_init;
-    return f_instance;
+    f_instance = new_safe(struct filter_instance_data_source);
+    f_instance->filter.get_data_source_func = data_source_get_data_source;
+    f_instance->filter.b_box.init = data_source_box_init;
+    return (struct filter_instance *)f_instance;
 }
 
 void
-filter_class_declare_file(void)
+filter_class_declare_data_source(void)
 {
     int ret;
 
-    ret = filter_class_declare("file",
+    ret = filter_class_declare("__data_source__",
                                EXPR_VALUE_TYPE_BYTES,
-                               file_filter_instance_build, NULL,
-                               1,
-                               "@path", EXPR_VALUE_TYPE_STRING,
-                               FILTER_ATTR_FLAG_MANDATORY);
+                               data_source_filter_instance_build, NULL,
+                               0);
     assert(0 == ret);
 }

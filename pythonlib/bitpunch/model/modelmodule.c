@@ -38,6 +38,7 @@
 #include "core/expr_internal.h"
 #include "core/filter.h"
 #include "core/print.h"
+#include "utils/dynarray.h"
 
 #define MAX_KEY_LENGTH 4096
 
@@ -766,6 +767,12 @@ typedef struct DataItemObject {
     expr_dpath_t dpath;
 } DataItemObject;
 
+typedef struct DataTreeObject {
+    DataItemObject item;
+    FormatSpecObject *fmt;
+    struct bitpunch_env *env;
+    ARRAY_HEAD(datasource_array, struct bitpunch_data_source) data_sources;
+} DataTreeObject;
 
 static int
 DataItem_bf_getbuffer(DataItemObject *exporter,
@@ -2100,12 +2107,6 @@ box_to_native_PyObject(struct DataTreeObject *dtree, struct box *box)
 PyDoc_STRVAR(DataTree__doc__,
              "Represents the data tree of flat binary contents");
 
-typedef struct DataTreeObject {
-    DataItemObject item;
-    FormatSpecObject *fmt;
-    struct bitpunch_data_source *ds;
-} DataTreeObject;
-
 static PyTypeObject DataTreeType = {
     PyObject_HEAD_INIT(NULL)
     0,                         /* ob_size */
@@ -2157,8 +2158,9 @@ DataTree_new(PyTypeObject *subtype,
     PyObject *bin;
     FormatSpecObject *fmt;
     struct bitpunch_data_source *ds;
+    struct bitpunch_env *env;
     DataTreeObject *self;
-    struct box *container_box;
+    struct box *root_box;
 
     if (!PyArg_ParseTuple(args, "OO", &bin, (PyObject **)&fmt)) {
         return NULL;
@@ -2216,23 +2218,29 @@ DataTree_new(PyTypeObject *subtype,
         return NULL;
     }
 
+    env = bitpunch_env_new();
+    bitpunch_env_add_data_source(env, "DATASOURCE", ds);
+
     self = (DataTreeObject *)DataItem_new(subtype, NULL, NULL);
     if (NULL == self) {
         (void) bitpunch_data_source_release(ds);
+        bitpunch_env_free(env);
         return NULL;
     }
-    container_box = box_new_from_file(fmt->schema, ds);
-    if (NULL == container_box) {
-        PyErr_SetString(PyExc_OSError, "Error creating top-level box");
+    root_box = box_new_root_box(fmt->schema, env, TRUE);
+    if (NULL == root_box) {
+        PyErr_SetString(PyExc_OSError, "Error creating root box");
         Py_DECREF((PyObject *)self);
         (void) bitpunch_data_source_release(ds);
+        bitpunch_env_free(env);
         return NULL;
     }
     DataItem_construct(&self->item, self);
-    self->item.dpath = expr_dpath_as_container(container_box);
-    self->ds = ds;
+    self->item.dpath = expr_dpath_as_container(root_box);
+    self->env = env;
     self->fmt = fmt;
-
+    ARRAY_INIT(&self->data_sources, 0);
+    ARRAY_APPEND(&self->data_sources, *ds);
     return (PyObject *)self;
 }
 
@@ -2240,16 +2248,21 @@ static int
 DataTree_clear(DataTreeObject *self)
 {
     PyObject *tmp;
+    struct bitpunch_data_source *ds;
 
     DataItem_clear(&self->item);
 
-    if (NULL != self->ds) {
-        bitpunch_data_source_release(self->ds);
-        self->ds = NULL;
+    if (NULL != self->env) {
+        bitpunch_env_free(self->env);
+        self->env = NULL;
     }
     tmp = (PyObject *)self->fmt;
     self->fmt = NULL;
     Py_XDECREF(tmp);
+    ARRAY_FOREACH(&self->data_sources, ds) {
+        bitpunch_data_source_release(ds);
+    }
+    ARRAY_DESTROY(&self->data_sources);
     return 0;
 }
 
@@ -3375,7 +3388,7 @@ eval_expr_as_python_object(DataItemObject *item, const char *expr)
 {
     DataTreeObject *dtree;
     struct bitpunch_schema *schema;
-    struct bitpunch_data_source *ds;
+    struct bitpunch_env *env;
     struct box *scope;
     int ret;
     expr_value_t expr_value;
@@ -3388,16 +3401,16 @@ eval_expr_as_python_object(DataItemObject *item, const char *expr)
         }
         dtree = item->dtree;
         schema = dtree->fmt->schema;
-        ds = dtree->ds;
+        env = dtree->env;
         scope = item->dpath.box;
     } else {
         dtree = NULL;
         schema = NULL;
-        ds = NULL;
+        env = NULL;
         scope = NULL;
     }
 
-    ret = bitpunch_eval_expr(schema, ds, expr, scope,
+    ret = bitpunch_eval_expr(schema, env, expr, scope,
                              &expr_value, &expr_dpath, &tk_err);
     if (-1 == ret) {
         if (NULL != tk_err) {

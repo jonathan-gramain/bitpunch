@@ -12,9 +12,9 @@ let s64 = [8] byte <> SignedInt;
 let u8 = byte <> UnsignedInt;
 let u32 = [4] byte <> UnsignedInt;
 
-file {
+env("DATASOURCE") <> struct {
     ogg_pages: [] OggPage;
-}
+};
 
 let OggPage = struct {
     hdr:      OggPageHdr;

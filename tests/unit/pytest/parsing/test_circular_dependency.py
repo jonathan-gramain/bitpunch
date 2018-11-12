@@ -14,9 +14,9 @@ let CircularStruct = struct {
     circular: CircularStruct;
 };
 
-file {
+env("DATASOURCE") <> struct {
     a: CircularStruct;
-}
+};
 """
 
 spec_file_circular_dependency_2 = """
@@ -32,9 +32,9 @@ let InnerStruct = struct {
     outer: OuterStruct; // circular
 };
 
-file {
+env("DATASOURCE") <> struct {
     a: OuterStruct;
-}
+};
 """
 
 spec_file_circular_dependency_3 = """
@@ -69,9 +69,9 @@ let OkUnion1 = union {
     b: [5] byte;
 };
 
-file {
+env("DATASOURCE") <> struct {
     a: OkStruct1;
-}
+};
 """
 
 spec_file_circular_dependency_3 = """
@@ -107,15 +107,15 @@ let CircularUnion1 = union {
     c: [5] byte;
 };
 
-file {
+env("DATASOURCE") <> struct {
     a: OuterStruct;
-}
+};
 """
 
 spec_file_circular_dependency_4 = """
-file {
+env("DATASOURCE") <> struct {
     a: OuterStruct;
-}
+};
 
 let OuterStruct = struct {
     circular: [42] Item;
@@ -159,18 +159,18 @@ let OkUnion1 = union {
     b: [5] byte;
 };
 
-file {
+env("DATASOURCE") <> struct {
     a: OuterStruct;
-}
+};
 """
 
 spec_file_no_circular_dependency_2 = """
 
 let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
 
-file {
+env("DATASOURCE") <> struct {
     a: OuterStruct;
-}
+};
 
 let OuterStruct = struct {
     nb: u32;

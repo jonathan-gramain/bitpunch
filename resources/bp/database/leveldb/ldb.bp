@@ -20,7 +20,7 @@ let VarInt   = varint;
 
 // Describe LDB file structure
 
-file {
+env("DATASOURCE") <> struct {
     payload: [] byte;
     footer:  struct {
         metaindex_handle: BlockHandle;
@@ -33,15 +33,15 @@ file {
 
     let ?index     = footer.index_handle;
     let ?metaindex = footer.metaindex_handle;
-}
+};
 
 let BlockHandle = struct {
     offset: VarInt;
     size:   VarInt;
 
     let ?stored_block =
-        file.payload[offset ..
-                     offset + size + sizeof(BlockTrailer)] <> FileBlock;
+        payload[offset ..
+                offset + size + sizeof(BlockTrailer)] <> FileBlock;
 };
 
 let BlockTrailer = struct {

@@ -15,9 +15,9 @@ let Item = struct {
     @key = name;
 };
 
-file {
+env("DATASOURCE") <> struct {
     integers: [] Item;
-}
+};
 
 """
 
@@ -37,9 +37,9 @@ let Item = struct {
     @key = name;
 };
 
-file {
+env("DATASOURCE") <> struct {
     integers: [] Item;
-}
+};
 
 """
 
@@ -59,9 +59,9 @@ let Item = string { @boundary = '\\n'; } <> base64 <> struct {
     @key = name;
 };
 
-file {
+env("DATASOURCE") <> struct {
     integers: [] Item;
-}
+};
 
 """
 
@@ -111,9 +111,9 @@ let Item = struct {
     @key = name;
 };
 
-file {
+env("DATASOURCE") <> struct {
     integers: [] Item;
-}
+};
 
 """
 
@@ -185,9 +185,9 @@ let Item = struct {
     @key = name;
 };
 
-file {
+env("DATASOURCE") <> struct {
     integers: [] Item;
-}
+};
 
 """
 
@@ -317,9 +317,9 @@ let Item = struct {
     @key = name;
 };
 
-file {
+env("DATASOURCE") <> struct {
     integers: [] Item;
-}
+};
 
 """
 
@@ -449,9 +449,9 @@ let Item = [16] byte <> base64 <> struct {
     @key = name;
 };
 
-file {
+env("DATASOURCE") <> struct {
     integers: [] Item;
-}
+};
 
 """
 

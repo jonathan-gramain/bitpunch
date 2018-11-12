@@ -51,9 +51,9 @@
 
 static const char *check_sarray_contents_def =
     "let u32 = [4] byte <> integer { @signed = false; @endian = 'big'; };\n"
-    "file {\n"
+    "env(\"DATASOURCE\") <> struct {\n"
     "    int_array: [5] u32;\n"
-    "}\n";
+    "};\n";
 
 static struct bitpunch_schema *check_sarray_def_hdl;
 
@@ -187,10 +187,10 @@ static const struct test_tracker_spec check_sarray_invalid_truncated2_spec = {
 
 static const char *check_varray_contents_def =
     "let u32 = [4] byte <> integer { @signed = false; @endian = 'big'; };\n"
-    "file {\n"
+    "env(\"DATASOURCE\") <> struct {\n"
     "    int_array_size: u32;\n"
     "    int_array: [(2 + int_array_size)] u32;\n"
-    "}\n";
+    "};\n";
 
 static struct bitpunch_schema *check_varray_def_hdl;
 
@@ -352,7 +352,9 @@ static void array_teardown(void)
 START_TEST(sarray_ast)
 {
     const struct ast_node_hdl *root;
+    const struct scope_def *scope_def;
     const struct block_stmt_list *stmt_lists;
+    const struct ast_node_hdl *main_struct;
     const struct field *field;
     struct filter_instance_array *array;
     const struct ast_node_hdl *int_size;
@@ -360,10 +362,23 @@ START_TEST(sarray_ast)
     const struct ast_node_hdl *item_count;
     struct filter_instance_array *item_f_instance;
 
-    root = check_sarray_def_hdl->file_block.root;
-    ck_assert_int_eq(root->ndat->type, AST_NODE_TYPE_COMPOSITE);
-    stmt_lists = &filter_get_const_scope_def(root)->block_stmt_list;
+    root = check_sarray_def_hdl->ast_root;
+    scope_def = filter_get_const_scope_def(root);
+    ck_assert_ptr_ne(scope_def, NULL);
+    stmt_lists = &scope_def->block_stmt_list;
 
+    // check we have a single anonymous field pointing to the main struct
+    field = STATEMENT_FIRST(field, stmt_lists->field_list);
+    ck_assert_ptr_eq(field->nstmt.name, NULL);
+    ck_assert_ptr_eq(STATEMENT_NEXT(field, field, list), NULL);
+    ck_assert_ptr_ne(field->filter, NULL);
+    ck_assert_int_eq(field->filter->ndat->type,
+                     AST_NODE_TYPE_REXPR_OP_FILTER);
+    main_struct = field->filter->ndat->u.rexpr_op_filter.filter_expr;
+    ck_assert_int_eq(main_struct->ndat->type, AST_NODE_TYPE_COMPOSITE);
+    scope_def = filter_get_const_scope_def(main_struct);
+    ck_assert_ptr_ne(scope_def, NULL);
+    stmt_lists = &scope_def->block_stmt_list;
     field = STATEMENT_FIRST(field, stmt_lists->field_list);
     ck_assert_str_eq(field->nstmt.name, "int_array");
     ck_assert_ptr_ne(field->filter, NULL);
@@ -416,7 +431,9 @@ END_TEST
 START_TEST(varray_ast)
 {
     const struct ast_node_hdl *root;
+    const struct scope_def *scope_def;
     const struct block_stmt_list *stmt_lists;
+    const struct ast_node_hdl *main_struct;
     const struct field *field;
     const struct field *int_array_size_field;
     struct filter_instance_array *array;
@@ -430,9 +447,23 @@ START_TEST(varray_ast)
     const struct ast_node_hdl *op1;
     const struct ast_node_hdl *op2;
 
-    root = check_varray_def_hdl->file_block.root;
-    ck_assert_int_eq(root->ndat->type, AST_NODE_TYPE_COMPOSITE);
-    stmt_lists = &filter_get_const_scope_def(root)->block_stmt_list;
+    root = check_varray_def_hdl->ast_root;
+    scope_def = filter_get_const_scope_def(root);
+    ck_assert_ptr_ne(scope_def, NULL);
+    stmt_lists = &scope_def->block_stmt_list;
+
+    // check we have a single anonymous field pointing to the main struct
+    field = STATEMENT_FIRST(field, stmt_lists->field_list);
+    ck_assert_ptr_eq(field->nstmt.name, NULL);
+    ck_assert_ptr_eq(STATEMENT_NEXT(field, field, list), NULL);
+    ck_assert_ptr_ne(field->filter, NULL);
+    ck_assert_int_eq(field->filter->ndat->type,
+                     AST_NODE_TYPE_REXPR_OP_FILTER);
+    main_struct = field->filter->ndat->u.rexpr_op_filter.filter_expr;
+    ck_assert_int_eq(main_struct->ndat->type, AST_NODE_TYPE_COMPOSITE);
+    scope_def = filter_get_const_scope_def(main_struct);
+    ck_assert_ptr_ne(scope_def, NULL);
+    stmt_lists = &scope_def->block_stmt_list;
 
     field = STATEMENT_FIRST(field, stmt_lists->field_list);
     ck_assert_str_eq(field->nstmt.name, "int_array_size");

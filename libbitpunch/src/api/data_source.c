@@ -157,8 +157,8 @@ data_source_close_file_path(struct bitpunch_data_source *ds)
 }
 
 int
-bitpunch_data_source_create_from_file_path(
-    struct bitpunch_data_source **dsp, const char *path)
+data_source_create_from_file_path_internal(
+    struct bitpunch_data_source **dsp, const char *path, int external)
 {
     struct bitpunch_file_source *fs;
     int fd;
@@ -185,9 +185,19 @@ bitpunch_data_source_create_from_file_path(
         }
         fs->path = strdup_safe(path);
         add_file_source_to_cache(fs);
+        if (external) {
+            fs->ds.flags |= BITPUNCH_DATA_SOURCE_EXTERNAL;
+        }
     }
     *dsp = &fs->ds;
     return 0;
+}
+
+int
+bitpunch_data_source_create_from_file_path(
+    struct bitpunch_data_source **dsp, const char *path)
+{
+    return data_source_create_from_file_path_internal(dsp, path, TRUE);
 }
 
 void
@@ -216,6 +226,7 @@ bitpunch_data_source_create_from_file_descriptor(
 
     fs = new_safe(struct bitpunch_file_source);
     fs->ds.backend.close = data_source_close_file_descriptor;
+    fs->ds.flags = BITPUNCH_DATA_SOURCE_EXTERNAL;
 
     if (-1 == open_data_source_from_fd(fs, fd)) {
         fprintf(stderr,
@@ -245,6 +256,8 @@ bitpunch_data_source_create_from_memory(
     ds = new_safe(struct bitpunch_data_source);
     if (manage_buffer) {
         ds->backend.close = data_source_close_managed_memory;
+    } else {
+        ds->flags = BITPUNCH_DATA_SOURCE_EXTERNAL;
     }
     ds->ds_data = data;
     ds->ds_data_length = data_size;
@@ -272,9 +285,6 @@ data_source_free(struct bitpunch_data_source *ds)
     int ret;
 
     ret = data_source_close(ds);
-    if (NULL != ds->box_cache) {
-        box_cache_free(ds->box_cache);
-    }
     free(ds);
     return ret;
 }
@@ -285,7 +295,8 @@ bitpunch_data_source_release(struct bitpunch_data_source *ds)
     if (NULL == ds) {
         return 0;
     }
-    if (0 == (ds->flags & BITPUNCH_DATA_SOURCE_CACHED)) {
+    if (0 == (ds->flags & (BITPUNCH_DATA_SOURCE_CACHED |
+                           BITPUNCH_DATA_SOURCE_EXTERNAL))) {
         return data_source_free(ds);
     }
     // we could implement cleanup for less-used cache entries here

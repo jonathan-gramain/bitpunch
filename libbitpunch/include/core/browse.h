@@ -47,6 +47,7 @@ struct box;
 enum filter_kind;
 
 struct browse_state {
+    struct bitpunch_env *env;
     struct box *scope;
     struct tracker_error_slist *expected_errors;
     struct tracker_error *last_error;
@@ -139,6 +140,7 @@ struct box {
     struct bitpunch_data_source *ds_in;
     struct bitpunch_data_source *ds_out;
     struct box *scope;
+    struct bitpunch_env *env;
 
     /** [ds_in] inherited parent's max offset */
     int64_t start_offset_parent;
@@ -194,6 +196,7 @@ struct box {
         BOX_DATA_SOURCE            = (1u<<5),
         BOX_OVERLAY                = (1u<<6),
         BOX_FILTER_APPLIED         = (1u<<7),
+        BOX_MANAGE_ENV             = (1u<<8),
     } flags;
     union {
         struct box_composite {
@@ -233,17 +236,7 @@ struct box {
     TAILQ_ENTRY(box) cached_children_list;
 };
 
-#define BOX_CACHE_MAX_N_BOXES                   256
-#define BOX_CACHE_MAX_N_CACHED_CHILDREN         8
 #define BOX_INDEX_CACHE_DEFAULT_LOG2_N_KEYS_PER_MARK 5
-
-
-struct box_cache {
-    struct box_tailq mru_boxes;
-    int n_boxes;
-    int max_n_boxes;
-    int max_n_cached_children;
-};
 
 struct tracker_error;
 
@@ -347,18 +340,13 @@ box_get_index_type(const struct box *box);
 struct ast_node_hdl *
 box_get_index_expr(const struct box *box);
 struct box *
-box_new_from_file(const struct bitpunch_schema *def_hdl,
-                  struct bitpunch_data_source *ds_in);
+box_new_root_box(struct bitpunch_schema *schema,
+                 struct bitpunch_env *env,
+                 int manage_env);
 void
 box_dump(const struct box *box);
 void
 box_fdump(const struct box *box, FILE *out);
-void
-box_cache_clear(struct box_cache *cache);
-void
-box_cache_free(struct box_cache *cache);
-void
-box_cache_fdump(struct box_cache *cache, FILE *out);
 int
 box_get_abs_dpath(const struct box *box,
                   char *dpath_expr_buf, int buf_size);
@@ -386,9 +374,9 @@ static inline int
 tracker_is_dangling(const struct tracker *tk);
 
 struct tracker *
-track_file(const struct bitpunch_schema *def_hdl,
-           struct bitpunch_data_source *ds_in,
-           struct tracker_error **errp);
+track_data_source(struct bitpunch_schema *schema,
+                  const char *ds_name, struct bitpunch_data_source *ds,
+                  struct tracker_error **errp);
 bitpunch_status_t
 box_get_n_items(struct box *box, int64_t *n_itemsp,
                 struct tracker_error **errp);

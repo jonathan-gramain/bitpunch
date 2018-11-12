@@ -34,9 +34,9 @@ let Item = struct {
     }
 };
 
-file {
+env("DATASOURCE") <> struct {
     items: [] Item;
-}
+};
 
 """
 

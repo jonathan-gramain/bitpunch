@@ -29,19 +29,12 @@
  * DAMAGE.
  */
 
-#ifndef __DATA_SOURCE_INTERNAL_H__
-#define __DATA_SOURCE_INTERNAL_H__
+#ifndef __FILTER_DATA_SOURCE_H__
+#define __FILTER_DATA_SOURCE_H__
 
 #include "api/bitpunch-structs.h"
 
-void
-data_source_global_init(void);
-
-void
-data_source_global_destroy(void);
-
-int
-data_source_create_from_file_path_internal(
-    struct bitpunch_data_source **dsp, const char *path, int external);
+struct ast_node_hdl *
+ast_node_hdl_create_data_source(struct bitpunch_data_source *ds);
 
 #endif

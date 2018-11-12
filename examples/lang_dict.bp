@@ -4,10 +4,8 @@
  */
 
 let Word = struct {
-    word: [] byte <> string { @boundary = '\n'; };
+    word: string { @boundary = '\n'; };
     @key = word;
 };
 
-file {
-     words: [] Word;
-}
+let words = env("DATASOURCE") <> [] Word;

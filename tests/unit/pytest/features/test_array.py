@@ -13,9 +13,9 @@ let Item = struct {
     value: u32;
 };
 
-file {
+env("DATASOURCE") <> struct {
     integers: [10] Item;
-}
+};
 
 """
 
@@ -39,9 +39,9 @@ let Item = struct {
     value: byte <> integer { @signed = false; };
 };
 
-file {
+env("DATASOURCE") <> struct {
     integers: [10] Item;
-}
+};
 
 """
 
@@ -91,9 +91,9 @@ spec_file_array_bytes_as_integers_1 = """
 
 let u8 = byte <> integer { @signed = false; };
 
-file {
+env("DATASOURCE") <> struct {
     integers: [10] u8;
-}
+};
 
 """
 
@@ -101,9 +101,9 @@ spec_file_array_bytes_as_integers_2 = """
 
 let u8 = byte <> integer { @signed = false; };
 
-file {
+env("DATASOURCE") <> struct {
     integers: [10] byte <> [] byte <> [10] byte <> [] u8;
-}
+};
 
 """
 
@@ -116,9 +116,9 @@ spec_file_array_bytes_as_integers_filtered_1 = """
 
 let u8 = byte <> integer { @signed = false; };
 
-file {
+env("DATASOURCE") <> struct {
     integers: base64 <> [] u8;
-}
+};
 
 """
 
@@ -126,9 +126,9 @@ spec_file_array_bytes_as_integers_filtered_2 = """
 
 let u8 = byte <> integer { @signed = false; };
 
-file {
+env("DATASOURCE") <> struct {
     integers: [] byte <> base64 <> [] u8;
-}
+};
 
 """
 
@@ -177,9 +177,9 @@ def test_array_flat(params_array_flat):
 
 spec_file_array_raw_bytes = """
 
-file {
+env("DATASOURCE") <> struct {
     integers: [] byte;
-}
+};
 
 """
 

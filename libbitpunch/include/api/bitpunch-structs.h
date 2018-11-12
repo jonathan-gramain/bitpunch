@@ -36,8 +36,6 @@
 
 #define BITPUNCH_SCHEMA_MAX_LENGTH   1048576
 
-struct box_cache;
-
 typedef enum bitpunch_status {
     BITPUNCH_OK = 0,
     BITPUNCH_ERROR = -1,
@@ -58,10 +56,6 @@ struct parser_ctx {
     int         start_token;
 };
 
-struct file_block {
-    struct ast_node_hdl *root;
-};
-
 enum bitpunch_schema_type {
     BITPUNCH_SCHEMA_TYPE_UNSET = 0,
     BITPUNCH_SCHEMA_TYPE_FILEPATH,
@@ -69,18 +63,24 @@ enum bitpunch_schema_type {
     BITPUNCH_SCHEMA_TYPE_BUFFER,
 };
 
+enum bitpunch_schema_flag {
+    BITPUNCH_SCHEMA_COMPILED = (1u<<0),
+};
+
 struct bitpunch_schema {
     char *data;
     size_t data_length;
     char *file_path;
     struct parser_ctx parser_ctx;
-    struct file_block file_block;
+    struct ast_node_hdl *ast_root;
+    enum bitpunch_schema_flag flags;
 };
 
 struct bitpunch_data_source;
 
 enum bitpunch_data_source_flag {
     BITPUNCH_DATA_SOURCE_CACHED = (1u<<0),
+    BITPUNCH_DATA_SOURCE_EXTERNAL = (1u<<1),
 };
 
 typedef int (*bitpunch_data_source_close_func_t)(
@@ -95,7 +95,6 @@ struct bitpunch_data_source {
     struct bitpunch_data_source_backend backend;
     const char        *ds_data;
     size_t            ds_data_length;
-    struct box_cache  *box_cache;
 };
 
 struct bitpunch_file_source {
@@ -104,6 +103,16 @@ struct bitpunch_file_source {
     int       fd;
     char      *map;
     size_t    map_length;
+};
+
+enum bitpunch_env_flag {
+    BITPUNCH_ENV_COMPILED = (1u<<0),
+};
+
+struct bitpunch_env {
+    /** root node for the environment, of type AST_NODE_TYPE_SCOPE_DEF */
+    struct ast_node_hdl *ast_root;
+    enum bitpunch_env_flag flags;
 };
 
 #endif

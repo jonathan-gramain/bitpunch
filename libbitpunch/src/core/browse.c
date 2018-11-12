@@ -54,8 +54,6 @@
 #include "filters/array_slice.h"
 #include "filters/byte_slice.h"
 
-#define DISABLE_BOX_CACHING
-
 static struct tracker_error *
 error_get_expected(bitpunch_status_t bt_err,
                    struct browse_state *bst)
@@ -170,6 +168,7 @@ browse_state_init_scope(struct browse_state *bst, struct box *scope)
 {
     browse_state_init(bst);
     bst->scope = scope;
+    bst->env = scope ? scope->env : NULL;
 }
 
 void
@@ -206,6 +205,18 @@ browse_state_cleanup(struct browse_state *bst)
     if (NULL != bst) {
         tracker_error_destroy(bst->last_error);
     }
+}
+
+bitpunch_status_t
+browse_state_set_environment(struct browse_state *bst,
+                             struct bitpunch_env *env)
+{
+    bst->env = env;
+    if (NULL != env && -1 == bitpunch_compile_env(env)) {
+        // TODO log
+        return BITPUNCH_DATA_ERROR;
+    }
+    return BITPUNCH_OK;
 }
 
 void
@@ -805,8 +816,6 @@ box_setup_input_boundaries(struct box *box)
 {
     int box_is_right_aligned;
 
-    assert(NULL != box->parent_box);
-
     if (0 != (box->flags & BOX_RALIGN)) {
         box_is_right_aligned =
             0 == (box->track_path.flags & TRACK_PATH_HEADER);
@@ -837,12 +846,14 @@ box_construct(struct box *o_box,
               struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
+    struct filter_instance *f_instance;
 
     // first initialize the structural fields, so we get a valid box
     // in case of errors (as bst->last_error will then have a
     // reference to the box)
     TAILQ_INIT(&o_box->cached_children);
     o_box->use_count = 1;
+    o_box->env = bst->env;
 
     if (NULL != parent_box
         && parent_box->depth_level == BOX_MAX_DEPTH_LEVEL) {
@@ -850,7 +861,7 @@ box_construct(struct box *o_box,
                          "reached maximum box nesting level %d",
                          BOX_MAX_DEPTH_LEVEL);
     }
-    assert(ast_node_is_rexpr_filter(filter));
+    //assert(ast_node_is_rexpr_filter(filter));
     o_box->filter = filter;
     o_box->flags = box_flags;
     o_box->start_offset_parent = -1;
@@ -872,29 +883,30 @@ box_construct(struct box *o_box,
         box_acquire(parent_box);
     }
     o_box->scope = scope;
+    o_box->track_path = TRACK_PATH_NONE;
     box_acquire(scope);
     if (-1 != boundary_offset) {
         box_set_boundary_offset(o_box, boundary_offset, -1);
-    } else {
-        //box_inherit_boundary_offset(o_box);
     }
     /* initialize internal state */
     switch (filter->ndat->type) {
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
-    case AST_NODE_TYPE_SOURCE:
         o_box->u.array_generic.n_items = -1;
         break ;
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
-        if (NULL != filter->ndat->u.rexpr_filter.f_instance->b_box.init) {
-            bt_ret = filter->ndat->u.rexpr_filter.f_instance->b_box.init(
-                o_box, bst);
+        f_instance = filter->ndat->u.rexpr_filter.f_instance;
+        if (NULL != f_instance->b_box.init) {
+            bt_ret = f_instance->b_box.init(o_box, bst);
             if (BITPUNCH_OK != bt_ret) {
                 return bt_ret;
             }
+        }
+        if (NULL != f_instance->get_data_source_func) {
+            o_box->flags |= BOX_DATA_SOURCE;
         }
         break ;
     default:
@@ -933,6 +945,10 @@ box_dump_flags(const struct box *box, FILE *out)
 static void
 box_dump_internal(const struct box *box, FILE *out, int indent)
 {
+    if (NULL == box) {
+        fprintf(out, "<null>\n");
+        return ;
+    }
     if (NULL != box->parent_box) {
         box_dump_internal(box->parent_box, out, indent);
     }
@@ -976,202 +992,42 @@ box_fdump(const struct box *box, FILE *out)
     box_dump_internal(box, out, 0);
 }
 
-static void
-box_cache_init(struct box_cache *cache,
-               int max_n_boxes, int max_n_cached_children)
-{
-    assert(max_n_boxes > 0);
-    assert(max_n_cached_children > 0);
-    assert(max_n_cached_children <= max_n_boxes);
-    TAILQ_INIT(&cache->mru_boxes);
-    cache->n_boxes = 0;
-    cache->max_n_boxes = max_n_boxes;
-    cache->max_n_cached_children = max_n_cached_children;
-}
-
-static struct box_cache *
-box_cache_new(int max_n_boxes, int max_n_cached_children)
-{
-    struct box_cache *cache;
-
-    cache = new_safe(struct box_cache);
-    box_cache_init(cache, max_n_boxes, max_n_cached_children);
-    return cache;
-}
-
-void
-box_cache_clear(struct box_cache *cache)
-{
-    struct box *box;
-    struct box *tbox;
-
-    TAILQ_FOREACH_SAFE(box, &cache->mru_boxes, cached_boxes_list, tbox) {
-        box_delete_non_null(box);
-    }
-    TAILQ_INIT(&cache->mru_boxes);
-    cache->n_boxes = 0;
-}
-
-void
-box_cache_free(struct box_cache *cache)
-{
-    box_cache_clear(cache);
-    free(cache);
-}
-
-void
-box_cache_fdump(struct box_cache *cache, FILE *out)
-{
-    struct box *box;
-
-    fprintf(out, "=== BOX CACHE CONTENTS ===:\n");
-    TAILQ_FOREACH(box, &cache->mru_boxes, cached_boxes_list) {
-        box_fdump(box, out);
-    }
-}
-
-#ifndef DISABLE_BOX_CACHING
-static int
-box_is_cached(struct box *box)
-{
-    return 0 != (box->flags & BOX_CACHED);
-}
-
-static void
-box_cache_remove_box(struct box_cache *cache, struct box *box)
-{
-    DBG_BOX_DUMP(box);
-    TAILQ_REMOVE(&cache->mru_boxes, box, cached_boxes_list);
-    if (NULL != box->parent_box) {
-        TAILQ_REMOVE(&box->parent_box->cached_children, box,
-                     cached_children_list);
-        assert(box->parent_box->n_cached_children > 0);
-        --box->parent_box->n_cached_children;
-    }
-    box->cached_boxes_list.tqe_prev = NULL;
-    box->flags &= ~BOX_CACHED;
-    box_delete_non_null(box);
-}
-#endif
-
-static void
-box_update_cache(struct box *box, struct browse_state *bst)
-{
-#ifndef DISABLE_BOX_CACHING
-    struct box_cache *cache;
-
-    DBG_BOX_DUMP(box);
-    cache = box->ds_in->box_cache;
-    if (box_is_cached(box)) {
-        TAILQ_REMOVE(&cache->mru_boxes, box, cached_boxes_list);
-        /* also reposition the box in children list in front to
-         * optimize performance (MRU in front heuristic) */
-        if (NULL != box->parent_box) {
-            TAILQ_REMOVE(&box->parent_box->cached_children, box,
-                         cached_children_list);
-        }
-    } else {
-        box_acquire(box);
-        if (NULL != box->parent_box
-            && box->parent_box->n_cached_children
-            == cache->max_n_cached_children) {
-            box_cache_remove_box(cache, TAILQ_LAST(
-                                     &box->parent_box->cached_children,
-                                     box_tailq));
-        } else if (cache->n_boxes == cache->max_n_boxes) {
-            box_cache_remove_box(cache, TAILQ_LAST(&cache->mru_boxes,
-                                                   box_tailq));
-        } else {
-            assert(cache->n_boxes < cache->max_n_boxes);
-            ++cache->n_boxes;
-        }
-        if (NULL != box->parent_box) {
-            assert(box->parent_box->n_cached_children <
-                   cache->max_n_cached_children);
-            ++box->parent_box->n_cached_children;
-        }
-        box->flags |= BOX_CACHED;
-    }
-    TAILQ_INSERT_HEAD(&cache->mru_boxes, box, cached_boxes_list);
-    if (NULL != box->parent_box) {
-        TAILQ_INSERT_HEAD(&box->parent_box->cached_children, box,
-                          cached_children_list);
-    }
-#endif
-}
-
 static struct box *
-box_lookup_cached_child(struct box *box, struct track_path path,
-                        enum box_flag flags)
+box_new_root_box_internal(struct bitpunch_schema *schema,
+                          int manage_env,
+                          struct browse_state *bst)
 {
-#ifndef DISABLE_BOX_CACHING
-    struct box *child_box;
-
-    DBG_BOX_DUMP(box);
-    TAILQ_FOREACH(child_box, &box->cached_children, cached_children_list) {
-        if (track_path_eq(child_box->track_path, path)
-            && (child_box->flags & BOX_RALIGN) == (flags & BOX_RALIGN)) {
-            return child_box;
-        }
-    }
-#endif
-    return NULL;
-}
-
-static struct box *
-box_new_from_file_internal(const struct bitpunch_schema *def_hdl,
-                           struct bitpunch_data_source *ds_in,
-                           struct browse_state *bst)
-{
-    struct box *source_box;
-    struct box *composite_box;
-    struct ast_node_hdl *root_filter;
+    struct box *root_box;
     bitpunch_status_t bt_ret;
 
-    // TODO decouple source from composite in bp file syntax: source
-    // should be declared as an independent filter that returns a bare
-    // dpath, which can be chained with a composite or other type of
-    // (usually trackable) filter
-
-    root_filter = def_hdl->file_block.root;
-    assert(NULL != root_filter);
-    source_box = new_safe(struct box);
-    bt_ret = box_construct(source_box, NULL,
-                           filter_get_global_instance__source(), bst->scope,
+    root_box = new_safe(struct box);
+    bt_ret = box_construct(root_box, NULL, schema->ast_root, NULL,
                            0, 0u, bst);
     if (BITPUNCH_OK != bt_ret) {
         /* TODO error reporting */
-        box_delete_non_null(source_box);
+        box_delete_non_null(root_box);
         return NULL;
     }
-    source_box->ds_in = NULL;
-    source_box->ds_out = ds_in;
-    source_box->start_offset_used = 0;
-    source_box->end_offset_used = ds_in->ds_data_length;
-    source_box->flags |= BOX_FILTER | BOX_FILTER_APPLIED;
-    if (NULL == ds_in->box_cache) {
-        ds_in->box_cache = box_cache_new(BOX_CACHE_MAX_N_BOXES,
-                                         BOX_CACHE_MAX_N_CACHED_CHILDREN);
+    if (manage_env) {
+        root_box->flags |= BOX_MANAGE_ENV;
     }
-    composite_box = box_new_filter_box(source_box, root_filter, bst);
-    if (NULL == composite_box) {
-        box_delete_non_null(source_box);
-    }
-    // root scope (FIXME: doing this only because file box is the root
-    // box for now)
-    assert(NULL != composite_box);
-    bst->scope = composite_box;
-    return composite_box;
+    return root_box;
 }
 
 struct box *
-box_new_from_file(const struct bitpunch_schema *def_hdl,
-                  struct bitpunch_data_source *ds_in)
+box_new_root_box(struct bitpunch_schema *schema,
+                 struct bitpunch_env *env,
+                 int manage_env)
 {
     struct browse_state bst;
+    bitpunch_status_t bt_ret;
 
     browse_state_init(&bst);
-    return box_new_from_file_internal(def_hdl, ds_in, &bst);
+    bt_ret = browse_state_set_environment(&bst, env);
+    if (BITPUNCH_OK != bt_ret) {
+        return NULL;
+    }
+    return box_new_root_box_internal(schema, manage_env, &bst);
 }
 
 struct box *
@@ -1182,7 +1038,6 @@ box_new_filter_box(struct box *parent_box,
     struct box *box;
     bitpunch_status_t bt_ret;
     enum box_flag flags;
-    struct filter_instance *f_instance;
 
     box = new_safe(struct box);
     flags = BOX_FILTER;
@@ -1190,16 +1045,11 @@ box_new_filter_box(struct box *parent_box,
         flags |= (parent_box->flags & BOX_RALIGN);
     }
     assert(ast_node_is_rexpr_filter(filter));
-    f_instance = filter->ndat->u.rexpr_filter.f_instance;
-    if (NULL != f_instance->get_data_source_func) {
-        flags |= BOX_DATA_SOURCE;
-    }
     bt_ret = box_construct(box, parent_box, filter, bst->scope, -1, flags, bst);
     if (BITPUNCH_OK != bt_ret) {
         box_delete_non_null(box);
         return NULL;
     }
-    box->track_path = TRACK_PATH_NONE;
     return box;
 }
 
@@ -1250,7 +1100,7 @@ box_apply_local_filter__data_filter(struct box *box, struct browse_state *bst)
     }
     if (filtered_data >= box->ds_in->ds_data &&
         filtered_data < box->ds_in->ds_data + box->ds_in->ds_data_length) {
-        box->ds_out = box->ds_in;
+        box_setup_overlay(box);
         box->start_offset_used = filtered_data - box->ds_out->ds_data;
         box->end_offset_used =
             (filtered_data + filtered_size) - box->ds_out->ds_data;
@@ -1266,7 +1116,8 @@ box_apply_local_filter__data_filter(struct box *box, struct browse_state *bst)
 }
 
 static bitpunch_status_t
-box_apply_local_filter__data_source(struct box *box, struct browse_state *bst)
+box_apply_local_filter__get_data_source(
+    struct box *box, struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
 
@@ -1287,6 +1138,10 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
 
     assert(NULL == box->ds_out);
 
+    if (ast_node_is_scope_only(box->filter)) {
+        // no data source (scope-only filter)
+        return BITPUNCH_OK;
+    }
     filter_cls = box->filter->ndat->u.rexpr_filter.filter_cls;
     if (NULL == filter_cls
         || !expr_value_type_mask_contains_dpath(filter_cls->value_type_mask)) {
@@ -1296,7 +1151,7 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
     }
     f_instance = box->filter->ndat->u.rexpr_filter.f_instance;
     if (NULL != f_instance->get_data_source_func) {
-        return box_apply_local_filter__data_source(box, bst);
+        return box_apply_local_filter__get_data_source(box, bst);
     }
     return box_apply_local_filter__data_filter(box, bst);
 }
@@ -1315,7 +1170,9 @@ box_apply_parent_filter_internal(struct box *box,
             return bt_ret;
         }
         box->ds_in = box->parent_box->ds_out;
-        box_inherit_boundary_offset(box);
+        if (NULL != box->ds_in) {
+            box_inherit_boundary_offset(box);
+        }
     }
     return BITPUNCH_OK;
 }
@@ -1337,7 +1194,6 @@ box_apply_filter_internal(struct box *box,
     }
     bt_ret = box_apply_local_filter(box, bst);
     if (BITPUNCH_OK == bt_ret) {
-        assert(NULL != box->ds_out);
         box->flags |= BOX_FILTER_APPLIED;
     }
     return bt_ret;
@@ -1366,6 +1222,9 @@ box_free(struct box *box)
     if (0 != (box->flags & BOX_DATA_SOURCE)) {
         (void)bitpunch_data_source_release(
             (struct bitpunch_data_source *)box->ds_out);
+    }
+    if (0 != (box->flags & BOX_MANAGE_ENV)) {
+        bitpunch_env_free(box->env);
     }
     free(box);
 }
@@ -1604,6 +1463,10 @@ tracker_dump(const struct tracker *tk)
 void
 tracker_fdump(const struct tracker *tk, FILE *out)
 {
+    if (NULL == tk) {
+        fprintf(out, "<null>\n");
+        return ;
+    }
     fprintf(out,
             "TRACKER @");
     tracker_dump_abs_dpath(tk, out);
@@ -1661,6 +1524,7 @@ tracker_create_item_box_internal(struct tracker *tk,
                                  struct box **item_boxp,
                                  struct browse_state *bst)
 {
+    int scope_only;
     struct tracker *xtk;
     struct box *item_box = NULL;
     int item_box_is_right_aligned;
@@ -1668,80 +1532,75 @@ tracker_create_item_box_internal(struct tracker *tk,
     int reverse_tracker;
     bitpunch_status_t bt_ret;
 
-    if (0 != (tk->box->flags & BOX_RALIGN)) {
-        item_box_is_right_aligned =
-            0 == (tk->cur.flags & TRACK_PATH_HEADER);
-    } else {
-        item_box_is_right_aligned =
-            0 != (tk->cur.flags & TRACK_PATH_TRAILER);
-    }
-    reverse_tracker = 0 != (tk->flags & TRACKER_REVERSED) ?
-        !item_box_is_right_aligned :
-        item_box_is_right_aligned;
-    if (reverse_tracker) {
-        xtk = tracker_dup(tk);
-        bt_ret = tracker_reverse_direction_internal(xtk, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            tracker_delete(xtk);
-            return bt_ret;
-        }
-    } else {
+    scope_only = ast_node_is_scope_only(tk->box->filter);
+    if (scope_only) {
+        box_flags = 0u;
+        reverse_tracker = FALSE;
         xtk = tk;
-        bt_ret = BITPUNCH_OK;
+    } else {
+        if (0 != (tk->box->flags & BOX_RALIGN)) {
+            item_box_is_right_aligned =
+                0 == (tk->cur.flags & TRACK_PATH_HEADER);
+        } else {
+            item_box_is_right_aligned =
+                0 != (tk->cur.flags & TRACK_PATH_TRAILER);
+        }
+        reverse_tracker = 0 != (tk->flags & TRACKER_REVERSED) ?
+            !item_box_is_right_aligned :
+            item_box_is_right_aligned;
+        if (reverse_tracker) {
+            xtk = tracker_dup(tk);
+            bt_ret = tracker_reverse_direction_internal(xtk, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                tracker_delete(xtk);
+                return bt_ret;
+            }
+        } else {
+            xtk = tk;
+        }
+        if (tracker_is_dangling(xtk)) {
+            bt_ret = BITPUNCH_NO_ITEM;
+            goto end;
+        }
+        if (-1 == xtk->item_offset) {
+            bt_ret = tracker_compute_item_offset(xtk, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                goto end;
+            }
+            assert(xtk->item_offset >= 0);
+        }
+        box_flags = 0 != (xtk->flags & TRACKER_REVERSED) ?
+            BOX_RALIGN | BOX_OVERLAY : BOX_OVERLAY;
     }
-    box_flags = 0 != (xtk->flags & TRACKER_REVERSED) ?
-        BOX_RALIGN | BOX_OVERLAY : BOX_OVERLAY;
-    if (tracker_is_dangling(xtk)) {
-        bt_ret = BITPUNCH_NO_ITEM;
+    bt_ret = tracker_compute_item_filter_internal(xtk, bst);
+    if (BITPUNCH_OK != bt_ret) {
         goto end;
     }
-    if (-1 == xtk->item_offset) {
-        bt_ret = tracker_compute_item_offset(xtk, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            goto end;
-        }
-        assert(xtk->item_offset >= 0);
-    }
-    item_box = box_lookup_cached_child(xtk->box, xtk->cur, box_flags);
-    if (NULL != item_box) {
-#ifdef DEBUG
-        if (tracker_debug_mode) {
-            printf("found box in cache: ");
-            DBG_BOX_DUMP(item_box);
-        }
-#endif
-        box_acquire(item_box);
-    } else {
-        bt_ret = tracker_compute_item_filter_internal(xtk, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            goto end;
-        }
-        item_box = new_safe(struct box);
-        // it's an item box, so the filter is the item here
-        assert(NULL != bst->scope);
-        bt_ret = box_construct(item_box, xtk->box, xtk->dpath.item,
-                               bst->scope,
-                               xtk->item_offset, box_flags, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            goto end;
-        }
+    item_box = new_safe(struct box);
+    // it's an item box, so the filter is the item here
+    assert(NULL != bst->scope);
+    bt_ret = box_construct(item_box, xtk->box, xtk->dpath.item,
+                           bst->scope, xtk->item_offset, box_flags, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        goto end;
     }
     item_box->track_path = xtk->cur;
-    if (-1 != item_box->start_offset_span
-        && -1 != item_box->end_offset_span) {
-        xtk->item_size =
-            item_box->end_offset_span - item_box->start_offset_span;
-    } else if (-1 != xtk->item_size) {
-        bt_ret = box_set_span_size(item_box, xtk->item_size, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            goto end;
+    if (!scope_only) {
+        if (-1 != item_box->start_offset_span
+            && -1 != item_box->end_offset_span) {
+            xtk->item_size =
+                item_box->end_offset_span - item_box->start_offset_span;
+        } else if (-1 != xtk->item_size) {
+            bt_ret = box_set_span_size(item_box, xtk->item_size, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                goto end;
+            }
         }
-    }
-    box_update_cache(item_box, bst);
-    if (BITPUNCH_OK == bt_ret && reverse_tracker) {
-        bt_ret = tracker_reverse_direction_internal(xtk, bst);
-        if (BITPUNCH_OK == bt_ret) {
-            tracker_set(tk, xtk);
+        if (BITPUNCH_OK == bt_ret && reverse_tracker) {
+            bt_ret = tracker_reverse_direction_internal(xtk, bst);
+            if (BITPUNCH_OK == bt_ret) {
+                tracker_set(tk, xtk);
+            }
         }
     }
   end:
@@ -2253,26 +2112,31 @@ bitpunch_status_t
 track_box_contents_internal(struct box *box,
                             struct tracker **tkp, struct browse_state *bst)
 {
+    assert(bst->env == box->env);
     *tkp = tracker_new(box);
     return BITPUNCH_OK;
 }
 
 struct tracker *
-track_file(const struct bitpunch_schema *def_hdl,
-           struct bitpunch_data_source *ds_in,
-           struct tracker_error **errp)
+track_data_source(struct bitpunch_schema *schema,
+                  const char *ds_name, struct bitpunch_data_source *ds,
+                  struct tracker_error **errp)
 {
-    struct box *box;
+    struct box *root_box;
+    struct bitpunch_env *env;
     struct tracker *tk;
     bitpunch_status_t bt_ret;
 
-    /* TODO issue warning if root node min span size > file length */
-    box = box_new_from_file(def_hdl, ds_in);
-    if (NULL == box) {
+    // FIXME tracker should steal environment to manage its lifetime
+    env = bitpunch_env_new();
+    bitpunch_env_add_data_source(env, ds_name, ds);
+
+    root_box = box_new_root_box(schema, env, TRUE);
+    if (NULL == root_box) {
         return NULL;
     }
-    bt_ret = track_box_contents(box, &tk, errp);
-    box_delete_non_null(box);
+    bt_ret = track_box_contents(root_box, &tk, errp);
+    box_delete_non_null(root_box);
     if (BITPUNCH_OK != bt_ret) {
         return NULL;
     }
@@ -2746,35 +2610,13 @@ tracker_goto_field_internal(struct tracker *tk,
     return bt_ret;
 }
 
-static struct box *
-box_get_container_parent_box(struct box *box)
-{
-    while (TRUE) {
-        switch (box->filter->ndat->type) {
-        case AST_NODE_TYPE_COMPOSITE:
-        case AST_NODE_TYPE_ARRAY:
-            return box;
-        default:
-            box = box->parent_box;
-            break ;
-        }
-    }
-    return box;
-}
-
 static int
 tracker_in_anonymous_field(struct tracker *tk)
 {
-    struct box *composite_box;
-    struct box *parent_box;
-
-    composite_box = box_get_container_parent_box(tk->box);
-    parent_box = composite_box->parent_box;
-    return (NULL != parent_box
-            && AST_NODE_TYPE_COMPOSITE == parent_box->filter->ndat->type
-            && NULL != composite_box->track_path.u.field
-            && NULL == composite_box->track_path.u.field->nstmt.name
-            && 0 == (composite_box->track_path.u.field
+    return (TRACK_PATH_FIELD == tk->box->track_path.type
+            && NULL != tk->box->track_path.u.field
+            && NULL == tk->box->track_path.u.field->nstmt.name
+            && 0 == (tk->box->track_path.u.field
                      ->nstmt.stmt.stmt_flags & FIELD_FLAG_HIDDEN));
 }
 
@@ -2964,8 +2806,8 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
     root_box = tk->box;
-    while (0 == (root_box->filter->flags & ASTFLAG_IS_ROOT_BLOCK)) {
-        root_box = root_box->parent_box;
+    while (NULL != root_box->scope) {
+        root_box = root_box->scope;
     }
     if (-1 == bitpunch_resolve_expr(expr_node, root_box)) {
         free(parser_ctx);
@@ -3389,8 +3231,7 @@ box_get_abs_dpath(const struct box *box,
     }
     n_out += track_path_elem_dump_to_buf(
         box->track_path,
-        /* dump separator? */
-        0 == (box->parent_box->filter->flags & ASTFLAG_IS_ROOT_BLOCK),
+        n_out > 0, // dump separator?
         dpath_expr_buf, buf_size);
     return n_out;
 }
@@ -3455,8 +3296,7 @@ tracker_get_abs_dpath(const struct tracker *tk,
     }
     n_out += track_path_elem_dump_to_buf(
         tk->cur,
-        /* dump separator? */
-        0 == (tk->box->filter->flags & ASTFLAG_IS_ROOT_BLOCK),
+        n_out > 0, // dump separator?
         dpath_expr_buf, buf_size);
     return n_out;
 }
@@ -4187,9 +4027,8 @@ box_compute__error(struct box *box,
                    struct browse_state *bst)
 {
     // TODO more precise error
-    /* return box_error(BITPUNCH_DATA_ERROR, box, box->filter, bst, */
-    /*                  "invalid filter operation requested"); */
-    return BITPUNCH_OK;
+    return box_error(BITPUNCH_DATA_ERROR, box, box->filter, bst,
+                     "invalid filter operation requested");
 }
 
 

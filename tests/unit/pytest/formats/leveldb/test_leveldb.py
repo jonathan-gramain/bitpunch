@@ -28,10 +28,10 @@ def spec_log():
     let FixInt16 = [2] byte <> FixInt;
     let FixInt32 = [4] byte <> FixInt;
 
-    file {
+    env("DATASOURCE") <> struct {
         head_blocks: [] LogBlock;
         tail_block: LogTailBlock;
-    }
+    };
 
     let LogBlock = struct {
            records: [] Record;
@@ -221,7 +221,7 @@ def spec_ldb():
         size:   VarInt;
 
         let ?stored_block =
-            file.payload[offset .. offset + size + sizeof(BlockTrailer)]
+            payload[offset .. offset + size + sizeof(BlockTrailer)]
                  <> FileBlock;
     };
 
@@ -234,13 +234,13 @@ def spec_ldb():
         @span = 48;
     };
 
-    file {
+    env("DATASOURCE") <> struct {
         payload: [] byte;
         footer:  Footer;
 
         let ?index =     footer.index_handle;
         let ?metaindex = footer.metaindex_handle;
-    }
+    };
     """
 
 @pytest.fixture
@@ -256,8 +256,8 @@ def test_ldb(spec_ldb, data_ldb):
                         data_ldb['nb_entries'])
     dtree = model.DataTree(data, spec_ldb)
     index = dtree.eval_expr('?index')
-    # assert index.offset == 265031
-    # assert index.size == 5676
+    assert index.offset == 265031
+    assert index.size == 5676
     index_block = index['?stored_block']
     # # 5 more bytes than the stored size because block size includes
     # # the trailer

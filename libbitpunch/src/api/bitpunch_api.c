@@ -62,7 +62,7 @@ bitpunch_cleanup(void)
 
 int
 bitpunch_eval_expr(struct bitpunch_schema *schema,
-                   struct bitpunch_data_source *ds,
+                   struct bitpunch_env *env,
                    const char *expr,
                    struct box *scope,
                    expr_value_t *valuep, expr_dpath_t *dpathp,
@@ -78,9 +78,12 @@ bitpunch_eval_expr(struct bitpunch_schema *schema,
     if (-1 == bitpunch_parse_expr(expr, &expr_node, &parser_ctx)) {
         return -1;
     }
-    if (NULL != schema && NULL != ds) {
+    if (NULL != env && -1 == bitpunch_compile_env(env)) {
+        return -1;
+    }
+    if (NULL != schema) {
         if (NULL == scope) {
-            scope = box_new_from_file(schema, ds);
+            scope = box_new_root_box(schema, env, FALSE);
             if (NULL == scope) {
                 goto end;
             }
@@ -94,7 +97,7 @@ bitpunch_eval_expr(struct bitpunch_schema *schema,
         goto end;
     }
     assert(ast_node_is_rexpr(expr_node));
-    bt_ret = expr_evaluate(expr_node, scope, valuep, dpathp, errp);
+    bt_ret = expr_evaluate(expr_node, scope, env, valuep, dpathp, errp);
     if (BITPUNCH_OK == bt_ret) {
         ret = 0;
     }
@@ -105,7 +108,6 @@ bitpunch_eval_expr(struct bitpunch_schema *schema,
     free(parser_ctx);
     return ret;
 }
-
 
 const char *
 bitpunch_status_pretty(bitpunch_status_t bt_ret)

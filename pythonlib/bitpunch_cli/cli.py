@@ -256,8 +256,6 @@ class CLI(NestedCmd):
                 return
             item += item_complement
         else:
-            if 'file'.startswith(completion_base):
-                yield completion_prefix + 'file'
             obj = None
             if 'sizeof'.startswith(completion_base):
                 yield completion_prefix + 'sizeof('
@@ -532,15 +530,9 @@ class CLI(NestedCmd):
         if self.format_spec and self.bin_file:
             self.open_data_tree('list')
         obj = self.data_tree.eval_expr(expr) if expr else self.data_tree
-        if (obj.get_filter_type() == 'composite' or
-            obj.get_filter_type() == 'array'):
-            keys = list(str(key) for key in model.Tracker(
-                obj, iter_mode=model.Tracker.ITER_MEMBER_NAMES))
-            self.columnize(keys)
-        else:
-            raise CommandError('list',
-                               'cannot list attributes on object of type %s'
-                               % type(obj))
+        keys = list(str(key) for key in model.Tracker(
+            obj, iter_mode=model.Tracker.ITER_MEMBER_NAMES))
+        self.columnize(keys)
 
     def complete_list(self, text, begin, end):
         return self._complete_expression(text, begin, end, True)

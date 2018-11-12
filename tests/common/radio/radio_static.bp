@@ -9,6 +9,6 @@ let RadioCode = struct {
        @key = codename;
 };
 
-file {
+env("DATASOURCE") <> struct {
      codes: [26] RadioCode;
-}
+};
