@@ -4,10 +4,16 @@
 
 ### Scriptable filters
 
-Filters now can only be implemented as C code in the main library,
-they should be scriptable in the .bp file itself (e.g. with Python
-support in the first step).
+Filters now can only be implemented as C code and compiled as part of
+the main library, they should be:
 
+* loadable as an external module from the .bp file (via an import
+  declaration)
+
+* created as a compiled object plugin (loaded with dlopen) or as a
+  script of chosen language, that responds to a precise plugin
+  interface. Compiled objects should obey the same rules than builtin
+  filters in filters/ directory.
 
 ### Views
 
@@ -17,8 +23,8 @@ together as a single extent of bytes.
 This can typically be used to access contents encapsulated in a
 transport stream.
 
-A view provides custom methods to access some range of bytes
-(generalizes the 'struct bintool_data_source' type).
+A view provides custom backend functions to access ranges of bytes
+(generalizes the 'struct bitpunch_data_source' type).
 
 BP syntax TBD (probably with one or more builtin functions).
 
@@ -133,14 +139,11 @@ automatic matching with binary contents (a la "file" unix command)
 
 ### Performance optimization
 
-For now performance tuning has not been a goal for this project, as
-performance-critical projects will have native access code written for
-them anyway. But performance optimization can be considered in the
-future.
+For now performance tuning has not been a goal for this project, but
+performance optimization can be considered in the future.
 
 Some algorithmic optimizations have been implemented already where it
-was thought useful (e.g. bloom filters for efficient search by key, or
-box caching to avoid offset recomputation).
+was thought useful (e.g. bloom filters for efficient search by key).
 
 ### Browse code generation
 
@@ -160,11 +163,6 @@ This is NOT an organized or prioritized list.
   - notably, add more context information in various places where
     errors occur, e.g. with tracker_error_add_xxx_context() (show
     expressions from source schema etc.)
-
-- implement reverse lookup of a dpath (or a list of dpaths) from an
-  address (or an address range)
-
-  - add a command in CLI to use the feature (e.g. whatis?)
 
 - various structured outputs related to 'xdump' command (e.g. list all
   fields and their associated hex dump for a given structure, or add a
@@ -206,6 +204,9 @@ This is NOT an organized or prioritized list.
 
   - define syntax more precisely
 
+  - should be based on an expression defining the link from an item to
+    the next one, and a stop condition
+
 - implement switch/case statement, as a series of 'if' internally
   (implementation will be naturally efficient by the dispatch of
   conditions per block statement)
@@ -234,10 +235,6 @@ This is NOT an organized or prioritized list.
 
 BUG: filters declared after 'key' statement are not initialized
 correctly (b_filter is empty)
-
-- instead of "file {}" syntax, let user choose the type of file with
-  e.g. "let file = struct {}" or "file = struct {}" (the latter needs
-  support for globals)
 
 - insert type ITEM_ARRAY to distinguish with BYTE_ARRAY after compilation
 
@@ -281,3 +278,6 @@ correctly (b_filter is empty)
   syntax that refers to the closest dpath bound to a given named
   filter type (e.g. "<>filter_type", i.e. filter operator as unary
   operator).
+
+- BUG: "no match for operator 'add' with operands of type 'any
+  value-type' and 'integer'"
