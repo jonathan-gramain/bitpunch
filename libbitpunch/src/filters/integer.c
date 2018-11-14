@@ -36,17 +36,9 @@
 #include <stdint.h>
 #include <endian.h>
 
-#include "core/filter.h"
+#include "filters/integer.h"
 
-enum endian {
-    ENDIAN_BAD = -1,
-    ENDIAN_BIG,
-    ENDIAN_LITTLE,
-    ENDIAN_NATIVE,
-    ENDIAN_DEFAULT = ENDIAN_NATIVE
-};
-
-static enum endian str2endian(struct expr_value_string string)
+enum endian str2endian(struct expr_value_string string)
 {
 #define MAP(VALUE_STR, VALUE)                                           \
     if (string.len == strlen(VALUE_STR)                                 \
@@ -230,6 +222,51 @@ binary_integer_filter_instance_build(struct ast_node_hdl *filter,
 
 #else
 
+/**
+ * @brief return endian attribute value
+ *
+ * @param[out] endianp ENDIAN_BIG | ENDIAN_LITTLE
+ *
+ * @retval BITPUNCH_OK endian attribute exists and is valid
+ * @retval BITPUNCH_NO_ITEM endian attribute does not exist
+ * @retval BITPUNCH_INVALID_PARAM endian attribute exists but is not valid
+ */
+bitpunch_status_t
+integer_read_endian_attribute(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    enum endian *endianp,
+    struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    expr_value_t attr_value;
+    enum endian endian;
+
+    bt_ret = filter_evaluate_attribute_internal(
+        filter, scope, "@endian", NULL, &attr_value, NULL, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    endian = str2endian(attr_value.string);
+    if (endian == ENDIAN_BAD) {
+        semantic_error(
+            SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
+            "bad endian value \"%.*s\": "
+            "must be \"big\", \"little\" or \"native\"",
+            (int)attr_value.string.len, attr_value.string.str);
+        return BITPUNCH_INVALID_PARAM;
+    }
+    if (endian == ENDIAN_NATIVE) {
+        if (is_little_endian()) {
+            endian = ENDIAN_LITTLE;
+        } else {
+            endian = ENDIAN_BIG;
+        }
+    }
+    *endianp = endian;
+    return BITPUNCH_OK;
+}
+
 static bitpunch_status_t
 binary_integer_read_generic(
     struct ast_node_hdl *filter,
@@ -251,19 +288,9 @@ binary_integer_read_generic(
         return bt_ret;
     }
     _signed = attr_value.boolean;
-    bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@endian", NULL, &attr_value, NULL, bst);
-    if (BITPUNCH_OK == bt_ret) {
-        endian = str2endian(attr_value.string);
-        if (endian == ENDIAN_BAD) {
-            semantic_error(
-                SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
-                "bad endian value \"%.*s\": "
-                "must be \"big\", \"little\" or \"native\"",
-                (int)attr_value.string.len, attr_value.string.str);
-            return BITPUNCH_INVALID_PARAM;
-        }
-    } else if (BITPUNCH_NO_ITEM == bt_ret) {
+
+    bt_ret = integer_read_endian_attribute(filter, scope, &endian, bst);
+    if (BITPUNCH_NO_ITEM == bt_ret) {
         if (span_size > 1) {
             return box_error(
                 BITPUNCH_INVALID_PARAM, scope, filter, bst,
@@ -271,16 +298,9 @@ binary_integer_read_generic(
                 "mandatory for source larger than one byte (got %zu)",
                 span_size);
         }
-        endian = ENDIAN_DEFAULT;
-    } else {
+        endian = ENDIAN_BIG;
+    } else if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
-    }
-    if (endian == ENDIAN_NATIVE) {
-        if (is_little_endian()) {
-            endian = ENDIAN_LITTLE;
-        } else {
-            endian = ENDIAN_BIG;
-        }
     }
     assert(endian == ENDIAN_BIG || endian == ENDIAN_LITTLE);
 

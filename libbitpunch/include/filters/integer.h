@@ -29,21 +29,25 @@
  * DAMAGE.
  */
 
-#ifndef __CHECK_BITPUNCH_H__
-#define __CHECK_BITPUNCH_H__
+#ifndef __FILTER_INTEGER_H__
+#define __FILTER_INTEGER_H__
 
-extern int check_verbose;
+#include "core/filter.h"
 
-void check_struct_add_tcases(Suite *s);
-void check_array_add_tcases(Suite *s);
-void check_slack_add_tcases(Suite *s);
-void check_cond_add_tcases(Suite *s);
-void check_index_add_tcases(Suite *s);
-void check_dynarray_add_tcases(Suite *s);
-void testcase_radio_add_tests(Suite *s);
-void check_filter_base64_add_tcases(Suite *s);
-void check_filter_varint_add_tcases(Suite *s);
-void check_formatted_integer_add_tcases(Suite *s);
-void check_dep_resolver_add_tcases(Suite *s);
+enum endian {
+    ENDIAN_BAD = -1,
+    ENDIAN_BIG,
+    ENDIAN_LITTLE,
+    ENDIAN_NATIVE,
+};
 
-#endif /*__CHECK_BITPUNCH_H__*/
+enum endian str2endian(struct expr_value_string string);
+
+bitpunch_status_t
+integer_read_endian_attribute(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    enum endian *endianp,
+    struct browse_state *bst);
+
+#endif

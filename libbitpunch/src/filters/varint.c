@@ -38,6 +38,7 @@
 #include <endian.h>
 
 #include "core/filter.h"
+#include "filters/integer.h"
 
 static bitpunch_status_t
 compute_item_size__varint(struct ast_node_hdl *filter,
@@ -48,9 +49,15 @@ compute_item_size__varint(struct ast_node_hdl *filter,
                           struct browse_state *bst)
 {
     const char *data;
+    bitpunch_status_t bt_ret;
+    expr_value_t attr_value;
     size_t bytepos;
 
     data = scope->ds_in->ds_data + item_offset;
+    bt_ret = filter_evaluate_attribute_internal(
+        filter, scope, "@endian", NULL, &attr_value, NULL, bst);
+    if (BITPUNCH_OK == bt_ret) {
+    }
     for (bytepos = 0; bytepos < max_span_offset - item_offset; ++bytepos) {
         if (!(data[bytepos] & 0x80)) {
             *item_sizep = bytepos + 1;
@@ -62,17 +69,13 @@ compute_item_size__varint(struct ast_node_hdl *filter,
 }
 
 static bitpunch_status_t
-varint_read(struct ast_node_hdl *filter,
-            struct box *scope,
-            expr_value_t *read_value,
-            const char *data, size_t span_size,
-            struct browse_state *bst)
+varint_read__little_endian(
+    const char *data, size_t span_size, int64_t *valuep)
 {
     const unsigned char *udata = (const unsigned char *)data;
     size_t bytepos;
     size_t cur_shift;
     uint64_t rawvalue;
-    int64_t value;
 
     rawvalue = 0;
     cur_shift = 0;
@@ -89,10 +92,65 @@ varint_read(struct ast_node_hdl *filter,
     }
     // zigzag encoding
     //value = (rawvalue & 1) ? -((rawvalue + 1) / 2) : (rawvalue / 2);
-    value = rawvalue;
-    read_value->type = EXPR_VALUE_TYPE_INTEGER;
-    read_value->integer = value;
+    *valuep = rawvalue;
     return BITPUNCH_OK;
+}
+
+static bitpunch_status_t
+varint_read__big_endian(
+    const char *data, size_t span_size, int64_t *valuep)
+{
+    const unsigned char *udata = (const unsigned char *)data;
+    size_t bytepos;
+    uint64_t rawvalue;
+
+    rawvalue = 0;
+    for (bytepos = 0; bytepos < span_size; ++bytepos) {
+        rawvalue <<= 7;
+        rawvalue |= ((uint64_t)udata[bytepos] & 0x7f);
+        if (!(udata[bytepos] & 0x80)) {
+            break ;
+        }
+    }
+    if (bytepos == span_size) {
+        // invalid varint
+        return BITPUNCH_DATA_ERROR;
+    }
+    // zigzag encoding
+    //value = (rawvalue & 1) ? -((rawvalue + 1) / 2) : (rawvalue / 2);
+    *valuep = rawvalue;
+    return BITPUNCH_OK;
+}
+
+static bitpunch_status_t
+varint_read(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    expr_value_t *read_value,
+    const char *data, size_t span_size,
+    struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    enum endian endian;
+    int64_t value;
+
+    bt_ret = integer_read_endian_attribute(filter, scope, &endian, bst);
+    if (BITPUNCH_NO_ITEM == bt_ret) {
+        // default to google's varint convention
+        endian = ENDIAN_LITTLE;
+    } else if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    if (ENDIAN_BIG == endian) {
+        bt_ret = varint_read__big_endian(data, span_size, &value);
+    } else {
+        bt_ret = varint_read__little_endian(data, span_size, &value);
+    }
+    if (BITPUNCH_OK == bt_ret) {
+        read_value->type = EXPR_VALUE_TYPE_INTEGER;
+        read_value->integer = value;
+    }
+    return bt_ret;
 }
 
 static struct filter_instance *
@@ -114,6 +172,115 @@ filter_class_declare_varint(void)
     ret = filter_class_declare("varint",
                                EXPR_VALUE_TYPE_INTEGER,
                                varint_filter_instance_build, NULL,
-                               0);
+                               1,
+                               "@endian", EXPR_VALUE_TYPE_STRING, 0);
     assert(0 == ret);
 }
+
+
+
+#ifndef DISABLE_UTESTS
+
+#include <check.h>
+
+
+struct varint_testcase {
+    enum endian endian;
+    const char *data;
+    size_t span_size;
+    int64_t expected_value;
+};
+
+START_TEST(test_filter_varint)
+{
+#define TCASE_STR(STR) .data = STR, .span_size = sizeof (STR) - 1
+
+    struct varint_testcase testcases[] = {
+        {
+            .endian = ENDIAN_LITTLE,
+            TCASE_STR("\x00"),
+            .expected_value = 0,
+        }, {
+            .endian = ENDIAN_BIG,
+            TCASE_STR("\x00"),
+            .expected_value = 0,
+        }, {
+            .endian = ENDIAN_LITTLE,
+            TCASE_STR("\x42"),
+            .expected_value = 0x42,
+        }, {
+            .endian = ENDIAN_BIG,
+            TCASE_STR("\x42"),
+            .expected_value = 0x42,
+        }, {
+            .endian = ENDIAN_LITTLE,
+            TCASE_STR("\x42\x01"),
+            .expected_value = 0x42,
+        }, {
+            .endian = ENDIAN_BIG,
+            TCASE_STR("\x42\x01"),
+            .expected_value = 0x42,
+        }, {
+            .endian = ENDIAN_LITTLE,
+            TCASE_STR("\x80\x01"),
+            .expected_value = 128,
+        }, {
+            .endian = ENDIAN_BIG,
+            TCASE_STR("\x80\x01"),
+            .expected_value = 1,
+        }, {
+            .endian = ENDIAN_LITTLE,
+            TCASE_STR("\x80\x03"),
+            .expected_value = 384,
+        }, {
+            .endian = ENDIAN_BIG,
+            TCASE_STR("\x80\x03"),
+            .expected_value = 3,
+        }, {
+            .endian = ENDIAN_LITTLE,
+            TCASE_STR("\xc0\x03"),
+            .expected_value = 448,
+        }, {
+            .endian = ENDIAN_BIG,
+            TCASE_STR("\xc0\x03"),
+            .expected_value = 8195,
+        }, {
+            .endian = ENDIAN_LITTLE,
+            TCASE_STR("\xc0\xd2\x93\xb2\x82\x77"),
+            .expected_value = 4089450916160ll,
+        }, {
+            .endian = ENDIAN_BIG,
+            TCASE_STR("\xc0\xd2\x93\xb2\x82\x77"),
+            .expected_value = 2221075628407ll,
+        },
+    };
+    struct varint_testcase *tc;
+    int i;
+    int64_t value;
+    bitpunch_status_t bt_ret;
+
+    for (i = 0; i < N_ELEM(testcases); ++i) {
+        tc = &testcases[i];
+        if (ENDIAN_LITTLE == tc->endian) {
+            bt_ret = varint_read__little_endian(
+                tc->data, tc->span_size, &value);
+        } else {
+            bt_ret = varint_read__big_endian(
+                tc->data, tc->span_size, &value);
+        }
+        ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+        ck_assert_int_eq(value, tc->expected_value);
+    }
+}
+END_TEST
+
+void check_filter_varint_add_tcases(Suite *s)
+{
+    TCase *tc_filter_varint;
+
+    tc_filter_varint = tcase_create("filter:varint");
+    tcase_add_test(tc_filter_varint, test_filter_varint);
+    suite_add_tcase(s, tc_filter_varint);
+}
+
+#endif // #ifndef DISABLE_UTESTS

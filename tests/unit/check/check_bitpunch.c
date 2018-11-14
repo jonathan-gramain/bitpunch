@@ -65,7 +65,8 @@ Suite *bitpunch_suite(void)
     check_index_add_tcases(s);
     check_dynarray_add_tcases(s);
     testcase_radio_add_tests(s);
-    check_base64_add_tcases(s);
+    check_filter_base64_add_tcases(s);
+    check_filter_varint_add_tcases(s);
     check_formatted_integer_add_tcases(s);
     check_dep_resolver_add_tcases(s);
     return s;

@@ -177,7 +177,7 @@ filter_class_declare_base64(void)
 #include <stdlib.h>
 
 
-START_TEST(test_base64)
+START_TEST(test_filter_base64)
 {
     static const struct testcase {
         int encoded_length;
@@ -236,13 +236,13 @@ START_TEST(test_base64)
 }
 END_TEST
 
-void check_base64_add_tcases(Suite *s)
+void check_filter_base64_add_tcases(Suite *s)
 {
-    TCase *tc_base64;
+    TCase *tc_filter_base64;
 
-    tc_base64 = tcase_create("base64");
-    tcase_add_test(tc_base64, test_base64);
-    suite_add_tcase(s, tc_base64);
+    tc_filter_base64 = tcase_create("filter:base64");
+    tcase_add_test(tc_filter_base64, test_filter_base64);
+    suite_add_tcase(s, tc_filter_base64);
 }
 
 #endif // #ifndef DISABLE_UTESTS
