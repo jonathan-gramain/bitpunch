@@ -1719,6 +1719,13 @@ expr_evaluate_polymorphic_internal(
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
+        if (EXPR_DPATH_TYPE_NONE == anchor_dpath.type) {
+            return node_error(
+                BITPUNCH_DATA_ERROR, expr, bst,
+                "anchor of polymorphic member '%s' does not evaluate to a "
+                "dpath type",
+                expr->ndat->u.rexpr_polymorphic.identifier);
+        }
         bt_ret = expr_dpath_to_box_internal(anchor_dpath, &anchor_scope, bst);
         expr_dpath_destroy(anchor_dpath);
         if (BITPUNCH_OK != bt_ret) {

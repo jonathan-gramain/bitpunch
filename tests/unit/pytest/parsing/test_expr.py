@@ -147,3 +147,5 @@ def test_expr_parsing(params_expr_parsing):
         dtree.eval_expr('contents_struct[42]')
     with pytest.raises(ValueError):
         dtree.eval_expr('contents_struct <> byte[10]')
+    with pytest.raises(model.DataError):
+        dtree.eval_expr('len(contents_struct).a')
