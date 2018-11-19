@@ -1951,6 +1951,10 @@ box_get_n_items_internal(struct box *box, int64_t *n_itemsp,
     bitpunch_status_t bt_ret;
     struct box *scope_storage;
 
+    bt_ret = box_apply_parent_filter_internal(box, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     browse_state_push_scope(bst, box, &scope_storage);
     bt_ret = box->filter->ndat->u.rexpr_filter.f_instance->b_box.get_n_items(
         box, n_itemsp, bst);

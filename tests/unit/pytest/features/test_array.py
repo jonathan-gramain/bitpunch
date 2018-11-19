@@ -175,10 +175,22 @@ def test_array_flat(params_array_flat):
 
 
 
-spec_file_array_raw_bytes = """
+spec_file_array_raw_bytes_1 = """
 
 env("DATASOURCE") <> struct {
     integers: [] byte;
+
+    let ?integers = integers <> [] byte;
+};
+
+"""
+
+spec_file_array_raw_bytes_2 = """
+
+env("DATASOURCE") <> struct {
+    integers: [10] byte;
+
+    let ?integers = integers <> [10] byte;
 };
 
 """
@@ -191,7 +203,10 @@ data_file_array_raw_bytes = """
 @pytest.fixture(
     scope='module',
     params=[{
-        'spec': spec_file_array_raw_bytes,
+        'spec': spec_file_array_raw_bytes_1,
+        'data': data_file_array_raw_bytes,
+    }, {
+        'spec': spec_file_array_raw_bytes_2,
         'data': data_file_array_raw_bytes,
     }])
 def params_array_raw_bytes(request):
@@ -207,3 +222,4 @@ def test_array_raw_bytes(params_array_raw_bytes):
         mapped_i = (i * 7) % 10
         assert model.make_python_object(dtree.integers[mapped_i]) \
             == chr(mapped_i)
+    assert dtree.eval_expr('?integers[5..]') == '\x05\x06\x07\x08\x09'
