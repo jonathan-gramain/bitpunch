@@ -67,13 +67,6 @@ ast_node_hdl_create_data_source(struct bitpunch_data_source *ds)
 }
 
 static bitpunch_status_t
-data_source_box_init(struct box *box, struct browse_state *bst)
-{
-    box->u.array_generic.n_items = -1;
-    return BITPUNCH_OK;
-}
-
-static bitpunch_status_t
 data_source_get_data_source(
     struct ast_node_hdl *filter,
     struct box *scope,
@@ -95,7 +88,6 @@ data_source_filter_instance_build(struct ast_node_hdl *filter)
 
     f_instance = new_safe(struct filter_instance_data_source);
     f_instance->filter.get_data_source_func = data_source_get_data_source;
-    f_instance->filter.b_box.init = data_source_box_init;
     return (struct filter_instance *)f_instance;
 }
 

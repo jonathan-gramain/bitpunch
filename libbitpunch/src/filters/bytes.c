@@ -37,13 +37,6 @@
 #include "core/filter.h"
 
 static bitpunch_status_t
-bytes_box_init(struct box *box, struct browse_state *bst)
-{
-    box->u.array_generic.n_items = -1;
-    return BITPUNCH_OK;
-}
-
-static bitpunch_status_t
 bytes_read(
     struct ast_node_hdl *filter,
     struct box *scope,
@@ -64,7 +57,6 @@ bytes_filter_instance_build(struct ast_node_hdl *filter)
     struct filter_instance *f_instance;
 
     f_instance = new_safe(struct filter_instance);
-    f_instance->b_box.init = bytes_box_init;
     f_instance->read_func = bytes_read;
     return f_instance;
 }

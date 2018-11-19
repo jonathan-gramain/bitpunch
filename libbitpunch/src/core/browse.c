@@ -846,6 +846,7 @@ box_construct(struct box *o_box,
               struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
+    const struct filter_class *filter_cls;
     struct filter_instance *f_instance;
 
     // first initialize the structural fields, so we get a valid box
@@ -898,7 +899,13 @@ box_construct(struct box *o_box,
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
+        filter_cls = filter->ndat->u.rexpr_filter.filter_cls;
         f_instance = filter->ndat->u.rexpr_filter.f_instance;
+        if (0 != (filter_cls->value_type_mask &
+                  (EXPR_VALUE_TYPE_BYTES |
+                   EXPR_VALUE_TYPE_STRING))) {
+            o_box->u.array_generic.n_items = -1;
+        }
         if (NULL != f_instance->b_box.init) {
             bt_ret = f_instance->b_box.init(o_box, bst);
             if (BITPUNCH_OK != bt_ret) {
