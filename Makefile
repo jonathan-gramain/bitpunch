@@ -26,14 +26,14 @@ CFLAGS_CHECK = $(CFLAGS_COMMON) -Werror
 
 LEXSRC_LBITPUNCH = $(addprefix $(BITPUNCH_BUILD_DIR)/$(LBITPUNCH_TMPDIR)/,core/parser.l.c core/parser.tab.c)
 LEXHDR_LBITPUNCH = $(addprefix $(BITPUNCH_BUILD_DIR)/$(LBITPUNCH_TMPDIR)/,core/parser.tab.h)
-SRC_LBITPUNCH = $(addprefix $(LBITPUNCH_SRCDIR)/,api/bitpunch_api.c api/schema.c api/data_source.c api/env.c core/ast.c core/expr.c core/browse.c core/scope.c core/filter.c core/print.c core/debug.c filters/data_source.c filters/file.c filters/item.c filters/container.c filters/byte.c filters/composite.c filters/array.c filters/byte_array.c filters/array_slice.c filters/byte_slice.c filters/array_index_cache.c filters/integer.c filters/varint.c filters/bytes.c filters/string.c filters/base64.c filters/snappy.c filters/formatted_integer.c utils/dep_resolver.c utils/bloom.c utils/port.c)
+SRC_LBITPUNCH = $(addprefix $(LBITPUNCH_SRCDIR)/,api/bitpunch_api.c api/schema.c api/data_source.c api/env.c core/ast.c core/expr.c core/browse.c core/scope.c core/filter.c core/print.c core/debug.c filters/data_source.c filters/file.c filters/item.c filters/container.c filters/byte.c filters/composite.c filters/array.c filters/byte_array.c filters/array_slice.c filters/byte_slice.c filters/array_index_cache.c filters/integer.c filters/varint.c filters/bytes.c filters/string.c filters/base64.c filters/deflate.c filters/snappy.c filters/formatted_integer.c utils/dep_resolver.c utils/bloom.c utils/port.c)
 SRC_CHECK_BITPUNCH = $(addprefix $(CHECK_SRCDIR)/,check_bitpunch.c check_array.c check_struct.c check_slack.c check_tracker.c check_cond.c check_dynarray.c testcase_radio.c)
 OBJ_LBITPUNCH = $(patsubst $(LBITPUNCH_SRCDIR)/%.c,$(BITPUNCH_BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.o,$(SRC_LBITPUNCH)) $(patsubst $(BITPUNCH_BUILD_DIR)/$(LBITPUNCH_TMPDIR)/%.c,$(BITPUNCH_BUILD_DIR)/$(LBITPUNCH_OBJDIR)/%.o,$(LEXSRC_LBITPUNCH))
 OBJ_CHECK_BITPUNCH = $(patsubst $(CHECK_SRCDIR)/%.c,$(BITPUNCH_BUILD_DIR)/$(CHECK_OBJDIR)/%.o,$(SRC_CHECK_BITPUNCH))
 OBJ_ALL = $(OBJ_LBITPUNCH) $(OBJ_CHECK_BITPUNCH)
 DEPS_ALL = $(patsubst %.o,%.d,$(OBJ_ALL))
 CHECK_LIBS = `pkg-config --libs check`
-LIBS_LBITPUNCH = -lfl -L/usr/local/lib -lreadline -ltermcap $(CHECK_LIBS) -lsnappy
+LIBS_LBITPUNCH = -lfl -L/usr/local/lib -lreadline -ltermcap $(CHECK_LIBS) -lz -lsnappy
 LIBS_CHECK_BITPUNCH = $(LIBS_LBITPUNCH) -Wl,-rpath=. -L$(LIB_DIR) -lbitpunch $(CHECK_LIBS) -lm
 
 LBITPUNCH = $(LIB_DIR)/libbitpunch.so

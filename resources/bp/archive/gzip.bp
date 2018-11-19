@@ -1,0 +1,64 @@
+/*
+ * gzip archive
+ *
+ * http://www.zlib.org/rfc-gzip.html
+ */
+
+let Int = integer {
+    @signed = false;
+    @endian = 'little';
+};
+
+let Int8 = byte <> Int;
+let Int16 = [2] byte <> Int;
+let Int32 = [4] byte <> Int;
+
+let NullString = string { @boundary = '\0'; };
+
+env("DATASOURCE") <> struct {
+    members: [] Member;
+};
+
+let Member = struct {
+    id: [2] byte; // \x1f\x8b
+    cm: Int8;
+    flg: Int8;
+    mtime: Int32;
+    xfl: Int8;
+    os: Int8;
+
+    let ?FTEXT = ((flg >> 0) & 0x1) == 1;
+    let ?FHCRC = ((flg >> 1) & 0x1) == 1;
+    let ?FEXTRA = ((flg >> 2) & 0x1) == 1;
+    let ?FNAME = ((flg >> 3) & 0x1) == 1;
+    let ?FCOMMENT = ((flg >> 4) & 0x1) == 1;
+
+    if (cm == 8) {
+        let ?method = 'deflate';
+    } else {
+        let ?method = 'unsupported';
+    }
+
+    if (?FEXTRA) {
+        xlen: Int16;
+        xfield: [xlen] byte <> [] struct {
+            id: [2] byte;
+            len: Int16;
+            data: [len] byte;
+        };
+    }
+    if (?FNAME) {
+        fname: NullString;
+    }
+    if (?FCOMMENT) {
+        fcomment: NullString;
+    }
+    if (?FHCRC) {
+        crc16: Int16;
+    }
+    compressed_blocks: deflate {
+        @output_size = isize;
+    };
+    crc32: Int32;
+    isize: Int32;
+};

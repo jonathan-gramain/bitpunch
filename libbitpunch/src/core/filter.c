@@ -152,6 +152,7 @@ void filter_class_declare_bytes(void);
 void filter_class_declare_string(void);
 void filter_class_declare_varint(void);
 void filter_class_declare_base64(void);
+void filter_class_declare_deflate(void);
 void filter_class_declare_snappy(void);
 void filter_class_declare_formatted_integer(void);
 
@@ -172,6 +173,7 @@ filter_class_declare_std(void)
     filter_class_declare_string();
     filter_class_declare_varint();
     filter_class_declare_base64();
+    filter_class_declare_deflate();
     filter_class_declare_snappy();
     filter_class_declare_formatted_integer();
 }
