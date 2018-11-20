@@ -1720,7 +1720,7 @@ compile_filter_def_validate_attributes(struct ast_node_hdl *filter,
         }
     }
     STAILQ_FOREACH(attr_def, &filter_cls->attr_list, list) {
-        if (0 != (FILTER_ATTR_FLAG_MANDATORY & attr_def->flags)) {
+        if (0 != (FILTER_ATTR_MANDATORY & attr_def->flags)) {
             if (!identifier_is_visible_in_block_stmt_lists(
                     STATEMENT_TYPE_ATTRIBUTE, attr_def->name,
                     stmt_lists)) {
@@ -3310,15 +3310,16 @@ ast_node_is_rexpr_filter(const struct ast_node_hdl *node)
 }
 
 int
-ast_node_filter_has_fields(const struct ast_node_hdl *node)
+ast_node_filter_maps_list(const struct ast_node_hdl *node)
 {
-    const struct scope_def *scope_def;
+    const struct filter_class *filter_cls;
 
     if (!ast_node_is_rexpr_filter(node)) {
         return FALSE;
     }
-    scope_def = filter_get_const_scope_def(node);
-    return !TAILQ_EMPTY(scope_def->block_stmt_list.field_list);
+    filter_cls = node->ndat->u.rexpr_filter.filter_cls;
+    return NULL != filter_cls &&
+        0 != (filter_cls->flags & FILTER_CLASS_MAPS_LIST);
 }
 
 struct ast_node_hdl *

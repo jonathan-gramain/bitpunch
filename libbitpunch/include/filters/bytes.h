@@ -29,10 +29,8 @@
  * DAMAGE.
  */
 
-#define _DEFAULT_SOURCE
-#define _GNU_SOURCE
-#include <string.h>
-#include <assert.h>
+#ifndef __FILTER_BYTES_H__
+#define __FILTER_BYTES_H__
 
 #include "core/filter.h"
 
@@ -42,34 +40,6 @@ bytes__read(
     struct box *scope,
     expr_value_t *read_value,
     const char *data, size_t span_size,
-    struct browse_state *bst)
-{
-    read_value->type = EXPR_VALUE_TYPE_BYTES;
-    read_value->bytes.buf = (char *)data;
-    read_value->bytes.len = span_size;
-    return BITPUNCH_OK;
-}
+    struct browse_state *bst);
 
-
-static struct filter_instance *
-bytes_filter_instance_build(struct ast_node_hdl *filter)
-{
-    struct filter_instance *f_instance;
-
-    f_instance = new_safe(struct filter_instance);
-    f_instance->read_func = bytes__read;
-    return f_instance;
-}
-
-void
-filter_class_declare_bytes(void)
-{
-    int ret;
-
-    ret = filter_class_declare("bytes",
-                               EXPR_VALUE_TYPE_BYTES,
-                               bytes_filter_instance_build, NULL,
-                               0u,
-                               0);
-    assert(0 == ret);
-}
+#endif

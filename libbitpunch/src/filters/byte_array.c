@@ -38,6 +38,7 @@
 #include "core/debug.h"
 #include "filters/byte.h"
 #include "filters/byte_array.h"
+#include "filters/bytes.h"
 
 
 bitpunch_status_t
@@ -281,6 +282,7 @@ compile_node_backends__item__byte_array(struct ast_node_hdl *item)
 
     array = (struct filter_instance_array *)
         item->ndat->u.rexpr_filter.f_instance;
+    array->filter.read_func = bytes__read;
     b_item = &array->filter.b_item;
     if (NULL == b_item->compute_item_size) {
         if (NULL != array->item_count) {

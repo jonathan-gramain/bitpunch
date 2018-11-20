@@ -172,6 +172,7 @@ filter_class_declare_varint(void)
     ret = filter_class_declare("varint",
                                EXPR_VALUE_TYPE_INTEGER,
                                varint_filter_instance_build, NULL,
+                               0u,
                                1,
                                "@endian", EXPR_VALUE_TYPE_STRING, 0);
     assert(0 == ret);

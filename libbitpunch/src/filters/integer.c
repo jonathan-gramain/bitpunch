@@ -361,9 +361,10 @@ filter_class_declare_binary_integer(void)
     ret = filter_class_declare("integer",
                                EXPR_VALUE_TYPE_INTEGER,
                                binary_integer_filter_instance_build, NULL,
+                               0u,
                                2,
                                "@signed", EXPR_VALUE_TYPE_BOOLEAN,
-                               FILTER_ATTR_FLAG_MANDATORY,
+                               FILTER_ATTR_MANDATORY,
                                "@endian", EXPR_VALUE_TYPE_STRING, 0);
     assert(0 == ret);
 }

@@ -1370,6 +1370,7 @@ filter_class_declare_array(void)
                                EXPR_VALUE_TYPE_UNSET,
                                array_filter_instance_build,
                                array_filter_instance_compile,
+                               FILTER_CLASS_MAPS_LIST,
                                2,
                                "@item", EXPR_VALUE_TYPE_UNSET, 0,
                                "@length", EXPR_VALUE_TYPE_INTEGER, 0);

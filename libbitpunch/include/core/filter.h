@@ -41,15 +41,20 @@
 
 #include PATH_TO_PARSER_TAB_H
 
-enum filter_attr_flags {
-    FILTER_ATTR_FLAG_MANDATORY = 1,
+enum filter_attr_flag {
+    FILTER_ATTR_MANDATORY = (1u<<0),
+};
+
+enum filter_class_flag {
+    /** set when the filter maps to a list type */
+    FILTER_CLASS_MAPS_LIST = (1u<<0),
 };
 
 struct filter_attr_def {
     STAILQ_ENTRY(filter_attr_def) list;
     const char *name;
     enum expr_value_type value_type_mask;
-    enum filter_attr_flags flags;
+    enum filter_attr_flag flags;
 };
 
 typedef bitpunch_status_t (*filter_get_data_source_func_t)(
@@ -89,6 +94,7 @@ struct filter_class {
     enum expr_value_type value_type_mask;
     filter_instance_build_func_t filter_instance_build_func;
     filter_instance_compile_func_t filter_instance_compile_func;
+    enum filter_class_flag flags;
     int n_attrs;
     STAILQ_HEAD(filter_attr_list, filter_attr_def) attr_list;
 };
@@ -99,6 +105,7 @@ filter_class_declare(
     enum expr_value_type value_type_mask,
     filter_instance_build_func_t filter_instance_build_func,
     filter_instance_compile_func_t filter_instance_compile_func,
+    enum filter_class_flag flags,
     int n_attrs,
     ... /* attrs: (name, type, flags) tuples */);
 

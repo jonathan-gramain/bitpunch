@@ -113,19 +113,15 @@ dbg_tracker_check_track_path(const struct tracker *tk,
                              int expect_is_set)
 {
     assert(NULL != tk->box->filter);
-    switch (tk->box->filter->ndat->type) {
-    case AST_NODE_TYPE_COMPOSITE:
-        assert(TRACK_PATH_FIELD == tk->cur.type);
+    switch (tk->cur.type) {
+    case TRACK_PATH_FIELD:
         if (expect_is_set) {
             assert(NULL != tk->cur.u.field);
         } else {
             assert(NULL == tk->cur.u.field);
         }
         break ;
-    case AST_NODE_TYPE_ARRAY:
-    case AST_NODE_TYPE_ARRAY_SLICE:
-    case AST_NODE_TYPE_BYTE_ARRAY:
-    case AST_NODE_TYPE_BYTE_SLICE:
+    case TRACK_PATH_ARRAY:
         if (expect_is_set) {
             assert(-1 != tk->cur.u.array.index);
         } else {

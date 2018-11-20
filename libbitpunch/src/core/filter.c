@@ -84,6 +84,7 @@ filter_class_declare(
     enum expr_value_type value_type_mask,
     filter_instance_build_func_t filter_instance_build_func,
     filter_instance_compile_func_t filter_instance_compile_func,
+    enum filter_class_flag flags,
     int n_attrs,
     ... /* attrs: (name, type, flags) tuples */)
 {
@@ -108,6 +109,7 @@ filter_class_declare(
     filter_cls->value_type_mask = value_type_mask;
     filter_cls->filter_instance_build_func = filter_instance_build_func;
     filter_cls->filter_instance_compile_func = filter_instance_compile_func;
+    filter_cls->flags = flags;
     filter_cls->n_attrs = n_attrs;
     STAILQ_INIT(&filter_cls->attr_list);
     va_start(ap, n_attrs);
@@ -118,7 +120,7 @@ filter_class_declare(
         }
         attr_def->name = va_arg(ap, const char *);
         attr_def->value_type_mask = va_arg(ap, enum ast_node_type);
-        attr_def->flags = va_arg(ap, enum filter_attr_flags);
+        attr_def->flags = va_arg(ap, enum filter_attr_flag);
         STAILQ_INSERT_TAIL(&filter_cls->attr_list, attr_def, list);
     }
     va_end(ap);

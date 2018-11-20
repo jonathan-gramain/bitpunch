@@ -91,8 +91,9 @@ filter_class_declare_file(void)
     ret = filter_class_declare("file",
                                EXPR_VALUE_TYPE_BYTES,
                                file_filter_instance_build, NULL,
+                               0u,
                                1,
                                "@path", EXPR_VALUE_TYPE_STRING,
-                               FILTER_ATTR_FLAG_MANDATORY);
+                               FILTER_ATTR_MANDATORY);
     assert(0 == ret);
 }

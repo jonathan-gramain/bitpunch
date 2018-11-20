@@ -166,6 +166,7 @@ filter_class_declare_base64(void)
     ret = filter_class_declare("base64",
                                EXPR_VALUE_TYPE_BYTES,
                                base64_filter_instance_build, NULL,
+                               0u,
                                0);
     assert(0 == ret);
 }

@@ -829,6 +829,7 @@ filter_class_declare_scope(void)
                                EXPR_VALUE_TYPE_UNSET,
                                scope_filter_instance_build,
                                scope_filter_instance_compile,
+                               0u,
                                0);
     assert(0 == ret);
 }

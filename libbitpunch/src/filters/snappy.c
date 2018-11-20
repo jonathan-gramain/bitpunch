@@ -99,6 +99,7 @@ filter_class_declare_snappy(void)
     ret = filter_class_declare("snappy",
                                EXPR_VALUE_TYPE_BYTES,
                                snappy_filter_instance_build, NULL,
+                               0u,
                                0);
     assert(0 == ret);
 }

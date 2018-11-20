@@ -194,6 +194,7 @@ filter_class_declare_formatted_integer(void)
     ret = filter_class_declare("formatted_integer",
                                EXPR_VALUE_TYPE_INTEGER,
                                formatted_integer_filter_instance_build, NULL,
+                               0u,
                                3,
                                "@base", EXPR_VALUE_TYPE_INTEGER, 0,
                                "@empty_value", EXPR_VALUE_TYPE_INTEGER, 0,

@@ -250,6 +250,7 @@ filter_class_declare_string(void)
     ret = filter_class_declare("string",
                                EXPR_VALUE_TYPE_STRING,
                                string_filter_instance_build, NULL,
+                               0u,
                                1,
                                "@boundary", EXPR_VALUE_TYPE_STRING, 0);
     assert(0 == ret);

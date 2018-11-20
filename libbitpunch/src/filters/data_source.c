@@ -37,6 +37,7 @@
 
 #include "api/bitpunch_api.h"
 #include "core/filter.h"
+#include "filters/bytes.h"
 
 struct filter_instance_data_source {
     struct filter_instance filter; /* inherits */
@@ -88,6 +89,7 @@ data_source_filter_instance_build(struct ast_node_hdl *filter)
 
     f_instance = new_safe(struct filter_instance_data_source);
     f_instance->filter.get_data_source_func = data_source_get_data_source;
+    f_instance->filter.read_func = bytes__read;
     return (struct filter_instance *)f_instance;
 }
 
@@ -99,6 +101,7 @@ filter_class_declare_data_source(void)
     ret = filter_class_declare("__data_source__",
                                EXPR_VALUE_TYPE_BYTES,
                                data_source_filter_instance_build, NULL,
+                               0u,
                                0);
     assert(0 == ret);
 }

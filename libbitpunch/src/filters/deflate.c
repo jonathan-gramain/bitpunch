@@ -128,8 +128,9 @@ filter_class_declare_deflate(void)
     ret = filter_class_declare("deflate",
                                EXPR_VALUE_TYPE_BYTES,
                                deflate_filter_instance_build, NULL,
+                               0u,
                                1,
                                "@output_size", EXPR_VALUE_TYPE_INTEGER,
-                               FILTER_ATTR_FLAG_MANDATORY);
+                               FILTER_ATTR_MANDATORY);
     assert(0 == ret);
 }

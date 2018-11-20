@@ -2335,23 +2335,22 @@ box_to_deep_PyObject(struct DataTreeObject *dtree, struct box *box)
 
     node = ast_node_get_as_type(box->filter);
     switch (node->ndat->type) {
-    case AST_NODE_TYPE_COMPOSITE:
-        return box_to_deep_PyDict(dtree, box);
-    case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_ARRAY_SLICE:
         return box_to_deep_PyList(dtree, box);
-    case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE_SLICE:
-    case AST_NODE_TYPE_BYTE:
         return box_to_native_PyObject(dtree, box);
+    case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE:
+    case AST_NODE_TYPE_BYTE_ARRAY:
+    case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_REXPR_FILTER: {
-        if (NULL != node->ndat->u.rexpr_filter.f_instance->b_item.read_value) {
+        if (NULL != node->ndat->u.rexpr_filter.f_instance->read_func) {
             return box_to_native_PyObject(dtree, box);
         }
-        if (ast_node_filter_has_fields(node)) {
-            return box_to_deep_PyDict(dtree, box);
+        if (ast_node_filter_maps_list(node)) {
+            return box_to_deep_PyList(dtree, box);
         }
-        return box_to_deep_PyList(dtree, box);
+        return box_to_deep_PyDict(dtree, box);
     }
     default:
         PyErr_Format(PyExc_ValueError,
@@ -2419,10 +2418,10 @@ Tracker_set_default_iter_mode(TrackerObject *self)
         }
         break ;
     case AST_NODE_TYPE_REXPR_FILTER:
-        if (ast_node_filter_has_fields(node)) {
-            self->iter_mode = TRACKER_ITER_FIELD_NAMES;
-        } else {
+        if (ast_node_filter_maps_list(node)) {
             self->iter_mode = TRACKER_ITER_FIELD_VALUES;
+        } else {
+            self->iter_mode = TRACKER_ITER_FIELD_NAMES;
         }
         break ;
     default:

@@ -35,6 +35,7 @@
 #include <assert.h>
 
 #include "filters/byte.h"
+#include "filters/bytes.h"
 
 struct ast_node_data shared_ast_node_data_byte = {
     .type = AST_NODE_TYPE_BYTE,
@@ -97,7 +98,12 @@ compile_node_backends__box__byte(struct ast_node_hdl *item)
 void
 compile_node_backends__byte(struct ast_node_hdl *item)
 {
+    struct filter_instance *f_instance;
+
+    f_instance = item->ndat->u.rexpr_filter.f_instance;
+
     compile_node_backends__item__generic(item);
+    f_instance->read_func = bytes__read;
     compile_node_backends__box__byte(item);
 }
 
@@ -126,6 +132,7 @@ filter_class_declare_byte(void)
                                EXPR_VALUE_TYPE_BYTES,
                                byte_filter_instance_build,
                                byte_filter_instance_compile,
+                               0u,
                                0);
     assert(0 == ret);
 
