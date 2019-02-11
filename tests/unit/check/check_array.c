@@ -51,7 +51,7 @@
 
 static const char *check_sarray_contents_def =
     "let u32 = [4] byte <> integer { @signed: false; @endian: 'big'; };\n"
-    "env(\"DATASOURCE\") <> struct {\n"
+    "let Root = struct {\n"
     "    int_array: [5] u32;\n"
     "};\n";
 
@@ -187,7 +187,7 @@ static const struct test_tracker_spec check_sarray_invalid_truncated2_spec = {
 
 static const char *check_varray_contents_def =
     "let u32 = [4] byte <> integer { @signed: false; @endian: 'big'; };\n"
-    "env(\"DATASOURCE\") <> struct {\n"
+    "let Root = struct {\n"
     "    int_array_size: u32;\n"
     "    int_array: [(2 + int_array_size)] u32;\n"
     "};\n";
