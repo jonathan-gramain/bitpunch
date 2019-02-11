@@ -13,7 +13,7 @@ let RadioCode = struct {
     }
 };
 
-env("DATASOURCE") <> struct {
+let Radio = struct {
     codes: [] RadioCode;
     garbage: [] byte;
 };
