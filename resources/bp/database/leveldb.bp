@@ -1,9 +1,18 @@
 /*
  * LevelDB by Google, Inc.
  *
- * SST Table format
- *
+ * LevelDB SST Table format:
  * https://github.com/google/leveldb/blob/master/doc/table_format.md
+ *
+ * LevelDB log format:
+ * https://github.com/google/leveldb/blob/master/doc/log_format.md
+ *
+ * One interesting characteristic of the log format is that blocks are
+ * fixed-sized 32KB, except the last block which can be
+ * truncated. This forces the browse code to skip to the tail block
+ * whenever there is less than 32KB to read from the file.
+ *
+ * Otherwise it's a pretty straightforward format.
  */
 
 
@@ -14,13 +23,14 @@ let FixInt = integer {
     @endian: 'little';
 };
 let FixInt8  = byte     <> FixInt;
+let FixInt16 = [2] byte <> FixInt;
 let FixInt32 = [4] byte <> FixInt;
 let VarInt   = varint;
 
 
-// Describe LDB file structure
+// SST (.ldb) file structure
 
-env("DATASOURCE") <> struct {
+let SST = struct {
     payload: [] byte;
     footer:  struct {
         metaindex_handle: BlockHandle;
@@ -73,3 +83,30 @@ let DataBlock = struct {
 };
 
 let CompressedDataBlock = snappy <> DataBlock;
+
+/*
+ * log (.log) data structures
+ */
+
+let Log = struct {
+    head_blocks: [] LogBlock;
+    tail_block: LogTailBlock;
+};
+
+let LogBlock = struct {
+       records: [] LogRecord;
+       trailer: [] byte;
+       @span: 32768;
+};
+
+let LogTailBlock = struct {
+       records: [] LogRecord;
+};
+
+let LogRecord = struct {
+       checksum: FixInt32;
+       length:   FixInt16;
+       rtype:    FixInt8;
+       data:     [length] byte <> string;
+       @minspan: 7;
+};

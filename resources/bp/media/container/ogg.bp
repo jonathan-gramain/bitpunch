@@ -12,7 +12,7 @@ let s64 = [8] byte <> SignedInt;
 let u8 = byte <> UnsignedInt;
 let u32 = [4] byte <> UnsignedInt;
 
-env("DATASOURCE") <> struct {
+let Ogg = struct {
     ogg_pages: [] OggPage;
 };
 

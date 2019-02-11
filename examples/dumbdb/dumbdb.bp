@@ -15,6 +15,6 @@ let DumbDBValue = struct {
     value_data: [value_size] byte;
 };
 
-env("DATASOURCE") <> struct {
+let DumbDB = struct {
     values: [] DumbDBValue;
 };

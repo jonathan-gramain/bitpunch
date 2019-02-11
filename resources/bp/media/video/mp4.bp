@@ -22,6 +22,10 @@ let Transform = struct {
    angle: u32;
 };
 
+let MP4 = struct {
+     boxes: [] Box;
+};
+
 let Box = struct {
     hdr: struct {
         size: u32;
@@ -241,8 +245,4 @@ let Box = struct {
 
     @span: hdr.size;
     @key: hdr.atom;
-};
-
-env("DATASOURCE") <> struct {
-     boxes: [] Box;
 };
