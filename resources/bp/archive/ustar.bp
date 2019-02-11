@@ -5,12 +5,12 @@
  */
 
 let NullTerminatedString = string {
-    @boundary = '\0';
+    @boundary: '\0';
 };
 
 let OctalInt = NullTerminatedString <> formatted_integer {
-    @base = 8;
-    @empty_value = 0;
+    @base: 8;
+    @empty_value: 0;
 };
 
 env("DATASOURCE") <> struct {
@@ -23,13 +23,13 @@ let FileEntry = struct {
 
     let ?data = blocks <> [header.size] byte;
 
-    @key = header.name;
+    @key: header.name;
 };
 
 let FileBlock = [512] byte;
 
 let FileHeader = struct {
-    @span = 512;
+    @span: 512;
 
     name:     [100] byte <> NullTerminatedString;
     mode:     [8]   byte <> OctalInt;

@@ -10,7 +10,7 @@ import conftest
 #
 
 specs_resolve_types_and_expr = ["""
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     foo: Foo;
@@ -22,7 +22,7 @@ let Foo = struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     foo: Foo;
@@ -38,7 +38,7 @@ let Bar = struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     data: [] byte <> Foo;
@@ -50,7 +50,7 @@ let Foo = struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     data: [] byte <> [] Foo;
@@ -62,7 +62,7 @@ let Foo = struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
 };
@@ -73,7 +73,7 @@ let Foo = struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     data: [] byte;
@@ -86,7 +86,7 @@ let Foo = struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     data: [] byte;
@@ -100,7 +100,7 @@ let Foo = struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     data: [] byte;
@@ -118,7 +118,7 @@ let Bar = struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     data: [] byte;
@@ -136,7 +136,7 @@ let Bar = struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     data: [] byte;
@@ -154,7 +154,7 @@ let Foo = struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     foo: Foo;
@@ -166,7 +166,7 @@ let Foo = struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     foo: Foo;
@@ -180,7 +180,7 @@ let Bar = struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     data: [] byte;
@@ -188,7 +188,7 @@ env("DATASOURCE") <> struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     data: [] byte;
@@ -197,7 +197,7 @@ env("DATASOURCE") <> struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     let ?data = (self <> bytes);
@@ -205,7 +205,7 @@ env("DATASOURCE") <> struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     let ?data = (self <> bytes)[..];
@@ -213,7 +213,7 @@ env("DATASOURCE") <> struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     let ?data = (self <> bytes)[..] <> Foo;
@@ -225,7 +225,7 @@ let Foo = struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     foo_offset: u8;
@@ -240,7 +240,7 @@ let Foo = struct {
 };
 
 """, """
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     foo_offset: byte;

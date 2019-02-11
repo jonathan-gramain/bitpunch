@@ -4,8 +4,8 @@
  */
 
 let Word = struct {
-    word: string { @boundary = '\n'; };
-    @key = word;
+    word: string { @boundary: '\n'; };
+    @key: word;
 };
 
 let words = env("DATASOURCE") <> [] Word;

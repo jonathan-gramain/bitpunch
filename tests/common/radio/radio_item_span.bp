@@ -1,4 +1,4 @@
-let RadioInt = integer { @signed = false; @endian = 'big'; };
+let RadioInt = integer { @signed: false; @endian: 'big'; };
 let u8  = [1] byte <> RadioInt;
 let u16 = [2] byte <> RadioInt;
 let u32 = [4] byte <> RadioInt;
@@ -6,11 +6,11 @@ let u64 = [8] byte <> RadioInt;
 
 let RadioCode = struct {
        foo: [5] byte;
-       codename: string { @boundary = '\0'; };
+       codename: string { @boundary: '\0'; };
        padding: [] byte;
        bar: [3] byte;
-       @key = codename;
-       @span = sizeof (foo) + 8 + sizeof (bar);
+       @key: codename;
+       @span: sizeof (foo) + 8 + sizeof (bar);
 };
 
 env("DATASOURCE") <> struct {

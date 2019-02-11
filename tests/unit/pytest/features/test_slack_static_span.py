@@ -7,7 +7,7 @@ import conftest
 
 spec_static_span_and_slack = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     blocks: [] VarBlock;
@@ -15,7 +15,7 @@ env("DATASOURCE") <> struct {
 
 let VarBlock = struct {
     contents: [] byte;
-    @span = 10;
+    @span: 10;
 };
 
 """
@@ -30,23 +30,23 @@ data_static_span_and_slack = """
 
 spec_static_span_and_slack_sized = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     blocks: [] VarBlock;
 };
 
 let VarBlock = struct {
-    contents: string { @boundary = '\x42'; };
+    contents: string { @boundary: '\x42'; };
     padding:  [] byte;
-    @span = 10;
+    @span: 10;
 };
 
 """
 
 spec_static_span_and_slack_sized_subblock = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     blocks: [] VarBlock;
@@ -54,11 +54,11 @@ env("DATASOURCE") <> struct {
 
 let VarBlock = struct {
     let BlockContents = struct {
-        data: string { @boundary = '\x42'; };
+        data: string { @boundary: '\x42'; };
     };
     contents: BlockContents;
     padding:  [] byte;
-    @span = 10;
+    @span: 10;
 };
 
 """
@@ -73,7 +73,7 @@ data_static_span_and_slack_sized = """
 
 spec_static_minspan_conditional = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     blocks: [] VarBlock;
@@ -84,7 +84,7 @@ let VarBlock = struct {
     contents: [length] byte;
     if (sizeof(length) + sizeof(contents) < 10) {
         padding: [] byte;
-        @span = 10;
+        @span: 10;
     }
 };
 
@@ -101,7 +101,7 @@ data_static_minspan_conditional = """
 
 spec_length_in_trailer = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     blocks: [] VarBlock;
@@ -111,13 +111,13 @@ let VarBlock = struct {
     contents: [length] byte;
     padding:  [] byte;
     length:   u8;
-    @span = 10;
+    @span: 10;
 };
 """
 
 spec_length_in_trailer_conditional = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     blocks: [] VarBlock;
@@ -131,7 +131,7 @@ let VarBlock = struct {
     }
     padding: [] byte;
     length:  u8;
-    @span = 10;
+    @span: 10;
 };
 """
 
@@ -145,7 +145,7 @@ data_length_in_trailer = """
 
 spec_var_length_trailer = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     blocks: [] VarBlock;
@@ -155,7 +155,7 @@ let VarBlock = struct {
     contents:       [] byte;
     padding:        [padding_length] byte;
     padding_length: u8;
-    @span = 10;
+    @span: 10;
 };
 """
 
@@ -169,8 +169,8 @@ data_var_length_trailer = """
 
 spec_var_length_array_trailer = """
 
-let u8 = byte <> integer { @signed = false; };
-let u16 = [2] byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
+let u16 = [2] byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     blocks: [] VarBlock;
@@ -180,7 +180,7 @@ let VarBlock = struct {
     contents:        [] byte;
     padding:         [n_padding_items] u16;
     n_padding_items: u8;
-    @span = 10;
+    @span: 10;
 };
 """
 
@@ -194,8 +194,8 @@ data_var_length_array_trailer = """
 
 spec_var_length_block_trailer = """
 
-let u8 = byte <> integer { @signed = false; };
-let u16 = [2] byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
+let u16 = [2] byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     blocks: [] VarBlock;
@@ -205,7 +205,7 @@ let VarBlock = struct {
     contents:        [] byte;
     padding:         TrailerBlock;
     n_padding_items: u8;
-    @span = 10;
+    @span: 10;
 
     let TrailerBlock = struct {
         padding_array:              [n_padding_items] u16;
@@ -217,8 +217,8 @@ let VarBlock = struct {
 
 spec_var_length_subblock_trailer = """
 
-let u8 = byte <> integer { @signed = false; };
-let u16 = [2] byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
+let u16 = [2] byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     blocks: [] VarBlock;
@@ -228,7 +228,7 @@ let VarBlock = struct {
     contents:        [] byte;
     padding:         TrailerBlock;
     n_padding_items: u8;
-    @span = 10;
+    @span: 10;
 
     let TrailerSubBlock = struct {
         padding_array:              [n_padding_items] u16;
@@ -334,7 +334,7 @@ def test_slack_span_simple(params_slack_span_simple):
 
 spec_static_span_template = """
 
-let u8 = byte <> integer {{ @signed = false; }};
+let u8 = byte <> integer {{ @signed: false; }};
 
 env("DATASOURCE") <> struct {{
     huge_blocks:  [] HugeBlock;
@@ -478,44 +478,44 @@ data_static_minmaxspan_and_subblocks = """
     scope='module',
     params=[{
         'spec': spec_static_span_template.format(
-            span_huge='@span = 100;',
-            span_big='@span = 30;',
-            span_avg='@span = 10;',
-            span_small='@span = 3;'),
+            span_huge='@span: 100;',
+            span_big='@span: 30;',
+            span_avg='@span: 10;',
+            span_small='@span: 3;'),
         'data': data_static_span_and_subblocks,
         'block_counts': [0, 1, 2, 3]
     }, {
         'spec': spec_static_span_template.format(
-            span_huge='@minspan = 100; @maxspan = 100;',
-            span_big='@minspan = 30; @maxspan = 30;',
-            span_avg='@minspan = 10; @maxspan = 10;',
-            span_small='@minspan = 3; @maxspan = 3;'),
+            span_huge='@minspan: 100; @maxspan: 100;',
+            span_big='@minspan: 30; @maxspan: 30;',
+            span_avg='@minspan: 10; @maxspan: 10;',
+            span_small='@minspan: 3; @maxspan: 3;'),
         'data': data_static_span_and_subblocks,
         'block_counts': [0, 1, 2, 3]
     }, {
         'spec': spec_static_span_template.format(
-            span_huge='@minspan = 100;',
-            span_big='@minspan = 30;',
-            span_avg='@minspan = 10;',
-            span_small='@minspan = 3;'),
+            span_huge='@minspan: 100;',
+            span_big='@minspan: 30;',
+            span_avg='@minspan: 10;',
+            span_small='@minspan: 3;'),
         'data': data_static_minspan_and_subblocks,
         'block_counts': [0, 1, 0, 0]
     }, { 
         # set @minspan to 1 in blocks, because they can potentially be
         # 0 bytes otherwise, leaving an ambiguous situation
         'spec': spec_static_span_template.format(
-            span_huge='@minspan = 1; @maxspan = 100;',
-            span_big='@minspan = 1; @maxspan = 30;',
-            span_avg='@minspan = 1; @maxspan = 10;',
-            span_small='@minspan = 1; @maxspan = 3;'),
+            span_huge='@minspan: 1; @maxspan: 100;',
+            span_big='@minspan: 1; @maxspan: 30;',
+            span_avg='@minspan: 1; @maxspan: 10;',
+            span_small='@minspan: 1; @maxspan: 3;'),
         'data': data_static_maxspan_and_subblocks,
         'block_counts': [1, 0, 0, 0]
     }, {
         'spec': spec_static_span_template.format(
-            span_huge='@minspan = 90; @maxspan = 110;',
-            span_big='@minspan = 26; @maxspan = 34;',
-            span_avg='@minspan = 9; @maxspan = 11;',
-            span_small='@minspan = 3; @maxspan = 3;'),
+            span_huge='@minspan: 90; @maxspan: 110;',
+            span_big='@minspan: 26; @maxspan: 34;',
+            span_avg='@minspan: 9; @maxspan: 11;',
+            span_small='@minspan: 3; @maxspan: 3;'),
         'data': data_static_minmaxspan_and_subblocks,
         'block_counts': [0, 2, 1, 1]
     }

@@ -7,7 +7,7 @@ import conftest
 
 spec_file_anonymous_struct_embedded = """
 
-let u32 = [4] byte <> integer { @endian = 'little'; @signed = false; };
+let u32 = [4] byte <> integer { @endian: 'little'; @signed: false; };
 
 env("DATASOURCE") <> struct {
     struct {
@@ -16,7 +16,7 @@ env("DATASOURCE") <> struct {
             struct {
                 b: u32;
                 c: u32;
-                @span = 8;
+                @span: 8;
             };
             d: u32;
         };
@@ -27,7 +27,7 @@ env("DATASOURCE") <> struct {
 
 spec_file_anonymous_field = """
 
-let u32 = [4] byte <> integer { @endian = 'little'; @signed = false; };
+let u32 = [4] byte <> integer { @endian: 'little'; @signed: false; };
 
 let Foo = struct {
     a: u32;
@@ -36,7 +36,7 @@ let Foo = struct {
 let Bar = struct {
     b: u32;
     c: u32;
-    @span = 8;
+    @span: 8;
 };
 
 env("DATASOURCE") <> struct {
@@ -49,8 +49,8 @@ env("DATASOURCE") <> struct {
 
 spec_file_hidden_field = """
 
-let u8 = byte <> integer { @signed = false; };
-let u32 = [4] byte <> integer { @endian = 'little'; @signed = false; };
+let u8 = byte <> integer { @signed: false; };
+let u32 = [4] byte <> integer { @endian: 'little'; @signed: false; };
 
 let Foo = struct {
     a: u32;
@@ -60,7 +60,7 @@ let Bar = struct {
     b: u8;
     [3] byte; // hidden field
     c: u32;
-    @span = 8;
+    @span: 8;
 };
 
 env("DATASOURCE") <> struct {
@@ -82,8 +82,8 @@ data_file_anonymous = """
 
 spec_file_anonymous_in_trailer = """
 
-let u8 = byte <> integer { @signed = false; };
-let u32 = [4] byte <> integer { @endian = 'little'; @signed = false; };
+let u8 = byte <> integer { @signed: false; };
+let u32 = [4] byte <> integer { @endian: 'little'; @signed: false; };
 
 let Foo = struct {
     a: u32;
@@ -105,7 +105,7 @@ let Trailer = struct {
     [4] byte;
     struct {
         c: u32;
-        @span = 8;
+        @span: 8;
     };
     d: u32;
 };

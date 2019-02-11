@@ -32,7 +32,7 @@ spec_file_footer_const_sized_span = """
 
 let Footer = struct {
     data: [] byte;
-    @span = 6;
+    @span: 6;
 };
 
 env("DATASOURCE") <> struct {
@@ -49,7 +49,7 @@ data_file_footer_const_sized = """
 
 spec_file_footer_var_sized_len_at_start = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     footer_size: u8;
@@ -68,7 +68,7 @@ data_file_footer_var_sized_len_at_start = """
 
 spec_file_footer_var_sized_len_in_footer = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     contents: [] byte;
@@ -119,15 +119,15 @@ def test_footer_simple(params_footer_simple):
 
 spec_file_footer_var_sized_complex_footer_var_span = """
 
-let u8 = byte <> integer { @signed = false; };
-let u16 = [2] byte <> integer { @signed = false; @endian = 'big'; };
+let u8 = byte <> integer { @signed: false; };
+let u16 = [2] byte <> integer { @signed: false; @endian: 'big'; };
 
 let Footer = struct {
     hdr: [footer_hdr_size] byte;
     footer_contents: [] byte;
     footer_size: u16;
     footer_hdr_size: u8;
-    @span = footer_size;
+    @span: footer_size;
 };
 
 let Contents = struct {
@@ -143,15 +143,15 @@ env("DATASOURCE") <> struct {
 
 spec_file_footer_var_sized_complex_footer_static_span = """
 
-let u8 = byte <> integer { @signed = false; };
-let u16 = [2] byte <> integer { @signed = false; @endian = 'big'; };
+let u8 = byte <> integer { @signed: false; };
+let u16 = [2] byte <> integer { @signed: false; @endian: 'big'; };
 
 let Footer = struct {
     hdr: [footer_hdr_size] byte;
     footer_contents: [] byte;
     footer_size: u16;
     footer_hdr_size: u8;
-    @span = 14;
+    @span: 14;
 };
 
 let Contents = struct {
@@ -167,8 +167,8 @@ env("DATASOURCE") <> struct {
 
 spec_file_footer_var_sized_complex_footer_packed = """
 
-let u8 = byte <> integer { @signed = false; };
-let u16 = [2] byte <> integer { @signed = false; @endian = 'big'; };
+let u8 = byte <> integer { @signed: false; };
+let u16 = [2] byte <> integer { @signed: false; @endian: 'big'; };
 
 let Footer = struct {
     hdr: [footer_hdr_size] byte;
@@ -228,8 +228,8 @@ def test_footer_complex(params_footer_complex):
 
 spec_file_footer_var_sized_array_const_item_size_1 = """
 
-let u8 = byte <> integer { @signed = false; };
-let u16 = [2] byte <> integer { @signed = false; @endian = 'big'; };
+let u8 = byte <> integer { @signed: false; };
+let u16 = [2] byte <> integer { @signed: false; @endian: 'big'; };
 
 let Footer = struct {
     footer_items: [nb_footer_items] u16;
@@ -249,14 +249,14 @@ env("DATASOURCE") <> struct {
 
 spec_file_footer_var_sized_array_const_item_size_2 = """
 
-let u8 = byte <> integer { @signed = false; };
-let u16 = [2] byte <> integer { @signed = false; @endian = 'big'; };
+let u8 = byte <> integer { @signed: false; };
+let u16 = [2] byte <> integer { @signed: false; @endian: 'big'; };
 
 let Footer = struct {
     footer_items: [] u16;
     nb_footer_items: u8;
 
-    @span = nb_footer_items * 2 + 1;
+    @span: nb_footer_items * 2 + 1;
 };
 
 let Contents = struct {

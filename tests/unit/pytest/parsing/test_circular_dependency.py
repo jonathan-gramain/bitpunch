@@ -39,7 +39,7 @@ env("DATASOURCE") <> struct {
 
 spec_file_circular_dependency_3 = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let OuterStruct = struct {
     middle: MiddleStruct;
@@ -76,7 +76,7 @@ env("DATASOURCE") <> struct {
 
 spec_file_circular_dependency_3 = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let OuterStruct = struct {
     middle: MiddleStruct;
@@ -129,7 +129,7 @@ let Item = struct {
 
 spec_file_no_circular_dependency_1 = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let OuterStruct = struct {
     middle: MiddleStruct;
@@ -166,7 +166,7 @@ env("DATASOURCE") <> struct {
 
 spec_file_no_circular_dependency_2 = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 env("DATASOURCE") <> struct {
     a: OuterStruct;

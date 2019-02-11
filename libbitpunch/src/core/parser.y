@@ -651,7 +651,7 @@
 %type <ast_node_hdl> schema g_integer g_boolean g_identifier g_literal scope_block filter_block expr opt_expr twin_index opt_twin_index
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
 %type <statement_list> func_params func_param_nonempty_list
-%type <named_expr> let_stmt field_stmt attribute_stmt func_param
+%type <named_expr> let_stmt attribute_stmt func_param
 %type <subscript_index> key_expr opt_key_expr
 %locations
 
@@ -982,20 +982,20 @@ block_stmt_list:
     /* empty */ {
         init_block_stmt_list(&$$);
     }
-  | block_stmt_list field_stmt {
-        $$ = $1;
-        struct field *field;
-
-        field = new_safe(struct field);
-        field->nstmt = $field_stmt->nstmt;
-        field->filter = $field_stmt->expr;
-        TAILQ_INSERT_TAIL($$.field_list, (struct statement *)field, list);
-    }
-
   | block_stmt_list attribute_stmt {
         $$ = $1;
-        TAILQ_INSERT_TAIL($$.attribute_list,
-                          (struct statement *)$attribute_stmt, list);
+        if (NULL != $attribute_stmt->nstmt.name
+            && $attribute_stmt->nstmt.name[0] == '@') {
+            TAILQ_INSERT_TAIL($$.attribute_list,
+                              (struct statement *)$attribute_stmt, list);
+        } else {
+            struct field *field;
+
+            field = new_safe(struct field);
+            field->nstmt = $attribute_stmt->nstmt;
+            field->filter = $attribute_stmt->expr;
+            TAILQ_INSERT_TAIL($$.field_list, (struct statement *)field, list);
+        }
     }
 
   | block_stmt_list let_stmt {
@@ -1011,7 +1011,7 @@ block_stmt_list:
       }
   }
 
-field_stmt:
+attribute_stmt:
     IDENTIFIER ':' expr ';' {
         $$ = new_safe(struct named_expr);
         $$->nstmt.name = $IDENTIFIER;
@@ -1022,19 +1022,6 @@ field_stmt:
         $$ = new_safe(struct named_expr);
         $$->nstmt.name = NULL;
         $$->nstmt.stmt.loc = @$;
-        $$->expr = $expr;
-    }
-
-attribute_stmt:
-    IDENTIFIER '=' expr ';' {
-        if ($IDENTIFIER[0] != '@') {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR, &@$,
-                           "attribute names must start with symbol '@'");
-            YYERROR;
-        }
-        $$ = new_safe(struct named_expr);
-        $$->nstmt.stmt.loc = @$;
-        $$->nstmt.name = $IDENTIFIER;
         $$->expr = $expr;
     }
 

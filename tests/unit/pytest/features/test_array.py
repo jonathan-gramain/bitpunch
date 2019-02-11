@@ -7,7 +7,7 @@ import conftest
 
 spec_file_array_const_sized = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'big'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'big'; };
 
 let Item = struct {
     value: u32;
@@ -36,7 +36,7 @@ data_file_array_const_sized = """
 spec_file_array_byte_items = """
 
 let Item = struct {
-    value: byte <> integer { @signed = false; };
+    value: byte <> integer { @signed: false; };
 };
 
 env("DATASOURCE") <> struct {
@@ -89,7 +89,7 @@ def test_array_items(params_array_items):
 
 spec_file_array_bytes_as_integers_1 = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     integers: [10] u8;
@@ -99,7 +99,7 @@ env("DATASOURCE") <> struct {
 
 spec_file_array_bytes_as_integers_2 = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     integers: [10] byte <> [] byte <> [10] byte <> [] u8;
@@ -114,7 +114,7 @@ data_file_array_bytes_as_integers = """
 
 spec_file_array_bytes_as_integers_filtered_1 = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     integers: base64 <> [] u8;
@@ -124,7 +124,7 @@ env("DATASOURCE") <> struct {
 
 spec_file_array_bytes_as_integers_filtered_2 = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     integers: [] byte <> base64 <> [] u8;

@@ -10,8 +10,8 @@
 // Define some basic types used by LevelDB
 
 let FixInt = integer {
-    @signed = false;
-    @endian = 'little';
+    @signed: false;
+    @endian: 'little';
 };
 let FixInt8  = byte     <> FixInt;
 let FixInt32 = [4] byte <> FixInt;
@@ -28,7 +28,7 @@ env("DATASOURCE") <> struct {
                           []  byte;
         magic:            [8] byte;
 
-        @span = 48;
+        @span: 48;
     };
 
     let ?index     = footer.index_handle;

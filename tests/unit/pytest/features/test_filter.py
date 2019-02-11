@@ -7,7 +7,7 @@ import conftest
 
 spec_file_simple_filter_as_type = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let AsContents = struct {
     n: u32;
@@ -22,7 +22,7 @@ env("DATASOURCE") <> struct {
 
 spec_file_simple_filter_as_type_twice = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let DummyStruct = struct {
     n: u32;
@@ -42,7 +42,7 @@ env("DATASOURCE") <> struct {
 
 spec_file_simple_filter_as_type_anon_hop = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let HopStruct = struct {
     n: u32;
@@ -66,7 +66,7 @@ data_file_simple_filter_as_type = """
 
 spec_file_simple_filter_as_type_constrained = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let AsContents = struct {
     n: u32;
@@ -97,7 +97,7 @@ data_file_simple_filter_as_type_constrained_bad = """
 
 spec_file_simple_filter_as_type_base64 = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Base64Block = struct {
     n: u32;
@@ -116,7 +116,7 @@ env("DATASOURCE") <> struct {
 
 spec_file_simple_filter_as_type_base64_template = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 let Base64 = base64 {};
 
 let Base64Block = struct {
@@ -208,14 +208,14 @@ def test_filter_bad(params_filter_bad):
 
 spec_file_simple_filter_line_separated_base64 = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let RawBlock = struct {
     n: u32;
     [n] byte <> AsContents;
 };
 
-let Base64Block = string { @boundary = '\\n'; }
+let Base64Block = string { @boundary: '\\n'; }
     <> base64
     <> RawBlock;
 
@@ -234,9 +234,9 @@ env("DATASOURCE") <> struct {
 
 spec_file_simple_filter_line_separated_base64_2 = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
-let Base64Block = string { @boundary = '\\n'; }
+let Base64Block = string { @boundary: '\\n'; }
    <> base64
    <> struct {
     n: u32;
@@ -258,10 +258,10 @@ env("DATASOURCE") <> struct {
 
 spec_file_simple_filter_line_separated_base64_template = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 let CustomBase64Filter = base64 {};
 
-let Base64Block = string { @boundary = '\\n'; }
+let Base64Block = string { @boundary: '\\n'; }
    <> CustomBase64Filter
    <> struct {
       n: u32;
@@ -364,7 +364,7 @@ def test_filter_2(params_filter_2):
 
 spec_file_filter_in_field_expression = """
 
-let Int = integer { @signed = false; @endian = 'big'; };
+let Int = integer { @signed: false; @endian: 'big'; };
 
 let AsStruct = struct {
     value: [1] byte <> Int;
@@ -429,9 +429,9 @@ def test_filter_in_field_expression(params_filter_in_field_expression):
 
 spec_file_filter_encoded_integer_field = """
 
-let Int = integer { @signed = false; @endian = 'big'; };
+let Int = integer { @signed: false; @endian: 'big'; };
 
-let Base64Line = string { @boundary = '\\n'; } <> base64 {};
+let Base64Line = string { @boundary: '\\n'; } <> base64 {};
 
 let Header = struct {
     nb_messages: [4] byte <> Int;
@@ -472,9 +472,9 @@ data_file_filter_encoded_integer_field = """
 
 spec_file_filter_nested_base64 = """
 
-let Int = integer { @signed = false; @endian = 'big'; };
+let Int = integer { @signed: false; @endian: 'big'; };
 
-let Base64Line = string { @boundary = '\\n'; } <> base64 {};
+let Base64Line = string { @boundary: '\\n'; } <> base64 {};
 
 let Header = struct {
     nb_messages: [4] byte <> Int;
@@ -516,9 +516,9 @@ data_file_filter_nested_base64 = """
 
 spec_file_filter_base64_selector = """
 
-let Int = integer { @signed = false; @endian = 'big'; };
+let Int = integer { @signed: false; @endian: 'big'; };
 
-let PlainLine = string { @boundary = '\\n'; };
+let PlainLine = string { @boundary: '\\n'; };
 let Base64Line = PlainLine <> base64 {};
 
 let Header = struct {
@@ -610,7 +610,7 @@ def test_filter_messages(params_filter_messages):
 
 spec_file_filter_file_as_single_integer_1 = """
 
-let UnsignedTemplate = integer { @signed = false; @endian = 'little'; };
+let UnsignedTemplate = integer { @signed: false; @endian: 'little'; };
 
 env("DATASOURCE") <> struct {
     value: UnsignedTemplate;
@@ -620,7 +620,7 @@ env("DATASOURCE") <> struct {
 
 spec_file_filter_file_as_single_integer_2 = """
 
-let UnsignedTemplate = integer { @signed = false; @endian = 'little'; };
+let UnsignedTemplate = integer { @signed: false; @endian: 'little'; };
 
 env("DATASOURCE") <> struct {
     value: ?ref;
@@ -632,7 +632,7 @@ env("DATASOURCE") <> struct {
 
 spec_file_filter_file_as_single_integer_3 = """
 
-let UnsignedTemplate = integer { @signed = false; @endian = 'little'; };
+let UnsignedTemplate = integer { @signed: false; @endian: 'little'; };
 
 let value = env("DATASOURCE") <> ?ref;
 
@@ -756,7 +756,7 @@ def test_ancestor_operator__as_type_anon_hop(params_ancestor_operator__as_type_a
 
 spec_file_u8_array_1 = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     contents: [5] u8;
@@ -794,7 +794,7 @@ def test_u8_array(params_u8_array):
 
 spec_file_u8_array_2 = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 let contents = env("DATASOURCE") <> [5] u8;
 
@@ -827,7 +827,7 @@ spec_file_non_slack_array_filtered = """
 
 let DS = env("DATASOURCE");
 
-let NullTermFixedString = [8] byte <> string { @boundary = '\\0'; };
+let NullTermFixedString = [8] byte <> string { @boundary: '\\0'; };
 
 DS <> struct {
     contents: NullTermFixedString;
@@ -875,9 +875,9 @@ def test_non_slack_array_filtered(params_non_slack_array_filtered):
 spec_file_nested_filter_defining_size = """
 
 let Base64 = base64 {};
-let Base64Line = string { @boundary = '\\n'; } <> Base64;
+let Base64Line = string { @boundary: '\\n'; } <> Base64;
 
-let Item = Base64Line <> string { @boundary = ' '; };
+let Item = Base64Line <> string { @boundary: ' '; };
 
 env("DATASOURCE") <> struct {
     contents: [] Item;
@@ -912,7 +912,7 @@ def test_nested_filter_defining_size(params_nested_filter_defining_size):
 
 spec_file_dynamic_filter_param_integer = """
 
-let u8 = byte <> integer { @signed = false; };
+let u8 = byte <> integer { @signed: false; };
 
 env("DATASOURCE") <> struct {
     little_endian: u8;
@@ -922,7 +922,7 @@ env("DATASOURCE") <> struct {
         let ?endian = 'big';
     }
 
-    let Integer = integer { @endian = ?endian; @signed = false; };
+    let Integer = integer { @endian: ?endian; @signed: false; };
     let u16 = [2] byte <> Integer;
 
     values: [5] u16;

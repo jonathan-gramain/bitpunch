@@ -102,7 +102,7 @@ spec_file_expr_parsing = """
 
 let DS = env("DATASOURCE");
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Contents = struct {
     a: u32;

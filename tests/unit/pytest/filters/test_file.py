@@ -16,7 +16,7 @@ TEST_FILE_PATH = '/tmp/bitpunch.test.file'
 
 spec_file_basic = """
 
-let root = file {{ @path = "{file_path}"; }};
+let root = file {{ @path: "{file_path}"; }};
 
 """.format(file_path=TEST_FILE_PATH)
 
@@ -50,7 +50,7 @@ def test_file_basic(params_file_basic):
 
 spec_file_struct = """
 
-let root = file {{ @path = "{file_path}"; }} <> struct {{
+let root = file {{ @path: "{file_path}"; }} <> struct {{
     contents: [] byte;
 }};
 
@@ -90,7 +90,7 @@ def test_file_struct(params_file_struct):
 
 spec_file_anonymous_struct = """
 
-let FILE = file {{ @path = "{file_path}"; }};
+let FILE = file {{ @path: "{file_path}"; }};
 
 FILE <> struct {{
     contents: [] byte;
@@ -104,7 +104,7 @@ data_file_anonymous_struct = """
 
 spec_file_top_level_field_1 = """
 
-let FILE = file {{ @path = "{file_path}"; }};
+let FILE = file {{ @path: "{file_path}"; }};
 
 let ?contents = FILE <> [] byte;
 
@@ -114,7 +114,7 @@ contents: ?contents;
 
 spec_file_top_level_field_2 = """
 
-let FILE = file {{ @path = "{file_path}"; }};
+let FILE = file {{ @path: "{file_path}"; }};
 
 let ?contents = FILE;
 
@@ -162,14 +162,14 @@ def test_file_with_contents(params_file_with_contents):
 
 spec_file_with_outer_scope = """
 
-let UnsignedInt = integer {{ @signed = false; @endian = 'little'; }};
+let UnsignedInt = integer {{ @signed: false; @endian: 'little'; }};
 let u8  = [1] byte <> UnsignedInt;
 
 env("DATASOURCE") <> struct {{
     file_attr: struct {{
         nb_bytes: u8;
     }};
-    let root = file {{ @path = "{file_path}"; }} <> struct {{
+    let root = file {{ @path: "{file_path}"; }} <> struct {{
         contents: [file_attr.nb_bytes] byte;
         junk: [] byte;
     }};
@@ -217,8 +217,8 @@ def test_file_with_outer_scope(params_file_with_outer_scope):
 
 spec_file_string_array = """
 
-let root = file {{ @path = "{file_path}"; }}
-    <> [] string {{ @boundary = '\\n'; }};
+let root = file {{ @path: "{file_path}"; }}
+    <> [] string {{ @boundary: '\\n'; }};
 
 """.format(file_path=TEST_FILE_PATH)
 

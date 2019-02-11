@@ -7,12 +7,12 @@ import conftest
 
 spec_file_array_keyed_items = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Item = struct {
-    name: string { @boundary = '\\0'; };
+    name: string { @boundary: '\\0'; };
     value: u32;
-    @key = name;
+    @key: name;
 };
 
 env("DATASOURCE") <> struct {
@@ -29,12 +29,12 @@ data_file_array_keyed_items = """
 
 spec_file_array_keyed_filtered_keys = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Item = struct {
-    name: string { @boundary = '\\0'; } <> base64 <> string;
+    name: string { @boundary: '\\0'; } <> base64 <> string;
     value: u32;
-    @key = name;
+    @key: name;
 };
 
 env("DATASOURCE") <> struct {
@@ -51,12 +51,12 @@ data_file_array_keyed_filtered_keys = """
 
 spec_file_array_keyed_filtered_items = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
-let Item = string { @boundary = '\\n'; } <> base64 <> struct {
-    name: string { @boundary = '\\0'; };
+let Item = string { @boundary: '\\n'; } <> base64 <> struct {
+    name: string { @boundary: '\\0'; };
     value: u32;
-    @key = name;
+    @key: name;
 };
 
 env("DATASOURCE") <> struct {
@@ -103,12 +103,12 @@ def test_array_keyed_items(params_array_keyed_items):
 
 spec_file_array_keyed_items_with_duplicates_1 = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Item = struct {
-    name: string { @boundary = '\\0'; };
+    name: string { @boundary: '\\0'; };
     value: u32;
-    @key = name;
+    @key: name;
 };
 
 env("DATASOURCE") <> struct {
@@ -177,12 +177,12 @@ data_file_array_keyed_items_with_duplicates_1 = """
 
 spec_file_array_keyed_items_with_duplicates_2 = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Item = struct {
-    name: [8] byte <> string { @boundary = ' '; };
+    name: [8] byte <> string { @boundary: ' '; };
     value: u32;
-    @key = name;
+    @key: name;
 };
 
 env("DATASOURCE") <> struct {
@@ -309,12 +309,12 @@ data_file_array_keyed_items_with_duplicates_2_sorted = """
 
 spec_file_array_keyed_items_with_duplicates_filtered_keys = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Item = struct {
-    name: [12] byte <> base64 <> string { @boundary = ' '; };
+    name: [12] byte <> base64 <> string { @boundary: ' '; };
     value: u32;
-    @key = name;
+    @key: name;
 };
 
 env("DATASOURCE") <> struct {
@@ -441,12 +441,12 @@ data_file_array_keyed_items_with_duplicates_filtered_keys_sorted = """
 
 spec_file_array_keyed_items_with_duplicates_filtered_items = """
 
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Item = [16] byte <> base64 <> struct {
-    name: [8] byte <> string { @boundary = ' '; };
+    name: [8] byte <> string { @boundary: ' '; };
     value: u32;
-    @key = name;
+    @key: name;
 };
 
 env("DATASOURCE") <> struct {

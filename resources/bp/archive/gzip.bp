@@ -5,15 +5,15 @@
  */
 
 let Int = integer {
-    @signed = false;
-    @endian = 'little';
+    @signed: false;
+    @endian: 'little';
 };
 
 let Int8 = byte <> Int;
 let Int16 = [2] byte <> Int;
 let Int32 = [4] byte <> Int;
 
-let NullString = string { @boundary = '\0'; };
+let NullString = string { @boundary: '\0'; };
 
 env("DATASOURCE") <> struct {
     members: [] Member;
@@ -57,7 +57,7 @@ let Member = struct {
         crc16: Int16;
     }
     compressed_blocks: deflate {
-        @output_size = isize;
+        @output_size: isize;
     };
     crc32: Int32;
     isize: Int32;

@@ -46,10 +46,10 @@
 #include "check_tracker.h"
 
 static const char *check_cond_def =
-    "let u8 = [1] byte <> integer { @signed = false; };\n"
-    "let u16_le = [2] byte <> integer { @signed = false; @endian = 'little'; };\n"
-    "let u32 = [4] byte <> integer { @signed = false; @endian = 'big'; };\n"
-    "let u32_le = [4] byte <> integer { @signed = false; @endian = 'little'; };\n"
+    "let u8 = [1] byte <> integer { @signed: false; };\n"
+    "let u16_le = [2] byte <> integer { @signed: false; @endian: 'little'; };\n"
+    "let u32 = [4] byte <> integer { @signed: false; @endian: 'big'; };\n"
+    "let u32_le = [4] byte <> integer { @signed: false; @endian: 'little'; };\n"
     "let IfStruct = struct {\n"
     "    hdr: struct {\n"
     "        magic: u32;\n"
@@ -61,7 +61,7 @@ static const char *check_cond_def =
     "    } else {\n"
     "        contents: [] byte;\n"
     "    }\n"
-    "    @span = sizeof (hdr) + hdr.size;\n"
+    "    @span: sizeof (hdr) + hdr.size;\n"
     "};\n"
     "env(\"DATASOURCE\") <> struct {\n"
     "    ifs: [2] IfStruct;\n"

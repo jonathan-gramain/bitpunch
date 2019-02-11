@@ -10,7 +10,7 @@ import conftest
 #
 
 spec_embedded = """
-let u32 = [4] byte <> integer { @signed = false; @endian = 'little'; };
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 env("DATASOURCE") <> struct {
     greeting_set: GreetingSet;
@@ -20,14 +20,14 @@ env("DATASOURCE") <> struct {
 let Greeting = struct {
     size: u32;
     contents: [] byte;
-    @span = size;
+    @span: size;
 };
 
 let GreetingSet = struct {
     set_size: u32;
     greetings: [] Greeting;
     padding: [] byte;
-    @span = set_size;
+    @span: set_size;
 };
 
 """
