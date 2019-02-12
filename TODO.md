@@ -281,3 +281,7 @@ correctly (b_filter is empty)
 
 - BUG: "no match for operator 'add' with operands of type 'any
   value-type' and 'integer'"
+
+- modify env() builtin to access the actual environment of the running
+  process, not an artificial environment (only doable when we do not
+  rely on DATASOURCE special env value in the schemas anymore)
