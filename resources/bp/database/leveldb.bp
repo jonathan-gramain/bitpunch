@@ -43,46 +43,47 @@ let SSTFile = struct {
 
     let ?index     = footer.index_handle;
     let ?metaindex = footer.metaindex_handle;
-};
 
-let BlockHandle = struct {
-    offset: VarInt;
-    size:   VarInt;
+    let BlockHandle = struct {
+        offset: VarInt;
+        size:   VarInt;
 
-    let ?stored_block =
-        payload[offset ..
-                offset + size + sizeof(BlockTrailer)] <> FileBlock;
-};
-
-let BlockTrailer = struct {
-    blocktype: FixInt8;
-    crc:       FixInt32;
-};
-
-let FileBlock = struct {
-    if (trailer.blocktype == 0) { // uncompressed
-        DataBlock;
-    }
-    if (trailer.blocktype == 1) {
-        CompressedDataBlock;
-    }
-    trailer: BlockTrailer;
-};
-
-let DataBlock = struct {
-    let KeyValue = struct {
-        key_shared_size:     VarInt;
-        key_non_shared_size: VarInt;
-        value_size:          VarInt;
-        key_non_shared:      [key_non_shared_size] byte;
-        value:               [value_size] byte;
+        let ?stored_block =
+            payload[offset ..
+                    offset + size + sizeof(BlockTrailer)] <> FileBlock;
     };
-    entries:     [] KeyValue;
-    restarts:    [nb_restarts] FixInt32;
-    nb_restarts: FixInt32;
+
+    let BlockTrailer = struct {
+        blocktype: FixInt8;
+        crc:       FixInt32;
+    };
+
+    let FileBlock = struct {
+        if (trailer.blocktype == 0) { // uncompressed
+            DataBlock;
+        }
+        if (trailer.blocktype == 1) {
+            CompressedDataBlock;
+        }
+        trailer: BlockTrailer;
+    };
+
+    let DataBlock = struct {
+        let KeyValue = struct {
+            key_shared_size:     VarInt;
+            key_non_shared_size: VarInt;
+            value_size:          VarInt;
+            key_non_shared:      [key_non_shared_size] byte;
+            value:               [value_size] byte;
+        };
+        entries:     [] KeyValue;
+        restarts:    [nb_restarts] FixInt32;
+        nb_restarts: FixInt32;
+    };
+
+    let CompressedDataBlock = snappy <> DataBlock;
 };
 
-let CompressedDataBlock = snappy <> DataBlock;
 
 /*
  * log (.log) data structures
@@ -91,22 +92,22 @@ let CompressedDataBlock = snappy <> DataBlock;
 let LogFile = struct {
     head_blocks: [] LogBlock;
     tail_block: LogTailBlock;
-};
 
-let LogBlock = struct {
-    records: [] LogRecord;
-    trailer: [] byte;
-    @span: 32768;
-};
+    let LogBlock = struct {
+        records: [] LogRecord;
+        trailer: [] byte;
+        @span: 32768;
+    };
 
-let LogTailBlock = struct {
-    records: [] LogRecord;
-};
+    let LogTailBlock = struct {
+        records: [] LogRecord;
+    };
 
-let LogRecord = struct {
-    checksum: FixInt32;
-    length:   FixInt16;
-    rtype:    FixInt8;
-    data:     [length] byte <> string;
-    @minspan: 7;
+    let LogRecord = struct {
+        checksum: FixInt32;
+        length:   FixInt16;
+        rtype:    FixInt8;
+        data:     [length] byte <> string;
+        @minspan: 7;
+    };
 };
