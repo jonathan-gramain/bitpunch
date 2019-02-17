@@ -508,7 +508,7 @@ filter_exists_in_scoped_filter(
 {
     struct filter_def *filter_def;
 
-    if (scoped_filter == lookup_filter) {
+    if (scoped_filter->ndat == lookup_filter->ndat) {
         return TRUE;
     }
     filter_def = scoped_filter->ndat->u.rexpr_filter.filter_def;
