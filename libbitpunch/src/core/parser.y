@@ -228,6 +228,7 @@
             AST_NODE_TYPE_OP_SUBSCRIPT,
             AST_NODE_TYPE_OP_SUBSCRIPT_SLICE,
             AST_NODE_TYPE_OP_MEMBER,
+            AST_NODE_TYPE_OP_SCOPE,
             AST_NODE_TYPE_OP_FILTER,
             AST_NODE_TYPE_OP_FCALL,
             AST_NODE_TYPE_EXPR_SELF,
@@ -260,6 +261,7 @@
             AST_NODE_TYPE_REXPR_OP_FILTER,
             AST_NODE_TYPE_REXPR_FILTER,
             AST_NODE_TYPE_REXPR_OP_MEMBER,
+            AST_NODE_TYPE_REXPR_OP_SCOPE,
             AST_NODE_TYPE_REXPR_FIELD,
             AST_NODE_TYPE_REXPR_NAMED_EXPR,
             AST_NODE_TYPE_REXPR_POLYMORPHIC,
@@ -630,6 +632,7 @@
 %token <ast_node_type> TOK_RSHIFT ">>"
 %token <ast_node_type> TOK_RANGE ".."
 %token <ast_node_type> TOK_FILTER "<>"
+%token <ast_node_type> TOK_SCOPE "::"
 %token <ast_node_type> OP_SIZEOF
 
 %left  "||"
@@ -644,9 +647,8 @@
 %left  '*' '/' '%'
 %right OP_ARITH_UNARY_OP '!' '~' OP_SIZEOF
 %left  ':' "<>"
-%left  OP_SUBSCRIPT OP_FCALL '.'
+%left  OP_SUBSCRIPT OP_FCALL '.' "::"
 %right OP_ARRAY_DECL
-%left  OP_BRACKETS
 
 %type <ast_node_hdl> schema g_integer g_boolean g_identifier g_literal scope_block filter_block expr opt_expr twin_index opt_twin_index
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
@@ -793,6 +795,10 @@ expr:
     }
   | expr '.' g_identifier {
         $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_MEMBER, $1, $3, &@2);
+        parser_location_make_span(&$$->loc, &@1, &@3);
+    }
+  | expr TOK_SCOPE g_identifier {
+        $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_SCOPE, $1, $3, &@2);
         parser_location_make_span(&$$->loc, &@1, &@3);
     }
   | expr TOK_FILTER expr {
@@ -1211,6 +1217,8 @@ ast_node_type_str(enum ast_node_type type)
         return "array subscript slice";
     case AST_NODE_TYPE_OP_MEMBER:
     case AST_NODE_TYPE_REXPR_OP_MEMBER: return "operator 'member of'";
+    case AST_NODE_TYPE_OP_SCOPE:
+    case AST_NODE_TYPE_REXPR_OP_SCOPE: return "operator 'scope'";
     case AST_NODE_TYPE_REXPR_FIELD: return "field expression";
     case AST_NODE_TYPE_REXPR_NAMED_EXPR: return "named expression";
     case AST_NODE_TYPE_REXPR_POLYMORPHIC: return "polymorphic";

@@ -254,6 +254,48 @@ let Foo = struct {
     sub_foo: [foo_size <> u8] u8;
 };
 
+""", """
+let u8 = byte <> integer { @signed: false; };
+
+env("DATASOURCE") <> Root;
+
+let Root = struct {
+    foo: Foo;
+    data: [] byte;
+};
+
+let Foo = struct {
+    bar: Bar;
+};
+
+let Bar = struct {
+    start:    u8;
+    end:      u8;
+
+    let contents = data[start .. end];
+};
+
+""", """
+let u8 = byte <> integer { @signed: false; };
+
+env("DATASOURCE") <> Root;
+
+let Root = struct {
+    foo: Foo;
+};
+
+let Foo = struct {
+    bar: Bar;
+    data: [] byte;
+};
+
+let Bar = struct {
+    start:    u8;
+    end:      u8;
+
+    let contents = Foo::data[start .. end];
+};
+
 """
 ]
 
@@ -275,9 +317,35 @@ env("DATASOURCE") <> struct {
 
 """
 
-def test_unknown_typename():
+spec_unknown_scope_left_operand = """
+let Foo = [42] byte;
+
+env("DATASOURCE") <> struct {
+    let bar = Bar::bar;
+};
+
+"""
+
+spec_unknown_scoped_member = """
+let Foo = struct {
+    bar: [42] byte;
+};
+
+env("DATASOURCE") <> struct {
+    let bar = Foo::qux;
+};
+
+"""
+
+def test_syntax_errors():
 
     #FIXME use custom error for syntax errors
     with pytest.raises(OSError):
         dtree = model.DataTree('abcdefghij',
                                spec_unknown_type_name_1)
+    with pytest.raises(OSError):
+        dtree = model.DataTree('abcdefghij',
+                               spec_unknown_scope_left_operand)
+    with pytest.raises(OSError):
+        dtree = model.DataTree('abcdefghij',
+                               spec_unknown_scoped_member)

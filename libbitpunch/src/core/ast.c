@@ -1017,6 +1017,19 @@ resolve_identifiers_operator_member(
 }
 
 static int
+resolve_identifiers_operator_scope(
+    struct ast_node_hdl *expr,
+    const struct list_of_visible_refs *visible_refs,
+    enum resolve_expect_mask expect_mask,
+    enum resolve_identifiers_tag resolve_tags)
+{
+    return resolve_identifiers(expr->ndat->u.op.operands[0],
+                               visible_refs,
+                               RESOLVE_EXPECT_TYPE,
+                               resolve_tags);
+}
+
+static int
 resolve_identifiers_operator_sizeof(
     struct ast_node_hdl *expr,
     const struct list_of_visible_refs *visible_refs,
@@ -1085,6 +1098,9 @@ resolve_identifiers(struct ast_node_hdl *node,
     case AST_NODE_TYPE_OP_MEMBER:
         return resolve_identifiers_operator_member(node, visible_refs,
                                                    expect_mask, resolve_tags);
+    case AST_NODE_TYPE_OP_SCOPE:
+        return resolve_identifiers_operator_scope(node, visible_refs,
+                                                  expect_mask, resolve_tags);
     case AST_NODE_TYPE_OP_SIZEOF:
         return resolve_identifiers_operator_sizeof(node, visible_refs,
                                                    expect_mask, resolve_tags);
@@ -1173,6 +1189,8 @@ op_type_ast2rexpr(enum ast_node_type type)
         return AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE;
     case AST_NODE_TYPE_OP_MEMBER:
         return AST_NODE_TYPE_REXPR_OP_MEMBER;
+    case AST_NODE_TYPE_OP_SCOPE:
+        return AST_NODE_TYPE_REXPR_OP_SCOPE;
     case AST_NODE_TYPE_OP_FCALL:
         /*TODO*/
         return AST_NODE_TYPE_NONE;
@@ -2791,6 +2809,7 @@ compile_rexpr_field(
 static int
 compile_rexpr_member(
     struct ast_node_hdl *expr,
+    int is_scope_operator,
     dep_resolver_tagset_t tags,
     struct compile_ctx *ctx)
 {
@@ -2849,7 +2868,7 @@ compile_rexpr_member(
         }
         if (n_visible_statements == 1) {
             stmt_spec = &visible_statements[0];
-            if (ast_node_is_item(anchor_target)) {
+            if (ast_node_is_item(anchor_target) && !is_scope_operator) {
                 // TODO for full type property support (like
                 // Type.field) it may be necessary to introduce new
                 // compiled types, for now compile as the target type
@@ -2878,7 +2897,10 @@ compile_rexpr_member(
             resolved_type = new_safe(struct ast_node_data);
             resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
             resolved_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
-            resolved_type->u.rexpr_member_common.anchor_expr = anchor_expr;
+            // scope operator only affects anchor filter
+            if (!is_scope_operator) {
+                resolved_type->u.rexpr_member_common.anchor_expr = anchor_expr;
+            }
             resolved_type->u.rexpr_member_common.anchor_filter =
                 (struct ast_node_hdl *)anchor_filter;
             expr->ndat = resolved_type;
@@ -2920,7 +2942,10 @@ compile_rexpr_member(
     resolved_type = new_safe(struct ast_node_data);
     resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
     resolved_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
-    resolved_type->u.rexpr_member_common.anchor_expr = anchor_expr;
+    // scope operator only affects anchor filter
+    if (!is_scope_operator) {
+        resolved_type->u.rexpr_member_common.anchor_expr = anchor_expr;
+    }
     resolved_type->u.rexpr_member_common.anchor_filter =
         (struct ast_node_hdl *)anchor_filter;
     resolved_type->type = AST_NODE_TYPE_REXPR_POLYMORPHIC;
@@ -2966,6 +2991,7 @@ compile_node_type_int(struct ast_node_hdl *node,
     case AST_NODE_TYPE_OP_LNOT:
     case AST_NODE_TYPE_OP_BWNOT:
     case AST_NODE_TYPE_OP_MEMBER:
+    case AST_NODE_TYPE_OP_SCOPE:
         return compile_expr_operator(node, 1, tags, ctx);
     case AST_NODE_TYPE_OP_EQ:
     case AST_NODE_TYPE_OP_NE:
@@ -3032,7 +3058,9 @@ compile_node_type_int(struct ast_node_hdl *node,
     case AST_NODE_TYPE_REXPR_OP_MOD:
         return compile_rexpr_operator(node, 2, tags, ctx);
     case AST_NODE_TYPE_REXPR_OP_MEMBER:
-        return compile_rexpr_member(node, tags, ctx);
+        return compile_rexpr_member(node, FALSE, tags, ctx);
+    case AST_NODE_TYPE_REXPR_OP_SCOPE:
+        return compile_rexpr_member(node, TRUE, tags, ctx);
     case AST_NODE_TYPE_REXPR_OP_FCALL:
         return compile_rexpr_operator_fcall(node, tags, ctx);
     case AST_NODE_TYPE_REXPR_FIELD:
@@ -4002,6 +4030,19 @@ dump_ast_rexpr_member(const struct ast_node_hdl *node, int depth,
     fprintf(out, "\n");
 }
 
+static void
+dump_ast_rexpr_scope(const struct ast_node_hdl *node, int depth,
+                      struct list_of_visible_refs *visible_refs, FILE *out)
+{
+    if (NULL != node->ndat->u.rexpr_member_common.anchor_expr) {
+        fprintf(out, "\n%*s\\_ anchor expr:\n",
+                (depth + 1) * INDENT_N_SPACES, "");
+        dump_ast_type(node->ndat->u.rexpr_member_common.anchor_expr, depth + 2,
+                      visible_refs, out);
+    }
+    fprintf(out, "\n");
+}
+
 static const char *
 span_size_str(int64_t span_size)
 {
@@ -4146,6 +4187,7 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_OP_DIV:
     case AST_NODE_TYPE_OP_MOD:
     case AST_NODE_TYPE_OP_MEMBER:
+    case AST_NODE_TYPE_OP_SCOPE:
     case AST_NODE_TYPE_OP_FILTER:
         fprintf(out, "\n");
         fdump_ast_recur(node->ndat->u.op.operands[0], depth + 1, visible_refs,
@@ -4328,6 +4370,9 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_REXPR_OP_MEMBER:
         dump_ast_rexpr_member(node, depth, visible_refs, out);
         break ;
+    case AST_NODE_TYPE_REXPR_OP_SCOPE:
+        dump_ast_rexpr_scope(node, depth, visible_refs, out);
+        break ;
     case AST_NODE_TYPE_REXPR_FIELD:
         dump_ast_rexpr_member(node, depth, visible_refs, out);
         fprintf(out, "%*s\\_ field:\n",
@@ -4474,6 +4519,7 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_OP_SUBSCRIPT:
     case AST_NODE_TYPE_OP_SUBSCRIPT_SLICE:
     case AST_NODE_TYPE_OP_MEMBER:
+    case AST_NODE_TYPE_OP_SCOPE:
     case AST_NODE_TYPE_OP_FCALL:
     case AST_NODE_TYPE_OP_FILTER:
     case AST_NODE_TYPE_REXPR_OP_EQ:
@@ -4502,6 +4548,7 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_REXPR_OP_ADDROF:
     case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
     case AST_NODE_TYPE_REXPR_OP_MEMBER:
+    case AST_NODE_TYPE_REXPR_OP_SCOPE:
     case AST_NODE_TYPE_REXPR_FIELD:
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
     case AST_NODE_TYPE_REXPR_POLYMORPHIC:
