@@ -3951,7 +3951,7 @@ dpath_node_get_target_filter(const struct dpath_node *dpath)
 #define INDENT_N_SPACES   2
 
 static void
-fdump_ast_recur(struct ast_node_hdl *node, int depth,
+fdump_ast_recur(const struct ast_node_hdl *node, int depth,
                 struct list_of_visible_refs *visible_refs, FILE *stream);
 static void
 dump_scope_recur(const struct ast_node_hdl *filter,
@@ -3974,13 +3974,13 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
               struct list_of_visible_refs *visible_refs, FILE *stream);
 
 void
-dump_ast_location(struct ast_node_hdl *node)
+dump_ast_location(const struct ast_node_hdl *node)
 {
     fdump_ast_location(node, stdout);
 }
 
 void
-fdump_ast_location(struct ast_node_hdl *node, FILE *out)
+fdump_ast_location(const struct ast_node_hdl *node, FILE *out)
 {
     bitpunch_parser_print_location(&node->loc, out);
 }
@@ -4004,13 +4004,13 @@ fdump_ast_dot(struct ast_node_hdl *node,
 }
 
 void
-dump_ast(struct ast_node_hdl *root)
+dump_ast(const struct ast_node_hdl *root)
 {
     fdump_ast(root, stdout);
 }
 
 void
-fdump_ast(struct ast_node_hdl *root, FILE *out)
+fdump_ast(const struct ast_node_hdl *root, FILE *out)
 {
     if (NULL == root) {
         fprintf(out, "<null>\n");
@@ -4081,13 +4081,13 @@ span_size_str(int64_t span_size)
 }
 
 static void
-dump_ast_item(struct ast_node_hdl *node, int depth,
+dump_ast_item(const struct ast_node_hdl *node, int depth,
               struct list_of_visible_refs *visible_refs, FILE *out)
 {
 }
 
 static void
-dump_ast_item_info(struct ast_node_hdl *node, FILE *out)
+dump_ast_item_info(const struct ast_node_hdl *node, FILE *out)
 {
     fprintf(out, "min span size: %s%s%s",
             span_size_str(node->ndat->u.item.min_span_size),
@@ -4098,14 +4098,14 @@ dump_ast_item_info(struct ast_node_hdl *node, FILE *out)
 }
 
 static void
-dump_ast_container(struct ast_node_hdl *node, int depth,
+dump_ast_container(const struct ast_node_hdl *node, int depth,
                    struct list_of_visible_refs *visible_refs, FILE *out)
 {
     dump_ast_item(node, depth, visible_refs, out);
 }
 
 static void
-fdump_ast_recur(struct ast_node_hdl *node, int depth,
+fdump_ast_recur(const struct ast_node_hdl *node, int depth,
                 struct list_of_visible_refs *visible_refs, FILE *out)
 {
     static struct ast_node_data dummy_empty_node_data = {
@@ -4114,6 +4114,7 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
     static struct ast_node_hdl dummy_empty_node = {
         .ndat = &dummy_empty_node_data,
     };
+    struct ast_node_hdl *_node = (struct ast_node_hdl *)node;
 
     if (NULL == node) {
         node = &dummy_empty_node;
@@ -4124,7 +4125,7 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         fprintf(out, "\n");
         return ;
     }
-    node->flags |= ASTFLAG_DUMPING;
+    _node->flags |= ASTFLAG_DUMPING;
     switch (node->ndat->type) {
     case AST_NODE_TYPE_INTEGER:
         fprintf(out, "%"PRIi64"\n", node->ndat->u.integer);
@@ -4356,7 +4357,7 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
                 filter_cls->name, (depth + 1) * INDENT_N_SPACES, "");
         STATEMENT_FOREACH(
             named_expr, attr,
-            filter_get_scope_def(node)->block_stmt_list.attribute_list,
+            filter_get_const_scope_def(node)->block_stmt_list.attribute_list,
             list) {
             attr_def = filter_class_get_attr(filter_cls, attr->nstmt.name);
             assert(NULL != attr_def);
@@ -4481,7 +4482,7 @@ fdump_ast_recur(struct ast_node_hdl *node, int depth,
         fprintf(out, "\n");
         break ;
     }
-    node->flags &= ~ASTFLAG_DUMPING;
+    _node->flags &= ~ASTFLAG_DUMPING;
 }
 
 static void

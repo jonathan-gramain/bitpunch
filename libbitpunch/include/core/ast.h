@@ -221,9 +221,9 @@ dpath_node_get_as_type__pre_compile_stage(const struct dpath_node *dpath);
 struct ast_node_hdl *
 dpath_node_get_target_filter(const struct dpath_node *dpath);
 void
-dump_ast_location(struct ast_node_hdl *node);
+dump_ast_location(const struct ast_node_hdl *node);
 void
-fdump_ast_location(struct ast_node_hdl *node, FILE *stream);
+fdump_ast_location(const struct ast_node_hdl *node, FILE *stream);
 void
 dump_ast_dot(struct ast_node_hdl *node,
              const char *node_family, dep_resolver_tagset_t tag);
@@ -232,9 +232,9 @@ fdump_ast_dot(struct ast_node_hdl *node,
               const char *node_family, dep_resolver_tagset_t tag,
               FILE *out);
 void
-dump_ast(struct ast_node_hdl *root);
+dump_ast(const struct ast_node_hdl *root);
 void
-fdump_ast(struct ast_node_hdl *root, FILE *stream);
+fdump_ast(const struct ast_node_hdl *root, FILE *stream);
 void
 dump_filter(const struct ast_node_hdl *filter, FILE *stream);
 void
