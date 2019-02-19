@@ -2485,6 +2485,7 @@ expr_transform_dpath_operator_filter(
     bitpunch_status_t bt_ret;
     struct ast_node_hdl *target;
     struct ast_node_hdl *filter_expr;
+    struct box *filter_scope;
 
     target = expr->ndat->u.rexpr_op_filter.target;
     filter_expr = expr->ndat->u.rexpr_op_filter.filter_expr;
@@ -2493,7 +2494,14 @@ expr_transform_dpath_operator_filter(
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    return expr_transform_dpath_internal(filter_expr, NULL, transformp, bst);
+    bt_ret = expr_dpath_to_box_internal(transformp->dpath, &filter_scope, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    bt_ret = expr_transform_dpath_internal(filter_expr, filter_scope,
+                                           transformp, bst);
+    box_delete(filter_scope);
+    return bt_ret;
 }
 
 static bitpunch_status_t

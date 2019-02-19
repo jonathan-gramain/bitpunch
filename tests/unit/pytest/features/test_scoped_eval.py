@@ -228,3 +228,70 @@ def test_scoped_eval(params_scoped_eval):
     assert memoryview(prop_first_value) == 'i'
 
     
+spec_file_nested_scoping_eval = """
+
+let u8 = byte <> integer { @signed: false; };
+
+let Foo = struct {
+    bar: [2 * sizeof (Bar)] byte;
+    let ?first_bar = bar[0..sizeof(Bar)] <> Bar;
+    name: [3] byte <> string;
+
+    let Bar = struct {
+        name: [3] byte <> string;
+        let ?foo_name = Foo::name;
+    };
+};
+
+let Root = struct {
+    foo: [sizeof (Foo)] byte;
+};
+
+env("DATASOURCE") <> Root;
+
+"""
+
+data_file_nested_scoping_eval = """
+"bar" # Bar #0 name
+"bar" # Bar #1 name
+"foo" # Foo name
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_nested_scoping_eval,
+        'data': data_file_nested_scoping_eval,
+    }])
+def params_nested_scoping_eval(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_nested_scoping_eval(params_nested_scoping_eval):
+    params = params_nested_scoping_eval
+    dtree = params['dtree']
+
+    foo = dtree.eval_expr('foo <> Foo')
+    bar = foo.eval_expr('bar[0..sizeof(Foo.Bar)] <> Foo.Bar')
+    assert bar.eval_expr('?foo_name') == 'foo'
+
+    assert dtree.eval_expr(
+        '(foo <> Foo).?first_bar.?foo_name') == 'foo'
+    # this checks that expression scoping retains outer filter scopes
+    # during evaluation of members (here, evaluation of
+    # <instance of Foo.Bar>.?foo_name expects to find a Foo type in its
+    # scope, which should have been set and retained by evaluation of
+    # (foo <> Foo)).
+    assert dtree.eval_expr(
+        '((foo <> Foo).bar[0..sizeof(Foo.Bar)] <> Foo.Bar).?foo_name') == 'foo'
+
+    # variants with a few extra inserted filters
+    assert dtree.eval_expr(
+        '((foo <> Foo <> [] byte <> Foo)' +
+        '.bar[0..sizeof(Foo.Bar)] <> [] byte <> Foo.Bar).?foo_name') == 'foo'
+
+    assert dtree.eval_expr('(foo <> Foo <> Foo.Bar).?foo_name') == 'foo'
+
+    # no Foo type in the expression, so ?foo_name cannot be evaluated
+    with pytest.raises(ValueError):
+        dtree.eval_expr('(foo <> Foo.Bar).?foo_name')
