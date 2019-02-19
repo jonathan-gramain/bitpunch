@@ -292,3 +292,13 @@ def test_ldb(spec_ldb, data_ldb):
     assert len(child_block.entries[4].value) == 479
     # location is relative to the uncompressed block
     assert child_block.entries[4].value.get_location() == (1990, 479)
+
+    # some more complex expression tests
+
+    assert index_block.eval_expr(
+        '(entries[42].value <> BlockHandle).offset') == 33953
+
+    # this used to trigger a SEGV because of missing compilation step
+    # for "[] byte" filter
+    assert index_block.eval_expr(
+        '(entries[42].value <> [] byte <> BlockHandle).offset') == 33953

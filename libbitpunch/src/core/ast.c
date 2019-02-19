@@ -2673,9 +2673,16 @@ compile_rexpr_named_expr(
     dep_resolver_tagset_t tags,
     struct compile_ctx *ctx)
 {
+    struct ast_node_hdl *anchor_expr;
     struct named_expr *named_expr;
     struct ast_node_hdl *target;
 
+    anchor_expr = expr->ndat->u.rexpr_member_common.anchor_expr;
+    if (NULL != anchor_expr
+        && -1 == compile_node(anchor_expr, ctx, tags, 0u,
+                              RESOLVE_EXPECT_DPATH_EXPRESSION)) {
+        return -1;
+    }
     named_expr = (struct named_expr *)
         expr->ndat->u.rexpr_named_expr.named_expr;
     target = named_expr->expr;
@@ -2747,11 +2754,18 @@ compile_rexpr_polymorphic(
     dep_resolver_tagset_t tags,
     struct compile_ctx *ctx)
 {
+    struct ast_node_hdl *anchor_expr;
     int i;
     struct named_statement_spec *stmt_spec;
     struct field *field;
     struct named_expr *named_expr;
 
+    anchor_expr = expr->ndat->u.rexpr_member_common.anchor_expr;
+    if (NULL != anchor_expr
+        && -1 == compile_node(anchor_expr, ctx, tags, 0u,
+                              RESOLVE_EXPECT_DPATH_EXPRESSION)) {
+        return -1;
+    }
     // FIXME some circular dependency errors could be legit, rework this
     for (i = 0; i < expr->ndat->u.rexpr_polymorphic.n_visible_statements;
          ++i) {
@@ -2789,8 +2803,15 @@ compile_rexpr_field(
     dep_resolver_tagset_t tags,
     struct compile_ctx *ctx)
 {
+    struct ast_node_hdl *anchor_expr;
     struct field *field;
 
+    anchor_expr = expr->ndat->u.rexpr_member_common.anchor_expr;
+    if (NULL != anchor_expr
+        && -1 == compile_node(anchor_expr, ctx, tags, 0u,
+                              RESOLVE_EXPECT_DPATH_EXPRESSION)) {
+        return -1;
+    }
     field = (struct field *)expr->ndat->u.rexpr_field.field;
 
     if (-1 == compile_node(field->filter, ctx, tags, 0u,
@@ -2828,11 +2849,13 @@ compile_rexpr_member(
     /* checked by parser */
     assert(member->ndat->type == AST_NODE_TYPE_IDENTIFIER);
 
-    if (-1 == compile_node(op->operands[0], ctx,
-                           COMPILE_TAG_NODE_TYPE, 0u,
+    if (-1 == compile_node(op->operands[0], ctx, tags, 0u,
                            RESOLVE_EXPECT_TYPE |
                            RESOLVE_EXPECT_DPATH_EXPRESSION)) {
         return -1;
+    }
+    if (0 == (tags & COMPILE_TAG_NODE_TYPE)) {
+        return 0;
     }
     anchor_expr = op->operands[0];
     anchor_target = ast_node_get_named_expr_target(anchor_expr);
