@@ -149,3 +149,49 @@ def test_expr_parsing(params_expr_parsing):
         dtree.eval_expr('contents_struct <> byte[10]')
     with pytest.raises(model.DataError):
         dtree.eval_expr('len(contents_struct).a')
+
+
+spec_file_expr_parsing_with_scoping = """
+
+let DS = env("DATASOURCE");
+
+let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
+
+let Contents = struct {
+    payload: [] byte;
+
+    let Numbers = struct {
+        // reference outer scope variable
+        let a = payload[0 .. sizeof (u32)] <> u32;
+        let b = payload[sizeof (u32) .. 2 * sizeof (u32)] <> u32;
+    };
+};
+
+DS <> struct {
+    content_bytes: [] byte;
+};
+
+"""
+
+data_file_expr_parsing_with_scoping = """
+01 00 00 00 02 00 00 00
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_expr_parsing_with_scoping,
+        'data': data_file_expr_parsing_with_scoping,
+    }])
+def params_expr_parsing_with_scoping(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_expr_parsing_with_scoping(params_expr_parsing_with_scoping):
+    params = params_expr_parsing_with_scoping
+    dtree = params['dtree']
+
+    assert dtree.eval_expr(
+        '(content_bytes <> Contents <> Contents.Numbers).a') == 1
+    with pytest.raises(ValueError):
+        dtree.eval_expr('(content_bytes <> Contents.Numbers).a')
