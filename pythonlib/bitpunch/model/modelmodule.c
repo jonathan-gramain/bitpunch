@@ -156,6 +156,31 @@ box_info_to_python(struct box *box)
 }
 
 static PyObject *
+node_info_to_python(const struct ast_node_hdl *node)
+{
+    PyObject *info_obj;
+    FILE *loc_info_stream;
+    char *loc_info_str;
+    size_t loc_info_str_len;
+
+    loc_info_stream = open_memstream(&loc_info_str, &loc_info_str_len);
+    if (NULL == loc_info_stream) {
+        return NULL;
+    }
+    fdump_ast_location(node, loc_info_stream);
+    fclose(loc_info_stream);
+    info_obj = PyDict_New();
+    PyDict_SetItem(info_obj,
+                   PyString_FromString("type"),
+                   PyString_FromString(ast_node_type_str(node->ndat->type)));
+    PyDict_SetItem(info_obj,
+                   PyString_FromString("location"),
+                   PyString_FromString(loc_info_str));
+    free(loc_info_str);
+    return info_obj;
+}
+
+static PyObject *
 tracker_error_context_info_to_python(
     struct tracker_error_context_info *ctx_info)
 {
@@ -182,7 +207,14 @@ tracker_error_context_info_to_python(
         PyDict_SetItem(context_obj,
                        PyString_FromString("box"), info_obj);
     }
-    //TODO: add node info if ctx_info->node != NULL
+    if (NULL != ctx_info->node) {
+        info_obj = node_info_to_python(ctx_info->node);
+        if (NULL == info_obj) {
+            goto err;
+        }
+        PyDict_SetItem(context_obj,
+                       PyString_FromString("node"), info_obj);
+    }
     if (NULL != ctx_info->message) {
         PyDict_SetItem(context_obj,
                        PyString_FromString("contextmsg"),
@@ -201,6 +233,7 @@ tracker_error_get_info_as_PyObject(struct tracker_error *err)
 {
     PyObject *errobj = NULL;
     int ctx_i;
+    PyObject *info_obj;
     PyObject *contexts_obj;
 
     errobj = PyDict_New();
@@ -209,8 +242,6 @@ tracker_error_get_info_as_PyObject(struct tracker_error *err)
     }
 
     if (NULL != err->tk || NULL != err->box) {
-        PyObject *info_obj;
-
         if (NULL != err->tk) {
             info_obj = tracker_info_to_python(err->tk);
         } else {
@@ -222,6 +253,13 @@ tracker_error_get_info_as_PyObject(struct tracker_error *err)
         PyDict_SetItem(errobj,
                        PyString_FromString(NULL != err->tk ?
                                            "item" : "box"), info_obj);
+    }
+    if (NULL != err->node) {
+        info_obj = node_info_to_python(err->node);
+        if (NULL == info_obj) {
+            goto err;
+        }
+        PyDict_SetItem(errobj, PyString_FromString("node"), info_obj);
     }
     PyDict_SetItem(errobj,
                    PyString_FromString("message"),
