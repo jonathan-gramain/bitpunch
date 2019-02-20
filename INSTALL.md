@@ -1,6 +1,6 @@
 # Install and use
 
-Tested on Ubuntu 14.04 LTS.
+Tested on Ubuntu 18.04 LTS.
 
 Not tested on other platforms, should work on other linux distribs
 with minimal changes.
@@ -49,14 +49,14 @@ make
 To run the CLI:
 
 ```
-./bitpunch
+./build/bin/bitpunch
 bitpunch> 
 ```
 
 or to run it in debug mode with GDB:
 
 ```
-./bitpunch.debug
+./build/bin/bitpunch.debug
 bitpunch> 
 ```
 
