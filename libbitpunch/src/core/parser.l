@@ -271,26 +271,28 @@ sizeof        { return OP_SIZEOF; }
 %%
 
 int
-bitpunch_parse_schema(struct bitpunch_schema *schema)
+bitpunch_parse_schema(struct ast_node_hdl *schema)
 {
+    struct parser_ctx *parser_ctx;
     yyscan_t scanner;
     FILE *fstream;
     int ret;
 
-    memset(&schema->parser_ctx, 0, sizeof (schema->parser_ctx));
-    schema->parser_ctx.parser_filepath = schema->file_path;
-    schema->parser_ctx.parser_data = schema->data;
-    schema->parser_ctx.parser_data_length = schema->data_length;
-    schema->parser_ctx.start_token = START_DEF_FILE;
+    parser_ctx = &schema->ndat->u.schema_def.parser_ctx;
+    memset(parser_ctx, 0, sizeof (*parser_ctx));
+    parser_ctx->parser_filepath = schema->ndat->u.schema_def.file_path;
+    parser_ctx->parser_data = schema->ndat->u.schema_def.data;
+    parser_ctx->parser_data_length = schema->ndat->u.schema_def.data_length;
+    parser_ctx->start_token = START_SCHEMA;
 
-    fstream = fmemopen((char *)schema->data, schema->data_length, "r");
+    fstream = fmemopen((char *)schema->ndat->u.schema_def.data,
+                       schema->ndat->u.schema_def.data_length, "r");
     if (NULL == fstream) {
         return -1;
     }
     yylex_init(&scanner);
     yyset_in(fstream, scanner);
-    ret = yyparse(scanner, &schema->parser_ctx,
-                  &schema->ast_root);
+    ret = yyparse(scanner, parser_ctx, schema);
     yylex_destroy(scanner);
     fclose(fstream);
     if (0 != ret) {

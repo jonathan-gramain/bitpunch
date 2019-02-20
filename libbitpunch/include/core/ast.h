@@ -42,7 +42,6 @@ struct ast_node_data;
 struct ast_node_hdl;
 struct block_stmt_list;
 struct dpath_node;
-struct bitpunch_schema;
 struct box;
 struct field;
 struct parser_location;
@@ -86,7 +85,7 @@ void
 compile_global_nodes(void);
 
 int
-bitpunch_compile_schema(struct bitpunch_schema *schema);
+bitpunch_compile_schema(struct ast_node_hdl *schema);
 
 int
 bitpunch_compile_env(struct bitpunch_env *env);
@@ -196,6 +195,8 @@ int
 ast_node_is_type(const struct ast_node_hdl *node);
 int
 ast_node_is_scope_only(const struct ast_node_hdl *node);
+int
+ast_node_is_scope_def(const struct ast_node_hdl *node);
 struct scope_def *
 ast_node_get_scope_def(struct ast_node_hdl *node);
 int
@@ -241,7 +242,7 @@ void
 dump_composite(const struct ast_node_hdl *filter, FILE *stream);
 void
 dump_ast_node_input_text(const struct ast_node_hdl *node,
-                         struct bitpunch_schema *schema,
+                         struct ast_node_hdl *schema,
                          FILE *stream);
 
 #endif /* defined __AST_H__ */

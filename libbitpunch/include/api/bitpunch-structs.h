@@ -63,19 +63,6 @@ enum bitpunch_schema_type {
     BITPUNCH_SCHEMA_TYPE_BUFFER,
 };
 
-enum bitpunch_schema_flag {
-    BITPUNCH_SCHEMA_COMPILED = (1u<<0),
-};
-
-struct bitpunch_schema {
-    char *data;
-    size_t data_length;
-    char *file_path;
-    struct parser_ctx parser_ctx;
-    struct ast_node_hdl *ast_root;
-    enum bitpunch_schema_flag flags;
-};
-
 struct bitpunch_data_source;
 
 enum bitpunch_data_source_flag {

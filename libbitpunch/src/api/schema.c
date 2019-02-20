@@ -43,18 +43,23 @@
 #include <errno.h>
 
 #include "api/bitpunch_api.h"
+#include "core/filter.h"
+#include "core/scope.h"
 
-static struct bitpunch_schema *
+static struct ast_node_hdl *
 bitpunch_schema_new(void)
 {
-    struct bitpunch_schema *schema;
+    struct ast_node_hdl *schema_node;
 
-    schema = new_safe(struct bitpunch_schema);
-    return schema;
+    schema_node = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, NULL);
+    schema_node->ndat->u.filter_def.filter_type = "__schema__";
+    init_block_stmt_list(&schema_node->ndat->u.scope_def.block_stmt_list);
+
+    return schema_node;
 }
 
 static int
-load_schema_common(struct bitpunch_schema *schema)
+load_schema_common(struct ast_node_hdl *schema)
 {
     if (-1 == bitpunch_parse_schema(schema)) {
         return -1;
@@ -66,7 +71,7 @@ load_schema_common(struct bitpunch_schema *schema)
 }
 
 static int
-schema_read_data_from_fd(struct bitpunch_schema *schema, int fd)
+schema_read_data_from_fd(struct ast_node_hdl *schema, int fd)
 {
     char *buffer = NULL;
     ssize_t n_read;
@@ -85,8 +90,8 @@ schema_read_data_from_fd(struct bitpunch_schema *schema, int fd)
         }
         if (0 == n_read) {
             buffer = realloc_safe(buffer, cur_offset);
-            schema->data = buffer;
-            schema->data_length = cur_offset;
+            schema->ndat->u.schema_def.data = buffer;
+            schema->ndat->u.schema_def.data_length = cur_offset;
             return 0;
         }
         cur_offset += n_read;
@@ -104,7 +109,7 @@ schema_read_data_from_fd(struct bitpunch_schema *schema, int fd)
 }
 
 static int
-schema_read_data_from_path(struct bitpunch_schema *schema, const char *path)
+schema_read_data_from_path(struct ast_node_hdl *schema, const char *path)
 {
     char *path_dup;
     int fd;
@@ -125,15 +130,15 @@ schema_read_data_from_path(struct bitpunch_schema *schema, const char *path)
         free(path_dup);
         return -1;
     }
-    schema->file_path = path_dup;
+    schema->ndat->u.schema_def.file_path = path_dup;
     return 0;
 }
 
 int
 bitpunch_schema_create_from_path(
-    struct bitpunch_schema **schemap, const char *path)
+    struct ast_node_hdl **schemap, const char *path)
 {
-    struct bitpunch_schema *schema;
+    struct ast_node_hdl *schema;
 
     assert(NULL != path);
     assert(NULL != schemap);
@@ -153,9 +158,9 @@ bitpunch_schema_create_from_path(
 
 int
 bitpunch_schema_create_from_file_descriptor(
-    struct bitpunch_schema **schemap, int fd)
+    struct ast_node_hdl **schemap, int fd)
 {
-    struct bitpunch_schema *schema;
+    struct ast_node_hdl *schema;
 
     assert(-1 != fd);
     assert(NULL != schemap);
@@ -175,15 +180,16 @@ bitpunch_schema_create_from_file_descriptor(
 
 int
 bitpunch_schema_create_from_buffer(
-    struct bitpunch_schema **schemap, const char *buf, size_t buf_size)
+    struct ast_node_hdl **schemap, const char *buf, size_t buf_size)
 {
-    struct bitpunch_schema *schema;
+    struct ast_node_hdl *schema;
 
     assert(NULL != schemap);
 
     schema = bitpunch_schema_new();
-    schema->data = memcpy(malloc_safe(buf_size), buf, buf_size);
-    schema->data_length = buf_size;
+    schema->ndat->u.schema_def.data =
+        memcpy(malloc_safe(buf_size), buf, buf_size);
+    schema->ndat->u.schema_def.data_length = buf_size;
     if (-1 == load_schema_common(schema)) {
         bitpunch_schema_free(schema);
         return -1;
@@ -194,17 +200,54 @@ bitpunch_schema_create_from_buffer(
 
 int
 bitpunch_schema_create_from_string(
-    struct bitpunch_schema **schemap, const char *str)
+    struct ast_node_hdl **schemap, const char *str)
 {
     return bitpunch_schema_create_from_buffer(schemap, str, strlen(str));
 }
 
 void
 bitpunch_schema_free(
-    struct bitpunch_schema *schema)
+    struct ast_node_hdl *schema)
 {
-    free(schema->data);
-    free(schema->file_path);
     free(schema);
 }
 
+static int
+compile_node_backends_schema(struct ast_node_hdl *filter,
+                             struct compile_ctx *ctx)
+{
+    return compile_node_backends_scope(filter, ctx);
+}
+
+static struct filter_instance *
+schema_filter_instance_build(struct ast_node_hdl *filter)
+{
+    return new_safe(struct filter_instance);
+}
+
+static int
+schema_filter_instance_compile(struct ast_node_hdl *filter,
+                               struct filter_instance *f_instance,
+                               dep_resolver_tagset_t tags,
+                               struct compile_ctx *ctx)
+{
+    if (0 != (tags & COMPILE_TAG_BROWSE_BACKENDS)
+        && -1 == compile_node_backends_schema(filter, ctx)) {
+        return -1;
+    }
+    return 0;
+}
+
+void
+filter_class_declare_schema(void)
+{
+    int ret;
+
+    ret = filter_class_declare("__schema__",
+                               EXPR_VALUE_TYPE_UNSET,
+                               schema_filter_instance_build,
+                               schema_filter_instance_compile,
+                               0u,
+                               0);
+    assert(0 == ret);
+}

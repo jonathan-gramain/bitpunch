@@ -36,10 +36,9 @@
 
 struct ast_node_hdl;
 struct parser_ctx;
-struct bitpunch_schema;
 
 int
-bitpunch_parse_schema(struct bitpunch_schema *schema);
+bitpunch_parse_schema(struct ast_node_hdl *schema);
 
 
 int

@@ -356,7 +356,7 @@ PyDoc_STRVAR(FormatSpec__doc__,
 
 typedef struct FormatSpecObject {
     PyObject_HEAD
-    struct bitpunch_schema *schema;
+    struct ast_node_hdl *schema;
 } FormatSpecObject;
 
 static PyMethodDef FormatSpec_methods[] = {
@@ -3427,7 +3427,7 @@ static PyObject *
 eval_expr_as_python_object(DataItemObject *item, const char *expr)
 {
     DataTreeObject *dtree;
-    struct bitpunch_schema *schema;
+    struct ast_node_hdl *schema;
     struct bitpunch_env *env;
     struct box *scope;
     int ret;

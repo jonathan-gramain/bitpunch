@@ -55,7 +55,7 @@ static const char *check_slack_def =
     "    slack_array: [] u32;\n"
     "};\n";
 
-static struct bitpunch_schema *check_slack_def_hdl;
+static struct ast_node_hdl *check_slack_def_hdl;
 
 
 static const char check_slack_valid1_contents[] = {
@@ -138,7 +138,7 @@ static const char *check_slack_byte_array_def =
     "    ftr: MyFtr;\n"
     "};\n";
 
-static struct bitpunch_schema *check_slack_byte_array_def_hdl;
+static struct ast_node_hdl *check_slack_byte_array_def_hdl;
 
 
 static const char check_slack_byte_array_valid1_contents[] = {
@@ -201,7 +201,7 @@ static const char *check_slack_trailing_field_def =
     "    trailer: [7] byte;\n"
     "};\n";
 
-static struct bitpunch_schema *check_slack_trailing_field_def_hdl;
+static struct ast_node_hdl *check_slack_trailing_field_def_hdl;
 
 
 static const char check_slack_trailing_field_valid1_contents[] = {
@@ -294,7 +294,7 @@ static const char *check_slack_trailing_field_recur_def =
     "};\n";
 
 
-static struct bitpunch_schema *check_slack_trailing_field_recur_def_hdl;
+static struct ast_node_hdl *check_slack_trailing_field_recur_def_hdl;
 static const char check_slack_trailing_field_recur_valid1_contents[] = {
     'h', 'e', 'l', 'l', 'o', 0x00,
     /* -> */ 0x00, 0x00, 0x00, 0x26,

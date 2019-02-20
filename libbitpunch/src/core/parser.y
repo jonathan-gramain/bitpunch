@@ -285,6 +285,13 @@
                 struct scope_def scope_def; /* inherits */
                 const char *filter_type;
             } filter_def;
+            struct schema_def {
+                struct filter_def filter_def; /* inherits */
+                char *data;
+                size_t data_length;
+                char *file_path;
+                struct parser_ctx parser_ctx;
+            } schema_def;
             struct conditional {
                 struct ast_node_hdl *cond_expr;
                 struct ast_node_hdl *outer_cond;
@@ -530,7 +537,7 @@
         nhdl->ndat->type = type;
         return nhdl;
     }
-
+    
     struct ast_node_hdl *
     ast_node_hdl_create_scope(const struct parser_location *loc)
     {
@@ -656,14 +663,14 @@
 %type <subscript_index> key_expr opt_key_expr
 %locations
 
-%token START_DEF_FILE START_EXPR
+%token START_SCHEMA START_EXPR
 
 %start start
 
 %%
 
 start:
-    START_DEF_FILE schema
+    START_SCHEMA schema
   | START_EXPR start_expr
     /* here go other parsers with shared grammar */
 
@@ -916,9 +923,8 @@ func_param:
 
 schema:
     block_stmt_list {
-        $$ = ast_node_hdl_create_scope(&@1);
-        $$->ndat->u.scope_def.block_stmt_list = $block_stmt_list;
-        memcpy(out_param, &$$, sizeof($$));
+        struct ast_node_hdl *node = (struct ast_node_hdl *)out_param;
+        node->ndat->u.scope_def.block_stmt_list = $block_stmt_list;
     }
 
 scope_block:

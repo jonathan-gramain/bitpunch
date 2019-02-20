@@ -128,32 +128,25 @@ ARRAY_GENERATE_API_DEFS(ast_node_hdl_array, struct ast_node_hdl *)
 
 
 int
-bitpunch_compile_schema(struct bitpunch_schema *schema)
+bitpunch_compile_schema(struct ast_node_hdl *schema)
 {
-    struct ast_node_hdl *ast_root;
-
-    if (0 != (schema->flags & BITPUNCH_SCHEMA_COMPILED)) {
-        return 0;
-    }
-    ast_root = schema->ast_root;
-    if (-1 == resolve_identifiers(ast_root, NULL,
+    if (-1 == resolve_identifiers(schema, NULL,
                                   RESOLVE_EXPECT_TYPE |
                                   RESOLVE_EXPECT_FILTER,
                                   RESOLVE_TYPE_IDENTIFIERS)) {
         return -1;
     }
-    if (-1 == resolve_identifiers(ast_root, NULL,
+    if (-1 == resolve_identifiers(schema, NULL,
                                   RESOLVE_EXPECT_TYPE |
                                   RESOLVE_EXPECT_FILTER,
                                   RESOLVE_EXPRESSION_IDENTIFIERS)) {
         return -1;
     }
-    if (-1 == compile_ast_node_all(ast_root,
+    if (-1 == compile_ast_node_all(schema,
                                    RESOLVE_EXPECT_TYPE |
                                    RESOLVE_EXPECT_FILTER)) {
         return -1;
     }
-    schema->flags |= BITPUNCH_SCHEMA_COMPILED;
     return 0;
 }
 
@@ -1223,7 +1216,7 @@ resolve_expr_scoped_recur(struct ast_node_hdl *expr,
 
     while (NULL != cur_scope
            && !(ast_node_is_filter(cur_scope->filter) ||
-                AST_NODE_TYPE_SCOPE_DEF == cur_scope->filter->ndat->type)) {
+                ast_node_is_scope_def(cur_scope->filter))) {
         cur_scope = cur_scope->scope;
     }
     if (NULL == cur_scope) {
@@ -3696,7 +3689,23 @@ ast_node_is_scope_only(const struct ast_node_hdl *node)
         return FALSE;
     }
     filter_cls = node->ndat->u.rexpr_filter.filter_cls;
-    return NULL != filter_cls && 0 == strcmp(filter_cls->name, "__scope__");
+    return NULL != filter_cls &&
+        (0 == strcmp(filter_cls->name, "__scope__") ||
+         0 == strcmp(filter_cls->name, "__schema__"));
+}
+
+int
+ast_node_is_scope_def(const struct ast_node_hdl *node)
+{
+    if (NULL == node) {
+        return FALSE;
+    }
+    switch (node->ndat->type) {
+    case AST_NODE_TYPE_SCOPE_DEF:
+        return TRUE;
+    default:
+        return FALSE;
+    }
 }
 
 struct scope_def *
@@ -3705,7 +3714,7 @@ ast_node_get_scope_def(struct ast_node_hdl *node)
     if (ast_node_is_filter(node)) {
         return filter_get_scope_def(node);
     }
-    if (AST_NODE_TYPE_SCOPE_DEF == node->ndat->type) {
+    if (ast_node_is_scope_def(node)) {
         return &node->ndat->u.scope_def;
     }
     return NULL;
@@ -4658,14 +4667,14 @@ dump_block_stmt_list_recur(const struct ast_node_hdl *filter,
 
 void
 dump_ast_node_input_text(const struct ast_node_hdl *node,
-                         struct bitpunch_schema *schema,
+                         struct ast_node_hdl *schema,
                          FILE *out)
 {
     const char *text_start;
     const char *text_end;
 
-    text_start = schema->data + node->loc.start_offset;
-    text_end = schema->data + node->loc.end_offset;
+    text_start = schema->ndat->u.schema_def.data + node->loc.start_offset;
+    text_end = schema->ndat->u.schema_def.data + node->loc.end_offset;
 
     fwrite(text_start, 1, text_end - text_start, out);
     fputs("\n", out);
