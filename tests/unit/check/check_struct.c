@@ -68,7 +68,7 @@ static const char *check_struct_def =
     "    u4: u32;\n"
     "};\n";
 
-static struct bitpunch_schema *check_struct_def_hdl;
+static struct ast_node_hdl *check_struct_def_hdl;
 
 
 static const char check_struct_valid1_contents[] = {
@@ -308,7 +308,7 @@ static const char *check_vstruct_def =
     "    u4: u32;\n"
     "};\n";
 
-static struct bitpunch_schema *check_vstruct_def_hdl;
+static struct ast_node_hdl *check_vstruct_def_hdl;
 
 
 static const char check_vstruct_valid1_contents[] = {

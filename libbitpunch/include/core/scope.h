@@ -32,7 +32,6 @@
 #ifndef __SCOPE_H__
 #define __SCOPE_H__
 
-
 /* generic statement API */
 
 enum statement_iterator_flag {
@@ -139,6 +138,10 @@ scope_get_first_declared_attribute(
 
 
 /* browse backend */
+
+int
+compile_node_backends_scope(struct ast_node_hdl *filter,
+                            struct compile_ctx *ctx);
 
 bitpunch_status_t
 box_get_n_items__scope(struct box *box, int64_t *item_countp,

@@ -67,7 +67,7 @@ static const char *check_cond_def =
     "    ifs: [2] IfStruct;\n"
     "};\n";
 
-static struct bitpunch_schema *check_cond_def_hdl;
+static struct ast_node_hdl *check_cond_def_hdl;
 
 
 static const char check_cond_valid1_contents[] = {

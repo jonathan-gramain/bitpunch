@@ -55,7 +55,7 @@ static const char *check_sarray_contents_def =
     "    int_array: [5] u32;\n"
     "};\n";
 
-static struct bitpunch_schema *check_sarray_def_hdl;
+static struct ast_node_hdl *check_sarray_def_hdl;
 
 static const char check_sarray_valid1_contents[] = {
     0x0,0x0,0x0,0x1,0x0,0x0,0x0,0x2,0x0,0x0,0x0,0x3,0x0,0x0,0x0,0x4,
@@ -192,7 +192,7 @@ static const char *check_varray_contents_def =
     "    int_array: [(2 + int_array_size)] u32;\n"
     "};\n";
 
-static struct bitpunch_schema *check_varray_def_hdl;
+static struct ast_node_hdl *check_varray_def_hdl;
 
 static const char check_varray_valid1_contents[] = {
     0x0,0x0,0x0,0x3, /* 2 + size=3 -> 5 elements */
@@ -362,7 +362,7 @@ START_TEST(sarray_ast)
     const struct ast_node_hdl *item_count;
     struct filter_instance_array *item_f_instance;
 
-    root = check_sarray_def_hdl->ast_root;
+    root = check_sarray_def_hdl;
     scope_def = filter_get_const_scope_def(root);
     ck_assert_ptr_ne(scope_def, NULL);
     stmt_lists = &scope_def->block_stmt_list;
@@ -447,7 +447,7 @@ START_TEST(varray_ast)
     const struct ast_node_hdl *op1;
     const struct ast_node_hdl *op2;
 
-    root = check_varray_def_hdl->ast_root;
+    root = check_varray_def_hdl;
     scope_def = filter_get_const_scope_def(root);
     ck_assert_ptr_ne(scope_def, NULL);
     stmt_lists = &scope_def->block_stmt_list;

@@ -61,7 +61,7 @@ bitpunch_cleanup(void)
 }
 
 int
-bitpunch_eval_expr(struct bitpunch_schema *schema,
+bitpunch_eval_expr(struct ast_node_hdl *schema,
                    struct bitpunch_env *env,
                    const char *expr,
                    struct box *scope,

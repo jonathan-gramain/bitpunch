@@ -1000,7 +1000,7 @@ box_fdump(const struct box *box, FILE *out)
 }
 
 static struct box *
-box_new_root_box_internal(struct bitpunch_schema *schema,
+box_new_root_box_internal(struct ast_node_hdl *schema,
                           int manage_env,
                           struct browse_state *bst)
 {
@@ -1008,7 +1008,7 @@ box_new_root_box_internal(struct bitpunch_schema *schema,
     bitpunch_status_t bt_ret;
 
     root_box = new_safe(struct box);
-    bt_ret = box_construct(root_box, NULL, schema->ast_root, NULL,
+    bt_ret = box_construct(root_box, NULL, schema, NULL,
                            0, 0u, bst);
     if (BITPUNCH_OK != bt_ret) {
         /* TODO error reporting */
@@ -1022,7 +1022,7 @@ box_new_root_box_internal(struct bitpunch_schema *schema,
 }
 
 struct box *
-box_new_root_box(struct bitpunch_schema *schema,
+box_new_root_box(struct ast_node_hdl *schema,
                  struct bitpunch_env *env,
                  int manage_env)
 {
@@ -2129,7 +2129,7 @@ track_box_contents_internal(struct box *box,
 }
 
 struct tracker *
-track_data_source(struct bitpunch_schema *schema,
+track_data_source(struct ast_node_hdl *schema,
                   const char *ds_name, struct bitpunch_data_source *ds,
                   struct tracker_error **errp)
 {

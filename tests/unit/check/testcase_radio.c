@@ -84,7 +84,7 @@ static const char *radio_codenames[] = {
 };
 
 struct radio_source_info {
-    struct bitpunch_schema *bp;
+    struct ast_node_hdl *bp;
     struct bitpunch_data_source *bin;
     struct tracker *tk;
     int64_t codename_offset[N_ELEM(radio_codenames)];
@@ -102,6 +102,7 @@ static void testcase_radio_setup(void)
     int c;
     const char *codename;
     char *location;
+    struct schema_def *schema_def;
 
     for (i = 0; i < N_ELEM(radio_sources); ++i) {
         info = &radio_source_info[i];
@@ -124,8 +125,8 @@ static void testcase_radio_setup(void)
             assert(NULL != location);
             info->codename_offset[c] = location - info->bin->ds_data;
         }
-
-        if (memmem(info->bp->data, info->bp->data_length,
+        schema_def = (struct schema_def *)ast_node_get_scope_def(info->bp);
+        if (memmem(schema_def->data, schema_def->data_length,
                    "let codename", strlen("let codename")) != 0) {
             info->codename_is_named_expr = TRUE;
         }

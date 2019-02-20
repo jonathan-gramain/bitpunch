@@ -39,27 +39,25 @@
 extern int tracker_debug_mode;
 #endif
 
-struct bitpunch_schema;
-
 int
 bitpunch_init(void);
 void
 bitpunch_cleanup(void);
 int
 bitpunch_schema_create_from_path(
-    struct bitpunch_schema **schemap, const char *path);
+    struct ast_node_hdl **schemap, const char *path);
 int
 bitpunch_schema_create_from_file_descriptor(
-    struct bitpunch_schema **schemap, int fd);
+    struct ast_node_hdl **schemap, int fd);
 int
 bitpunch_schema_create_from_buffer(
-    struct bitpunch_schema **schemap, const char *buf, size_t buf_size);
+    struct ast_node_hdl **schemap, const char *buf, size_t buf_size);
 int
 bitpunch_schema_create_from_string(
-    struct bitpunch_schema **schemap, const char *str);
+    struct ast_node_hdl **schemap, const char *str);
 
 void
-bitpunch_schema_free(struct bitpunch_schema *schema);
+bitpunch_schema_free(struct ast_node_hdl *schema);
 
 int
 bitpunch_data_source_create_from_file_path(
@@ -96,7 +94,7 @@ bitpunch_env_add_data_source(
 
 
 int
-bitpunch_eval_expr(struct bitpunch_schema *schema,
+bitpunch_eval_expr(struct ast_node_hdl *schema,
                    struct bitpunch_env *env,
                    const char *expr,
                    struct box *scope,

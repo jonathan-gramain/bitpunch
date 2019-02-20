@@ -791,7 +791,7 @@ compile_node_backends__tracker__scope(struct ast_node_hdl *item)
     b_tk->goto_nil = tracker_goto_nil__scope;
 }
 
-static int
+int
 compile_node_backends_scope(struct ast_node_hdl *filter,
                             struct compile_ctx *ctx)
 {
