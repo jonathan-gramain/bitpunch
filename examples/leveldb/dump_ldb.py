@@ -67,8 +67,8 @@ if __name__ == '__main__':
                              outf=output_file.name))
 
     script_dir = os.path.dirname(sys.argv[0])
-    ldb_bp = model.find_handler(path='database.leveldb.ldb')
-    ldb_model = model.DataTree(input_file, ldb_bp)
+    leveldb_bp = model.find_handler(path='database.leveldb')
+    ldb_model = model.DataTree(input_file, leveldb_bp)
 
     # here goes the magic :)
     n_dumped_records = records_dumper(

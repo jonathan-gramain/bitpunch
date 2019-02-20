@@ -63,7 +63,7 @@ let SSTFile = struct {
             DataBlock;
         }
         if (trailer.blocktype == 1) {
-            CompressedDataBlock;
+            snappy <> DataBlock;
         }
         trailer: BlockTrailer;
     };
@@ -80,8 +80,6 @@ let SSTFile = struct {
         restarts:    [nb_restarts] FixInt32;
         nb_restarts: FixInt32;
     };
-
-    let CompressedDataBlock = snappy <> DataBlock;
 };
 
 
