@@ -55,7 +55,7 @@ static const char *check_slack_def =
     "    slack_array: [] u32;\n"
     "};\n";
 
-static struct ast_node_hdl *check_slack_def_hdl;
+static struct ast_node_hdl *check_slack_schema_hdl;
 
 
 static const char check_slack_valid1_contents[] = {
@@ -116,7 +116,7 @@ static const struct test_tracker_expect_box check_slack_valid1_expect[] = {
 
 static const struct test_tracker_spec check_slack_valid1_spec = {
     .test_name = "slack.valid1",
-    .contents_def = &check_slack_def_hdl,
+    .schema_def = &check_slack_schema_hdl,
     .contents = check_slack_valid1_contents,
     .contents_size = sizeof (check_slack_valid1_contents),
     .expect_boxes = check_slack_valid1_expect,
@@ -138,7 +138,7 @@ static const char *check_slack_byte_array_def =
     "    ftr: MyFtr;\n"
     "};\n";
 
-static struct ast_node_hdl *check_slack_byte_array_def_hdl;
+static struct ast_node_hdl *check_slack_byte_array_schema_hdl;
 
 
 static const char check_slack_byte_array_valid1_contents[] = {
@@ -181,7 +181,7 @@ static const struct test_tracker_expect_box check_slack_byte_array_valid1_expect
 
 static const struct test_tracker_spec check_slack_byte_array_valid1_spec = {
     .test_name = "slack_byte_array.valid1",
-    .contents_def = &check_slack_byte_array_def_hdl,
+    .schema_def = &check_slack_byte_array_schema_hdl,
     .contents = check_slack_byte_array_valid1_contents,
     .contents_size = sizeof (check_slack_byte_array_valid1_contents),
     .expect_boxes = check_slack_byte_array_valid1_expect,
@@ -201,7 +201,7 @@ static const char *check_slack_trailing_field_def =
     "    trailer: [7] byte;\n"
     "};\n";
 
-static struct ast_node_hdl *check_slack_trailing_field_def_hdl;
+static struct ast_node_hdl *check_slack_trailing_field_schema_hdl;
 
 
 static const char check_slack_trailing_field_valid1_contents[] = {
@@ -269,7 +269,7 @@ static const struct test_tracker_expect_box check_slack_trailing_field_valid1_ex
 
 static const struct test_tracker_spec check_slack_trailing_field_valid1_spec = {
     .test_name = "slack.trailing_field_valid1",
-    .contents_def = &check_slack_trailing_field_def_hdl,
+    .schema_def = &check_slack_trailing_field_schema_hdl,
     .contents = check_slack_trailing_field_valid1_contents,
     .contents_size = sizeof (check_slack_trailing_field_valid1_contents),
     .expect_boxes = check_slack_trailing_field_valid1_expect,
@@ -294,7 +294,7 @@ static const char *check_slack_trailing_field_recur_def =
     "};\n";
 
 
-static struct ast_node_hdl *check_slack_trailing_field_recur_def_hdl;
+static struct ast_node_hdl *check_slack_trailing_field_recur_schema_hdl;
 static const char check_slack_trailing_field_recur_valid1_contents[] = {
     'h', 'e', 'l', 'l', 'o', 0x00,
     /* -> */ 0x00, 0x00, 0x00, 0x26,
@@ -521,7 +521,7 @@ static const struct test_tracker_expect_box check_slack_trailing_field_recur_val
 
 static const struct test_tracker_spec check_slack_trailing_field_recur_valid1_spec = {
     .test_name = "slack.trailing_field_recur_valid1",
-    .contents_def = &check_slack_trailing_field_recur_def_hdl,
+    .schema_def = &check_slack_trailing_field_recur_schema_hdl,
     .contents = check_slack_trailing_field_recur_valid1_contents,
     .contents_size = sizeof (check_slack_trailing_field_recur_valid1_contents),
     .expect_boxes = check_slack_trailing_field_recur_valid1_expect,
@@ -534,29 +534,29 @@ static void slack_setup(void)
     int ret;
 
     ret = bitpunch_schema_create_from_string(
-        &check_slack_def_hdl, check_slack_def);
+        &check_slack_schema_hdl, check_slack_def);
     assert(0 == ret);
 
     ret = bitpunch_schema_create_from_string(
-        &check_slack_trailing_field_def_hdl, check_slack_trailing_field_def);
+        &check_slack_trailing_field_schema_hdl, check_slack_trailing_field_def);
     assert(0 == ret);
 
     ret = bitpunch_schema_create_from_string(
-        &check_slack_byte_array_def_hdl, check_slack_byte_array_def);
+        &check_slack_byte_array_schema_hdl, check_slack_byte_array_def);
     assert(0 == ret);
 
     ret = bitpunch_schema_create_from_string(
-        &check_slack_trailing_field_recur_def_hdl,
+        &check_slack_trailing_field_recur_schema_hdl,
         check_slack_trailing_field_recur_def);
     assert(0 == ret);
 }
 
 static void slack_teardown(void)
 {
-    bitpunch_schema_free(check_slack_def_hdl);
-    bitpunch_schema_free(check_slack_trailing_field_def_hdl);
-    bitpunch_schema_free(check_slack_byte_array_def_hdl);
-    bitpunch_schema_free(check_slack_trailing_field_recur_def_hdl);
+    bitpunch_schema_free(check_slack_schema_hdl);
+    bitpunch_schema_free(check_slack_trailing_field_schema_hdl);
+    bitpunch_schema_free(check_slack_byte_array_schema_hdl);
+    bitpunch_schema_free(check_slack_trailing_field_recur_schema_hdl);
 }
 
 

@@ -49,13 +49,13 @@
 
 /* static array */
 
-static const char *check_sarray_contents_def =
+static const char *check_sarray_schema_def =
     "let u32 = [4] byte <> integer { @signed: false; @endian: 'big'; };\n"
     "let Root = struct {\n"
     "    int_array: [5] u32;\n"
     "};\n";
 
-static struct ast_node_hdl *check_sarray_def_hdl;
+static struct ast_node_hdl *check_sarray_schema_hdl;
 
 static const char check_sarray_valid1_contents[] = {
     0x0,0x0,0x0,0x1,0x0,0x0,0x0,0x2,0x0,0x0,0x0,0x3,0x0,0x0,0x0,0x4,
@@ -102,7 +102,7 @@ static const struct test_tracker_expect_box check_sarray_valid1_expect[] = {
 
 static const struct test_tracker_spec check_sarray_valid1_spec = {
     .test_name = "sarray.valid1",
-    .contents_def = &check_sarray_def_hdl,
+    .schema_def = &check_sarray_schema_hdl,
     .contents = check_sarray_valid1_contents,
     .contents_size = sizeof (check_sarray_valid1_contents),
     .expect_boxes = check_sarray_valid1_expect,
@@ -157,7 +157,7 @@ check_sarray_invalid_truncated_expect[] = {
 
 static const struct test_tracker_spec check_sarray_invalid_truncated1_spec = {
     .test_name = "sarray.invalid_truncated1",
-    .contents_def = &check_sarray_def_hdl,
+    .schema_def = &check_sarray_schema_hdl,
     .contents = check_sarray_invalid_truncated1_contents,
     .contents_size = sizeof (check_sarray_invalid_truncated1_contents),
     .expect_boxes = check_sarray_invalid_truncated_expect,
@@ -173,7 +173,7 @@ static const char check_sarray_invalid_truncated2_contents[] = {
 
 static const struct test_tracker_spec check_sarray_invalid_truncated2_spec = {
     .test_name = "sarray.invalid_truncated2",
-    .contents_def = &check_sarray_def_hdl,
+    .schema_def = &check_sarray_schema_hdl,
     .contents = check_sarray_invalid_truncated2_contents,
     .contents_size = sizeof (check_sarray_invalid_truncated2_contents),
     .expect_boxes = check_sarray_invalid_truncated_expect,
@@ -185,14 +185,14 @@ static const struct test_tracker_spec check_sarray_invalid_truncated2_spec = {
 /* dynamic array */
 
 
-static const char *check_varray_contents_def =
+static const char *check_varray_schema_def =
     "let u32 = [4] byte <> integer { @signed: false; @endian: 'big'; };\n"
     "let Root = struct {\n"
     "    int_array_size: u32;\n"
     "    int_array: [(2 + int_array_size)] u32;\n"
     "};\n";
 
-static struct ast_node_hdl *check_varray_def_hdl;
+static struct ast_node_hdl *check_varray_schema_hdl;
 
 static const char check_varray_valid1_contents[] = {
     0x0,0x0,0x0,0x3, /* 2 + size=3 -> 5 elements */
@@ -246,7 +246,7 @@ static const struct test_tracker_expect_box check_varray_valid1_expect[] = {
 
 static const struct test_tracker_spec check_varray_valid1_spec = {
     .test_name = "varray.valid1",
-    .contents_def = &check_varray_def_hdl,
+    .schema_def = &check_varray_schema_hdl,
     .contents = check_varray_valid1_contents,
     .contents_size = sizeof (check_varray_valid1_contents),
     .expect_boxes = check_varray_valid1_expect,
@@ -321,7 +321,7 @@ static const struct test_tracker_expect_box check_varray_invalid_truncated1_expe
 
 static const struct test_tracker_spec check_varray_invalid_truncated1_spec = {
     .test_name = "varray.invalid_truncated1",
-    .contents_def = &check_varray_def_hdl,
+    .schema_def = &check_varray_schema_hdl,
     .contents = check_varray_invalid_truncated1_contents,
     .contents_size = sizeof (check_varray_invalid_truncated1_contents),
     .expect_boxes = check_varray_invalid_truncated1_expect,
@@ -335,18 +335,18 @@ static void array_setup(void)
     int ret;
 
     ret = bitpunch_schema_create_from_string(
-        &check_sarray_def_hdl, check_sarray_contents_def);
+        &check_sarray_schema_hdl, check_sarray_schema_def);
     assert(0 == ret);
 
     ret = bitpunch_schema_create_from_string(
-        &check_varray_def_hdl, check_varray_contents_def);
+        &check_varray_schema_hdl, check_varray_schema_def);
     assert(0 == ret);
 }
 
 static void array_teardown(void)
 {
-    bitpunch_schema_free(check_sarray_def_hdl);
-    bitpunch_schema_free(check_varray_def_hdl);
+    bitpunch_schema_free(check_sarray_schema_hdl);
+    bitpunch_schema_free(check_varray_schema_hdl);
 }
 
 START_TEST(sarray_ast)
@@ -362,7 +362,7 @@ START_TEST(sarray_ast)
     const struct ast_node_hdl *item_count;
     struct filter_instance_array *item_f_instance;
 
-    root = check_sarray_def_hdl;
+    root = check_sarray_schema_hdl;
     scope_def = filter_get_const_scope_def(root);
     ck_assert_ptr_ne(scope_def, NULL);
     stmt_lists = &scope_def->block_stmt_list;
@@ -447,7 +447,7 @@ START_TEST(varray_ast)
     const struct ast_node_hdl *op1;
     const struct ast_node_hdl *op2;
 
-    root = check_varray_def_hdl;
+    root = check_varray_schema_hdl;
     scope_def = filter_get_const_scope_def(root);
     ck_assert_ptr_ne(scope_def, NULL);
     stmt_lists = &scope_def->block_stmt_list;
