@@ -166,7 +166,7 @@ static const struct test_tracker_expect_box check_struct_valid1_expect[] = {
 
 static const struct test_tracker_spec check_struct_valid1_spec = {
     .test_name = "struct.valid1",
-    .schema_def = &check_struct_schema_hdl,
+    .schema_hdl = &check_struct_schema_hdl,
     .contents = check_struct_valid1_contents,
     .contents_size = sizeof (check_struct_valid1_contents),
     .expect_boxes = check_struct_valid1_expect,
@@ -275,7 +275,7 @@ check_struct_invalid_truncated1_expect[] = {
 static const struct test_tracker_spec
 check_struct_invalid_truncated1_spec = {
     .test_name = "struct.invalid_truncated1",
-    .schema_def = &check_struct_schema_hdl,
+    .schema_hdl = &check_struct_schema_hdl,
     .contents = check_struct_invalid_truncated1_contents,
     .contents_size = sizeof (check_struct_invalid_truncated1_contents),
     .expect_boxes = check_struct_invalid_truncated1_expect,
@@ -408,7 +408,7 @@ static const struct test_tracker_expect_box check_vstruct_valid1_expect[] = {
 
 static const struct test_tracker_spec check_vstruct_valid1_spec = {
     .test_name = "vstruct.valid1",
-    .schema_def = &check_vstruct_schema_hdl,
+    .schema_hdl = &check_vstruct_schema_hdl,
     .contents = check_vstruct_valid1_contents,
     .contents_size = sizeof (check_vstruct_valid1_contents),
     .expect_boxes = check_vstruct_valid1_expect,

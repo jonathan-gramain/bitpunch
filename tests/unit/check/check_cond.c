@@ -163,7 +163,7 @@ static const struct test_tracker_expect_box check_cond_valid1_expect[] = {
 
 static const struct test_tracker_spec check_cond_valid1_spec = {
     .test_name = "cond.valid1",
-    .schema_def = &check_cond_schema_hdl,
+    .schema_hdl = &check_cond_schema_hdl,
     .contents = check_cond_valid1_contents,
     .contents_size = sizeof (check_cond_valid1_contents),
     .expect_boxes = check_cond_valid1_expect,

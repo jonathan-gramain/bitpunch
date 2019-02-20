@@ -102,7 +102,7 @@ static const struct test_tracker_expect_box check_sarray_valid1_expect[] = {
 
 static const struct test_tracker_spec check_sarray_valid1_spec = {
     .test_name = "sarray.valid1",
-    .schema_def = &check_sarray_schema_hdl,
+    .schema_hdl = &check_sarray_schema_hdl,
     .contents = check_sarray_valid1_contents,
     .contents_size = sizeof (check_sarray_valid1_contents),
     .expect_boxes = check_sarray_valid1_expect,
@@ -157,7 +157,7 @@ check_sarray_invalid_truncated_expect[] = {
 
 static const struct test_tracker_spec check_sarray_invalid_truncated1_spec = {
     .test_name = "sarray.invalid_truncated1",
-    .schema_def = &check_sarray_schema_hdl,
+    .schema_hdl = &check_sarray_schema_hdl,
     .contents = check_sarray_invalid_truncated1_contents,
     .contents_size = sizeof (check_sarray_invalid_truncated1_contents),
     .expect_boxes = check_sarray_invalid_truncated_expect,
@@ -173,7 +173,7 @@ static const char check_sarray_invalid_truncated2_contents[] = {
 
 static const struct test_tracker_spec check_sarray_invalid_truncated2_spec = {
     .test_name = "sarray.invalid_truncated2",
-    .schema_def = &check_sarray_schema_hdl,
+    .schema_hdl = &check_sarray_schema_hdl,
     .contents = check_sarray_invalid_truncated2_contents,
     .contents_size = sizeof (check_sarray_invalid_truncated2_contents),
     .expect_boxes = check_sarray_invalid_truncated_expect,
@@ -246,7 +246,7 @@ static const struct test_tracker_expect_box check_varray_valid1_expect[] = {
 
 static const struct test_tracker_spec check_varray_valid1_spec = {
     .test_name = "varray.valid1",
-    .schema_def = &check_varray_schema_hdl,
+    .schema_hdl = &check_varray_schema_hdl,
     .contents = check_varray_valid1_contents,
     .contents_size = sizeof (check_varray_valid1_contents),
     .expect_boxes = check_varray_valid1_expect,
@@ -321,7 +321,7 @@ static const struct test_tracker_expect_box check_varray_invalid_truncated1_expe
 
 static const struct test_tracker_spec check_varray_invalid_truncated1_spec = {
     .test_name = "varray.invalid_truncated1",
-    .schema_def = &check_varray_schema_hdl,
+    .schema_hdl = &check_varray_schema_hdl,
     .contents = check_varray_invalid_truncated1_contents,
     .contents_size = sizeof (check_varray_invalid_truncated1_contents),
     .expect_boxes = check_varray_invalid_truncated1_expect,

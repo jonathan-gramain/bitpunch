@@ -116,7 +116,7 @@ static const struct test_tracker_expect_box check_slack_valid1_expect[] = {
 
 static const struct test_tracker_spec check_slack_valid1_spec = {
     .test_name = "slack.valid1",
-    .schema_def = &check_slack_schema_hdl,
+    .schema_hdl = &check_slack_schema_hdl,
     .contents = check_slack_valid1_contents,
     .contents_size = sizeof (check_slack_valid1_contents),
     .expect_boxes = check_slack_valid1_expect,
@@ -181,7 +181,7 @@ static const struct test_tracker_expect_box check_slack_byte_array_valid1_expect
 
 static const struct test_tracker_spec check_slack_byte_array_valid1_spec = {
     .test_name = "slack_byte_array.valid1",
-    .schema_def = &check_slack_byte_array_schema_hdl,
+    .schema_hdl = &check_slack_byte_array_schema_hdl,
     .contents = check_slack_byte_array_valid1_contents,
     .contents_size = sizeof (check_slack_byte_array_valid1_contents),
     .expect_boxes = check_slack_byte_array_valid1_expect,
@@ -269,7 +269,7 @@ static const struct test_tracker_expect_box check_slack_trailing_field_valid1_ex
 
 static const struct test_tracker_spec check_slack_trailing_field_valid1_spec = {
     .test_name = "slack.trailing_field_valid1",
-    .schema_def = &check_slack_trailing_field_schema_hdl,
+    .schema_hdl = &check_slack_trailing_field_schema_hdl,
     .contents = check_slack_trailing_field_valid1_contents,
     .contents_size = sizeof (check_slack_trailing_field_valid1_contents),
     .expect_boxes = check_slack_trailing_field_valid1_expect,
@@ -521,7 +521,7 @@ static const struct test_tracker_expect_box check_slack_trailing_field_recur_val
 
 static const struct test_tracker_spec check_slack_trailing_field_recur_valid1_spec = {
     .test_name = "slack.trailing_field_recur_valid1",
-    .schema_def = &check_slack_trailing_field_recur_schema_hdl,
+    .schema_hdl = &check_slack_trailing_field_recur_schema_hdl,
     .contents = check_slack_trailing_field_recur_valid1_contents,
     .contents_size = sizeof (check_slack_trailing_field_recur_valid1_contents),
     .expect_boxes = check_slack_trailing_field_recur_valid1_expect,
