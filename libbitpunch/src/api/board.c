@@ -43,32 +43,32 @@
 struct bitpunch_board *
 bitpunch_board_new(void)
 {
-    struct bitpunch_board *env;
+    struct bitpunch_board *board;
 
-    env = new_safe(struct bitpunch_board);
-    env->ast_root = ast_node_hdl_create_scope(NULL);
-    return env;
+    board = new_safe(struct bitpunch_board);
+    board->ast_root = ast_node_hdl_create_scope(NULL);
+    return board;
 }
 
 void
 bitpunch_board_free(
-    struct bitpunch_board *env)
+    struct bitpunch_board *board)
 {
-    free(env->ast_root);
-    free(env);
+    free(board->ast_root);
+    free(board);
 }
 
 static void
-env_add_named_expr(
-    struct bitpunch_board *env,
+board_add_named_expr(
+    struct bitpunch_board *board,
     const char *name,
     struct ast_node_hdl *expr)
 {
     struct scope_def *scope_def;
     struct named_expr *named_expr;
 
-    env->flags &= ~BITPUNCH_ENV_COMPILED;
-    scope_def = &env->ast_root->ndat->u.scope_def;
+    board->flags &= ~BITPUNCH_ENV_COMPILED;
+    scope_def = &board->ast_root->ndat->u.scope_def;
     named_expr = new_safe(struct named_expr);
     named_expr->nstmt.name = strdup_safe(name);
     named_expr->expr = expr;
@@ -79,7 +79,7 @@ env_add_named_expr(
 
 void
 bitpunch_board_add_data_source(
-    struct bitpunch_board *env,
+    struct bitpunch_board *board,
     const char *name,
     struct bitpunch_data_source *ds)
 {
@@ -87,5 +87,5 @@ bitpunch_board_add_data_source(
 
     source_node = ast_node_hdl_create_data_source(ds);
     assert(NULL != source_node);
-    env_add_named_expr(env, name, source_node);
+    board_add_named_expr(board, name, source_node);
 }

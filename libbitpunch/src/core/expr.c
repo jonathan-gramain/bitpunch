@@ -780,8 +780,8 @@ expr_eval_builtin_env(struct ast_node_hdl *object,
     bitpunch_status_t bt_ret;
     expr_value_t name_eval;
     char name_buf[256];
-    struct ast_node_hdl *env_node;
-    struct ast_node_hdl *env_value_node = NULL;
+    struct ast_node_hdl *board_node;
+    struct ast_node_hdl *board_value_node = NULL;
     struct scope_def *scope_def;
 
     expr = ((struct named_expr *)TAILQ_FIRST(params))->expr;
@@ -798,17 +798,17 @@ expr_eval_builtin_env(struct ast_node_hdl *object,
         if (name_eval.string.len < sizeof (name_buf)) {
             memcpy(name_buf, name_eval.string.str, name_eval.string.len);
             name_buf[name_eval.string.len] = '\0';
-            if (NULL != bst->env) {
-                env_node = bst->env->ast_root;
-                assert(AST_NODE_TYPE_REXPR_FILTER == env_node->ndat->type);
-                scope_def = filter_get_scope_def(env_node);
+            if (NULL != bst->board) {
+                board_node = bst->board->ast_root;
+                assert(AST_NODE_TYPE_REXPR_FILTER == board_node->ndat->type);
+                scope_def = filter_get_scope_def(board_node);
                 assert(NULL != scope_def);
-                env_value_node = scope_get_first_declared_named_expr(
+                board_value_node = scope_get_first_declared_named_expr(
                     scope_def, name_buf);
             } else {
-                env_value_node = NULL;
+                board_value_node = NULL;
             }
-            if (NULL == env_value_node) {
+            if (NULL == board_value_node) {
                 bt_ret = node_error(
                     BITPUNCH_NO_ITEM, expr, bst,
                     "cannot evaluate 'env': no value '%s' present "
@@ -824,7 +824,7 @@ expr_eval_builtin_env(struct ast_node_hdl *object,
         expr_value_destroy(name_eval);
     }
     if (BITPUNCH_OK == bt_ret) {
-        bt_ret = expr_evaluate_internal(env_value_node, NULL,
+        bt_ret = expr_evaluate_internal(board_value_node, NULL,
                                         valuep, dpathp, bst);
     }
     return bt_ret;
@@ -2903,7 +2903,7 @@ expr_value_type_mask_contains_dpath(enum expr_value_type value_type_mask)
 
 bitpunch_status_t
 expr_evaluate(struct ast_node_hdl *expr,
-              struct box *scope, struct bitpunch_board *env,
+              struct box *scope, struct bitpunch_board *board,
               expr_value_t *valuep, expr_dpath_t *dpathp,
               struct tracker_error **errp)
 {
@@ -2913,7 +2913,7 @@ expr_evaluate(struct ast_node_hdl *expr,
     assert(NULL != valuep || NULL != dpathp);
 
     browse_state_init_scope(&bst, scope);
-    bt_ret = browse_state_set_environment(&bst, env);
+    bt_ret = browse_state_set_environment(&bst, board);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -2924,7 +2924,7 @@ expr_evaluate(struct ast_node_hdl *expr,
 
 bitpunch_status_t
 expr_evaluate_value(struct ast_node_hdl *expr,
-                    struct box *scope, struct bitpunch_board *env,
+                    struct box *scope, struct bitpunch_board *board,
                     expr_value_t *valuep,
                     struct tracker_error **errp)
 {
@@ -2934,7 +2934,7 @@ expr_evaluate_value(struct ast_node_hdl *expr,
     assert(NULL != valuep);
 
     browse_state_init_scope(&bst, scope);
-    bt_ret = browse_state_set_environment(&bst, env);
+    bt_ret = browse_state_set_environment(&bst, board);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -2945,7 +2945,7 @@ expr_evaluate_value(struct ast_node_hdl *expr,
 
 bitpunch_status_t
 expr_evaluate_dpath(struct ast_node_hdl *expr,
-                    struct box *scope, struct bitpunch_board *env,
+                    struct box *scope, struct bitpunch_board *board,
                     expr_dpath_t *dpathp,
                     struct tracker_error **errp)
 {
@@ -2955,7 +2955,7 @@ expr_evaluate_dpath(struct ast_node_hdl *expr,
     assert(NULL != dpathp);
 
     browse_state_init_scope(&bst, scope);
-    bt_ret = browse_state_set_environment(&bst, env);
+    bt_ret = browse_state_set_environment(&bst, board);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -2966,7 +2966,7 @@ expr_evaluate_dpath(struct ast_node_hdl *expr,
 
 bitpunch_status_t
 evaluate_conditional(struct ast_node_hdl *cond,
-                     struct box *scope, struct bitpunch_board *env,
+                     struct box *scope, struct bitpunch_board *board,
                      int *evalp,
                      struct tracker_error **errp)
 {
@@ -2974,7 +2974,7 @@ evaluate_conditional(struct ast_node_hdl *cond,
     bitpunch_status_t bt_ret;
 
     browse_state_init_scope(&bst, scope);
-    bt_ret = browse_state_set_environment(&bst, env);
+    bt_ret = browse_state_set_environment(&bst, board);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }

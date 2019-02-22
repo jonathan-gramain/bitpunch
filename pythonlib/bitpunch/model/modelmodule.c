@@ -810,7 +810,7 @@ typedef struct DataItemObject {
 typedef struct DataTreeObject {
     DataItemObject item;
     FormatSpecObject *fmt;
-    struct bitpunch_board *env;
+    struct bitpunch_board *board;
     ARRAY_HEAD(datasource_array, struct bitpunch_data_source) data_sources;
 } DataTreeObject;
 
@@ -2201,7 +2201,7 @@ DataTree_new(PyTypeObject *subtype,
     PyObject *bin;
     FormatSpecObject *fmt;
     struct bitpunch_data_source *ds;
-    struct bitpunch_board *env;
+    struct bitpunch_board *board;
     DataTreeObject *self;
     struct box *root_box;
 
@@ -2261,26 +2261,26 @@ DataTree_new(PyTypeObject *subtype,
         return NULL;
     }
 
-    env = bitpunch_board_new();
-    bitpunch_board_add_data_source(env, "DATASOURCE", ds);
+    board = bitpunch_board_new();
+    bitpunch_board_add_data_source(board, "DATASOURCE", ds);
 
     self = (DataTreeObject *)DataItem_new(subtype, NULL, NULL);
     if (NULL == self) {
         (void) bitpunch_data_source_release(ds);
-        bitpunch_board_free(env);
+        bitpunch_board_free(board);
         return NULL;
     }
-    root_box = box_new_root_box(fmt->schema, env, TRUE);
+    root_box = box_new_root_box(fmt->schema, board, TRUE);
     if (NULL == root_box) {
         PyErr_SetString(PyExc_OSError, "Error creating root box");
         Py_DECREF((PyObject *)self);
         (void) bitpunch_data_source_release(ds);
-        bitpunch_board_free(env);
+        bitpunch_board_free(board);
         return NULL;
     }
     DataItem_construct(&self->item, self);
     self->item.dpath = expr_dpath_as_container(root_box);
-    self->env = env;
+    self->board = board;
     self->fmt = fmt;
     ARRAY_INIT(&self->data_sources, 0);
     ARRAY_APPEND(&self->data_sources, *ds);
@@ -2295,9 +2295,9 @@ DataTree_clear(DataTreeObject *self)
 
     DataItem_clear(&self->item);
 
-    if (NULL != self->env) {
-        bitpunch_board_free(self->env);
-        self->env = NULL;
+    if (NULL != self->board) {
+        bitpunch_board_free(self->board);
+        self->board = NULL;
     }
     tmp = (PyObject *)self->fmt;
     self->fmt = NULL;
@@ -3428,7 +3428,7 @@ eval_expr_as_python_object(DataItemObject *item, const char *expr)
 {
     DataTreeObject *dtree;
     struct ast_node_hdl *schema;
-    struct bitpunch_board *env;
+    struct bitpunch_board *board;
     struct box *scope;
     int ret;
     expr_value_t expr_value;
@@ -3441,16 +3441,16 @@ eval_expr_as_python_object(DataItemObject *item, const char *expr)
         }
         dtree = item->dtree;
         schema = dtree->fmt->schema;
-        env = dtree->env;
+        board = dtree->board;
         scope = item->dpath.box;
     } else {
         dtree = NULL;
         schema = NULL;
-        env = NULL;
+        board = NULL;
         scope = NULL;
     }
 
-    ret = bitpunch_eval_expr(schema, env, expr, scope,
+    ret = bitpunch_eval_expr(schema, board, expr, scope,
                              &expr_value, &expr_dpath, &tk_err);
     if (-1 == ret) {
         if (NULL != tk_err) {

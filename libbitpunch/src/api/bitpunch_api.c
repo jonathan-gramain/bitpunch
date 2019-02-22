@@ -62,7 +62,7 @@ bitpunch_cleanup(void)
 
 int
 bitpunch_eval_expr(struct ast_node_hdl *schema,
-                   struct bitpunch_board *env,
+                   struct bitpunch_board *board,
                    const char *expr,
                    struct box *scope,
                    expr_value_t *valuep, expr_dpath_t *dpathp,
@@ -78,12 +78,12 @@ bitpunch_eval_expr(struct ast_node_hdl *schema,
     if (-1 == bitpunch_parse_expr(expr, &expr_node, &parser_ctx)) {
         return -1;
     }
-    if (NULL != env && -1 == bitpunch_compile_env(env)) {
+    if (NULL != board && -1 == bitpunch_compile_board(board)) {
         return -1;
     }
     if (NULL != schema) {
         if (NULL == scope) {
-            scope = box_new_root_box(schema, env, FALSE);
+            scope = box_new_root_box(schema, board, FALSE);
             if (NULL == scope) {
                 goto end;
             }
@@ -97,7 +97,7 @@ bitpunch_eval_expr(struct ast_node_hdl *schema,
         goto end;
     }
     assert(ast_node_is_rexpr(expr_node));
-    bt_ret = expr_evaluate(expr_node, scope, env, valuep, dpathp, errp);
+    bt_ret = expr_evaluate(expr_node, scope, board, valuep, dpathp, errp);
     if (BITPUNCH_OK == bt_ret) {
         ret = 0;
     }

@@ -151,14 +151,14 @@ bitpunch_compile_schema(struct ast_node_hdl *schema)
 }
 
 int
-bitpunch_compile_env(struct bitpunch_board *env)
+bitpunch_compile_board(struct bitpunch_board *board)
 {
     struct ast_node_hdl *ast_root;
 
-    if (0 != (env->flags & BITPUNCH_ENV_COMPILED)) {
+    if (0 != (board->flags & BITPUNCH_ENV_COMPILED)) {
         return 0;
     }
-    ast_root = env->ast_root;
+    ast_root = board->ast_root;
     if (-1 == resolve_identifiers(ast_root, NULL,
                                   RESOLVE_EXPECT_TYPE |
                                   RESOLVE_EXPECT_FILTER,
@@ -176,7 +176,7 @@ bitpunch_compile_env(struct bitpunch_board *env)
                                    RESOLVE_EXPECT_FILTER)) {
         return -1;
     }
-    env->flags |= BITPUNCH_ENV_COMPILED;
+    board->flags |= BITPUNCH_ENV_COMPILED;
     return 0;
 }
 

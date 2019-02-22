@@ -84,18 +84,18 @@ bitpunch_board_new(void);
 
 void
 bitpunch_board_free(
-    struct bitpunch_board *env);
+    struct bitpunch_board *board);
 
 void
 bitpunch_board_add_data_source(
-    struct bitpunch_board *env,
+    struct bitpunch_board *board,
     const char *name,
     struct bitpunch_data_source *ds);
 
 
 int
 bitpunch_eval_expr(struct ast_node_hdl *schema,
-                   struct bitpunch_board *env,
+                   struct bitpunch_board *board,
                    const char *expr,
                    struct box *scope,
                    expr_value_t *valuep, expr_dpath_t *dpathp,
