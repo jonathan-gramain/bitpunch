@@ -143,7 +143,7 @@ void
 browse_state_cleanup(struct browse_state *bst);
 bitpunch_status_t
 browse_state_set_environment(struct browse_state *bst,
-                             struct bitpunch_env *env);
+                             struct bitpunch_board *env);
 void
 browse_state_push_scope(struct browse_state *bst, struct box *scope,
                         struct box **storagep);

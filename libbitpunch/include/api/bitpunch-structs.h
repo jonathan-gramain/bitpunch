@@ -92,14 +92,14 @@ struct bitpunch_file_source {
     size_t    map_length;
 };
 
-enum bitpunch_env_flag {
+enum bitpunch_board_flag {
     BITPUNCH_ENV_COMPILED = (1u<<0),
 };
 
-struct bitpunch_env {
+struct bitpunch_board {
     /** root node for the environment, of type AST_NODE_TYPE_SCOPE_DEF */
     struct ast_node_hdl *ast_root;
-    enum bitpunch_env_flag flags;
+    enum bitpunch_board_flag flags;
 };
 
 #endif

@@ -151,7 +151,7 @@ bitpunch_compile_schema(struct ast_node_hdl *schema)
 }
 
 int
-bitpunch_compile_env(struct bitpunch_env *env)
+bitpunch_compile_env(struct bitpunch_board *env)
 {
     struct ast_node_hdl *ast_root;
 

@@ -79,23 +79,23 @@ int
 bitpunch_data_source_release(struct bitpunch_data_source *ds);
 
 
-struct bitpunch_env *
-bitpunch_env_new(void);
+struct bitpunch_board *
+bitpunch_board_new(void);
 
 void
-bitpunch_env_free(
-    struct bitpunch_env *env);
+bitpunch_board_free(
+    struct bitpunch_board *env);
 
 void
-bitpunch_env_add_data_source(
-    struct bitpunch_env *env,
+bitpunch_board_add_data_source(
+    struct bitpunch_board *env,
     const char *name,
     struct bitpunch_data_source *ds);
 
 
 int
 bitpunch_eval_expr(struct ast_node_hdl *schema,
-                   struct bitpunch_env *env,
+                   struct bitpunch_board *env,
                    const char *expr,
                    struct box *scope,
                    expr_value_t *valuep, expr_dpath_t *dpathp,

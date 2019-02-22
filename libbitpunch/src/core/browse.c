@@ -209,7 +209,7 @@ browse_state_cleanup(struct browse_state *bst)
 
 bitpunch_status_t
 browse_state_set_environment(struct browse_state *bst,
-                             struct bitpunch_env *env)
+                             struct bitpunch_board *env)
 {
     bst->env = env;
     if (NULL != env && -1 == bitpunch_compile_env(env)) {
@@ -1023,7 +1023,7 @@ box_new_root_box_internal(struct ast_node_hdl *schema,
 
 struct box *
 box_new_root_box(struct ast_node_hdl *schema,
-                 struct bitpunch_env *env,
+                 struct bitpunch_board *env,
                  int manage_env)
 {
     struct browse_state bst;
@@ -1231,7 +1231,7 @@ box_free(struct box *box)
             (struct bitpunch_data_source *)box->ds_out);
     }
     if (0 != (box->flags & BOX_MANAGE_ENV)) {
-        bitpunch_env_free(box->env);
+        bitpunch_board_free(box->env);
     }
     free(box);
 }
@@ -2134,13 +2134,13 @@ track_data_source(struct ast_node_hdl *schema,
                   struct tracker_error **errp)
 {
     struct box *root_box;
-    struct bitpunch_env *env;
+    struct bitpunch_board *env;
     struct tracker *tk;
     bitpunch_status_t bt_ret;
 
     // FIXME tracker should steal environment to manage its lifetime
-    env = bitpunch_env_new();
-    bitpunch_env_add_data_source(env, ds_name, ds);
+    env = bitpunch_board_new();
+    bitpunch_board_add_data_source(env, ds_name, ds);
 
     root_box = box_new_root_box(schema, env, TRUE);
     if (NULL == root_box) {

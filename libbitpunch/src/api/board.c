@@ -40,19 +40,19 @@
 #include "filters/data_source.h"
 #include "api/bitpunch_api.h"
 
-struct bitpunch_env *
-bitpunch_env_new(void)
+struct bitpunch_board *
+bitpunch_board_new(void)
 {
-    struct bitpunch_env *env;
+    struct bitpunch_board *env;
 
-    env = new_safe(struct bitpunch_env);
+    env = new_safe(struct bitpunch_board);
     env->ast_root = ast_node_hdl_create_scope(NULL);
     return env;
 }
 
 void
-bitpunch_env_free(
-    struct bitpunch_env *env)
+bitpunch_board_free(
+    struct bitpunch_board *env)
 {
     free(env->ast_root);
     free(env);
@@ -60,7 +60,7 @@ bitpunch_env_free(
 
 static void
 env_add_named_expr(
-    struct bitpunch_env *env,
+    struct bitpunch_board *env,
     const char *name,
     struct ast_node_hdl *expr)
 {
@@ -78,8 +78,8 @@ env_add_named_expr(
 }
 
 void
-bitpunch_env_add_data_source(
-    struct bitpunch_env *env,
+bitpunch_board_add_data_source(
+    struct bitpunch_board *env,
     const char *name,
     struct bitpunch_data_source *ds)
 {

@@ -62,7 +62,7 @@ bitpunch_cleanup(void)
 
 int
 bitpunch_eval_expr(struct ast_node_hdl *schema,
-                   struct bitpunch_env *env,
+                   struct bitpunch_board *env,
                    const char *expr,
                    struct box *scope,
                    expr_value_t *valuep, expr_dpath_t *dpathp,

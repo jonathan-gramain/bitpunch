@@ -810,7 +810,7 @@ typedef struct DataItemObject {
 typedef struct DataTreeObject {
     DataItemObject item;
     FormatSpecObject *fmt;
-    struct bitpunch_env *env;
+    struct bitpunch_board *env;
     ARRAY_HEAD(datasource_array, struct bitpunch_data_source) data_sources;
 } DataTreeObject;
 
@@ -2201,7 +2201,7 @@ DataTree_new(PyTypeObject *subtype,
     PyObject *bin;
     FormatSpecObject *fmt;
     struct bitpunch_data_source *ds;
-    struct bitpunch_env *env;
+    struct bitpunch_board *env;
     DataTreeObject *self;
     struct box *root_box;
 
@@ -2261,13 +2261,13 @@ DataTree_new(PyTypeObject *subtype,
         return NULL;
     }
 
-    env = bitpunch_env_new();
-    bitpunch_env_add_data_source(env, "DATASOURCE", ds);
+    env = bitpunch_board_new();
+    bitpunch_board_add_data_source(env, "DATASOURCE", ds);
 
     self = (DataTreeObject *)DataItem_new(subtype, NULL, NULL);
     if (NULL == self) {
         (void) bitpunch_data_source_release(ds);
-        bitpunch_env_free(env);
+        bitpunch_board_free(env);
         return NULL;
     }
     root_box = box_new_root_box(fmt->schema, env, TRUE);
@@ -2275,7 +2275,7 @@ DataTree_new(PyTypeObject *subtype,
         PyErr_SetString(PyExc_OSError, "Error creating root box");
         Py_DECREF((PyObject *)self);
         (void) bitpunch_data_source_release(ds);
-        bitpunch_env_free(env);
+        bitpunch_board_free(env);
         return NULL;
     }
     DataItem_construct(&self->item, self);
@@ -2296,7 +2296,7 @@ DataTree_clear(DataTreeObject *self)
     DataItem_clear(&self->item);
 
     if (NULL != self->env) {
-        bitpunch_env_free(self->env);
+        bitpunch_board_free(self->env);
         self->env = NULL;
     }
     tmp = (PyObject *)self->fmt;
@@ -3428,7 +3428,7 @@ eval_expr_as_python_object(DataItemObject *item, const char *expr)
 {
     DataTreeObject *dtree;
     struct ast_node_hdl *schema;
-    struct bitpunch_env *env;
+    struct bitpunch_board *env;
     struct box *scope;
     int ret;
     expr_value_t expr_value;
