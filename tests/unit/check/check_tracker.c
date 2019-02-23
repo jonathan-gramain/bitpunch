@@ -85,7 +85,9 @@ void
 check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
                                  int only_browse)
 {
+    struct bitpunch_board *board;
     struct bitpunch_data_source *ds_in;
+    struct box *root_box;
     struct tracker *tk;
     int ret;
     int box_idx;
@@ -95,11 +97,20 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
     int64_t n_items;
     struct ast_node_hdl *item_filter;
 
+    board = bitpunch_board_new();
+
     ret = bitpunch_data_source_create_from_memory(
         &ds_in, test_spec->contents, test_spec->contents_size, FALSE);
     ck_assert_int_eq(ret, 0);
 
-    tk = track_data_source(*test_spec->schema_hdl, "DATASOURCE", ds_in, NULL);
+    bitpunch_board_add_data_source(board, "DATASOURCE", ds_in);
+
+    root_box = box_new_root_box(*test_spec->schema_hdl, board, FALSE);
+    ck_assert_ptr_ne(root_box, NULL);
+
+    bt_ret = track_box_contents(root_box, &tk, NULL);
+    box_delete_non_null(root_box);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     ck_assert_ptr_ne(tk, NULL);
 
     bt_ret = tracker_goto_first_item(tk, NULL);
@@ -167,6 +178,8 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
 
     ret = bitpunch_data_source_release(ds_in);
     ck_assert_int_eq(ret, 0);
+
+    bitpunch_board_free(board);
 }
 
 
@@ -246,15 +259,25 @@ void
 check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
                                   int only_browse)
 {
+    struct bitpunch_board *board;
     struct bitpunch_data_source *ds_in;
+    struct box *root_box;
     struct tracker *tk;
+    bitpunch_status_t bt_ret;
     int ret;
+
+    board = bitpunch_board_new();
 
     ret = bitpunch_data_source_create_from_memory(
         &ds_in, test_spec->contents, test_spec->contents_size, FALSE);
     ck_assert_int_eq(ret, 0);
 
-    tk = track_data_source(*test_spec->schema_hdl, "DATASOURCE", ds_in, NULL);
+    root_box = box_new_root_box(*test_spec->schema_hdl, board, FALSE);
+    ck_assert_ptr_ne(root_box, NULL);
+
+    bt_ret = track_box_contents(root_box, &tk, NULL);
+    box_delete_non_null(root_box);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     ck_assert_ptr_ne(tk, NULL);
 
     check_tracker_browse_sub_trackers_recur(tk, test_spec, -1,
@@ -264,13 +287,17 @@ check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
 
     ret = bitpunch_data_source_release(ds_in);
     ck_assert_int_eq(ret, 0);
+
+    bitpunch_board_free(board);
 }
 
 void
 check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
                                   int only_browse)
 {
+    struct bitpunch_board *board;
     struct bitpunch_data_source *ds_in;
+    struct box *root_box;
     struct tracker *tk;
     int ret;
     int box_idx;
@@ -283,11 +310,18 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
     int j;
     int swap_idx;
 
+    board = bitpunch_board_new();
+
     ret = bitpunch_data_source_create_from_memory(
         &ds_in, test_spec->contents, test_spec->contents_size, FALSE);
     ck_assert_int_eq(ret, 0);
 
-    tk = track_data_source(*test_spec->schema_hdl, "DATASOURCE", ds_in, NULL);
+    root_box = box_new_root_box(*test_spec->schema_hdl, board, FALSE);
+    ck_assert_ptr_ne(root_box, NULL);
+
+    bt_ret = track_box_contents(root_box, &tk, NULL);
+    box_delete_non_null(root_box);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     ck_assert_ptr_ne(tk, NULL);
 
     random_box_indices = malloc_safe(test_spec->n_expect_boxes
@@ -347,6 +381,8 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
 
     ret = bitpunch_data_source_release(ds_in);
     ck_assert_int_eq(ret, 0);
+
+    bitpunch_board_free(board);
 }
 
 
