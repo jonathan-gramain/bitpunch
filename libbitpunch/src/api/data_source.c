@@ -215,9 +215,16 @@ data_source_create_from_file_path_internal(
 
 int
 bitpunch_data_source_create_from_file_path(
-    struct bitpunch_data_source **dsp, const char *path)
+    struct ast_node_hdl **dsp, const char *path)
 {
-    return data_source_create_from_file_path_internal(dsp, path, TRUE);
+    int ret;
+    struct bitpunch_data_source *ds;
+
+    ret = data_source_create_from_file_path_internal(&ds, path, TRUE);
+    if (0 == ret) {
+        *dsp = ast_node_hdl_create_data_source(ds);
+    }
+    return ret;
 }
 
 void
@@ -237,7 +244,7 @@ data_source_close_file_descriptor(struct bitpunch_data_source *ds)
 
 int
 bitpunch_data_source_create_from_file_descriptor(
-    struct bitpunch_data_source **dsp, int fd)
+    struct ast_node_hdl **dsp, int fd)
 {
     struct bitpunch_file_source *fs;
 
@@ -255,7 +262,7 @@ bitpunch_data_source_create_from_file_descriptor(
         free(fs);
         return -1;
     }
-    *dsp = &fs->ds;
+    *dsp = ast_node_hdl_create_data_source(&fs->ds);
     return 0;
 }
 
@@ -268,7 +275,7 @@ data_source_close_managed_memory(struct bitpunch_data_source *ds)
 
 int
 bitpunch_data_source_create_from_memory(
-    struct bitpunch_data_source **dsp,
+    struct ast_node_hdl **dsp,
     const char *data, size_t data_size, int manage_buffer)
 {
     struct bitpunch_data_source *ds;
@@ -281,7 +288,7 @@ bitpunch_data_source_create_from_memory(
     }
     ds->ds_data = data;
     ds->ds_data_length = data_size;
-    *dsp = ds;
+    *dsp = ast_node_hdl_create_data_source(ds);
     return 0;
 }
 
@@ -310,11 +317,14 @@ data_source_free(struct bitpunch_data_source *ds)
 }
 
 int
-bitpunch_data_source_release(struct bitpunch_data_source *ds)
+bitpunch_data_source_release(struct ast_node_hdl *ds_node)
 {
-    if (NULL == ds) {
+    struct bitpunch_data_source *ds;
+
+    if (NULL == ds_node) {
         return 0;
     }
+    ds = ds_node->ndat->u.rexpr_filter.f_instance->data_source;
     if (0 == (ds->flags & (BITPUNCH_DATA_SOURCE_CACHED |
                            BITPUNCH_DATA_SOURCE_EXTERNAL))) {
         return data_source_free(ds);

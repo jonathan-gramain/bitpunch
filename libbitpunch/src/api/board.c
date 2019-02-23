@@ -77,15 +77,12 @@ board_add_named_expr(
                       (struct statement *)named_expr, list);
 }
 
-void
-bitpunch_board_add_data_source(
+bitpunch_status_t
+bitpunch_board_add_item(
     struct bitpunch_board *board,
     const char *name,
-    struct bitpunch_data_source *ds)
+    struct ast_node_hdl *item)
 {
-    struct ast_node_hdl *source_node;
-
-    source_node = ast_node_hdl_create_data_source(ds);
-    assert(NULL != source_node);
-    board_add_named_expr(board, name, source_node);
+    board_add_named_expr(board, name, item);
+    return BITPUNCH_OK;
 }

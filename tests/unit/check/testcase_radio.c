@@ -84,8 +84,7 @@ static const char *radio_codenames[] = {
 };
 
 struct radio_source_info {
-    struct ast_node_hdl *bp;
-    struct bitpunch_data_source *bin;
+    struct bitpunch_board *board;
     struct tracker *tk;
     int64_t codename_offset[N_ELEM(radio_codenames)];
     int codename_is_named_expr;
@@ -97,8 +96,11 @@ static void testcase_radio_setup(void)
 {
     int i;
     int ret;
+    bitpunch_status_t bt_ret;
     char filepath[128];
     struct radio_source_info *info;
+    struct ast_node_hdl *bp_schema;
+    struct ast_node_hdl *ds;
     int c;
     const char *codename;
     char *location;
@@ -107,15 +109,21 @@ static void testcase_radio_setup(void)
     for (i = 0; i < N_ELEM(radio_sources); ++i) {
         info = &radio_source_info[i];
 
-        snprintf(filepath, sizeof (filepath),
-                 "tests/common/radio/radio_%s.bp", radio_sources[i]);
-        ret = bitpunch_schema_create_from_path(&info->bp, filepath);
+        info->board = bitpunch_board_new();
+
+        snprintf(filepath, sizeof (filepath), "tests/common/radio/radio_%s.bin",
+                 radio_sources[i]);
+        ret = bitpunch_data_source_create_from_file_path(&ds, filepath);
         assert(0 == ret);
+        bt_ret = bitpunch_board_add_item(info->board, "DATASOURCE", ds);
+        assert(BITPUNCH_OK == bt_ret);
 
         snprintf(filepath, sizeof (filepath),
-                 "tests/common/radio/radio_%s.bin", radio_sources[i]);
-        ret = bitpunch_data_source_create_from_file_path(&info->bin, filepath);
+                 "tests/common/radio/radio_%s.bp", radio_sources[i]);
+        ret = bitpunch_schema_create_from_path(&bp_schema, filepath);
         assert(0 == ret);
+        bt_ret = bitpunch_board_add_item(info->board, "SCHEMA", bp_schema);
+        assert(BITPUNCH_OK == bt_ret);
 
         for (c = 0; c < N_ELEM(radio_codenames); ++c) {
             codename = radio_codenames[c];
