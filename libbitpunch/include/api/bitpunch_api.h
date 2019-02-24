@@ -92,6 +92,11 @@ bitpunch_board_add_item(
     const char *name,
     struct ast_node_hdl *item);
 
+bitpunch_status_t
+bitpunch_board_add_expr(
+    struct bitpunch_board *board,
+    const char *name,
+    const char *expr);
 
 bitpunch_status_t
 bitpunch_compile_expr(
@@ -106,6 +111,12 @@ bitpunch_eval_expr(struct ast_node_hdl *schema,
                    struct box *scope,
                    expr_value_t *valuep, expr_dpath_t *dpathp,
                    struct tracker_error **errp);
+
+bitpunch_status_t
+bitpunch_eval_expr2(struct bitpunch_board *board,
+                    const char *expr,
+                    expr_value_t *valuep, expr_dpath_t *dpathp,
+                    struct tracker_error **errp);
 
 const char *
 bitpunch_status_pretty(bitpunch_status_t bt_ret);

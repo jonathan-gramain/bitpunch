@@ -86,3 +86,52 @@ bitpunch_board_add_item(
     board_add_named_expr(board, name, item);
     return BITPUNCH_OK;
 }
+
+bitpunch_status_t
+bitpunch_board_add_expr(
+    struct bitpunch_board *board,
+    const char *name,
+    const char *expr)
+{
+    struct ast_node_hdl *expr_node;
+
+    bt_ret = bitpunch_compile_expr(board, expr, &expr_node);
+    if (BITPUNCH_OK == bt_ret) {
+        board_add_named_expr(board, name, expr_node);
+    }
+    return bt_ret;
+}
+
+bitpunch_status_t
+bitpunch_eval_expr2(struct bitpunch_board *board,
+                    const char *expr,
+                    expr_value_t *valuep, expr_dpath_t *dpathp,
+                    struct tracker_error **errp)
+{
+    struct ast_node_hdl *expr_node = NULL;
+    struct parser_ctx *parser_ctx = NULL;
+    struct box *scope = NULL;
+    bitpunch_status_t bt_ret;
+
+    assert(NULL != expr);
+
+    if (-1 == bitpunch_parse_expr(expr, &expr_node, &parser_ctx)) {
+        return -1;
+    }
+    scope = box_new_root_box(board->ast_root, board, FALSE);
+    if (NULL == scope) {
+        goto end;
+    }
+    box_acquire(scope);
+    if (-1 == bitpunch_resolve_expr(expr_node, scope)) {
+        goto end;
+    }
+    assert(ast_node_is_rexpr(expr_node));
+    bt_ret = expr_evaluate(expr_node, scope, board, valuep, dpathp, errp);
+
+  end:
+    box_delete(scope);
+    /* TODO free expr_node */
+    free(parser_ctx);
+    return bt_ret;
+}
