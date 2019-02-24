@@ -46,7 +46,9 @@
 
 #include "utils/queue.h"
 #include "core/browse.h"
+#include "core/filter.h"
 #include "api/bitpunch_api.h"
+#include "filters/data_source.h"
 
 static int
 data_source_free(struct bitpunch_data_source *ds);
@@ -346,11 +348,17 @@ data_source_release_internal(struct bitpunch_data_source *ds)
 int
 bitpunch_data_source_release(struct ast_node_hdl *ds_node)
 {
+    bitpunch_status_t bt_ret;
+    struct bitpunch_data_source *ds;
+
     if (NULL == ds_node) {
         return 0;
     }
-    return data_source_release_internal(
-        ds_node->ndat->u.rexpr_filter.f_instance->data_source);
+    bt_ret = filter_instance_get_data_source(ds_node, NULL, &ds, NULL);
+    if (BITPUNCH_OK != bt_ret) {
+        return -1;
+    }
+    return data_source_release_internal(ds);
 }
 
 static int

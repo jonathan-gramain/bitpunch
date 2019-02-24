@@ -69,7 +69,6 @@ bitpunch_compile_expr(
     struct ast_node_hdl *expr_node = NULL;
     struct parser_ctx *parser_ctx = NULL;
     struct box *scope;
-    bitpunch_status_t bt_ret;
     int ret;
 
     if (-1 == bitpunch_parse_expr(expr, &expr_node, &parser_ctx)) {

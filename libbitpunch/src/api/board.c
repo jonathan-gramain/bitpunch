@@ -37,6 +37,7 @@
 #include <assert.h>
 
 #include "core/parser.h"
+#include "core/browse.h"
 #include "filters/data_source.h"
 #include "api/bitpunch_api.h"
 
@@ -84,7 +85,6 @@ bitpunch_board_add_item(
     struct ast_node_hdl *item)
 {
     board_add_named_expr(board, name, item);
-    return BITPUNCH_OK;
 }
 
 bitpunch_status_t
@@ -94,6 +94,7 @@ bitpunch_board_add_expr(
     const char *expr)
 {
     struct ast_node_hdl *expr_node;
+    bitpunch_status_t bt_ret;
 
     bt_ret = bitpunch_compile_expr(board, expr, &expr_node);
     if (BITPUNCH_OK == bt_ret) {
