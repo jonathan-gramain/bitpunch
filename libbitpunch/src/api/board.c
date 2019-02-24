@@ -77,7 +77,7 @@ board_add_named_expr(
                       (struct statement *)named_expr, list);
 }
 
-bitpunch_status_t
+void
 bitpunch_board_add_item(
     struct bitpunch_board *board,
     const char *name,

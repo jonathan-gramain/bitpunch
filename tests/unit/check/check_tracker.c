@@ -86,8 +86,8 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
                                  int only_browse)
 {
     struct bitpunch_board *board;
-    struct bitpunch_data_source *ds_in;
-    struct box *root_box;
+    struct ast_node_hdl *ds_in;
+    expr_dpath_t dpath;
     struct tracker *tk;
     int ret;
     int box_idx;
@@ -103,13 +103,16 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
         &ds_in, test_spec->contents, test_spec->contents_size, FALSE);
     ck_assert_int_eq(ret, 0);
 
-    bitpunch_board_add_data_source(board, "DATASOURCE", ds_in);
+    bitpunch_board_add_item(board, "DATASOURCE", ds_in);
+    bitpunch_board_add_item(board, "SCHEMA", *test_spec->schema_hdl);
 
-    root_box = box_new_root_box(*test_spec->schema_hdl, board, FALSE);
-    ck_assert_ptr_ne(root_box, NULL);
+    bt_ret = bitpunch_board_add_expr(board, "ROOT", "DATASOURCE <> SCHEMA");
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
 
-    bt_ret = track_box_contents(root_box, &tk, NULL);
-    box_delete_non_null(root_box);
+    bt_ret = bitpunch_eval_expr2(board, "ROOT", NULL, &dpath, NULL);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+    bt_ret = track_dpath_contents(dpath, &tk, NULL);
+    expr_dpath_destroy(dpath);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     ck_assert_ptr_ne(tk, NULL);
 
@@ -260,8 +263,8 @@ check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
                                   int only_browse)
 {
     struct bitpunch_board *board;
-    struct bitpunch_data_source *ds_in;
-    struct box *root_box;
+    struct ast_node_hdl *ds_in;
+    expr_dpath_t dpath;
     struct tracker *tk;
     bitpunch_status_t bt_ret;
     int ret;
@@ -272,11 +275,16 @@ check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
         &ds_in, test_spec->contents, test_spec->contents_size, FALSE);
     ck_assert_int_eq(ret, 0);
 
-    root_box = box_new_root_box(*test_spec->schema_hdl, board, FALSE);
-    ck_assert_ptr_ne(root_box, NULL);
+    bitpunch_board_add_item(board, "DATASOURCE", ds_in);
+    bitpunch_board_add_item(board, "SCHEMA", *test_spec->schema_hdl);
 
-    bt_ret = track_box_contents(root_box, &tk, NULL);
-    box_delete_non_null(root_box);
+    bt_ret = bitpunch_board_add_expr(board, "ROOT", "DATASOURCE <> SCHEMA");
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+
+    bt_ret = bitpunch_eval_expr2(board, "ROOT", NULL, &dpath, NULL);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+    bt_ret = track_dpath_contents(dpath, &tk, NULL);
+    expr_dpath_destroy(dpath);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     ck_assert_ptr_ne(tk, NULL);
 
@@ -296,8 +304,8 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
                                   int only_browse)
 {
     struct bitpunch_board *board;
-    struct bitpunch_data_source *ds_in;
-    struct box *root_box;
+    struct ast_node_hdl *ds_in;
+    expr_dpath_t dpath;
     struct tracker *tk;
     int ret;
     int box_idx;
@@ -316,11 +324,10 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
         &ds_in, test_spec->contents, test_spec->contents_size, FALSE);
     ck_assert_int_eq(ret, 0);
 
-    root_box = box_new_root_box(*test_spec->schema_hdl, board, FALSE);
-    ck_assert_ptr_ne(root_box, NULL);
-
-    bt_ret = track_box_contents(root_box, &tk, NULL);
-    box_delete_non_null(root_box);
+    bt_ret = bitpunch_eval_expr2(board, "ROOT", NULL, &dpath, NULL);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+    bt_ret = track_dpath_contents(dpath, &tk, NULL);
+    expr_dpath_destroy(dpath);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     ck_assert_ptr_ne(tk, NULL);
 

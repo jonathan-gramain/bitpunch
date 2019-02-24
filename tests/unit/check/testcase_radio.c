@@ -116,8 +116,7 @@ static void testcase_radio_setup(void)
                  radio_sources[i]);
         ret = bitpunch_data_source_create_from_file_path(&ds_node, filepath);
         assert(0 == ret);
-        bt_ret = bitpunch_board_add_item(info->board, "DATASOURCE", ds_node);
-        assert(BITPUNCH_OK == bt_ret);
+        bitpunch_board_add_item(info->board, "DATASOURCE", ds_node);
         bt_ret = filter_instance_get_data_source(ds_node, NULL, &ds, NULL);
         assert(BITPUNCH_OK == bt_ret);
 
@@ -125,8 +124,7 @@ static void testcase_radio_setup(void)
                  "tests/common/radio/radio_%s.bp", radio_sources[i]);
         ret = bitpunch_schema_create_from_path(&bp_schema, filepath);
         assert(0 == ret);
-        bt_ret = bitpunch_board_add_item(info->board, "SCHEMA", bp_schema);
-        assert(BITPUNCH_OK == bt_ret);
+        bitpunch_board_add_item(info->board, "SCHEMA", bp_schema);
 
         bt_ret = bitpunch_board_add_expr(
             info->board, "ROOT", "DATASOURCE <> SCHEMA");

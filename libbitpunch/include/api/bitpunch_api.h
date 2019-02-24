@@ -86,7 +86,7 @@ void
 bitpunch_board_free(
     struct bitpunch_board *board);
 
-bitpunch_status_t
+void
 bitpunch_board_add_item(
     struct bitpunch_board *board,
     const char *name,
