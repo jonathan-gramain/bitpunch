@@ -103,13 +103,13 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
         &ds_in, test_spec->contents, test_spec->contents_size, FALSE);
     ck_assert_int_eq(ret, 0);
 
-    bitpunch_board_add_item(board, "DATASOURCE", ds_in);
-    bitpunch_board_add_item(board, "SCHEMA", *test_spec->schema_hdl);
+    bitpunch_board_add_item(board, "data", ds_in);
+    bitpunch_board_add_item(board, "Schema", *test_spec->schema_hdl);
 
-    bt_ret = bitpunch_board_add_expr(board, "ROOT", "DATASOURCE <> SCHEMA");
+    bt_ret = bitpunch_board_add_expr(board, "Model", "data <> Schema.Root");
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
 
-    bt_ret = bitpunch_eval_expr2(board, "ROOT", NULL, &dpath, NULL);
+    bt_ret = bitpunch_eval_expr2(board, "Model", NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);
     expr_dpath_destroy(dpath);
@@ -275,13 +275,13 @@ check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
         &ds_in, test_spec->contents, test_spec->contents_size, FALSE);
     ck_assert_int_eq(ret, 0);
 
-    bitpunch_board_add_item(board, "DATASOURCE", ds_in);
-    bitpunch_board_add_item(board, "SCHEMA", *test_spec->schema_hdl);
+    bitpunch_board_add_item(board, "data", ds_in);
+    bitpunch_board_add_item(board, "Schema", *test_spec->schema_hdl);
 
-    bt_ret = bitpunch_board_add_expr(board, "ROOT", "DATASOURCE <> SCHEMA");
+    bt_ret = bitpunch_board_add_expr(board, "Model", "data <> Schema.Root");
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
 
-    bt_ret = bitpunch_eval_expr2(board, "ROOT", NULL, &dpath, NULL);
+    bt_ret = bitpunch_eval_expr2(board, "Model", NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);
     expr_dpath_destroy(dpath);
@@ -324,7 +324,13 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
         &ds_in, test_spec->contents, test_spec->contents_size, FALSE);
     ck_assert_int_eq(ret, 0);
 
-    bt_ret = bitpunch_eval_expr2(board, "ROOT", NULL, &dpath, NULL);
+    bitpunch_board_add_item(board, "data", ds_in);
+    bitpunch_board_add_item(board, "Schema", *test_spec->schema_hdl);
+
+    bt_ret = bitpunch_board_add_expr(board, "Model", "data <> Schema.Root");
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+
+    bt_ret = bitpunch_eval_expr2(board, "Model", NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);
     expr_dpath_destroy(dpath);
