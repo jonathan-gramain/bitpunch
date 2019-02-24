@@ -811,7 +811,7 @@ typedef struct DataTreeObject {
     DataItemObject item;
     FormatSpecObject *fmt;
     struct bitpunch_board *board;
-    ARRAY_HEAD(datasource_array, struct bitpunch_data_source) data_sources;
+    ARRAY_HEAD(datasource_array, struct ast_node_hdl) data_sources;
 } DataTreeObject;
 
 static int
@@ -2200,7 +2200,7 @@ DataTree_new(PyTypeObject *subtype,
     int ret;
     PyObject *bin;
     FormatSpecObject *fmt;
-    struct bitpunch_data_source *ds;
+    struct ast_node_hdl *ds;
     struct bitpunch_board *board;
     DataTreeObject *self;
     struct box *root_box;
@@ -2262,7 +2262,7 @@ DataTree_new(PyTypeObject *subtype,
     }
 
     board = bitpunch_board_new();
-    bitpunch_board_add_data_source(board, "DATASOURCE", ds);
+    bitpunch_board_add_item(board, "DATASOURCE", ds);
 
     self = (DataTreeObject *)DataItem_new(subtype, NULL, NULL);
     if (NULL == self) {
@@ -2291,7 +2291,7 @@ static int
 DataTree_clear(DataTreeObject *self)
 {
     PyObject *tmp;
-    struct bitpunch_data_source *ds;
+    struct ast_node_hdl *ds;
 
     DataItem_clear(&self->item);
 
