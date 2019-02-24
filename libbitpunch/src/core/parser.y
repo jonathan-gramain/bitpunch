@@ -543,8 +543,7 @@
     {
         struct ast_node_hdl *scope_node;
 
-        scope_node = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, loc);
-        scope_node->ndat->u.filter_def.filter_type = "__scope__";
+        scope_node = ast_node_hdl_create(AST_NODE_TYPE_SCOPE_DEF, loc);
         init_block_stmt_list(&scope_node->ndat->u.scope_def.block_stmt_list);
 
         return scope_node;

@@ -88,9 +88,6 @@ int
 bitpunch_compile_schema(struct ast_node_hdl *schema);
 
 int
-bitpunch_compile_board(struct bitpunch_board *board);
-
-int
 bitpunch_resolve_expr(struct ast_node_hdl *expr, struct box *scope);
 
 int

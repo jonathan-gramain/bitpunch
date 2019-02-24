@@ -213,10 +213,6 @@ browse_state_set_environment(struct browse_state *bst,
                              struct bitpunch_board *board)
 {
     bst->board = board;
-    if (NULL != board && -1 == bitpunch_compile_board(board)) {
-        // TODO log
-        return BITPUNCH_DATA_ERROR;
-    }
     return BITPUNCH_OK;
 }
 

@@ -103,9 +103,6 @@ bitpunch_eval_expr(struct ast_node_hdl *schema,
     if (-1 == bitpunch_parse_expr(expr, &expr_node, &parser_ctx)) {
         return -1;
     }
-    if (NULL != board && -1 == bitpunch_compile_board(board)) {
-        return -1;
-    }
     if (NULL != schema) {
         if (NULL == scope) {
             scope = box_new_root_box(schema, board, FALSE);
