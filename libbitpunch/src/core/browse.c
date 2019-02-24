@@ -2780,7 +2780,6 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
 {
     struct ast_node_hdl *expr_node;
     struct parser_ctx *parser_ctx = NULL;
-    struct box *root_box;
     bitpunch_status_t bt_ret;
     expr_dpath_t eval_dpath;
     struct tracker *tk_tmp;
@@ -2790,11 +2789,7 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
     if (-1 == bitpunch_parse_expr(dpath_expr, &expr_node, &parser_ctx)) {
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
-    root_box = tk->box;
-    while (NULL != root_box->scope) {
-        root_box = root_box->scope;
-    }
-    if (-1 == bitpunch_resolve_expr(expr_node, root_box)) {
+    if (-1 == bitpunch_resolve_expr(expr_node, tk->box)) {
         free(parser_ctx);
         /* TODO free expr_node */
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
@@ -2803,7 +2798,7 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
         free(parser_ctx);
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
-    bt_ret = expr_evaluate_dpath_internal(expr_node, root_box,
+    bt_ret = expr_evaluate_dpath_internal(expr_node, tk->box,
                                           &eval_dpath, bst);
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_tracker_context(
