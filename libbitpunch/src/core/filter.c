@@ -141,7 +141,6 @@ filter_class_lookup(const char *name)
 }
 
 void filter_class_declare_scope(void);
-void filter_class_declare_schema(void);
 
 void filter_class_declare_data_source(void);
 void filter_class_declare_file(void);
@@ -163,7 +162,6 @@ void
 filter_class_declare_std(void)
 {
     filter_class_declare_scope();
-    filter_class_declare_schema();
 
     filter_class_declare_data_source();
     filter_class_declare_file();
