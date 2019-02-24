@@ -46,18 +46,6 @@
 #include "core/filter.h"
 #include "core/scope.h"
 
-static struct ast_node_hdl *
-bitpunch_schema_new(void)
-{
-    struct ast_node_hdl *schema_node;
-
-    schema_node = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, NULL);
-    schema_node->ndat->u.filter_def.filter_type = "__schema__";
-    init_block_stmt_list(&schema_node->ndat->u.scope_def.block_stmt_list);
-
-    return schema_node;
-}
-
 static int
 load_schema_common(struct ast_node_hdl *schema)
 {
@@ -143,7 +131,7 @@ bitpunch_schema_create_from_path(
     assert(NULL != path);
     assert(NULL != schemap);
 
-    schema = bitpunch_schema_new();
+    schema = ast_node_hdl_create_scope(NULL);
     if (-1 == schema_read_data_from_path(schema, path)) {
         bitpunch_schema_free(schema);
         return -1;
@@ -165,7 +153,7 @@ bitpunch_schema_create_from_file_descriptor(
     assert(-1 != fd);
     assert(NULL != schemap);
 
-    schema = bitpunch_schema_new();
+    schema = ast_node_hdl_create_scope(NULL);
     if (-1 == schema_read_data_from_fd(schema, fd)) {
         bitpunch_schema_free(schema);
         return -1;
@@ -186,7 +174,7 @@ bitpunch_schema_create_from_buffer(
 
     assert(NULL != schemap);
 
-    schema = bitpunch_schema_new();
+    schema = ast_node_hdl_create_scope(NULL);
     schema->ndat->u.schema_def.data =
         memcpy(malloc_safe(buf_size), buf, buf_size);
     schema->ndat->u.schema_def.data_length = buf_size;
