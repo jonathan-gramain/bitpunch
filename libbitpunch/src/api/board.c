@@ -75,6 +75,9 @@ board_add_named_expr(
 
     TAILQ_INSERT_TAIL(scope_def->block_stmt_list.named_expr_list,
                       (struct statement *)named_expr, list);
+
+    board->ast_root->resolved_tags = 0;
+    dep_resolver_node_init(&board->ast_root->dr_node);
 }
 
 void

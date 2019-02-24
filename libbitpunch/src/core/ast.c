@@ -1093,12 +1093,12 @@ resolve_identifiers(struct ast_node_hdl *node,
 {
     int ret;
 
-    if (0 != (node->flags & ASTFLAG_NAMES_RESOLVED)) {
+    if (0 == (resolve_tags & ~node->resolved_tags)) {
         return 0;
     }
     ret = resolve_identifiers_internal(
         node, visible_refs, expect_mask, resolve_tags);
-    node->flags |= ASTFLAG_NAMES_RESOLVED;
+    node->resolved_tags |= resolve_tags;
     return ret;
 }
 
@@ -2816,7 +2816,7 @@ compile_rexpr_member(
     int n_visible_statements;
     struct ast_node_hdl *anchor_expr;
     enum statement_type lookup_mask;
-    const struct ast_node_hdl *anchor_filter, *member;
+    struct ast_node_hdl *anchor_filter, *member;
     struct named_statement_spec *stmt_spec;
     struct ast_node_data *resolved_type;
 
@@ -2833,7 +2833,8 @@ compile_rexpr_member(
     anchor_expr = op->operands[0];
     anchor_filter = ast_node_get_as_type(anchor_expr);
     if (NULL != anchor_filter) {
-        if (!ast_node_is_rexpr_filter(anchor_filter)) {
+        if (!ast_node_is_item(anchor_filter) &&
+            !ast_node_is_rexpr_filter(anchor_filter)) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
                 "invalid use of member operator on non-filter dpath");
@@ -2860,7 +2861,7 @@ compile_rexpr_member(
         n_visible_statements = lookup_visible_statements_in_lists(
             lookup_mask,
             member->ndat->u.identifier,
-            &filter_get_const_scope_def(anchor_filter)->block_stmt_list,
+            &ast_node_get_scope_def(anchor_filter)->block_stmt_list,
             &visible_statements);
         if (-1 == n_visible_statements) {
             return -1;
@@ -3623,6 +3624,7 @@ ast_node_is_item(const struct ast_node_hdl *node)
         return FALSE;
     }
     switch (node->ndat->type) {
+    case AST_NODE_TYPE_SCOPE_DEF:
     case AST_NODE_TYPE_FILTER_DEF:
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:

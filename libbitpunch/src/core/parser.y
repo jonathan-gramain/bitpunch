@@ -135,7 +135,6 @@
         ASTFLAG_REVERSE_COND                = (1<<2),
         ASTFLAG_CONTAINS_LAST_ATTR          = (1<<3),
         ASTFLAG_DUMPING                     = (1<<4),
-        ASTFLAG_NAMES_RESOLVED              = (1<<5),
     };
 
     enum ast_node_data_flag {
@@ -398,6 +397,7 @@
         struct ast_node_data *ndat;
         struct parser_location loc;
         enum ast_node_flag flags;
+        enum resolve_identifiers_tag resolved_tags;
         struct dep_resolver_node dr_node;
     };
 
