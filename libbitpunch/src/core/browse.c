@@ -45,6 +45,7 @@
 #include "core/browse_internal.h"
 #include "core/expr_internal.h"
 #include "core/debug.h"
+#include "api/data_source_internal.h"
 
 //FIXME remove once filters become isolated
 #include "filters/composite.h"
@@ -1112,7 +1113,7 @@ box_apply_local_filter__data_filter(struct box *box, struct browse_state *bst)
         box->end_offset_used =
             (filtered_data + filtered_size) - box->ds_out->ds_data;
     } else {
-        (void) bitpunch_data_source_create_from_memory(
+        (void) data_source_create_from_memory_internal(
             &box->ds_out, filtered_data, filtered_size, TRUE);
         box->flags |= BOX_DATA_SOURCE;
         box->start_offset_used = 0;
@@ -1227,7 +1228,7 @@ box_free(struct box *box)
         }
     }
     if (0 != (box->flags & BOX_DATA_SOURCE)) {
-        (void)bitpunch_data_source_release(
+        (void)data_source_release_internal(
             (struct bitpunch_data_source *)box->ds_out);
     }
     if (0 != (box->flags & BOX_MANAGE_ENV)) {
@@ -2126,32 +2127,6 @@ track_box_contents_internal(struct box *box,
     assert(bst->board == box->board);
     *tkp = tracker_new(box);
     return BITPUNCH_OK;
-}
-
-struct tracker *
-track_data_source(struct ast_node_hdl *schema,
-                  const char *ds_name, struct bitpunch_data_source *ds,
-                  struct tracker_error **errp)
-{
-    struct box *root_box;
-    struct bitpunch_board *board;
-    struct tracker *tk;
-    bitpunch_status_t bt_ret;
-
-    // FIXME tracker should steal environment to manage its lifetime
-    board = bitpunch_board_new();
-    bitpunch_board_add_data_source(board, ds_name, ds);
-
-    root_box = box_new_root_box(schema, board, TRUE);
-    if (NULL == root_box) {
-        return NULL;
-    }
-    bt_ret = track_box_contents(root_box, &tk, errp);
-    box_delete_non_null(root_box);
-    if (BITPUNCH_OK != bt_ret) {
-        return NULL;
-    }
-    return tk;
 }
 
 bitpunch_status_t

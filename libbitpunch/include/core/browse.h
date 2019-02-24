@@ -373,10 +373,6 @@ tracker_set_dangling(struct tracker *tk);
 static inline int
 tracker_is_dangling(const struct tracker *tk);
 
-struct tracker *
-track_data_source(struct ast_node_hdl *schema,
-                  const char *ds_name, struct bitpunch_data_source *ds,
-                  struct tracker_error **errp);
 bitpunch_status_t
 box_get_n_items(struct box *box, int64_t *n_itemsp,
                 struct tracker_error **errp);

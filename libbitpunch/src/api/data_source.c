@@ -274,8 +274,8 @@ data_source_close_managed_memory(struct bitpunch_data_source *ds)
 }
 
 int
-bitpunch_data_source_create_from_memory(
-    struct ast_node_hdl **dsp,
+data_source_create_from_memory_internal(
+    struct bitpunch_data_source **dsp,
     const char *data, size_t data_size, int manage_buffer)
 {
     struct bitpunch_data_source *ds;
@@ -288,8 +288,24 @@ bitpunch_data_source_create_from_memory(
     }
     ds->ds_data = data;
     ds->ds_data_length = data_size;
-    *dsp = ast_node_hdl_create_data_source(ds);
+    *dsp = ds;
     return 0;
+}
+
+int
+bitpunch_data_source_create_from_memory(
+    struct ast_node_hdl **dsp,
+    const char *data, size_t data_size, int manage_buffer)
+{
+    struct bitpunch_data_source *ds;
+    int ret;
+
+    ret = data_source_create_from_memory_internal(
+        &ds, data, data_size, manage_buffer);
+    if (0 == ret) {
+        *dsp = ast_node_hdl_create_data_source(ds);
+    }
+    return ret;
 }
 
 static int
@@ -317,20 +333,24 @@ data_source_free(struct bitpunch_data_source *ds)
 }
 
 int
-bitpunch_data_source_release(struct ast_node_hdl *ds_node)
+data_source_release_internal(struct bitpunch_data_source *ds)
 {
-    struct bitpunch_data_source *ds;
-
-    if (NULL == ds_node) {
-        return 0;
-    }
-    ds = ds_node->ndat->u.rexpr_filter.f_instance->data_source;
     if (0 == (ds->flags & (BITPUNCH_DATA_SOURCE_CACHED |
                            BITPUNCH_DATA_SOURCE_EXTERNAL))) {
         return data_source_free(ds);
     }
     // we could implement cleanup for less-used cache entries here
     return 0;
+}
+
+int
+bitpunch_data_source_release(struct ast_node_hdl *ds_node)
+{
+    if (NULL == ds_node) {
+        return 0;
+    }
+    return data_source_release_internal(
+        ds_node->ndat->u.rexpr_filter.f_instance->data_source);
 }
 
 static int
