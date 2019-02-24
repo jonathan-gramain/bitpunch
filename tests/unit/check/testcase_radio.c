@@ -128,6 +128,7 @@ static void testcase_radio_setup(void)
 
         bt_ret = bitpunch_board_add_expr(
             info->board, "Model", "data <> Schema.Radio");
+        assert(BITPUNCH_OK == bt_ret);
 
         for (c = 0; c < N_ELEM(radio_codenames); ++c) {
             codename = radio_codenames[c];
