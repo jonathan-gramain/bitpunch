@@ -68,19 +68,18 @@ bitpunch_compile_expr(
 {
     struct ast_node_hdl *expr_node = NULL;
     struct parser_ctx *parser_ctx = NULL;
-    struct box *scope;
-    int ret;
+    //struct box *scope;
+    //int ret;
 
     if (-1 == bitpunch_parse_expr(expr, &expr_node, &parser_ctx)) {
         return BITPUNCH_INVALID_PARAM;
     }
-    scope = box_new_root_box(board->ast_root, board, FALSE);
-    ret = bitpunch_resolve_expr(expr_node, scope);
-    box_delete(scope);
-    free(parser_ctx);
-    if (-1 == ret) {
-        return BITPUNCH_INVALID_PARAM;
-    }
+    /* scope = box_new_root_box(board->ast_root, board, FALSE); */
+    /* ret = bitpunch_resolve_expr(expr_node, scope); */
+    /* box_delete(scope); */
+    /* if (-1 == ret) { */
+    /*     return BITPUNCH_INVALID_PARAM; */
+    /* } */
     *expr_nodep = expr_node;
     return BITPUNCH_OK;
 }

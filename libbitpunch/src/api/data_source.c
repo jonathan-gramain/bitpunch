@@ -337,6 +337,9 @@ data_source_free(struct bitpunch_data_source *ds)
 int
 data_source_release_internal(struct bitpunch_data_source *ds)
 {
+    if (NULL == ds) {
+        return 0;
+    }
     if (0 == (ds->flags & (BITPUNCH_DATA_SOURCE_CACHED |
                            BITPUNCH_DATA_SOURCE_EXTERNAL))) {
         return data_source_free(ds);

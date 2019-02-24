@@ -116,7 +116,7 @@ static void testcase_radio_setup(void)
                  radio_sources[i]);
         ret = bitpunch_data_source_create_from_file_path(&ds_node, filepath);
         assert(0 == ret);
-        bitpunch_board_add_item(info->board, "DATASOURCE", ds_node);
+        bitpunch_board_add_item(info->board, "data", ds_node);
         bt_ret = filter_instance_get_data_source(ds_node, NULL, &ds, NULL);
         assert(BITPUNCH_OK == bt_ret);
 
@@ -124,10 +124,10 @@ static void testcase_radio_setup(void)
                  "tests/common/radio/radio_%s.bp", radio_sources[i]);
         ret = bitpunch_schema_create_from_path(&bp_schema, filepath);
         assert(0 == ret);
-        bitpunch_board_add_item(info->board, "SCHEMA", bp_schema);
+        bitpunch_board_add_item(info->board, "Schema", bp_schema);
 
         bt_ret = bitpunch_board_add_expr(
-            info->board, "ROOT", "DATASOURCE <> SCHEMA");
+            info->board, "Model", "data <> Schema.Radio");
 
         for (c = 0; c < N_ELEM(radio_codenames); ++c) {
             codename = radio_codenames[c];
@@ -249,7 +249,7 @@ void testcase_radio_launch_test_iterate(struct radio_source_info *info)
     int c;
     int code_idx;
 
-    bt_ret = bitpunch_eval_expr2(info->board, "ROOT", NULL, &dpath, NULL);
+    bt_ret = bitpunch_eval_expr2(info->board, "Model", NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);
     expr_dpath_destroy(dpath);
@@ -321,7 +321,7 @@ void testcase_radio_launch_test_index(struct radio_source_info *info)
     int code_idx;
     expr_value_t item_key;
 
-    bt_ret = bitpunch_eval_expr2(info->board, "ROOT", NULL, &dpath, NULL);
+    bt_ret = bitpunch_eval_expr2(info->board, "Model", NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);
     expr_dpath_destroy(dpath);
@@ -408,7 +408,7 @@ void testcase_radio_launch_test_slices(struct radio_source_info *info)
     int c;
     int code_idx;
 
-    bt_ret = bitpunch_eval_expr2(info->board, "ROOT", NULL, &dpath, NULL);
+    bt_ret = bitpunch_eval_expr2(info->board, "Model", NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);
     expr_dpath_destroy(dpath);
@@ -510,7 +510,7 @@ void testcase_radio_launch_test_dpath(struct radio_source_info *info)
     int code_idx;
     char dpath_expr[128];
 
-    bt_ret = bitpunch_eval_expr2(info->board, "ROOT", NULL, &dpath, NULL);
+    bt_ret = bitpunch_eval_expr2(info->board, "Model", NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);
     expr_dpath_destroy(dpath);
@@ -606,7 +606,7 @@ void testcase_radio_launch_test_slice_dpath(struct radio_source_info *info)
     int idx_end;
     int r;
 
-    bt_ret = bitpunch_eval_expr2(info->board, "ROOT", NULL, &dpath, NULL);
+    bt_ret = bitpunch_eval_expr2(info->board, "Model", NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);
     expr_dpath_destroy(dpath);

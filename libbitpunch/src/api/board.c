@@ -68,7 +68,6 @@ board_add_named_expr(
     struct scope_def *scope_def;
     struct named_expr *named_expr;
 
-    board->flags &= ~BITPUNCH_ENV_COMPILED;
     scope_def = &board->ast_root->ndat->u.scope_def;
     named_expr = new_safe(struct named_expr);
     named_expr->nstmt.name = strdup_safe(name);

@@ -150,36 +150,6 @@ bitpunch_compile_schema(struct ast_node_hdl *schema)
     return 0;
 }
 
-int
-bitpunch_compile_board(struct bitpunch_board *board)
-{
-    struct ast_node_hdl *ast_root;
-
-    if (0 != (board->flags & BITPUNCH_ENV_COMPILED)) {
-        return 0;
-    }
-    ast_root = board->ast_root;
-    if (-1 == resolve_identifiers(ast_root, NULL,
-                                  RESOLVE_EXPECT_TYPE |
-                                  RESOLVE_EXPECT_FILTER,
-                                  RESOLVE_TYPE_IDENTIFIERS)) {
-        return -1;
-    }
-    if (-1 == resolve_identifiers(ast_root, NULL,
-                                  RESOLVE_EXPECT_TYPE |
-                                  RESOLVE_EXPECT_FILTER,
-                                  RESOLVE_EXPRESSION_IDENTIFIERS)) {
-        return -1;
-    }
-    if (-1 == compile_ast_node_all(ast_root,
-                                   RESOLVE_EXPECT_TYPE |
-                                   RESOLVE_EXPECT_FILTER)) {
-        return -1;
-    }
-    board->flags |= BITPUNCH_ENV_COMPILED;
-    return 0;
-}
-
 static void
 compile_ctx_init(struct compile_ctx *ctx)
 {
@@ -1036,10 +1006,10 @@ resolve_identifiers_operator_sizeof(
 }
 
 static int
-resolve_identifiers(struct ast_node_hdl *node,
-                    const struct list_of_visible_refs *visible_refs,
-                    enum resolve_expect_mask expect_mask,
-                    enum resolve_identifiers_tag resolve_tags)
+resolve_identifiers_internal(struct ast_node_hdl *node,
+                             const struct list_of_visible_refs *visible_refs,
+                             enum resolve_expect_mask expect_mask,
+                             enum resolve_identifiers_tag resolve_tags)
 {
     switch (node->ndat->type) {
     case AST_NODE_TYPE_IDENTIFIER:
@@ -1115,7 +1085,22 @@ resolve_identifiers(struct ast_node_hdl *node,
     /*NOT REACHED*/
 }
 
+static int
+resolve_identifiers(struct ast_node_hdl *node,
+                    const struct list_of_visible_refs *visible_refs,
+                    enum resolve_expect_mask expect_mask,
+                    enum resolve_identifiers_tag resolve_tags)
+{
+    int ret;
 
+    if (0 != (node->flags & ASTFLAG_NAMES_RESOLVED)) {
+        return 0;
+    }
+    ret = resolve_identifiers_internal(
+        node, visible_refs, expect_mask, resolve_tags);
+    node->flags |= ASTFLAG_NAMES_RESOLVED;
+    return ret;
+}
 
 /* COMPILE */
 
@@ -3683,15 +3668,7 @@ ast_node_is_type(const struct ast_node_hdl *node)
 int
 ast_node_is_scope_only(const struct ast_node_hdl *node)
 {
-    const struct filter_class *filter_cls;
-
-    if (AST_NODE_TYPE_REXPR_FILTER != node->ndat->type) {
-        return FALSE;
-    }
-    filter_cls = node->ndat->u.rexpr_filter.filter_cls;
-    return NULL != filter_cls &&
-        (0 == strcmp(filter_cls->name, "__scope__") ||
-         0 == strcmp(filter_cls->name, "__schema__"));
+     return AST_NODE_TYPE_SCOPE_DEF == node->ndat->type;
 }
 
 int
