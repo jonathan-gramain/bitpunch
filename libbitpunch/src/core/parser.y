@@ -192,6 +192,7 @@
             AST_NODE_TYPE_STRING,
             AST_NODE_TYPE_IDENTIFIER,
             AST_NODE_TYPE_SCOPE_DEF,
+            AST_NODE_TYPE_SCOPE_DEF_PARSED,
             AST_NODE_TYPE_FILTER_DEF,
             AST_NODE_TYPE_COMPOSITE,
             AST_NODE_TYPE_ARRAY,
@@ -281,17 +282,17 @@
             struct scope_def {
                 struct block_stmt_list block_stmt_list;
             } scope_def;
-            struct filter_def {
+            struct scope_def_parsed {
                 struct scope_def scope_def; /* inherits */
-                const char *filter_type;
-            } filter_def;
-            struct schema_def {
-                struct filter_def filter_def; /* inherits */
                 char *data;
                 size_t data_length;
                 char *file_path;
                 struct parser_ctx parser_ctx;
-            } schema_def;
+            } scope_def_parsed;
+            struct filter_def {
+                struct scope_def scope_def; /* inherits */
+                const char *filter_type;
+            } filter_def;
             struct conditional {
                 struct ast_node_hdl *cond_expr;
                 struct ast_node_hdl *outer_cond;
@@ -1155,6 +1156,7 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_STRING: return "string";
     case AST_NODE_TYPE_IDENTIFIER: return "identifier";
     case AST_NODE_TYPE_SCOPE_DEF: return "scope def";
+    case AST_NODE_TYPE_SCOPE_DEF_PARSED: return "scope def (parsed)";
     case AST_NODE_TYPE_FILTER_DEF: return "filter def";
     case AST_NODE_TYPE_COMPOSITE: return "composite";
     case AST_NODE_TYPE_ARRAY: return "array";

@@ -278,15 +278,15 @@ bitpunch_parse_schema(struct ast_node_hdl *schema)
     FILE *fstream;
     int ret;
 
-    parser_ctx = &schema->ndat->u.schema_def.parser_ctx;
+    parser_ctx = &schema->ndat->u.scope_def_parsed.parser_ctx;
     memset(parser_ctx, 0, sizeof (*parser_ctx));
-    parser_ctx->parser_filepath = schema->ndat->u.schema_def.file_path;
-    parser_ctx->parser_data = schema->ndat->u.schema_def.data;
-    parser_ctx->parser_data_length = schema->ndat->u.schema_def.data_length;
+    parser_ctx->parser_filepath = schema->ndat->u.scope_def_parsed.file_path;
+    parser_ctx->parser_data = schema->ndat->u.scope_def_parsed.data;
+    parser_ctx->parser_data_length = schema->ndat->u.scope_def_parsed.data_length;
     parser_ctx->start_token = START_SCHEMA;
 
-    fstream = fmemopen((char *)schema->ndat->u.schema_def.data,
-                       schema->ndat->u.schema_def.data_length, "r");
+    fstream = fmemopen((char *)schema->ndat->u.scope_def_parsed.data,
+                       schema->ndat->u.scope_def_parsed.data_length, "r");
     if (NULL == fstream) {
         return -1;
     }

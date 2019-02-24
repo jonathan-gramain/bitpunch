@@ -1016,6 +1016,7 @@ resolve_identifiers_internal(struct ast_node_hdl *node,
         return resolve_identifiers_identifier(node, visible_refs,
                                               expect_mask, resolve_tags);
     case AST_NODE_TYPE_SCOPE_DEF:
+    case AST_NODE_TYPE_SCOPE_DEF_PARSED:
     case AST_NODE_TYPE_FILTER_DEF:
         return resolve_identifiers_scope_def(node, visible_refs,
                                              expect_mask, resolve_tags);
@@ -1731,6 +1732,17 @@ compile_filter_def_validate_attributes(struct ast_node_hdl *filter,
         return -1;
     }
     return 0;
+}
+
+static int
+compile_scope_def(struct ast_node_hdl *expr,
+                  dep_resolver_tagset_t tags,
+                  struct compile_ctx *ctx)
+{
+    struct block_stmt_list *stmt_lists;
+
+    stmt_lists = &expr->ndat->u.scope_def.block_stmt_list;
+    return compile_stmt_lists(stmt_lists, tags, ctx);
 }
 
 static int
@@ -2957,6 +2969,9 @@ compile_node_type_int(struct ast_node_hdl *node,
         return compile_expr_boolean(node, tags, ctx, expect_mask);
     case AST_NODE_TYPE_STRING:
         return compile_expr_string_literal(node, tags, ctx, expect_mask);
+    case AST_NODE_TYPE_SCOPE_DEF:
+    case AST_NODE_TYPE_SCOPE_DEF_PARSED:
+        return compile_scope_def(node, tags, ctx);
     case AST_NODE_TYPE_FILTER_DEF:
         return compile_filter_def(node, tags, ctx, expect_mask);
     case AST_NODE_TYPE_REXPR_FILTER:
@@ -3625,6 +3640,7 @@ ast_node_is_item(const struct ast_node_hdl *node)
     }
     switch (node->ndat->type) {
     case AST_NODE_TYPE_SCOPE_DEF:
+    case AST_NODE_TYPE_SCOPE_DEF_PARSED:
     case AST_NODE_TYPE_FILTER_DEF:
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
@@ -3670,7 +3686,8 @@ ast_node_is_type(const struct ast_node_hdl *node)
 int
 ast_node_is_scope_only(const struct ast_node_hdl *node)
 {
-     return AST_NODE_TYPE_SCOPE_DEF == node->ndat->type;
+    return (AST_NODE_TYPE_SCOPE_DEF == node->ndat->type ||
+            AST_NODE_TYPE_SCOPE_DEF_PARSED == node->ndat->type);
 }
 
 int
@@ -3681,6 +3698,7 @@ ast_node_is_scope_def(const struct ast_node_hdl *node)
     }
     switch (node->ndat->type) {
     case AST_NODE_TYPE_SCOPE_DEF:
+    case AST_NODE_TYPE_SCOPE_DEF_PARSED:
         return TRUE;
     default:
         return FALSE;
@@ -4113,6 +4131,15 @@ fdump_ast_recur(const struct ast_node_hdl *node, int depth,
         fprintf(out, "scope\n");
         dump_scope_recur(node, depth + 1, visible_refs, out);
         break ;
+    case AST_NODE_TYPE_SCOPE_DEF_PARSED:
+        fprintf(out, "scope (parsed)");
+        if (NULL != node->ndat->u.scope_def_parsed.file_path) {
+            fprintf(out, " from: \"%s\"",
+                    node->ndat->u.scope_def_parsed.file_path);
+        }
+        fprintf(out, " (\n");
+        dump_scope_recur(node, depth + 1, visible_refs, out);
+        break ;
     case AST_NODE_TYPE_FILTER_DEF:
         fprintf(out, "filter type: %s\n",
                 node->ndat->u.filter_def.filter_type);
@@ -4478,6 +4505,7 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
         break ;
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_SCOPE_DEF:
+    case AST_NODE_TYPE_SCOPE_DEF_PARSED:
     case AST_NODE_TYPE_FILTER_DEF:
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
@@ -4652,8 +4680,8 @@ dump_ast_node_input_text(const struct ast_node_hdl *node,
     const char *text_start;
     const char *text_end;
 
-    text_start = schema->ndat->u.schema_def.data + node->loc.start_offset;
-    text_end = schema->ndat->u.schema_def.data + node->loc.end_offset;
+    text_start = schema->ndat->u.scope_def_parsed.data + node->loc.start_offset;
+    text_end = schema->ndat->u.scope_def_parsed.data + node->loc.end_offset;
 
     fwrite(text_start, 1, text_end - text_start, out);
     fputs("\n", out);

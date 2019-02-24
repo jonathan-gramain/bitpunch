@@ -46,6 +46,17 @@
 #include "core/filter.h"
 #include "core/scope.h"
 
+struct ast_node_hdl *
+ast_node_hdl_create_scope_parsed()
+{
+    struct ast_node_hdl *scope_node;
+
+    scope_node = ast_node_hdl_create(AST_NODE_TYPE_SCOPE_DEF_PARSED, NULL);
+    init_block_stmt_list(&scope_node->ndat->u.scope_def.block_stmt_list);
+
+    return scope_node;
+}
+
 static int
 load_schema_common(struct ast_node_hdl *schema)
 {
@@ -78,8 +89,8 @@ schema_read_data_from_fd(struct ast_node_hdl *schema, int fd)
         }
         if (0 == n_read) {
             buffer = realloc_safe(buffer, cur_offset);
-            schema->ndat->u.schema_def.data = buffer;
-            schema->ndat->u.schema_def.data_length = cur_offset;
+            schema->ndat->u.scope_def_parsed.data = buffer;
+            schema->ndat->u.scope_def_parsed.data_length = cur_offset;
             return 0;
         }
         cur_offset += n_read;
@@ -118,7 +129,7 @@ schema_read_data_from_path(struct ast_node_hdl *schema, const char *path)
         free(path_dup);
         return -1;
     }
-    schema->ndat->u.schema_def.file_path = path_dup;
+    schema->ndat->u.scope_def_parsed.file_path = path_dup;
     return 0;
 }
 
@@ -131,7 +142,7 @@ bitpunch_schema_create_from_path(
     assert(NULL != path);
     assert(NULL != schemap);
 
-    schema = ast_node_hdl_create_scope(NULL);
+    schema = ast_node_hdl_create_scope_parsed();
     if (-1 == schema_read_data_from_path(schema, path)) {
         bitpunch_schema_free(schema);
         return -1;
@@ -153,7 +164,7 @@ bitpunch_schema_create_from_file_descriptor(
     assert(-1 != fd);
     assert(NULL != schemap);
 
-    schema = ast_node_hdl_create_scope(NULL);
+    schema = ast_node_hdl_create_scope_parsed();
     if (-1 == schema_read_data_from_fd(schema, fd)) {
         bitpunch_schema_free(schema);
         return -1;
@@ -174,10 +185,10 @@ bitpunch_schema_create_from_buffer(
 
     assert(NULL != schemap);
 
-    schema = ast_node_hdl_create_scope(NULL);
-    schema->ndat->u.schema_def.data =
+    schema = ast_node_hdl_create_scope_parsed();
+    schema->ndat->u.scope_def_parsed.data =
         memcpy(malloc_safe(buf_size), buf, buf_size);
-    schema->ndat->u.schema_def.data_length = buf_size;
+    schema->ndat->u.scope_def_parsed.data_length = buf_size;
     if (-1 == load_schema_common(schema)) {
         bitpunch_schema_free(schema);
         return -1;
