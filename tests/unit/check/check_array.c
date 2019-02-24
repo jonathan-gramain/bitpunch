@@ -349,67 +349,6 @@ static void array_teardown(void)
     bitpunch_schema_free(check_varray_schema_hdl);
 }
 
-START_TEST(sarray_ast)
-{
-    const struct ast_node_hdl *root;
-    const struct scope_def *scope_def;
-    const struct block_stmt_list *stmt_lists;
-    const struct ast_node_hdl *main_struct;
-    const struct field *field;
-    struct filter_instance_array *array;
-    const struct ast_node_hdl *int_size;
-    const struct ast_node_hdl *item_type;
-    const struct ast_node_hdl *item_count;
-    struct filter_instance_array *item_f_instance;
-
-    root = check_sarray_schema_hdl;
-    scope_def = filter_get_const_scope_def(root);
-    ck_assert_ptr_ne(scope_def, NULL);
-    stmt_lists = &scope_def->block_stmt_list;
-
-    // check we have a single anonymous field pointing to the main struct
-    field = STATEMENT_FIRST(field, stmt_lists->field_list);
-    ck_assert_ptr_eq(field->nstmt.name, NULL);
-    ck_assert_ptr_eq(STATEMENT_NEXT(field, field, list), NULL);
-    ck_assert_ptr_ne(field->filter, NULL);
-    ck_assert_int_eq(field->filter->ndat->type,
-                     AST_NODE_TYPE_REXPR_OP_FILTER);
-    main_struct = field->filter->ndat->u.rexpr_op_filter.filter_expr;
-    ck_assert_int_eq(main_struct->ndat->type, AST_NODE_TYPE_COMPOSITE);
-    scope_def = filter_get_const_scope_def(main_struct);
-    ck_assert_ptr_ne(scope_def, NULL);
-    stmt_lists = &scope_def->block_stmt_list;
-    field = STATEMENT_FIRST(field, stmt_lists->field_list);
-    ck_assert_str_eq(field->nstmt.name, "int_array");
-    ck_assert_ptr_ne(field->filter, NULL);
-    ck_assert_int_eq(field->filter->ndat->type, AST_NODE_TYPE_ARRAY);
-
-    array = (struct filter_instance_array *)
-        field->filter->ndat->u.rexpr_filter.f_instance;
-    item_type = ast_node_get_target_item(array->item_type);
-    ck_assert_ptr_ne(item_type, NULL);
-    ck_assert_int_eq(item_type->ndat->type, AST_NODE_TYPE_BYTE_ARRAY);
-    item_f_instance = (struct filter_instance_array *)
-        item_type->ndat->u.rexpr_filter.f_instance;
-    int_size = item_f_instance->item_count;
-    ck_assert_ptr_ne(int_size, NULL);
-    ck_assert_int_eq(int_size->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
-    ck_assert_int_eq(int_size->ndat->u.rexpr.value_type_mask,
-                     EXPR_VALUE_TYPE_INTEGER);
-    ck_assert_int_eq(int_size->ndat->u.rexpr_native.value.integer, 4);
-
-    item_count = array->item_count;
-    ck_assert_ptr_ne(item_count, NULL);
-    ck_assert_int_eq(item_count->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
-    ck_assert_int_eq(item_count->ndat->u.rexpr.value_type_mask,
-                     EXPR_VALUE_TYPE_INTEGER);
-    ck_assert_int_eq(item_count->ndat->u.rexpr_native.value.integer, 5);
-
-    field = STATEMENT_NEXT(field, field, list);
-    ck_assert_ptr_eq(field, NULL);
-}
-END_TEST
-
 START_TEST(sarray_valid1)
 {
     check_tracker_launch_test(&check_sarray_valid1_spec);
@@ -425,107 +364,6 @@ END_TEST
 START_TEST(sarray_invalid_truncated2)
 {
     check_tracker_launch_test(&check_sarray_invalid_truncated2_spec);
-}
-END_TEST
-
-START_TEST(varray_ast)
-{
-    const struct ast_node_hdl *root;
-    const struct scope_def *scope_def;
-    const struct block_stmt_list *stmt_lists;
-    const struct ast_node_hdl *main_struct;
-    const struct field *field;
-    const struct field *int_array_size_field;
-    struct filter_instance_array *array;
-    const struct ast_node_hdl *int_array_size_item;
-    struct filter_instance_array *item_f_instance;
-    const struct ast_node_hdl *int_array_size;
-    const struct ast_node_hdl *field_type;
-    const struct ast_node_hdl *int_size;
-    const struct ast_node_hdl *item_type;
-    const struct ast_node_hdl *item_count;
-    const struct ast_node_hdl *op1;
-    const struct ast_node_hdl *op2;
-
-    root = check_varray_schema_hdl;
-    scope_def = filter_get_const_scope_def(root);
-    ck_assert_ptr_ne(scope_def, NULL);
-    stmt_lists = &scope_def->block_stmt_list;
-
-    // check we have a single anonymous field pointing to the main struct
-    field = STATEMENT_FIRST(field, stmt_lists->field_list);
-    ck_assert_ptr_eq(field->nstmt.name, NULL);
-    ck_assert_ptr_eq(STATEMENT_NEXT(field, field, list), NULL);
-    ck_assert_ptr_ne(field->filter, NULL);
-    ck_assert_int_eq(field->filter->ndat->type,
-                     AST_NODE_TYPE_REXPR_OP_FILTER);
-    main_struct = field->filter->ndat->u.rexpr_op_filter.filter_expr;
-    ck_assert_int_eq(main_struct->ndat->type, AST_NODE_TYPE_COMPOSITE);
-    scope_def = filter_get_const_scope_def(main_struct);
-    ck_assert_ptr_ne(scope_def, NULL);
-    stmt_lists = &scope_def->block_stmt_list;
-
-    field = STATEMENT_FIRST(field, stmt_lists->field_list);
-    ck_assert_str_eq(field->nstmt.name, "int_array_size");
-    int_array_size_field = field;
-    ck_assert_ptr_ne(field->filter, NULL);
-    ck_assert_int_eq(field->filter->ndat->type,
-                     AST_NODE_TYPE_REXPR_NAMED_EXPR);
-    field_type = ast_node_get_named_expr_target(field->filter);
-    ck_assert_ptr_ne(field_type, NULL);
-    ck_assert_int_eq(field_type->ndat->type, AST_NODE_TYPE_REXPR_OP_FILTER);
-    int_array_size_item = field_type->ndat->u.rexpr_op_filter.target;
-    ck_assert_int_eq(int_array_size_item->ndat->type, AST_NODE_TYPE_BYTE_ARRAY);
-    array = (struct filter_instance_array *)
-        int_array_size_item->ndat->u.rexpr_filter.f_instance;
-    int_array_size = array->item_count;
-    ck_assert_ptr_ne(int_array_size, NULL);
-    ck_assert_int_eq(int_array_size->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
-    ck_assert_int_eq(int_array_size->ndat->u.rexpr.value_type_mask,
-                     EXPR_VALUE_TYPE_INTEGER);
-    ck_assert_int_eq(int_array_size->ndat->u.rexpr_native.value.integer, 4);
-
-    field = STATEMENT_NEXT(field, field, list);
-    ck_assert_str_eq(field->nstmt.name, "int_array");
-    field_type = field->filter;
-    ck_assert_ptr_ne(field_type, NULL);
-    ck_assert_int_eq(field_type->ndat->type, AST_NODE_TYPE_ARRAY);
-
-    array = (struct filter_instance_array *)
-        field->filter->ndat->u.rexpr_filter.f_instance;
-    item_type = ast_node_get_target_item(array->item_type);
-    ck_assert_ptr_ne(item_type, NULL);
-    ck_assert_int_eq(item_type->ndat->type, AST_NODE_TYPE_BYTE_ARRAY);
-    item_f_instance = (struct filter_instance_array *)
-        item_type->ndat->u.rexpr_filter.f_instance;
-    int_size = item_f_instance->item_count;
-    ck_assert_ptr_ne(int_size, NULL);
-    ck_assert_int_eq(int_size->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
-    ck_assert_int_eq(int_size->ndat->u.rexpr.value_type_mask,
-                     EXPR_VALUE_TYPE_INTEGER);
-    ck_assert_int_eq(int_size->ndat->u.rexpr_native.value.integer, 4);
-
-    item_count = array->item_count;
-    ck_assert_ptr_ne(item_count, NULL);
-    ck_assert_int_eq(item_count->ndat->type, AST_NODE_TYPE_REXPR_OP_ADD);
-    ck_assert_int_eq(item_count->ndat->u.rexpr.value_type_mask,
-                     EXPR_VALUE_TYPE_INTEGER);
-    op1 = item_count->ndat->u.rexpr_op.op.operands[0];
-    op2 = item_count->ndat->u.rexpr_op.op.operands[1];
-    ck_assert_ptr_ne(op1, NULL);
-    ck_assert_ptr_ne(op2, NULL);
-    ck_assert_int_eq(op1->ndat->type, AST_NODE_TYPE_REXPR_NATIVE);
-    ck_assert_int_eq(op1->ndat->u.rexpr.value_type_mask,
-                     EXPR_VALUE_TYPE_INTEGER);
-    ck_assert_int_eq(op1->ndat->u.rexpr_native.value.integer, 2);
-    ck_assert_int_eq(op2->ndat->type, AST_NODE_TYPE_REXPR_FIELD);
-    ck_assert_int_eq(op2->ndat->u.rexpr.value_type_mask,
-                     EXPR_VALUE_TYPE_INTEGER);
-    field_type = op2->ndat->u.rexpr_field.field->filter;
-    ck_assert_ptr_eq(field_type, int_array_size_field->filter);
-
-    field = STATEMENT_NEXT(field, field, list);
-    ck_assert_ptr_eq(field, NULL);
 }
 END_TEST
 
@@ -546,11 +384,6 @@ void check_array_add_tcases(Suite *s)
 {
     TCase *tc_array;
 
-    tc_array = tcase_create("sarray.ast");
-    tcase_add_unchecked_fixture(tc_array, array_setup, array_teardown);
-    tcase_add_test(tc_array, sarray_ast);
-    suite_add_tcase(s, tc_array);
-
     tc_array = tcase_create("sarray.valid1");
     tcase_add_unchecked_fixture(tc_array, array_setup, array_teardown);
     tcase_add_test(tc_array, sarray_valid1);
@@ -564,11 +397,6 @@ void check_array_add_tcases(Suite *s)
     tc_array = tcase_create("sarray.invalid_truncated2");
     tcase_add_unchecked_fixture(tc_array, array_setup, array_teardown);
     tcase_add_test(tc_array, sarray_invalid_truncated2);
-    suite_add_tcase(s, tc_array);
-
-    tc_array = tcase_create("varray.ast");
-    tcase_add_unchecked_fixture(tc_array, array_setup, array_teardown);
-    tcase_add_test(tc_array, varray_ast);
     suite_add_tcase(s, tc_array);
 
     tc_array = tcase_create("varray.valid1");
