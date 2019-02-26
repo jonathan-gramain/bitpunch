@@ -47,26 +47,26 @@ static PyObject *BitpunchExc_DataError;
 static PyObject *BitpunchExc_OutOfBoundsError;
 
 struct DataItemObject;
-struct DataTreeObject;
+struct BoardObject;
 struct TrackerObject;
 
 static int
 expr_value_from_PyObject(PyObject *py_expr,
                          expr_value_t *exprp);
 static PyObject *
-expr_value_and_dpath_to_PyObject(struct DataTreeObject *dtree,
+expr_value_and_dpath_to_PyObject(struct BoardObject *dtree,
                                  expr_value_t value, expr_dpath_t dpath);
 static PyObject *
-expr_value_to_native_PyObject(struct DataTreeObject *dtree,
+expr_value_to_native_PyObject(struct BoardObject *dtree,
                               expr_value_t value_eval);
 static PyObject *
-expr_value_to_native_PyObject_nodestroy(struct DataTreeObject *dtree,
+expr_value_to_native_PyObject_nodestroy(struct BoardObject *dtree,
                                         expr_value_t value_eval);
 static PyObject *
 eval_expr_as_python_object(struct DataItemObject *cont, const char *expr);
 
 static PyObject *
-tracker_item_to_shallow_PyObject(struct DataTreeObject *dtree,
+tracker_item_to_shallow_PyObject(struct BoardObject *dtree,
                                  struct tracker *tk);
 
 static int
@@ -335,16 +335,16 @@ set_tracker_error(struct tracker_error *err,
 
 
 static PyObject *
-tracker_item_to_deep_PyObject(struct DataTreeObject *dtree, struct tracker *tk);
+tracker_item_to_deep_PyObject(struct BoardObject *dtree, struct tracker *tk);
 
 static PyObject *
-box_to_deep_PyObject(struct DataTreeObject *dtree, struct box *box);
+box_to_deep_PyObject(struct BoardObject *dtree, struct box *box);
 
 static PyObject *
-box_to_deep_PyDict(struct DataTreeObject *dtree, struct box *box);
+box_to_deep_PyDict(struct BoardObject *dtree, struct box *box);
 
 static PyObject *
-box_to_deep_PyList(struct DataTreeObject *dtree, struct box *box);
+box_to_deep_PyList(struct BoardObject *dtree, struct box *box);
 
 
 /*
@@ -800,19 +800,19 @@ PyDoc_STRVAR(DataItem__doc__,
 
 typedef struct DataItemObject {
     PyObject_HEAD
-    struct DataTreeObject *dtree;
+    struct BoardObject *dtree;
     expr_value_t value;
     expr_dpath_t dpath;
 
     struct box *filtered_box;
 } DataItemObject;
 
-typedef struct DataTreeObject {
+typedef struct BoardObject {
     DataItemObject item;
     FormatSpecObject *fmt;
     struct bitpunch_board *board;
     ARRAY_HEAD(datasource_array, struct ast_node_hdl) data_sources;
-} DataTreeObject;
+} BoardObject;
 
 static int
 DataItem_bf_getbuffer(DataItemObject *exporter,
@@ -1171,7 +1171,7 @@ DataItem_new(PyTypeObject *subtype,
 }
 
 static PyObject *
-DataItem_new_from_tracker(struct DataTreeObject *dtree, struct tracker *tk)
+DataItem_new_from_tracker(struct BoardObject *dtree, struct tracker *tk)
 {
     DataItemObject *self;
 
@@ -1186,7 +1186,7 @@ DataItem_new_from_tracker(struct DataTreeObject *dtree, struct tracker *tk)
 }
 
 static PyObject *
-DataItem_new_from_box(struct DataTreeObject *dtree, struct box *box)
+DataItem_new_from_box(struct BoardObject *dtree, struct box *box)
 {
     DataItemObject *self;
 
@@ -1221,7 +1221,7 @@ DataItem_dealloc(DataItemObject *self)
 }
 
 static void
-DataItem_construct(DataItemObject *self, struct DataTreeObject *dtree)
+DataItem_construct(DataItemObject *self, struct BoardObject *dtree)
 {
     self->dtree = dtree;
     Py_INCREF(dtree);
@@ -1712,7 +1712,7 @@ DataItem_bf_getbuffer(DataItemObject *exporter,
 
 
 static PyObject *
-box_to_deep_PyDict(struct DataTreeObject *dtree, struct box *box)
+box_to_deep_PyDict(struct BoardObject *dtree, struct box *box)
 {
     PyObject *dict;
     struct tracker *tk;
@@ -2079,7 +2079,7 @@ DataItem_get_slice(DataItemObject *self, PyObject *key)
 }
 
 static PyObject *
-box_to_deep_PyList(struct DataTreeObject *dtree, struct box *box)
+box_to_deep_PyList(struct BoardObject *dtree, struct box *box)
 {
     PyObject *list = NULL;
     struct tracker *tk;
@@ -2127,7 +2127,7 @@ box_to_deep_PyList(struct DataTreeObject *dtree, struct box *box)
 }
 
 static PyObject *
-box_to_native_PyObject(struct DataTreeObject *dtree, struct box *box)
+box_to_native_PyObject(struct BoardObject *dtree, struct box *box)
 {
     bitpunch_status_t bt_ret;
     expr_value_t value_eval;
@@ -2144,17 +2144,17 @@ box_to_native_PyObject(struct DataTreeObject *dtree, struct box *box)
 }
 
 /*
- * DataTree
+ * Board
  */
 
-PyDoc_STRVAR(DataTree__doc__,
+PyDoc_STRVAR(Board__doc__,
              "Represents the data tree of flat binary contents");
 
-static PyTypeObject DataTreeType = {
+static PyTypeObject BoardType = {
     PyObject_HEAD_INIT(NULL)
     0,                         /* ob_size */
-    "bitpunch.DataTree",       /* tp_name */
-    sizeof(DataTreeObject),    /* tp_basicsize */
+    "bitpunch.Board",          /* tp_name */
+    sizeof(BoardObject),       /* tp_basicsize */
     0,                         /* tp_itemsize */
     0,                         /* tp_dealloc */
     0,                         /* tp_print */
@@ -2173,7 +2173,7 @@ static PyTypeObject DataTreeType = {
     0,                         /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT |
     Py_TPFLAGS_BASETYPE,       /* tp_flags */
-    DataTree__doc__,           /* tp_doc */
+    Board__doc__,              /* tp_doc */
     0,                         /* tp_traverse */
     0,                         /* tp_clear */
     0,                         /* tp_richcompare */
@@ -2183,7 +2183,7 @@ static PyTypeObject DataTreeType = {
     0,                         /* tp_methods */
     0,                         /* tp_members */
     0,                         /* tp_getset */
-    &DataItemType,             /* tp_base */
+    0,                         /* tp_base */
     0,                         /* tp_dict */
     0,                         /* tp_descr_get */
     0,                         /* tp_descr_set */
@@ -2194,63 +2194,89 @@ static PyTypeObject DataTreeType = {
 };
 
 static PyObject *
-DataTree_new(PyTypeObject *subtype,
-             PyObject *args, PyObject *kwds)
+Board_new(PyTypeObject *subtype,
+          PyObject *args, PyObject *kwds)
 {
-    int ret;
-    PyObject *bin;
-    FormatSpecObject *fmt;
-    struct ast_node_hdl *ds;
-    struct bitpunch_board *board;
-    DataTreeObject *self;
-    struct box *root_box;
+    BoardObject *self;
 
-    if (!PyArg_ParseTuple(args, "OO", &bin, (PyObject **)&fmt)) {
+    self = (BoardObject *)subtype->tp_alloc(subtype, 0);
+    if (NULL == self) {
         return NULL;
     }
-    if (PyObject_IsInstance((PyObject *)fmt,
+    self->board = bitpunch_board_new();
+    return (PyObject *)self;
+}
+
+static PyObject *
+Board_add_schema(BoardObject *self, PyObject *args)
+{
+    const char *name;
+    FormatSpecObject *schema;
+
+    if (!PyArg_ParseTuple(args, "sO", &name, &schema)) {
+        return NULL;
+    }
+    if (PyObject_IsInstance((PyObject *)schema,
                             (PyObject *)&FormatSpecType)) {
-        Py_INCREF(fmt);
+        Py_INCREF(schema);
     } else {
         PyObject *subarg;
 
-        subarg = PyTuple_Pack(1, (PyObject *)fmt);
+        subarg = PyTuple_Pack(1, (PyObject *)schema);
         if (NULL == subarg) {
             return NULL;
         }
-        fmt = (FormatSpecObject *)PyObject_CallObject(
+        schema = (FormatSpecObject *)PyObject_CallObject(
             (PyObject *)&FormatSpecType, subarg);
         Py_DECREF(subarg);
-        if (NULL == fmt) {
+        if (NULL == schema) {
             return NULL;
         }
     }
-    if (PyString_Check(bin)) {
+    bitpunch_board_add_item(self->board, name, schema->schema);
+    Py_DECREF(schema);
+
+    Py_INCREF((PyObject *)self);
+    return (PyObject *)self;
+}
+
+static PyObject *
+Board_add_data(BoardObject *self, PyObject *args)
+{
+    const char *name;
+    PyObject *data;
+    int ret;
+    struct ast_node_hdl *data_source;
+
+    if (!PyArg_ParseTuple(args, "sO", &name, &data)) {
+        return NULL;
+    }
+    if (PyString_Check(data)) {
         char *contents;
         Py_ssize_t length;
 
         /* load the provided text contents */
-        ret = PyString_AsStringAndSize(bin, &contents, &length);
+        ret = PyString_AsStringAndSize(data, &contents, &length);
         assert(-1 != ret);
         ret = bitpunch_data_source_create_from_memory(
-            &ds, contents, length, FALSE);
-    } else if (PyByteArray_Check(bin)) {
+            &data_source, contents, length, FALSE);
+    } else if (PyByteArray_Check(data)) {
         char *contents;
         Py_ssize_t length;
 
         /* load the provided text contents */
-        contents = PyByteArray_AS_STRING(bin);
-        length = PyByteArray_GET_SIZE(bin);
+        contents = PyByteArray_AS_STRING(data);
+        length = PyByteArray_GET_SIZE(data);
         ret = bitpunch_data_source_create_from_memory(
-            &ds, contents, length, FALSE);
-    } else if (PyFile_Check(bin)) {
+            &data_source, contents, length, FALSE);
+    } else if (PyFile_Check(data)) {
         FILE *file;
 
         /* load the contents from the file object */
-        file = PyFile_AsFile(bin);
-        //PyFile_IncUseCount((PyFileObject *)bin);
+        file = PyFile_AsFile(data);
+        //PyFile_IncUseCount((PyFileObject *)data);
         ret = bitpunch_data_source_create_from_file_descriptor(
-            &ds, fileno(file));
+            &data_source, fileno(file));
     } else {
         PyErr_SetString(PyExc_TypeError,
                         "The first argument must be a string or a file object");
@@ -2260,77 +2286,41 @@ DataTree_new(PyTypeObject *subtype,
         PyErr_SetString(PyExc_OSError, "Error loading binary contents");
         return NULL;
     }
+    bitpunch_board_add_item(self->board, name, data_source);
 
-    board = bitpunch_board_new();
-    bitpunch_board_add_item(board, "DATASOURCE", ds);
-
-    self = (DataTreeObject *)DataItem_new(subtype, NULL, NULL);
-    if (NULL == self) {
-        (void) bitpunch_data_source_release(ds);
-        bitpunch_board_free(board);
-        return NULL;
-    }
-    root_box = box_new_root_box(fmt->schema, board, TRUE);
-    if (NULL == root_box) {
-        PyErr_SetString(PyExc_OSError, "Error creating root box");
-        Py_DECREF((PyObject *)self);
-        (void) bitpunch_data_source_release(ds);
-        bitpunch_board_free(board);
-        return NULL;
-    }
-    DataItem_construct(&self->item, self);
-    self->item.dpath = expr_dpath_as_container(root_box);
-    self->board = board;
-    self->fmt = fmt;
-    ARRAY_INIT(&self->data_sources, 0);
-    ARRAY_APPEND(&self->data_sources, *ds);
+    Py_INCREF((PyObject *)self);
     return (PyObject *)self;
 }
 
 static int
-DataTree_clear(DataTreeObject *self)
+Board_clear(BoardObject *self)
 {
-    PyObject *tmp;
-    struct ast_node_hdl *ds;
-
-    DataItem_clear(&self->item);
-
-    if (NULL != self->board) {
-        bitpunch_board_free(self->board);
-        self->board = NULL;
-    }
-    tmp = (PyObject *)self->fmt;
-    self->fmt = NULL;
-    Py_XDECREF(tmp);
-    ARRAY_FOREACH(&self->data_sources, ds) {
-        bitpunch_data_source_release(ds);
-    }
-    ARRAY_DESTROY(&self->data_sources);
+    bitpunch_board_free(self->board);
     return 0;
 }
 
 static void
-DataTree_dealloc(DataTreeObject *self)
+Board_dealloc(BoardObject *self)
 {
-    DataTree_clear(self);
+    Board_clear(self);
     Py_TYPE(self)->tp_free(self);
 }
 
 static int
-DataTreeType_setup(void)
+BoardType_setup(void)
 {
-    DataTreeType.ob_type = &PyType_Type;
-    DataTreeType.tp_new = DataTree_new;
-    DataTreeType.tp_clear = (inquiry)DataTree_clear;
-    DataTreeType.tp_dealloc = (destructor)DataTree_dealloc;
-    if (PyType_Ready(&DataTreeType) < 0) {
+    BoardType.ob_type = &PyType_Type;
+    BoardType.tp_new = Board_new;
+    BoardType.tp_clear = (inquiry)Board_clear;
+    BoardType.tp_dealloc = (destructor)Board_dealloc;
+    if (PyType_Ready(&BoardType) < 0) {
         return -1;
     }
     return 0;
 }
 
 static PyObject *
-tracker_item_to_deep_PyObject(DataTreeObject *dtree, struct tracker *tk)
+tracker_item_to_deep_PyObject(BoardObject *dtree, struct tracker *tk)
 {
     PyObject *res = NULL;
     bitpunch_status_t bt_ret;
@@ -2366,7 +2356,7 @@ tracker_item_to_deep_PyObject(DataTreeObject *dtree, struct tracker *tk)
 }
 
 static PyObject *
-box_to_deep_PyObject(struct DataTreeObject *dtree, struct box *box)
+box_to_deep_PyObject(struct BoardObject *dtree, struct box *box)
 {
     struct ast_node_hdl *node;
 
@@ -2422,13 +2412,13 @@ typedef enum TrackerIterType {
 
 PyDoc_STRVAR(Tracker__doc__,
              "A Tracker object is able to browse items over a "
-             "DataTree object. It can iterate a sequence of objects "
+             "Board object. It can iterate a sequence of objects "
              "and enter any complex object to further iterate its "
              "sub-elements.");
 
 typedef struct TrackerObject {
     PyObject_HEAD
-    DataTreeObject *dtree;
+    BoardObject *dtree;
     struct tracker *tk;
     TrackerIterType iter_mode;
     TrackerIterType current_iter_mode;
@@ -3360,7 +3350,7 @@ expr_value_from_PyObject(PyObject *py_expr,
  * @brief convert an expression into a native-typed python object
  */
 static PyObject *
-expr_value_to_native_PyObject_nodestroy(DataTreeObject *dtree,
+expr_value_to_native_PyObject_nodestroy(BoardObject *dtree,
                                         expr_value_t value_eval)
 {
     switch (value_eval.type) {
@@ -3387,7 +3377,7 @@ expr_value_to_native_PyObject_nodestroy(DataTreeObject *dtree,
  * @note this function call destroys @ref value_eval
  */
 static PyObject *
-expr_value_to_native_PyObject(DataTreeObject *dtree,
+expr_value_to_native_PyObject(BoardObject *dtree,
                               expr_value_t value_eval)
 {
     PyObject *res;
@@ -3405,7 +3395,7 @@ expr_value_to_native_PyObject(DataTreeObject *dtree,
  * dpath
  */
 static PyObject *
-expr_value_and_dpath_to_PyObject(DataTreeObject *dtree,
+expr_value_and_dpath_to_PyObject(BoardObject *dtree,
                                  expr_value_t value, expr_dpath_t dpath)
 {
     DataItemObject *item;
@@ -3426,7 +3416,7 @@ expr_value_and_dpath_to_PyObject(DataTreeObject *dtree,
 static PyObject *
 eval_expr_as_python_object(DataItemObject *item, const char *expr)
 {
-    DataTreeObject *dtree;
+    BoardObject *dtree;
     struct ast_node_hdl *schema;
     struct bitpunch_board *board;
     struct box *scope;
@@ -3465,7 +3455,7 @@ eval_expr_as_python_object(DataItemObject *item, const char *expr)
 }
 
 static PyObject *
-tracker_item_to_shallow_PyObject(DataTreeObject *dtree,
+tracker_item_to_shallow_PyObject(BoardObject *dtree,
                                  struct tracker *tk)
 {
     if (tracker_is_dangling(tk)) {
@@ -3669,12 +3659,12 @@ initmodel_ext(void)
     Py_INCREF(&DataItemType);
     PyModule_AddObject(bitpunch_m, "DataItem", (PyObject *)&DataItemType);
 
-    /* DataTree */
-    if (DataTreeType_setup() < 0) {
+    /* Board */
+    if (BoardType_setup() < 0) {
         return ;
     }
-    Py_INCREF(&DataTreeType);
-    PyModule_AddObject(bitpunch_m, "DataTree", (PyObject *)&DataTreeType);
+    Py_INCREF(&BoardType);
+    PyModule_AddObject(bitpunch_m, "Board", (PyObject *)&BoardType);
 
     /* Tracker */
     if (TrackerType_setup() < 0) {
