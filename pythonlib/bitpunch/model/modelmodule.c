@@ -907,7 +907,7 @@ static PyObject *
 Board_eval_expr(BoardObject *board, PyObject *args)
 {
     const char *expr;
-    int ret;
+    bitpunch_status_t bt_ret;
     expr_value_t expr_value;
     expr_dpath_t expr_dpath;
     struct tracker_error *tk_err = NULL;
@@ -915,9 +915,9 @@ Board_eval_expr(BoardObject *board, PyObject *args)
     if (!PyArg_ParseTuple(args, "s", &expr)) {
         return NULL;
     }
-    ret = bitpunch_eval_expr2(board->board, expr,
-                              &expr_value, &expr_dpath, &tk_err);
-    if (-1 == ret) {
+    bt_ret = bitpunch_eval_expr2(board->board, expr,
+                                 &expr_value, &expr_dpath, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
         if (NULL != tk_err) {
             set_tracker_error(tk_err, tk_err->bt_ret);
         } else {
@@ -3458,7 +3458,6 @@ static PyObject *
 eval_expr_as_python_object(DataItemObject *item, const char *expr)
 {
     BoardObject *dtree;
-    //struct ast_node_hdl *schema;
     struct bitpunch_board *board;
     struct box *scope;
     int ret;
@@ -3471,12 +3470,10 @@ eval_expr_as_python_object(DataItemObject *item, const char *expr)
             return NULL;
         }
         dtree = item->dtree;
-        //schema = dtree->fmt->schema;
         board = dtree->board;
         scope = item->dpath.box;
     } else {
         dtree = NULL;
-        //schema = NULL;
         board = NULL;
         scope = NULL;
     }

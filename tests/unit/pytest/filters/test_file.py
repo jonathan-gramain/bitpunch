@@ -22,7 +22,7 @@ def update_test_file(contents):
 
 spec_file_basic = """
 
-let root = file {{ @path: "{file_path}"; }};
+let Schema = file {{ @path: "{file_path}"; }};
 
 """.format(file_path=TEST_FILE_PATH)
 

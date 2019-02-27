@@ -114,7 +114,7 @@ bitpunch_eval_expr2(struct bitpunch_board *board,
     struct ast_node_hdl *expr_node = NULL;
     struct parser_ctx *parser_ctx = NULL;
     struct box *scope = NULL;
-    bitpunch_status_t bt_ret;
+    bitpunch_status_t bt_ret = BITPUNCH_ERROR;
 
     assert(NULL != expr);
 

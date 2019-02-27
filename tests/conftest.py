@@ -39,7 +39,6 @@ def make_testcase(param):
     board.add_data_source('data', data)
     board.add_spec('Spec', param['spec'])
     param['dtree'] = board.eval_expr('data <> Spec.Schema')
-    print 'DTREE:', model.make_python_object(param['dtree'])
     param['data'] = data
 
     if 'BITPUNCH_TEST_ENABLE_CLI' in os.environ:

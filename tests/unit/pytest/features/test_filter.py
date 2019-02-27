@@ -825,11 +825,9 @@ def test_u8_array_2(params_u8_array_2):
 
 spec_file_non_slack_array_filtered = """
 
-let DS = env("DATASOURCE");
-
 let NullTermFixedString = [8] byte <> string { @boundary: '\\0'; };
 
-DS <> struct {
+let Schema = struct {
     contents: NullTermFixedString;
 };
 
