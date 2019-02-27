@@ -15,6 +15,26 @@ def update_test_file(contents):
     model.notify_file_change(TEST_FILE_PATH)
 
 
+def make_testcase(param):
+    update_test_file(param['file_data'])
+
+    board = model.Board()
+    board.add_spec('Spec', param['spec'])
+    if 'data' in param:
+        data = to_bytes(param['data'])
+        board.add_data_source('data', data)
+        param['dtree'] = board.eval_expr('data <> Spec.Schema')
+        param['data'] = data
+    else:
+        param['dtree'] = board.eval_expr('Spec.Schema')
+
+    if 'BITPUNCH_TEST_ENABLE_CLI' in os.environ:
+        cli = CLI()
+        cli.attach_data_tree(param['dtree'])
+        cli.cmdloop()
+
+    return param
+
 #
 # Test file filter
 #
@@ -26,17 +46,14 @@ let Schema = file {{ @path: "{file_path}"; }};
 
 """.format(file_path=TEST_FILE_PATH)
 
-data_file_basic = """
-"""
-
 @pytest.fixture(
     scope='module',
     params=[{
         'spec': spec_file_basic,
-        'data': data_file_basic,
+        'file_data': 'foobar',
     }])
 def params_file_basic(request):
-    return conftest.make_testcase(request.param)
+    return make_testcase(request.param)
 
 def test_file_basic(params_file_basic):
     params = params_file_basic
@@ -44,10 +61,10 @@ def test_file_basic(params_file_basic):
 
     update_test_file('foobar')
 
-    assert len(dtree.root) == 6
-    assert dtree.root == 'foobar'
-    assert dtree.eval_expr('root') == 'foobar'
-    assert dtree.eval_expr('root[..3]') == 'foo'
+    assert len(dtree) == 6
+    assert dtree == 'foobar'
+    assert dtree.eval_expr('self') == 'foobar'
+    assert dtree.eval_expr('self[..3]') == 'foo'
 
     os.unlink(TEST_FILE_PATH)
 
@@ -60,14 +77,11 @@ let Schema = file {{ @path: "{file_path}"; }} <> struct {{
 
 """.format(file_path=TEST_FILE_PATH)
 
-data_file_struct = """
-"""
-
 @pytest.fixture(
     scope='module',
     params=[{
         'spec': spec_file_struct,
-        'data': data_file_struct,
+        'file_data': 'foobar',
     }])
 def params_file_struct(request):
     return conftest.make_testcase(request.param)
@@ -78,14 +92,14 @@ def test_file_struct(params_file_struct):
 
     update_test_file('foobar')
 
-    assert len(dtree.root.contents) == 6
-    assert dtree.root.contents == 'foobar'
-    assert dtree.eval_expr('root.contents') == 'foobar'
-    assert model.make_python_object(dtree.root) == {
+    assert len(dtree.contents) == 6
+    assert dtree.contents == 'foobar'
+    assert dtree.eval_expr('contents') == 'foobar'
+    assert model.make_python_object(dtree) == {
         'contents': 'foobar',
     }
-    assert dtree.root.contents[:3] == 'foo'
-    assert dtree.eval_expr('root.contents[..3]') == 'foo'
+    assert dtree.contents[:3] == 'foo'
+    assert dtree.eval_expr('contents[..3]') == 'foo'
 
     os.unlink(TEST_FILE_PATH)
 
@@ -100,8 +114,6 @@ FILE <> struct {{
 
 """.format(file_path=TEST_FILE_PATH)
 
-data_file_anonymous_struct = """
-"""
 
 
 spec_file_top_level_field_1 = """
@@ -124,20 +136,18 @@ contents: ?contents;
 
 """.format(file_path=TEST_FILE_PATH)
 
-data_file_top_level_field = """
-"""
 
 @pytest.fixture(
     scope='module',
     params=[{
         'spec': spec_file_anonymous_struct,
-        'data': data_file_anonymous_struct,
+        'file_data': 'foobar',
     }, {
         'spec': spec_file_top_level_field_1,
-        'data': data_file_top_level_field,
+        'file_data': 'foobar',
     }, {
         'spec': spec_file_top_level_field_2,
-        'data': data_file_top_level_field,
+        'file_data': 'foobar',
     }])
 def params_file_with_contents(request):
     return conftest.make_testcase(request.param)
@@ -185,6 +195,7 @@ data_file_with_outer_scope = """
     params=[{
         'spec': spec_file_with_outer_scope,
         'data': data_file_with_outer_scope,
+        'file_data': 'foobar',
     }])
 def params_file_with_outer_scope(request):
     return conftest.make_testcase(request.param)
