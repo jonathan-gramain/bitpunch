@@ -54,7 +54,7 @@ def test_file_basic(params_file_basic):
 
 spec_file_struct = """
 
-let root = file {{ @path: "{file_path}"; }} <> struct {{
+let Schema = file {{ @path: "{file_path}"; }} <> struct {{
     contents: [] byte;
 }};
 
