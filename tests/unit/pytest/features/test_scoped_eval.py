@@ -211,20 +211,20 @@ def test_scoped_eval(params_scoped_eval):
     int_values = [ord('i'), ord('j'), ord('k'), ord('l')]
 
     assert memoryview(dtree.eval_expr('things[1].props[0].name')) == 'ijkl'
-    values = dtree.eval_expr('(things[1].props[0].name <> AsArray).values')
+    values = dtree.eval_expr('(things[1].props[0].name <> Spec.AsArray).values')
     assert model.make_python_object(values) == int_values
 
     thing = dtree.things[1]
     assert memoryview(thing.eval_expr('props[0].name')) == 'ijkl'
-    thing_values = thing.eval_expr('(props[0].name <> AsArray).values')
+    thing_values = thing.eval_expr('(props[0].name <> Spec.AsArray).values')
     assert model.make_python_object(thing_values) == int_values
 
     prop = thing.props[0]
     assert memoryview(prop.eval_expr('name')) == 'ijkl'
-    prop_values = prop.eval_expr('(name <> AsArray).values')
+    prop_values = prop.eval_expr('(name <> Spec.AsArray).values')
     assert model.make_python_object(prop_values) == int_values
 
-    prop_first_value = prop.eval_expr('(name <> AsArray).values[0]')
+    prop_first_value = prop.eval_expr('(name <> Spec.AsArray).values[0]')
     assert memoryview(prop_first_value) == 'i'
 
     
@@ -271,8 +271,8 @@ def test_nested_scoping_eval(params_nested_scoping_eval):
     params = params_nested_scoping_eval
     dtree = params['dtree']
 
-    foo = dtree.eval_expr('foo <> Foo')
-    bar = foo.eval_expr('bar[0..sizeof(Foo.Bar)] <> Foo.Bar')
+    foo = dtree.eval_expr('foo <> Spec.Foo')
+    bar = foo.eval_expr('bar[0..sizeof(Spec.Foo.Bar)] <> Spec.Foo.Bar')
     assert bar.eval_expr('?foo_name') == 'foo'
 
     two_bars = foo.eval_expr('bar[0..2 * sizeof(Foo.Bar)] <> [2] Foo.Bar')
