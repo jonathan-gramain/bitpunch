@@ -646,8 +646,8 @@
 %left  '*' '/' '%'
 %right OP_ARITH_UNARY_OP '!' '~' OP_SIZEOF
 %left  ':' "<>"
-%left  OP_SUBSCRIPT OP_FCALL '.' "::"
 %right OP_ARRAY_DECL
+%left  OP_SUBSCRIPT OP_FCALL '.' "::"
 
 %type <ast_node_hdl> schema g_integer g_boolean g_identifier g_self g_literal scope_block filter_block expr opt_expr twin_index opt_twin_index
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
