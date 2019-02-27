@@ -40,7 +40,7 @@ def data_ok1():
 def test_tinydb(spec, data_ok1):
 
     board = model.Board()
-    board.add_schema('Spec', spec)
+    board.add_spec('Spec', spec)
     board.add_data_source('data', data_ok1)
     dom = board.eval_expr('data <> Spec')
 

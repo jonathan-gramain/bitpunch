@@ -820,7 +820,7 @@ Board_new(PyTypeObject *subtype,
 }
 
 static PyObject *
-Board_add_schema(BoardObject *self, PyObject *args)
+Board_add_spec(BoardObject *self, PyObject *args)
 {
     const char *name;
     FormatSpecObject *schema;
@@ -930,8 +930,8 @@ Board_eval_expr(BoardObject *board, PyObject *args)
 }
 
 static PyMethodDef Board_methods[] = {
-    { "add_schema", (PyCFunction)Board_add_schema, METH_VARARGS,
-      "add a schema to the board from a string, buffer or file object"
+    { "add_spec", (PyCFunction)Board_add_spec, METH_VARARGS,
+      "add specification code to the board from a string, buffer or file object"
     },
     { "add_data_source", (PyCFunction)Board_add_data_source, METH_VARARGS,
       "add a data source to the board from a string, buffer or file object"
