@@ -846,7 +846,6 @@ Board_add_schema(BoardObject *self, PyObject *args)
         }
     }
     bitpunch_board_add_item(self->board, name, schema->schema);
-    Py_DECREF(schema);
 
     Py_INCREF((PyObject *)self);
     return (PyObject *)self;
