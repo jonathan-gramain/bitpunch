@@ -11,7 +11,7 @@ let u8 = byte <> integer { @signed: false; };
 
 let Thing = struct {
     nb_props: u8;
-    props:    [nb_props] ThingProp;
+    props:    [nb_props] ThingBox.ThingProp;
 };
 
 let AsArray = struct {
@@ -53,7 +53,7 @@ let u8 = byte <> integer { @signed: false; };
 
 let Thing = struct {
     nb_props: u8;
-    props:    [nb_props] ThingProp;
+    props:    [nb_props] ThingBox.ThingProp;
 };
 
 let AsArray = struct {
