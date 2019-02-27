@@ -1606,7 +1606,9 @@ expr_evaluate_dpath_anchor_common(struct ast_node_hdl *expr,
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
-        if (!ast_node_is_rexpr_filter(expr_dpath_get_as_type(anchor_dpath))) {
+        if (EXPR_DPATH_TYPE_NONE != anchor_dpath.type
+            && !ast_node_is_rexpr_filter(
+                expr_dpath_get_as_type(anchor_dpath))) {
             expr_dpath_destroy(anchor_dpath);
             return node_error(
                 BITPUNCH_DATA_ERROR, anchor_expr, bst,
@@ -1853,34 +1855,61 @@ expr_evaluate_unary_operator(
 }
 
 static bitpunch_status_t
+expr_evaluate_sizeof_internal(
+    struct ast_node_hdl *expr,
+    int64_t *item_sizep, struct browse_state *bst)
+{
+    struct ast_node_hdl *opd;
+    struct ast_node_hdl *filter;
+    bitpunch_status_t bt_ret;
+    expr_dpath_t dpath_eval;
+
+    opd = expr->ndat->u.rexpr_op.op.operands[0];
+    if (ast_node_is_rexpr(opd)) {
+        if (AST_NODE_TYPE_REXPR_FIELD == opd->ndat->type) {
+            bt_ret = expr_evaluate_filter_type_internal(
+                opd->ndat->u.rexpr_field.field->filter, NULL,
+                FILTER_KIND_ITEM,
+                &filter, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                return bt_ret;
+            }
+            assert(ast_node_is_filter(filter));
+            if (0 == (filter->ndat->u.item.flags
+                      & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
+                *item_sizep = ast_node_get_min_span_size(filter);
+                return BITPUNCH_OK;
+            }
+        }
+        bt_ret = expr_evaluate_dpath_internal(opd, NULL, &dpath_eval, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
+        bt_ret = expr_dpath_get_size_internal(dpath_eval, item_sizep, bst);
+        expr_dpath_destroy(dpath_eval);
+        return bt_ret;
+    }
+    // static sized item
+    assert(ast_node_is_item(opd));
+    assert(0 == (opd->ndat->u.item.flags
+                 & ITEMFLAG_IS_SPAN_SIZE_VARIABLE));
+    *item_sizep = ast_node_get_min_span_size(opd);
+    return BITPUNCH_OK;
+}
+
+static bitpunch_status_t
 expr_evaluate_sizeof(
     struct ast_node_hdl *expr,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
-    struct ast_node_hdl *opd;
     int64_t item_size;
     bitpunch_status_t bt_ret;
-    expr_dpath_t dpath_eval;
 
     if (NULL != valuep) {
-        opd = expr->ndat->u.rexpr_op.op.operands[0];
-        if (ast_node_is_rexpr(opd)) {
-            bt_ret = expr_evaluate_dpath_internal(opd, NULL, &dpath_eval, bst);
-            if (BITPUNCH_OK != bt_ret) {
-                return bt_ret;
-            }
-            bt_ret = expr_dpath_get_size_internal(dpath_eval, &item_size, bst);
-            expr_dpath_destroy(dpath_eval);
-            if (BITPUNCH_OK != bt_ret) {
-                return bt_ret;
-            }
-        } else {
-            // static sized item
-            assert(ast_node_is_item(opd));
-            assert(0 == (opd->ndat->u.item.flags
-                         & ITEMFLAG_IS_SPAN_SIZE_VARIABLE));
-            item_size = ast_node_get_min_span_size(opd);
+        bt_ret = expr_evaluate_sizeof_internal(expr, &item_size, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
         }
         *valuep = expr_value_as_integer(item_size);
     }
@@ -2335,10 +2364,13 @@ expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
 
         if (expr->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_UNSET ||
             expr->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
-            bt_ret = node_error(BITPUNCH_NOT_IMPLEMENTED, expr, bst,
-                                "cannot evaluate expression value: "
-                                "not implemented on type '%s'",
-                                ast_node_type_str(expr->ndat->type));
+            if (NULL != valuep) {
+                *valuep = expr_value_unset();
+            }
+            if (NULL != dpathp) {
+                *dpathp = expr_dpath_none();
+            }
+            bt_ret = BITPUNCH_OK;
             break ;
         }
         transform.dpath.type = EXPR_DPATH_TYPE_NONE;

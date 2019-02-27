@@ -2837,7 +2837,6 @@ compile_rexpr_member(
     struct named_statement_spec *visible_statements;
     int n_visible_statements;
     struct ast_node_hdl *anchor_expr;
-    struct ast_node_hdl *anchor_target;
     enum statement_type lookup_mask;
     const struct ast_node_hdl *anchor_filter, *member;
     struct named_statement_spec *stmt_spec;
@@ -2854,7 +2853,6 @@ compile_rexpr_member(
     }
     member = op->operands[1];
     anchor_expr = op->operands[0];
-    anchor_target = ast_node_get_named_expr_target(anchor_expr);
     anchor_filter = ast_node_get_as_type(anchor_expr);
     if (NULL != anchor_filter) {
         if (!ast_node_is_rexpr_filter(anchor_filter)) {
@@ -2900,32 +2898,6 @@ compile_rexpr_member(
         }
         if (n_visible_statements == 1) {
             stmt_spec = &visible_statements[0];
-            if (ast_node_is_item(anchor_target) && !is_scope_operator) {
-                // TODO for full type property support (like
-                // Type.field) it may be necessary to introduce new
-                // compiled types, for now compile as the target type
-                // directly, for sizeof(Type.field) it's enough
-                switch (stmt_spec->stmt_type) {
-                case STATEMENT_TYPE_NAMED_EXPR:
-                case STATEMENT_TYPE_ATTRIBUTE:
-                    resolved_type = ast_node_get_named_expr_target(
-                        ((struct named_expr *)stmt_spec->nstmt)->expr)->ndat;
-                    free(visible_statements);
-                    expr->ndat = resolved_type;
-                    break ;
-                case STATEMENT_TYPE_FIELD:
-                    resolved_type = ast_node_get_named_expr_target(
-                        ((struct field *)stmt_spec->nstmt)->filter)->ndat;
-                    free(visible_statements);
-                    expr->ndat = resolved_type;
-                    break ;
-                default:
-                    assert(0);
-                }
-                return compile_node_once(expr, tags, ctx,
-                                         (RESOLVE_EXPECT_TYPE |
-                                          RESOLVE_EXPECT_FILTER));
-            }
             resolved_type = new_safe(struct ast_node_data);
             resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
             resolved_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
@@ -2947,8 +2919,6 @@ compile_rexpr_member(
                     (struct named_expr *)stmt_spec->nstmt;
                 break ;
             case STATEMENT_TYPE_FIELD:
-                // FIXME support static sizeof(Type) form (used to be
-                // supported via REXPR_ITEM)
                 resolved_type->type = AST_NODE_TYPE_REXPR_FIELD;
                 resolved_type->u.rexpr_field.field =
                     (struct field *)stmt_spec->nstmt;
