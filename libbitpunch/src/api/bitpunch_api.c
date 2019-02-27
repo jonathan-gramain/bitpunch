@@ -102,17 +102,15 @@ bitpunch_eval_expr(struct ast_node_hdl *schema,
     if (-1 == bitpunch_parse_expr(expr, &expr_node, &parser_ctx)) {
         return -1;
     }
-    if (NULL != schema) {
-        if (NULL == scope) {
+    if (NULL == scope) {
+        if (NULL != schema) {
             scope = box_new_root_box(schema, board, FALSE);
             if (NULL == scope) {
                 goto end;
             }
-        } else {
-            box_acquire(scope);
         }
     } else {
-        scope = NULL; // just in case
+        box_acquire(scope);
     }
     if (-1 == bitpunch_resolve_expr(expr_node, scope)) {
         goto end;
