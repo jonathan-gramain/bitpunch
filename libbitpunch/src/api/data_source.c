@@ -51,6 +51,9 @@
 static int
 data_source_free(struct bitpunch_data_source *ds);
 
+static int
+file_source_refresh_internal(struct bitpunch_file_source *fs);
+
 struct cached_file_source {
     LIST_ENTRY(cached_file_source) list;
     struct bitpunch_file_source *fs;
@@ -91,15 +94,13 @@ lookup_cached_file_source(const char *path)
 }
 
 static int
-remove_cached_file_source(const char *path)
+refresh_cached_file_source(const char *path)
 {
     struct cached_file_source *cfs, *tcfs;
 
     LIST_FOREACH_SAFE(cfs, &cached_file_sources, list, tcfs) {
         if (NULL != cfs->fs->path && 0 == strcmp(cfs->fs->path, path)) {
-            LIST_REMOVE(cfs, list);
-            data_source_free((struct bitpunch_data_source *)cfs->fs);
-            free(cfs);
+            file_source_refresh_internal(cfs->fs);
             return 0;
         }
     }
@@ -118,7 +119,7 @@ add_file_source_to_cache(struct bitpunch_file_source *fs)
 }
 
 static int
-open_data_source_from_fd(struct bitpunch_file_source *fs, int fd)
+open_file_source_from_fd(struct bitpunch_file_source *fs, int fd)
 {
     char *map;
     size_t map_length;
@@ -137,6 +138,27 @@ open_data_source_from_fd(struct bitpunch_file_source *fs, int fd)
     fs->ds.ds_data = map;
     fs->ds.ds_data_length = map_length;
 
+    return 0;
+}
+
+static int
+open_file_source_from_file_path(
+    struct bitpunch_file_source *fs, const char *path)
+{
+    int fd;
+
+    assert(NULL != path);
+
+    fd = open(path, O_RDONLY);
+    if (-1 == fd) {
+        fprintf(stderr, "Unable to open binary file %s: open failed: %s\n",
+                path, strerror(errno));
+        return -1;
+    }
+    if (-1 == open_file_source_from_fd(fs, fd)) {
+        (void)close(fd);
+        return -1;
+    }
     return 0;
 }
 
@@ -176,10 +198,8 @@ data_source_create_from_file_path_internal(
         }
         fs = new_safe(struct bitpunch_file_source);
         fs->ds.backend.close = data_source_close_file_path;
-
-        if (-1 == open_data_source_from_fd(fs, fd)) {
+        if (-1 == open_file_source_from_file_path(fs, path)) {
             fprintf(stderr, "Error loading binary file %s\n", path);
-            (void)close(fd);
             free(fs);
             return -1;
         }
@@ -203,7 +223,7 @@ bitpunch_data_source_create_from_file_path(
 void
 bitpunch_data_source_notify_file_change(const char *path)
 {
-    (void) remove_cached_file_source(path);
+    (void) refresh_cached_file_source(path);
 }
 
 static int
@@ -228,7 +248,7 @@ bitpunch_data_source_create_from_file_descriptor(
     fs->ds.backend.close = data_source_close_file_descriptor;
     fs->ds.flags = BITPUNCH_DATA_SOURCE_EXTERNAL;
 
-    if (-1 == open_data_source_from_fd(fs, fd)) {
+    if (-1 == open_file_source_from_fd(fs, fd)) {
         fprintf(stderr,
                 "Error loading binary file from file descriptor fd=%d\n",
                 fd);
@@ -301,4 +321,19 @@ bitpunch_data_source_release(struct bitpunch_data_source *ds)
     }
     // we could implement cleanup for less-used cache entries here
     return 0;
+}
+
+static int
+file_source_refresh_internal(struct bitpunch_file_source *fs)
+{
+    int ret;
+    char *path;
+
+    path = strdup(fs->path);
+    ret = data_source_close(&fs->ds);
+    if (-1 == ret) {
+        return -1;
+    }
+    return open_file_source_from_file_path(fs, path);
+    free(path);
 }

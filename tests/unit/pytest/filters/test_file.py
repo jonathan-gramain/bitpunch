@@ -9,6 +9,12 @@ import conftest
 
 TEST_FILE_PATH = '/tmp/bitpunch.test.file'
 
+def update_test_file(contents):
+    with open(TEST_FILE_PATH, 'w') as f:
+        f.write(contents);
+    model.notify_file_change(TEST_FILE_PATH)
+
+
 #
 # Test file filter
 #
@@ -36,9 +42,7 @@ def test_file_basic(params_file_basic):
     params = params_file_basic
     dtree = params['dtree']
 
-    model.notify_file_change(TEST_FILE_PATH)
-    with open(TEST_FILE_PATH, 'w') as f:
-        f.write('foobar');
+    update_test_file('foobar')
 
     assert len(dtree.root) == 6
     assert dtree.root == 'foobar'
@@ -72,9 +76,7 @@ def test_file_struct(params_file_struct):
     params = params_file_struct
     dtree = params['dtree']
 
-    model.notify_file_change(TEST_FILE_PATH)
-    with open(TEST_FILE_PATH, 'w') as f:
-        f.write('foobar');
+    update_test_file('foobar')
 
     assert len(dtree.root.contents) == 6
     assert dtree.root.contents == 'foobar'
@@ -144,9 +146,7 @@ def test_file_with_contents(params_file_with_contents):
     params = params_file_with_contents
     dtree = params['dtree']
 
-    model.notify_file_change(TEST_FILE_PATH)
-    with open(TEST_FILE_PATH, 'w') as f:
-        f.write('foobar');
+    update_test_file('foobar')
 
     assert len(dtree.contents) == 6
     assert dtree.contents == 'foobar'
@@ -193,9 +193,7 @@ def test_file_with_outer_scope(params_file_with_outer_scope):
     params = params_file_with_outer_scope
     dtree = params['dtree']
 
-    model.notify_file_change(TEST_FILE_PATH)
-    with open(TEST_FILE_PATH, 'w') as f:
-        f.write('foobar');
+    update_test_file('foobar')
 
     assert len(dtree.root.contents) == 3
     assert len(dtree.root.junk) == 3
@@ -238,9 +236,7 @@ def test_file_string_array(params_file_string_array):
     params = params_file_string_array
     dtree = params['dtree']
 
-    model.notify_file_change(TEST_FILE_PATH)
-    with open(TEST_FILE_PATH, 'w') as f:
-        f.write('hello\nhola\nbonjour\n');
+    update_test_file('hello\nhola\nbonjour\n')
 
     assert len(dtree.root) == 3
     assert model.make_python_object(dtree.root) == ['hello', 'hola', 'bonjour']
