@@ -418,9 +418,9 @@ def test_filter_in_field_expression(params_filter_in_field_expression):
     with pytest.raises(AttributeError):
         dtree.eval_expr('^?nb_as_struct').value
     assert dtree.eval_expr('a_as_int') == 1
-    assert dtree.eval_expr('a <> Int') == 1
+    assert dtree.eval_expr('a <> Spec.Int') == 1
     assert model.make_python_object(
-        dtree.eval_expr('a <> UnusedByteStruct').by) == '\x01'
+        dtree.eval_expr('a <> Spec.UnusedByteStruct').by) == '\x01'
     assert model.make_python_object(dtree.eval_expr('^a_as_int')) == '\x01'
     with pytest.raises(AttributeError):
         dtree.eval_expr('^?a_as_struct').value
@@ -630,16 +630,6 @@ let Schema = struct {
 
 """
 
-spec_file_filter_file_as_single_integer_3 = """
-
-let UnsignedTemplate = integer { @signed: false; @endian: 'little'; };
-
-let value = let Schema = ?ref;
-
-let ?ref = UnsignedTemplate;
-
-"""
-
 data_file_filter_file_as_single_integer = """
 2A 00 00 00
 """
@@ -651,9 +641,6 @@ data_file_filter_file_as_single_integer = """
         'data': data_file_filter_file_as_single_integer,
     }, {
         'spec': spec_file_filter_file_as_single_integer_2,
-        'data': data_file_filter_file_as_single_integer,
-    }, {
-        'spec': spec_file_filter_file_as_single_integer_3,
         'data': data_file_filter_file_as_single_integer,
     }])
 def params_filter_file_as_single_integer(request):
@@ -684,9 +671,10 @@ def params_filter_invalid(request):
 
 def test_filter_invalid(params_filter_invalid):
     params = params_filter_invalid
+    board = model.Board()
     spec = params['spec']
     with pytest.raises(OSError):
-        dtree = model.DataTree('', spec)
+        board.add_spec('Spec', spec)
 
 
 @pytest.fixture(
@@ -796,7 +784,7 @@ spec_file_u8_array_2 = """
 
 let u8 = byte <> integer { @signed: false; };
 
-let contents = let Schema = [5] u8;
+let Schema = [5] u8;
 
 """
 
@@ -814,13 +802,13 @@ def test_u8_array_2(params_u8_array_2):
     params = params_u8_array_2
     dtree = params['dtree']
 
-    assert model.make_python_object(dtree.eval_expr('contents')) == \
+    assert model.make_python_object(dtree.eval_expr('self')) == \
         [1, 2, 3, 4, 5]
     # ancestor is the data source filter
-    assert model.make_python_object(dtree.eval_expr('^contents')) == \
+    assert model.make_python_object(dtree.eval_expr('^self')) == \
         '\x01\x02\x03\x04\x05'
-    assert model.make_python_object(dtree.eval_expr('contents[3]')) == 4
-    assert model.make_python_object(dtree.eval_expr('^contents[3]')) == '\x04'
+    assert model.make_python_object(dtree.eval_expr('self[3]')) == 4
+    assert model.make_python_object(dtree.eval_expr('^self[3]')) == '\x04'
 
 
 spec_file_non_slack_array_filtered = """
@@ -851,7 +839,6 @@ def test_non_slack_array_filtered(params_non_slack_array_filtered):
     params = params_non_slack_array_filtered
     dtree = params['dtree']
 
-    assert str(dtree.DS) == 'hello\0\0\0'
     assert str(dtree.contents) == 'hello'
     assert str(dtree.contents[1:]) == 'ello'
     assert model.make_python_object(
