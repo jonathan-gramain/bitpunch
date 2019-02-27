@@ -13,7 +13,7 @@ let Foobar = struct {
     value: [6] byte <> string;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     foobars: [5] Foobar;
 
     let ?foobar_slice = foobars[2..];
@@ -48,7 +48,7 @@ let Foobar = struct {
     $foo: 42; // invalid
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     foobars: [5] Foobar;
 };
 """

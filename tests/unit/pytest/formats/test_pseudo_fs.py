@@ -15,8 +15,6 @@ let Int = integer { @signed: false; @endian: 'little'; };
 let u8 = byte <> Int;
 let u16 = [2] byte <> Int;
 
-env("DATASOURCE") <> Schema;
-
 let Schema = struct {
     hdr:     Header;
     contents: [] byte;

@@ -9,7 +9,7 @@ spec_file_anonymous_struct_embedded = """
 
 let u32 = [4] byte <> integer { @endian: 'little'; @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     struct {
         a: u32;
         struct {
@@ -39,7 +39,7 @@ let Bar = struct {
     @span: 8;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     Foo;
     Bar;
     d: u32;
@@ -63,7 +63,7 @@ let Bar = struct {
     @span: 8;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     Foo;
     Bar;
     d: u32;
@@ -110,7 +110,7 @@ let Trailer = struct {
     d: u32;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     Foo;
     Bar;
     SlackBody;

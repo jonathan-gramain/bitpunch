@@ -21,7 +21,7 @@ let TinyDBValue = struct {
     value:      [value_size] byte;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     values: [] TinyDBValue;
 };
 """
@@ -42,7 +42,7 @@ def test_tinydb(spec, data_ok1):
     board = model.Board()
     board.add_spec('Spec', spec)
     board.add_data_source('data', data_ok1)
-    dom = board.eval_expr('data <> Spec')
+    dom = board.eval_expr('data <> Spec.Schema')
 
     assert len(dom['values']) == 3
     values = dom['values']

@@ -7,7 +7,7 @@ import conftest
 
 spec_file_footer_const_sized_byte_array = """
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     contents: [] byte;
     footer: [6] byte;
 };
@@ -21,7 +21,7 @@ let Footer = struct {
     data2: [2] byte;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     contents: [] byte;
     footer: Footer;
 };
@@ -35,7 +35,7 @@ let Footer = struct {
     @span: 6;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     contents: [] byte;
     footer: Footer;
 };
@@ -51,7 +51,7 @@ spec_file_footer_var_sized_len_at_start = """
 
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     footer_size: u8;
     contents: [] byte;
     footer: [footer_size] byte;
@@ -70,7 +70,7 @@ spec_file_footer_var_sized_len_in_footer = """
 
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     contents: [] byte;
     footer: [footer_size] byte;
     footer_size: u8;
@@ -135,7 +135,7 @@ let Contents = struct {
     footer: Footer;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     root: Contents;
 };
 
@@ -159,7 +159,7 @@ let Contents = struct {
     footer: Footer;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     root: Contents;
 };
 
@@ -182,7 +182,7 @@ let Contents = struct {
     footer: Footer;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     root: Contents;
 };
 
@@ -241,7 +241,7 @@ let Contents = struct {
     footer: Footer;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     root: Contents;
 };
 
@@ -264,7 +264,7 @@ let Contents = struct {
     footer: Footer;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     root: Contents;
 };
 

@@ -27,7 +27,7 @@ let ThingBox = struct {
     };
 };
 
-env("DATASOURCE") <> ThingBox;
+let Schema = ThingBox;
 
 """
 
@@ -73,7 +73,7 @@ let ThingBox = struct {
     };
 };
 
-env("DATASOURCE") <> ThingBox;
+let Schema = ThingBox;
 
 """
 
@@ -127,7 +127,7 @@ let ThingBox = struct {
     things:    [nb_things] Thing;
 };
 
-env("DATASOURCE") <> ThingBox;
+let Schema = ThingBox;
 
 """
 
@@ -157,7 +157,7 @@ let ThingBox = struct {
     };
 };
 
-env("DATASOURCE") <> ThingBox;
+let Schema = ThingBox;
 
 """
 
@@ -247,7 +247,7 @@ let Root = struct {
     foo: [sizeof (Foo)] byte;
 };
 
-env("DATASOURCE") <> Root;
+let Schema = Root;
 
 """
 

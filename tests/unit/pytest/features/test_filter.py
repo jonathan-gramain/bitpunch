@@ -14,7 +14,7 @@ let AsContents = struct {
     data: [n] byte;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     contents: [] byte <> AsContents;
 };
 
@@ -34,7 +34,7 @@ let AsContents = struct {
     data: [n] byte;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     contents: [] byte <> DummyStruct <> AsContents;
 };
 
@@ -53,7 +53,7 @@ let AsContents = struct {
     data: [] byte;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     contents: [] byte <> HopStruct;
 };
 
@@ -73,7 +73,7 @@ let AsContents = struct {
     data: [n] byte;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     header: [30] byte;
     contents: [20] byte <> AsContents;
     footer: [30] byte;
@@ -108,7 +108,7 @@ let AsContents = struct {
     data: [] byte;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     contents: [] byte <> Base64Block;
 };
 
@@ -128,7 +128,7 @@ let AsContents = struct {
     data: [] byte;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     contents: [] byte <> Base64Block;
 };
 
@@ -226,7 +226,7 @@ let AsContents = struct {
     let ?data_glimpse = data[10..][4..7];
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     blocks: [] Base64Block;
 };
 
@@ -250,7 +250,7 @@ let AsContents = struct {
     let ?data_glimpse = data[10..][4..7];
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     blocks: [] Base64Block;
 };
 
@@ -275,7 +275,7 @@ let AsContents = struct {
     let ?data_glimpse = data[10..][4..7];
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     blocks: [] Base64Block;
 };
 
@@ -374,7 +374,7 @@ let UnusedByteStruct = struct {
     by: [1] byte;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     a: [1] byte;
     b: [2] byte;
 
@@ -451,7 +451,7 @@ let B64Message = Base64Line <> struct {
     };
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     hdr:      B64Header;
     messages: [hdr.?nb_messages] B64Message;
     garbage:  [] byte;
@@ -494,7 +494,7 @@ let B64Message = Base64Line <> struct {
     };
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     base64 <> DecodedFile;
 
     let ?first_message_data_3_chars = messages[0].data <> [3] byte <> string;
@@ -550,7 +550,7 @@ let Message = struct {
     };
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     hdr:      B64Header;
     messages: [hdr.?nb_messages] Message;
     garbage:  [] byte;
@@ -612,7 +612,7 @@ spec_file_filter_file_as_single_integer_1 = """
 
 let UnsignedTemplate = integer { @signed: false; @endian: 'little'; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     value: UnsignedTemplate;
 };
 
@@ -622,7 +622,7 @@ spec_file_filter_file_as_single_integer_2 = """
 
 let UnsignedTemplate = integer { @signed: false; @endian: 'little'; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     value: ?ref;
 
     let ?ref = UnsignedTemplate;
@@ -634,7 +634,7 @@ spec_file_filter_file_as_single_integer_3 = """
 
 let UnsignedTemplate = integer { @signed: false; @endian: 'little'; };
 
-let value = env("DATASOURCE") <> ?ref;
+let value = let Schema = ?ref;
 
 let ?ref = UnsignedTemplate;
 
@@ -667,7 +667,7 @@ def test_filter_file_as_single_integer(params_filter_file_as_single_integer):
 
 spec_file_filter_invalid_bad_filter_type = """
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     value: 42;
 };
 
@@ -758,7 +758,7 @@ spec_file_u8_array_1 = """
 
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     contents: [5] u8;
 };
 
@@ -796,7 +796,7 @@ spec_file_u8_array_2 = """
 
 let u8 = byte <> integer { @signed: false; };
 
-let contents = env("DATASOURCE") <> [5] u8;
+let contents = let Schema = [5] u8;
 
 """
 
@@ -879,7 +879,7 @@ let Base64Line = string { @boundary: '\\n'; } <> Base64;
 
 let Item = Base64Line <> string { @boundary: ' '; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     contents: [] Item;
 };
 
@@ -914,7 +914,7 @@ spec_file_dynamic_filter_param_integer = """
 
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     little_endian: u8;
     if (little_endian == 1) {
         let ?endian = 'little';

@@ -165,7 +165,7 @@ spec_file_with_outer_scope = """
 let UnsignedInt = integer {{ @signed: false; @endian: 'little'; }};
 let u8  = [1] byte <> UnsignedInt;
 
-env("DATASOURCE") <> struct {{
+let Schema = struct {{
     file_attr: struct {{
         nb_bytes: u8;
     }};

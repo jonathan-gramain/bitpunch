@@ -12,7 +12,7 @@ import conftest
 specs_resolve_types_and_expr = ["""
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     foo: Foo;
 };
 
@@ -24,7 +24,7 @@ let Foo = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     foo: Foo;
 };
 
@@ -40,7 +40,7 @@ let Bar = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     data: [] byte <> Foo;
 };
 
@@ -52,7 +52,7 @@ let Foo = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     data: [] byte <> [] Foo;
 };
 
@@ -64,7 +64,7 @@ let Foo = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
 };
 
 let Foo = struct {
@@ -75,7 +75,7 @@ let Foo = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     data: [] byte;
     let ?data = data <> Foo;
 };
@@ -88,7 +88,7 @@ let Foo = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     data: [] byte;
     let ?data1 = data;
     let ?data2 = ?data1 <> Foo;
@@ -102,7 +102,7 @@ let Foo = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     data: [] byte;
     let ?data1 = data;
     let ?data2 = ?data1 <> Foo;
@@ -120,7 +120,7 @@ let Bar = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     data: [] byte;
     let ?data1 = data;
     let ?data2 = ?data1 <> Foo;
@@ -138,7 +138,7 @@ let Bar = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     data: [] byte;
     let ?data1 = data;
     let ?data2 = ?data1 <> Foo;
@@ -156,7 +156,7 @@ let Foo = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     foo: Foo;
 };
 
@@ -168,7 +168,7 @@ let Foo = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     foo: Foo;
 };
 
@@ -182,7 +182,7 @@ let Bar = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     data: [] byte;
     let ?data_slice = data[10..20];
 };
@@ -190,7 +190,7 @@ env("DATASOURCE") <> struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     data: [] byte;
     let ?data = data;
     let ?data_slice1 = ?data[10..20];
@@ -199,7 +199,7 @@ env("DATASOURCE") <> struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     let ?data = (self <> bytes);
     let ?data_slice1 = ?data[10..20];
 };
@@ -207,7 +207,7 @@ env("DATASOURCE") <> struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     let ?data = (self <> bytes)[..];
     let ?data_slice1 = ?data[10..20];
 };
@@ -215,7 +215,7 @@ env("DATASOURCE") <> struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     let ?data = (self <> bytes)[..] <> Foo;
     let ?data_slice1 = ?data;
 };
@@ -227,7 +227,7 @@ let Foo = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     foo_offset: u8;
     nb_foo:     u8;
     foo_size:   u8;
@@ -242,7 +242,7 @@ let Foo = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     foo_offset: byte;
     nb_foo:     byte;
     foo_size:   byte;
@@ -257,7 +257,7 @@ let Foo = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> Root;
+let Schema = Root;
 
 let Root = struct {
     foo: Foo;
@@ -278,7 +278,7 @@ let Bar = struct {
 """, """
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> Root;
+let Schema = Root;
 
 let Root = struct {
     foo: Foo;
@@ -311,7 +311,7 @@ def test_resolve_types_and_expr(spec):
 spec_unknown_type_name_1 = """
 let Foo = [42] byte;
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     bar: Bar;
 };
 
@@ -320,7 +320,7 @@ env("DATASOURCE") <> struct {
 spec_unknown_scope_left_operand = """
 let Foo = [42] byte;
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     let bar = Bar::bar;
 };
 
@@ -331,7 +331,7 @@ let Foo = struct {
     bar: [42] byte;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     let bar = Foo::qux;
 };
 
