@@ -792,6 +792,231 @@ IndexKeyType_setup(void)
 }
 
 /*
+ * Board
+ */
+
+typedef struct BoardObject {
+    PyObject_HEAD
+    struct bitpunch_board *board;
+    //ARRAY_HEAD(datasource_array, struct ast_node_hdl) data_sources;
+} BoardObject;
+
+PyDoc_STRVAR(Board__doc__,
+             "Represents the workspace where to load schemas and data sources "
+             "and where expressions can be evaluated");
+
+static PyObject *
+Board_new(PyTypeObject *subtype,
+          PyObject *args, PyObject *kwds)
+{
+    BoardObject *self;
+
+    self = (BoardObject *)subtype->tp_alloc(subtype, 0);
+    if (NULL == self) {
+        return NULL;
+    }
+    self->board = bitpunch_board_new();
+    return (PyObject *)self;
+}
+
+static PyObject *
+Board_add_schema(BoardObject *self, PyObject *args)
+{
+    const char *name;
+    FormatSpecObject *schema;
+
+    if (!PyArg_ParseTuple(args, "sO", &name, &schema)) {
+        return NULL;
+    }
+    if (PyObject_IsInstance((PyObject *)schema,
+                            (PyObject *)&FormatSpecType)) {
+        Py_INCREF(schema);
+    } else {
+        PyObject *subarg;
+
+        subarg = PyTuple_Pack(1, (PyObject *)schema);
+        if (NULL == subarg) {
+            return NULL;
+        }
+        schema = (FormatSpecObject *)PyObject_CallObject(
+            (PyObject *)&FormatSpecType, subarg);
+        Py_DECREF(subarg);
+        if (NULL == schema) {
+            return NULL;
+        }
+    }
+    bitpunch_board_add_item(self->board, name, schema->schema);
+    Py_DECREF(schema);
+
+    Py_INCREF((PyObject *)self);
+    return (PyObject *)self;
+}
+
+static PyObject *
+Board_add_data_source(BoardObject *self, PyObject *args)
+{
+    const char *name;
+    PyObject *data;
+    int ret;
+    struct ast_node_hdl *data_source;
+
+    if (!PyArg_ParseTuple(args, "sO", &name, &data)) {
+        return NULL;
+    }
+    if (PyString_Check(data)) {
+        char *contents;
+        Py_ssize_t length;
+
+        /* load the provided text contents */
+        ret = PyString_AsStringAndSize(data, &contents, &length);
+        assert(-1 != ret);
+        ret = bitpunch_data_source_create_from_memory(
+            &data_source, contents, length, FALSE);
+    } else if (PyByteArray_Check(data)) {
+        char *contents;
+        Py_ssize_t length;
+
+        /* load the provided text contents */
+        contents = PyByteArray_AS_STRING(data);
+        length = PyByteArray_GET_SIZE(data);
+        ret = bitpunch_data_source_create_from_memory(
+            &data_source, contents, length, FALSE);
+    } else if (PyFile_Check(data)) {
+        FILE *file;
+
+        /* load the contents from the file object */
+        file = PyFile_AsFile(data);
+        //PyFile_IncUseCount((PyFileObject *)data);
+        ret = bitpunch_data_source_create_from_file_descriptor(
+            &data_source, fileno(file));
+    } else {
+        PyErr_SetString(PyExc_TypeError,
+                        "The first argument must be a string or a file object");
+        return NULL;
+    }
+    if (-1 == ret) {
+        PyErr_SetString(PyExc_OSError, "Error loading binary contents");
+        return NULL;
+    }
+    bitpunch_board_add_item(self->board, name, data_source);
+
+    Py_INCREF((PyObject *)self);
+    return (PyObject *)self;
+}
+
+static PyObject *
+Board_eval_expr(BoardObject *board, PyObject *args)
+{
+    const char *expr;
+    int ret;
+    expr_value_t expr_value;
+    expr_dpath_t expr_dpath;
+    struct tracker_error *tk_err = NULL;
+
+    if (!PyArg_ParseTuple(args, "s", &expr)) {
+        return NULL;
+    }
+    ret = bitpunch_eval_expr2(board->board, expr,
+                              &expr_value, &expr_dpath, &tk_err);
+    if (-1 == ret) {
+        if (NULL != tk_err) {
+            set_tracker_error(tk_err, tk_err->bt_ret);
+        } else {
+            PyErr_Format(PyExc_ValueError,
+                         "Error evaluating expression '%s'", expr);
+        }
+        return NULL;
+    }
+    return expr_value_and_dpath_to_PyObject(board, expr_value, expr_dpath);
+}
+
+static PyMethodDef Board_methods[] = {
+    { "add_schema", (PyCFunction)Board_add_schema, METH_VARARGS,
+      "add a schema to the board from a string, buffer or file object"
+    },
+    { "add_data_source", (PyCFunction)Board_add_data_source, METH_VARARGS,
+      "add a data source to the board from a string, buffer or file object"
+    },
+    { "eval_expr", (PyCFunction)Board_eval_expr,
+      METH_VARARGS | METH_KEYWORDS,
+      "evaluate a bitpunch expression in the board's scope"
+    },
+    { NULL, NULL, 0, NULL }
+};
+
+static int
+Board_clear(BoardObject *self)
+{
+    bitpunch_board_free(self->board);
+    return 0;
+}
+
+static void
+Board_dealloc(BoardObject *self)
+{
+    Board_clear(self);
+    Py_TYPE(self)->tp_free(self);
+}
+
+static PyTypeObject BoardType = {
+    PyObject_HEAD_INIT(NULL)
+    0,                         /* ob_size */
+    "bitpunch.Board",          /* tp_name */
+    sizeof(BoardObject),       /* tp_basicsize */
+    0,                         /* tp_itemsize */
+    0,                         /* tp_dealloc */
+    0,                         /* tp_print */
+    0,                         /* tp_getattr */
+    0,                         /* tp_setattr */
+    0,                         /* tp_compare */
+    0,                         /* tp_repr */
+    0,                         /* tp_as_number */
+    0,                         /* tp_as_sequence */
+    0,                         /* tp_as_mapping */
+    0,                         /* tp_hash */
+    0,                         /* tp_call */
+    0,                         /* tp_str */
+    0,                         /* tp_getattro */
+    0,                         /* tp_setattro */
+    0,                         /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT |
+    Py_TPFLAGS_BASETYPE,       /* tp_flags */
+    Board__doc__,              /* tp_doc */
+    0,                         /* tp_traverse */
+    0,                         /* tp_clear */
+    0,                         /* tp_richcompare */
+    0,                         /* tp_weaklistoffset */
+    0,                         /* tp_iter */
+    0,                         /* tp_iternext */
+    Board_methods,             /* tp_methods */
+    0,                         /* tp_members */
+    0,                         /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    0,                         /* tp_init */
+    0,                         /* tp_alloc */
+    0,                         /* tp_new */
+};
+
+static int
+BoardType_setup(void)
+{
+    BoardType.ob_type = &PyType_Type;
+    BoardType.tp_new = Board_new;
+    BoardType.tp_clear = (inquiry)Board_clear;
+    BoardType.tp_dealloc = (destructor)Board_dealloc;
+    if (PyType_Ready(&BoardType) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+
+
+/*
  * DataItem
  */
 
@@ -806,13 +1031,6 @@ typedef struct DataItemObject {
 
     struct box *filtered_box;
 } DataItemObject;
-
-typedef struct BoardObject {
-    DataItemObject item;
-    FormatSpecObject *fmt;
-    struct bitpunch_board *board;
-    ARRAY_HEAD(datasource_array, struct ast_node_hdl) data_sources;
-} BoardObject;
 
 static int
 DataItem_bf_getbuffer(DataItemObject *exporter,
@@ -2143,182 +2361,6 @@ box_to_native_PyObject(struct BoardObject *dtree, struct box *box)
     return expr_value_to_native_PyObject(dtree, value_eval);
 }
 
-/*
- * Board
- */
-
-PyDoc_STRVAR(Board__doc__,
-             "Represents the data tree of flat binary contents");
-
-static PyTypeObject BoardType = {
-    PyObject_HEAD_INIT(NULL)
-    0,                         /* ob_size */
-    "bitpunch.Board",          /* tp_name */
-    sizeof(BoardObject),       /* tp_basicsize */
-    0,                         /* tp_itemsize */
-    0,                         /* tp_dealloc */
-    0,                         /* tp_print */
-    0,                         /* tp_getattr */
-    0,                         /* tp_setattr */
-    0,                         /* tp_compare */
-    0,                         /* tp_repr */
-    0,                         /* tp_as_number */
-    0,                         /* tp_as_sequence */
-    0,                         /* tp_as_mapping */
-    0,                         /* tp_hash */
-    0,                         /* tp_call */
-    0,                         /* tp_str */
-    0,                         /* tp_getattro */
-    0,                         /* tp_setattro */
-    0,                         /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT |
-    Py_TPFLAGS_BASETYPE,       /* tp_flags */
-    Board__doc__,              /* tp_doc */
-    0,                         /* tp_traverse */
-    0,                         /* tp_clear */
-    0,                         /* tp_richcompare */
-    0,                         /* tp_weaklistoffset */
-    0,                         /* tp_iter */
-    0,                         /* tp_iternext */
-    0,                         /* tp_methods */
-    0,                         /* tp_members */
-    0,                         /* tp_getset */
-    0,                         /* tp_base */
-    0,                         /* tp_dict */
-    0,                         /* tp_descr_get */
-    0,                         /* tp_descr_set */
-    0,                         /* tp_dictoffset */
-    0,                         /* tp_init */
-    0,                         /* tp_alloc */
-    0,                         /* tp_new */
-};
-
-static PyObject *
-Board_new(PyTypeObject *subtype,
-          PyObject *args, PyObject *kwds)
-{
-    BoardObject *self;
-
-    self = (BoardObject *)subtype->tp_alloc(subtype, 0);
-    if (NULL == self) {
-        return NULL;
-    }
-    self->board = bitpunch_board_new();
-    return (PyObject *)self;
-}
-
-static PyObject *
-Board_add_schema(BoardObject *self, PyObject *args)
-{
-    const char *name;
-    FormatSpecObject *schema;
-
-    if (!PyArg_ParseTuple(args, "sO", &name, &schema)) {
-        return NULL;
-    }
-    if (PyObject_IsInstance((PyObject *)schema,
-                            (PyObject *)&FormatSpecType)) {
-        Py_INCREF(schema);
-    } else {
-        PyObject *subarg;
-
-        subarg = PyTuple_Pack(1, (PyObject *)schema);
-        if (NULL == subarg) {
-            return NULL;
-        }
-        schema = (FormatSpecObject *)PyObject_CallObject(
-            (PyObject *)&FormatSpecType, subarg);
-        Py_DECREF(subarg);
-        if (NULL == schema) {
-            return NULL;
-        }
-    }
-    bitpunch_board_add_item(self->board, name, schema->schema);
-    Py_DECREF(schema);
-
-    Py_INCREF((PyObject *)self);
-    return (PyObject *)self;
-}
-
-static PyObject *
-Board_add_data(BoardObject *self, PyObject *args)
-{
-    const char *name;
-    PyObject *data;
-    int ret;
-    struct ast_node_hdl *data_source;
-
-    if (!PyArg_ParseTuple(args, "sO", &name, &data)) {
-        return NULL;
-    }
-    if (PyString_Check(data)) {
-        char *contents;
-        Py_ssize_t length;
-
-        /* load the provided text contents */
-        ret = PyString_AsStringAndSize(data, &contents, &length);
-        assert(-1 != ret);
-        ret = bitpunch_data_source_create_from_memory(
-            &data_source, contents, length, FALSE);
-    } else if (PyByteArray_Check(data)) {
-        char *contents;
-        Py_ssize_t length;
-
-        /* load the provided text contents */
-        contents = PyByteArray_AS_STRING(data);
-        length = PyByteArray_GET_SIZE(data);
-        ret = bitpunch_data_source_create_from_memory(
-            &data_source, contents, length, FALSE);
-    } else if (PyFile_Check(data)) {
-        FILE *file;
-
-        /* load the contents from the file object */
-        file = PyFile_AsFile(data);
-        //PyFile_IncUseCount((PyFileObject *)data);
-        ret = bitpunch_data_source_create_from_file_descriptor(
-            &data_source, fileno(file));
-    } else {
-        PyErr_SetString(PyExc_TypeError,
-                        "The first argument must be a string or a file object");
-        return NULL;
-    }
-    if (-1 == ret) {
-        PyErr_SetString(PyExc_OSError, "Error loading binary contents");
-        return NULL;
-    }
-    bitpunch_board_add_item(self->board, name, data_source);
-
-    Py_INCREF((PyObject *)self);
-    return (PyObject *)self;
-}
-
-static int
-Board_clear(BoardObject *self)
-{
-    bitpunch_board_free(self->board);
-    return 0;
-}
-
-static void
-Board_dealloc(BoardObject *self)
-{
-    Board_clear(self);
-    Py_TYPE(self)->tp_free(self);
-}
-
-static int
-BoardType_setup(void)
-{
-    BoardType.ob_type = &PyType_Type;
-    BoardType.tp_new = Board_new;
-    BoardType.tp_clear = (inquiry)Board_clear;
-    BoardType.tp_dealloc = (destructor)Board_dealloc;
-    if (PyType_Ready(&BoardType) < 0) {
-        return -1;
-    }
-    return 0;
-}
-
 static PyObject *
 tracker_item_to_deep_PyObject(BoardObject *dtree, struct tracker *tk)
 {
@@ -3417,7 +3459,7 @@ static PyObject *
 eval_expr_as_python_object(DataItemObject *item, const char *expr)
 {
     BoardObject *dtree;
-    struct ast_node_hdl *schema;
+    //struct ast_node_hdl *schema;
     struct bitpunch_board *board;
     struct box *scope;
     int ret;
@@ -3430,17 +3472,17 @@ eval_expr_as_python_object(DataItemObject *item, const char *expr)
             return NULL;
         }
         dtree = item->dtree;
-        schema = dtree->fmt->schema;
+        //schema = dtree->fmt->schema;
         board = dtree->board;
         scope = item->dpath.box;
     } else {
         dtree = NULL;
-        schema = NULL;
+        //schema = NULL;
         board = NULL;
         scope = NULL;
     }
 
-    ret = bitpunch_eval_expr(schema, board, expr, scope,
+    ret = bitpunch_eval_expr(NULL, board, expr, scope,
                              &expr_value, &expr_dpath, &tk_err);
     if (-1 == ret) {
         if (NULL != tk_err) {
