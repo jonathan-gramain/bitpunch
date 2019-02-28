@@ -213,7 +213,8 @@ browse_state_set_environment(struct browse_state *bst,
                              struct bitpunch_board *board)
 {
     bst->board = board;
-    if (-1 == bitpunch_compile_schema(board->ast_root)) {
+    if (NULL != board
+        && -1 == bitpunch_compile_schema(board->ast_root)) {
         return BITPUNCH_INVALID_PARAM;
     }
     return BITPUNCH_OK;
