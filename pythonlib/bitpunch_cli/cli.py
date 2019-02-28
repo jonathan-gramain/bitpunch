@@ -99,6 +99,7 @@ class CLI(NestedCmd):
         self.format_spec_path = None
         self.bin_file = None
         self.data_tree = None
+        self.board = model.Board()
 
     def _init_config(self):
         home_dir = os.path.expanduser('~')
@@ -521,6 +522,24 @@ class CLI(NestedCmd):
         return self.complete_filename(text[begin:end])
 
 
+    def do_let(self, args):
+        """Attach an expression to a local name
+
+    Usage:
+
+    let <name> <expression>
+
+        """
+        name, expr = args.split(' ', 1)
+        if not name:
+            raise CommandError('let',
+                               "missing expression name argument to 'let'")
+        if not expr:
+            raise CommandError('let',
+                               "missing expression argument to 'let'")
+        self.board.add_spec(name, expr)
+
+
     def do_list(self, args):
         """List attributes of an object
 
@@ -547,9 +566,9 @@ class CLI(NestedCmd):
         if not expr:
             raise CommandError('print',
                                "missing expression argument to 'print'")
-        if self.format_spec and self.bin_file:
-            self.open_data_tree('print')
-        expr_value = self.data_tree.eval_expr(expr)
+        #if self.format_spec and self.bin_file:
+        #    self.open_data_tree('print')
+        expr_value = self.board.eval_expr(expr)
         print repr(model.make_python_object(expr_value))
 
     def complete_print(self, text, begin, end):
