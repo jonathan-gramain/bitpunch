@@ -35,7 +35,10 @@ def test_bp(params_bp):
     spec = params['spec']
 
     data = 'foobarfoobarfoobarfoobarfoobar'
-    dtree = model.DataTree(data, spec)
+    board = model.Board()
+    board.add_spec('Spec', spec)
+    board.add_data_source('data', data)
+    dtree = board.eval_expr('data <> Spec.Schema')
 
 
 spec_file_invalid_attribute = """
@@ -65,6 +68,6 @@ def test_invalid_bp(params_invalid_bp):
     params = params_invalid_bp
     spec = params['spec']
 
-    data = 'foobarfoobarfoobarfoobarfoobar'
     with pytest.raises(OSError):
-        dtree = model.DataTree(data, spec)
+        board = model.Board()
+        board.add_spec('Spec', spec)
