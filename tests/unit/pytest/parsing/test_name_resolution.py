@@ -236,7 +236,7 @@ let Schema = struct {
 };
 
 let Foo = struct {
-    sub_foo: [foo_size] u8;
+    sub_foo: [Schema::foo_size] u8;
 };
 
 """, """
@@ -246,12 +246,12 @@ let Schema = struct {
     foo_offset: byte;
     nb_foo:     byte;
     foo_size:   byte;
-    let ?data = env("DATASOURCE")[foo_offset <> u8..] <> [nb_foo <> u8] Foo;
+    let ?data = (self <> bytes)[foo_offset <> u8..] <> [nb_foo <> u8] Foo;
     let ?data_slice = ?data[2..3];
 };
 
 let Foo = struct {
-    sub_foo: [foo_size <> u8] u8;
+    sub_foo: [Schema::foo_size <> u8] u8;
 };
 
 """, """
@@ -272,7 +272,7 @@ let Bar = struct {
     start:    u8;
     end:      u8;
 
-    let contents = data[start .. end];
+    let contents = Root::data[start .. end];
 };
 
 """, """
@@ -301,8 +301,8 @@ let Bar = struct {
 
 @pytest.mark.parametrize('spec', specs_resolve_types_and_expr)
 def test_resolve_types_and_expr(spec):
-    dtree = model.DataTree('          ', spec)
-    assert dtree
+    board = model.Board()
+    board.add_spec('Spec', spec)
 
 #
 # Test that unknown type names return a proper error
@@ -340,12 +340,10 @@ let Schema = struct {
 def test_syntax_errors():
 
     #FIXME use custom error for syntax errors
+    board = model.Board()
     with pytest.raises(OSError):
-        dtree = model.DataTree('abcdefghij',
-                               spec_unknown_type_name_1)
+        board.add_spec('Spec', spec_unknown_type_name_1)
     with pytest.raises(OSError):
-        dtree = model.DataTree('abcdefghij',
-                               spec_unknown_scope_left_operand)
+        board.add_spec('Spec', spec_unknown_scope_left_operand)
     with pytest.raises(OSError):
-        dtree = model.DataTree('abcdefghij',
-                               spec_unknown_scoped_member)
+        board.add_spec('Spec', spec_unknown_scoped_member)
