@@ -279,22 +279,24 @@ def test_nested_scoping_eval(params_nested_scoping_eval):
     assert two_bars.eval_expr('self[1].?foo_name') == 'foo'
 
     assert dtree.eval_expr(
-        '(foo <> Foo).?first_bar.?foo_name') == 'foo'
+        '(foo <> Spec.Foo).?first_bar.?foo_name') == 'foo'
     # this checks that expression scoping retains outer filter scopes
     # during evaluation of members (here, evaluation of
     # <instance of Foo.Bar>.?foo_name expects to find a Foo type in its
     # scope, which should have been set and retained by evaluation of
     # (foo <> Foo)).
     assert dtree.eval_expr(
-        '((foo <> Foo).bar[0..sizeof(Foo.Bar)] <> Foo.Bar).?foo_name') == 'foo'
+        '((foo <> Spec.Foo).bar[0..sizeof(Spec.Foo.Bar)]' +
+        ' <> Spec.Foo.Bar).?foo_name') == 'foo'
 
     # variants with a few extra inserted filters
     assert dtree.eval_expr(
-        '((foo <> Foo <> [] byte <> Foo)' +
-        '.bar[0..sizeof(Foo.Bar)] <> [] byte <> Foo.Bar).?foo_name') == 'foo'
+        '((foo <> Spec.Foo <> [] byte <> Spec.Foo)' +
+        '.bar[0..sizeof(Spec.Foo.Bar)]' +
+        ' <> [] byte <> Spec.Foo.Bar).?foo_name') == 'foo'
 
-    assert dtree.eval_expr('(foo <> Foo <> Foo.Bar).?foo_name') == 'foo'
+    assert dtree.eval_expr('(foo <> Spec.Foo <> Spec.Foo.Bar).?foo_name') == 'foo'
 
     # no Foo type in the expression, so ?foo_name cannot be evaluated
     with pytest.raises(ValueError):
-        dtree.eval_expr('(foo <> Foo.Bar).?foo_name')
+        dtree.eval_expr('(foo <> Spec.Foo.Bar).?foo_name')

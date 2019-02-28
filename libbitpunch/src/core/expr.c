@@ -2359,6 +2359,19 @@ expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
     case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
         bt_ret = expr_evaluate_ancestor(expr, valuep, dpathp, bst);
         break ;
+    case AST_NODE_TYPE_REXPR_FILTER:
+    case AST_NODE_TYPE_BYTE:
+    case AST_NODE_TYPE_COMPOSITE:
+    case AST_NODE_TYPE_ARRAY:
+    case AST_NODE_TYPE_BYTE_ARRAY:
+        if (NULL != valuep) {
+            *valuep = expr_value_unset();
+        }
+        if (NULL != dpathp) {
+            *dpathp = expr_dpath_none();
+        }
+        bt_ret = BITPUNCH_OK;
+        break ;
     default: {
         struct dpath_transform transform;
 
