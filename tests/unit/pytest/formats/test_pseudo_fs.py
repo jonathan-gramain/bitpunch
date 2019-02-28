@@ -203,9 +203,9 @@ def test_pseudo_fs(params_pseudo_fs):
     assert catalog[3]['?data'].get_size() == 9
     assert catalog[3]['?file'].get_size() == 9
     assert dtree.eval_expr('sizeof(?catalog[3].?file)') == 9
-    assert dtree.eval_expr('sizeof(Entry)') == 8
-    assert dtree.eval_expr('sizeof(Entry.entry_size)') == 2
-    assert dtree.eval_expr('sizeof(Entry.File.filesize)') == 2
+    assert dtree.eval_expr('sizeof(Spec.Entry)') == 8
+    assert dtree.eval_expr('sizeof(Spec.Entry.entry_size)') == 2
+    assert dtree.eval_expr('sizeof(Spec.Entry.File.filesize)') == 2
     assert dtree.eval_expr('sizeof(?catalog[3].File.filesize)') == 2
 
     # cannot do sizeof() on dynamic-sized type name
