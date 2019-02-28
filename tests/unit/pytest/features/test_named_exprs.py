@@ -263,8 +263,8 @@ let ?two = ?one + ?one;
 let Series = struct {
     values:        [?series_length] u16;
 
-    let ?my_index = index(series, self);
-    let ?series_length = series_length[?my_index];
+    let ?my_index = index(Schema::series, self);
+    let ?series_length = Schema::series_length[?my_index];
 };
 
 let Schema = struct {
@@ -687,6 +687,6 @@ def params_named_exprs_invalid(request):
 
 def test_named_exprs_invalid(params_named_exprs_invalid):
     params = params_named_exprs_invalid
-    spec = params['spec']
+    board = model.Board()
     with pytest.raises(OSError):
-        dtree = model.DataTree('', spec)
+        board.add_spec('Spec', params['spec'])
