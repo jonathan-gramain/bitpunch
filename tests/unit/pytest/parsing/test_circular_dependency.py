@@ -212,9 +212,9 @@ def test_circular_dependency(params_circular_dependency):
     spec = params['spec']
     circular = params['circular']
 
-    data = 'foobarfoobarfoobarfoobarfoobar'
+    board = model.Board()
     if circular:
         with pytest.raises(OSError):
-            dtree = model.DataTree(data, spec)
+            board.add_spec('Spec', spec)
     else:
-        dtree = model.DataTree(data, spec)
+        board.add_spec('Spec', spec)
