@@ -15,11 +15,13 @@ let Int = integer { @signed: false; @endian: 'little'; };
 let u8 = byte <> Int;
 let u16 = [2] byte <> Int;
 
-env("DATASOURCE") <> struct {
+env("DATASOURCE") <> Schema;
+
+let Schema = struct {
     hdr:     Header;
     contents: [] byte;
 
-    let ?raw_catalog = env("DATASOURCE")[hdr.catalog_location..];
+    let ?raw_catalog = (self <> bytes)[hdr.catalog_location..];
     let ?catalog = ?raw_catalog <> [hdr.nb_catalog_entries] Entry;
 };
 
@@ -33,8 +35,8 @@ let Entry = struct {
     entry_size:     u16;
     entry_type:     [4] byte <> string { @boundary: ' '; };
 
-    let ?data = env("DATASOURCE")[entry_location ..
-                            entry_location + entry_size];
+    let ?data = (Schema::self <> bytes)[entry_location ..
+                                        entry_location + entry_size];
     if (entry_type == 'file') {
         let ?file = ?data <> File;
         let ?props = ?file;
@@ -50,9 +52,9 @@ let Entry = struct {
         dir_entry_index: u16;
         filename:        [] byte <> string;
 
-        let ?dir = ?catalog[dir_entry_index].?data <> Dir;
-        let ?filedata = env("DATASOURCE")[filedata_offset ..
-                                    filedata_offset + filesize];
+        let ?dir = Schema::?catalog[dir_entry_index].?data <> Dir;
+        let ?filedata = (Schema::self <> bytes)[filedata_offset ..
+                                                filedata_offset + filesize];
     };
 
     let Dir = struct {

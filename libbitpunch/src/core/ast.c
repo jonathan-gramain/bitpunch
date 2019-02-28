@@ -957,14 +957,13 @@ resolve_identifiers_expr_self(
 
     if (NULL == visible_refs) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
-                       "need a binary file loaded to use 'self' in "
-                       "expression");
+                       "no scope to evaluate 'self' in expression");
         return -1;
     }
     compiled_type = new_safe(struct ast_node_data);
     compiled_type->type = AST_NODE_TYPE_REXPR_SELF;
     // const-cast
-    compiled_type->u.rexpr_self.item_type =
+    compiled_type->u.rexpr_member_common.anchor_filter =
         (struct ast_node_hdl *)visible_refs->cur_filter;
     expr->ndat = compiled_type;
     return 0;
@@ -2845,10 +2844,6 @@ compile_rexpr_member(
     struct ast_node_data *resolved_type;
 
     op = &expr->ndat->u.rexpr_op.op;
-    member = op->operands[1];
-    /* checked by parser */
-    assert(member->ndat->type == AST_NODE_TYPE_IDENTIFIER);
-
     if (-1 == compile_node(op->operands[0], ctx, tags, 0u,
                            RESOLVE_EXPECT_TYPE |
                            RESOLVE_EXPECT_DPATH_EXPRESSION)) {
@@ -2857,6 +2852,7 @@ compile_rexpr_member(
     if (0 == (tags & COMPILE_TAG_NODE_TYPE)) {
         return 0;
     }
+    member = op->operands[1];
     anchor_expr = op->operands[0];
     anchor_target = ast_node_get_named_expr_target(anchor_expr);
     anchor_filter = ast_node_get_as_type(anchor_expr);
@@ -2867,6 +2863,19 @@ compile_rexpr_member(
                 "invalid use of member operator on non-filter dpath");
             return -1;
         }
+        if (is_scope_operator
+            && AST_NODE_TYPE_EXPR_SELF == member->ndat->type) {
+            resolved_type = new_safe(struct ast_node_data);
+            resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
+            resolved_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
+            resolved_type->u.rexpr_member_common.anchor_filter =
+                (struct ast_node_hdl *)anchor_filter;
+            expr->ndat = resolved_type;
+            resolved_type->type = AST_NODE_TYPE_REXPR_SELF;
+            return 0;
+        }
+        /* checked by parser */
+        assert(member->ndat->type == AST_NODE_TYPE_IDENTIFIER);
         if (member->ndat->u.identifier[0] == '@') {
             lookup_mask = STATEMENT_TYPE_ATTRIBUTE;
         } else {
@@ -3437,7 +3446,7 @@ ast_node_get_target_item(struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_OP_FILTER:
         return ast_node_get_target_item(node->ndat->u.rexpr_op_filter.target);
     case AST_NODE_TYPE_REXPR_SELF:
-        return node->ndat->u.rexpr_self.item_type;
+        return node->ndat->u.rexpr_member_common.anchor_filter;
     case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
         return ast_node_get_target_item(node->ndat->u.rexpr_op.op.operands[0]);
     default:
@@ -3776,7 +3785,7 @@ ast_node_get_as_type__rexpr(const struct ast_node_hdl *expr)
         return ast_node_get_as_type(expr->ndat->u.rexpr_op_filter.target);
 
     case AST_NODE_TYPE_REXPR_SELF:
-        return expr->ndat->u.rexpr_self.item_type;
+        return expr->ndat->u.rexpr_member_common.anchor_filter;
 
     case AST_NODE_TYPE_REXPR_FIELD:
         return ast_node_get_as_type(
@@ -4044,6 +4053,7 @@ static void
 dump_ast_rexpr_member(const struct ast_node_hdl *node, int depth,
                       struct list_of_visible_refs *visible_refs, FILE *out)
 {
+    dump_ast_rexpr(node, out);
     if (NULL != node->ndat->u.rexpr_member_common.anchor_expr) {
         fprintf(out, "\n%*s\\_ anchor expr:\n",
                 (depth + 1) * INDENT_N_SPACES, "");
@@ -4057,6 +4067,7 @@ static void
 dump_ast_rexpr_scope(const struct ast_node_hdl *node, int depth,
                       struct list_of_visible_refs *visible_refs, FILE *out)
 {
+    dump_ast_rexpr(node, out);
     if (NULL != node->ndat->u.rexpr_member_common.anchor_expr) {
         fprintf(out, "\n%*s\\_ anchor expr:\n",
                 (depth + 1) * INDENT_N_SPACES, "");
@@ -4474,7 +4485,7 @@ fdump_ast_recur(const struct ast_node_hdl *node, int depth,
         }
         break ;
     case AST_NODE_TYPE_REXPR_SELF:
-        dump_ast_rexpr(node, out);
+        dump_ast_rexpr_member(node, depth, visible_refs, out);
         fprintf(out, "\n");
         break ;
     case AST_NODE_TYPE_EXPR_SELF:

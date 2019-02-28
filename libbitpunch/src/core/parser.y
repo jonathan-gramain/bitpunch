@@ -325,10 +325,6 @@
                 struct ast_node_hdl *filter_expr;
                 struct ast_node_hdl *target;
             } rexpr_op_filter;
-            struct rexpr_self {
-                struct rexpr rexpr; /* inherits */
-                struct ast_node_hdl *item_type;
-            } rexpr_self;
             struct rexpr_native {
                 struct rexpr rexpr; /* inherits */
                 expr_value_t value;
@@ -338,6 +334,9 @@
                 struct ast_node_hdl *anchor_expr;
                 struct ast_node_hdl *anchor_filter;
             } rexpr_member_common;
+            struct rexpr_self {
+                struct rexpr_member_common rexpr; /* inherits */
+            } rexpr_self;
             struct rexpr_field {
                 /* inherits */
                 struct rexpr_member_common rexpr_member_common;
@@ -650,7 +649,7 @@
 %left  OP_SUBSCRIPT OP_FCALL '.' "::"
 %right OP_ARRAY_DECL
 
-%type <ast_node_hdl> schema g_integer g_boolean g_identifier g_literal scope_block filter_block expr opt_expr twin_index opt_twin_index
+%type <ast_node_hdl> schema g_integer g_boolean g_identifier g_self g_literal scope_block filter_block expr opt_expr twin_index opt_twin_index
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
 %type <statement_list> func_params func_param_nonempty_list
 %type <named_expr> let_stmt attribute_stmt func_param
@@ -687,6 +686,10 @@ g_identifier:
         $$ = ast_node_hdl_create(AST_NODE_TYPE_IDENTIFIER, &@$);
         $$->ndat->u.identifier = $1;
     }
+g_self:
+    KW_SELF {
+        $$ = ast_node_hdl_create(AST_NODE_TYPE_EXPR_SELF, &@$);
+    }
 g_literal:
     LITERAL {
         $$ = ast_node_hdl_create(AST_NODE_TYPE_STRING, &@$);
@@ -713,9 +716,7 @@ expr:
   | g_boolean
   | g_identifier
   | g_literal
-  | KW_SELF {
-        $$ = ast_node_hdl_create(AST_NODE_TYPE_EXPR_SELF, &@KW_SELF);
-    }
+  | g_self
   | scope_block
   | filter_block
   | '+' expr %prec OP_ARITH_UNARY_OP {
@@ -798,6 +799,10 @@ expr:
         parser_location_make_span(&$$->loc, &@1, &@3);
     }
   | expr TOK_SCOPE g_identifier {
+        $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_SCOPE, $1, $3, &@2);
+        parser_location_make_span(&$$->loc, &@1, &@3);
+    }
+  | expr TOK_SCOPE g_self {
         $$ = expr_gen_ast_node(AST_NODE_TYPE_OP_SCOPE, $1, $3, &@2);
         parser_location_make_span(&$$->loc, &@1, &@3);
     }

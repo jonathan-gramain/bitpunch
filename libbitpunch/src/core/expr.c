@@ -1998,18 +1998,24 @@ expr_evaluate_self(struct ast_node_hdl *expr,
                    expr_value_t *valuep, expr_dpath_t *dpathp,
                    struct browse_state *bst)
 {
-    struct box *self_box;
-    expr_dpath_t dpath;
     bitpunch_status_t bt_ret;
+    expr_dpath_t dpath;
+    struct box *self_box;
 
-    self_box = bst->scope;
-    if (NULL == self_box) {
-        // TODO error message
-        return BITPUNCH_NO_ITEM;
+    bt_ret = expr_evaluate_dpath_anchor_common(expr, &dpath, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
     }
-    box_acquire(self_box);
-    bt_ret = BITPUNCH_OK;
-    dpath = expr_dpath_as_container(self_box);
+    if (EXPR_DPATH_TYPE_NONE == dpath.type) {
+        self_box = bst->scope;
+        if (NULL == self_box) {
+            // TODO error message
+            return BITPUNCH_NO_ITEM;
+        }
+        box_acquire(self_box);
+        bt_ret = BITPUNCH_OK;
+        dpath = expr_dpath_as_container(self_box);
+    }
     if (NULL != valuep) {
         bt_ret = dpath_read_value_internal(dpath, valuep, bst);
     }
