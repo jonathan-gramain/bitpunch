@@ -444,8 +444,7 @@ class CLI(NestedCmd):
     Usage:
 
     spec <spec_name> = <file_path>
-
-        """
+"""
         arglist = args.split('=', 1)
         name, path = ([arg.strip() for arg in arglist] + [None, None])[:2]
         if not name:
@@ -461,10 +460,10 @@ class CLI(NestedCmd):
     def complete_spec(self, text, begin, end):
         logging.debug('complete_spec text=%s begin=%d end=%d'
                       % (repr(text), begin, end))
-        equal_pos = text.find('=')
-        if equal_pos != -1 and begin > equal_pos:
+        if text[:begin].find('=') != -1:
             return self.complete_filename(text[begin:end])
-
+        if text[:begin].find(' ') != -1:
+            return ['=']
 
     def do_let(self, args):
         """Attach an expression to a local name
@@ -472,8 +471,7 @@ class CLI(NestedCmd):
     Usage:
 
     let <name> = <expression>
-
-        """
+"""
         arglist = args.split('=', 1)
         name, expr = ([arg.strip() for arg in arglist] + [None, None])[:2]
         if not name:
@@ -489,8 +487,10 @@ class CLI(NestedCmd):
     def complete_let(self, text, begin, end):
         logging.debug('complete_let text=%s begin=%d end=%d'
                       % (repr(text), begin, end))
-        if text[:begin].find(' ') != -1:
+        if text[:begin].find('=') != -1:
             return self.complete_expression(text, begin, end)
+        if text[:begin].find(' ') != -1:
+            return ['=']
 
     def do_list(self, args):
         """List attributes of an object
