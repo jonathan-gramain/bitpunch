@@ -76,6 +76,15 @@ HISTORY_FILE_NAME = 'history'
 
 class NoCompletion(Exception): pass
 
+def is_identifier(key):
+    str_key = str(key)
+    return ((str_key[0].isalpha() or str_key[0] in ['_', '?']) and
+            all(c.isalnum() or c == '_' for c in str_key[1:]))
+
+def is_attribute(key):
+    str_key = str(key)
+    return len(str_key) > 0 and str_key[0] == '@'
+
 class CLI(NestedCmd):
 
     LOGLEVELS = {
@@ -154,15 +163,6 @@ class CLI(NestedCmd):
                     return text[parenthesis_index:]
                 limit = parenthesis_index
             return ''
-
-        def is_identifier(key):
-            str_key = str(key)
-            return ((str_key[0].isalpha() or str_key[0] in ['_', '?']) and
-                    all(c.isalnum() or c == '_' for c in str_key[1:]))
-
-        def is_attribute(key):
-            str_key = str(key)
-            return len(str_key) > 0 and str_key[0] == '@'
 
         def filter_type(obj, key):
             if not ignore_primitive_types:
@@ -433,66 +433,37 @@ class CLI(NestedCmd):
         return self._complete_dump(text, begin, end)
 
 
-    def do_file(self, args):
-        """Load a binary data file or show information about loaded files
+    def load_spec(self, name, path):
+        self.board.add_spec(name, path=os.path.expanduser(path))
 
-    Usage:
-
-    file <filename> [format_file_path]        
-        Load a binary file along with its format file. If
+    def do_spec(self, args):
+        """Load a specification file along with its format file. If
         format_file_path is not given, try to find one matching the
         file extension.
 
-    file
-        Show information about current binary file and associated
-        format file
+    Usage:
+
+    spec <spec_name> = <file_path>
 
         """
-        parser = ArgListParser('file')
-        parser.add_argument('filepath', type=str,
-                            help='path to definition file',
-                            nargs='?', default=None)
-        parser.add_argument('bppath', type=str,
-                            help='path to format file',
-                            nargs='?', default=None)
-        pargs = parser.parse_args(shlex.split(args, comments=True))
+        arglist = args.split('=', 1)
+        name, path = ([arg.strip() for arg in arglist] + [None, None])[:2]
+        if not name:
+            raise CommandError('spec', 'missing specification name')
+        if not is_identifier(name):
+            raise CommandError('spec',
+                               'specification name is not a valid identifier')
+        if not path:
+            raise CommandError('spec', 'missing path to specification file')
 
-        self.load_file(pargs.filepath, pargs.bppath)
+        self.load_spec(name, path)
 
-
-    def load_file(self, data_path=None, bp_path=None):
-        if bp_path:
-            format_spec_path = os.path.expanduser(bp_path)
-            self.format_spec = model.FormatSpec(open(format_spec_path, 'r'))
-            self.format_spec_path = format_spec_path
-        if data_path:
-            filepath = os.path.expanduser(data_path)
-            new_bin_file = open(filepath, 'r')
-            if not bp_path:
-                extension = filepath[filepath.rindex('.') + 1:]
-                format_handler = model.find_handler(extension=extension)
-                if not format_handler:
-                    new_bin_file.close()
-                    raise CommandError(
-                        'file', 'no handler found by file extension, please ' +
-                        'provide path to bitpunch model as second argument')
-                self.format_spec = model.FormatSpec(format_handler)
-                self.format_spec_path = format_handler.name;
-            if self.bin_file:
-                self.bin_file.close()
-            self.bin_file = new_bin_file
-        else:
-            print('file   -> {bin}\n'
-                  'format -> {fmt}'
-                  .format(bin=self.bin_file.name if self.bin_file
-                          else '<not loaded>',
-                          fmt=self.format_spec_path if self.format_spec_path
-                          else '<not loaded>'));
-
-    def complete_file(self, text, begin, end):
-        logging.debug('complete_file text=%s begin=%d end=%d'
+    def complete_spec(self, text, begin, end):
+        logging.debug('complete_spec text=%s begin=%d end=%d'
                       % (repr(text), begin, end))
-        return self.complete_filename(text[begin:end])
+        equal_pos = text.find('=')
+        if equal_pos != -1 and begin > equal_pos:
+            return self.complete_filename(text[begin:end])
 
 
     def do_let(self, args):
@@ -500,18 +471,26 @@ class CLI(NestedCmd):
 
     Usage:
 
-    let <name> <expression>
+    let <name> = <expression>
 
         """
-        name, expr = args.split(' ', 1)
+        arglist = args.split('=', 1)
+        name, expr = ([arg.strip() for arg in arglist] + [None, None])[:2]
         if not name:
-            raise CommandError('let',
-                               "missing expression name argument to 'let'")
+            raise CommandError('spec', 'missing expression name')
+        if not is_identifier(name):
+            raise CommandError('spec',
+                               'expression name is not a valid identifier')
         if not expr:
-            raise CommandError('let',
-                               "missing expression argument to 'let'")
+            raise CommandError('spec', 'missing expression')
+
         self.board.add_expr(name, expr)
 
+    def complete_let(self, text, begin, end):
+        logging.debug('complete_let text=%s begin=%d end=%d'
+                      % (repr(text), begin, end))
+        if text[:begin].find(' ') != -1:
+            return self.complete_expression(text, begin, end)
 
     def do_list(self, args):
         """List attributes of an object
