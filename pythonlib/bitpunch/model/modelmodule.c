@@ -854,17 +854,35 @@ Board_add_spec(BoardObject *self, PyObject *args)
 static PyObject *
 Board_add_data_source(BoardObject *self, PyObject *args, PyObject *kwds)
 {
-    static char *kwlist[] = { "path", NULL };
+    static char *kwlist[] = { "name", "data", "path", NULL };
     const char *name;
-    PyObject *data;
+    PyObject *data = NULL;
+    const char *path = NULL;
     int ret;
     struct ast_node_hdl *data_source;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "sO", kwlist,
-                                     &name, &data)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "sO|s", kwlist,
+                                     &name, &data, &path)) {
         return NULL;
     }
-    if (PyString_Check(data)) {
+    if (NULL == data && NULL == path) {
+        PyErr_SetString(
+            PyExc_TypeError,
+            "Board.add_data_source() takes at least two arguments or "
+            "one and a path= keyword argument");
+        return NULL;
+    }
+    if (NULL != data && NULL != path) {
+        PyErr_SetString(
+            PyExc_TypeError,
+            "Board.add_data_source() takes either two arguments or "
+            "one and a path= keyword argument");
+        return NULL;
+    }
+    if (NULL != path) {
+        ret = bitpunch_data_source_create_from_file_path(
+            &data_source, path);
+    } else if (PyString_Check(data)) {
         char *contents;
         Py_ssize_t length;
 
@@ -960,7 +978,8 @@ static PyMethodDef Board_methods[] = {
     { "add_spec", (PyCFunction)Board_add_spec, METH_VARARGS,
       "add specification code to the board from a string, buffer or file object"
     },
-    { "add_data_source", (PyCFunction)Board_add_data_source, METH_VARARGS,
+    { "add_data_source", (PyCFunction)Board_add_data_source,
+      METH_VARARGS | METH_KEYWORDS,
       "add a data source to the board from a string, buffer or file object"
     },
     { "add_expr", (PyCFunction)Board_add_expr, METH_VARARGS,
