@@ -411,41 +411,54 @@ static PyObject *
 FormatSpec_new(PyTypeObject *subtype,
                PyObject *args, PyObject *kwds)
 {
+    static char *kwlist[] = { "spec", "path", NULL };
     int ret;
-    PyObject *arg;
+    PyObject *spec = NULL;
+    const char *path = NULL;
     FormatSpecObject *self;
 
-    if (!PyArg_ParseTuple(args, "O", &arg)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|Os", kwlist,
+                                     &spec, &path)) {
+        return NULL;
+    }
+    if (NULL == spec && NULL == path) {
+        PyErr_SetString(PyExc_TypeError, "FormatSpec() arguments error");
+        return NULL;
+    }
+    if (NULL != spec && NULL != path) {
+        PyErr_SetString(PyExc_TypeError, "FormatSpec() arguments error");
         return NULL;
     }
     self = (FormatSpecObject *)subtype->tp_alloc(subtype, 0);
     if (NULL == self) {
         return NULL;
     }
-    if (PyString_Check(arg)) {
+    if (NULL != path) {
+        ret = bitpunch_schema_create_from_path(&self->schema, path);
+    } else if (PyString_Check(spec)) {
         const char *contents;
 
         /* compile the provided text contents */
-        contents = PyString_AsString(arg);
+        contents = PyString_AsString(spec);
         ret = bitpunch_schema_create_from_string(&self->schema, contents);
-    } else if (PyFile_Check(arg)) {
+    } else if (PyFile_Check(spec)) {
         FILE *file;
 
         /* compile the contents from the file object */
-        file = PyFile_AsFile(arg);
-        //PyFile_IncUseCount((PyFileObject *)arg);
+        file = PyFile_AsFile(spec);
+        //PyFile_IncUseCount((PyFileObject *)spec);
         ret = bitpunch_schema_create_from_file_descriptor(
             &self->schema, fileno(file));
     } else {
         Py_DECREF((PyObject *)self);
         PyErr_SetString(PyExc_TypeError,
-                        "The argument must be a string or a file object");
+                        "The spec argument must be a string or a file object");
         return NULL;
     }
     if (-1 == ret) {
         Py_DECREF((PyObject *)self);
         PyErr_SetString(PyExc_OSError,
-                        "Error loading binary definition grammar");
+                        "Error loading bitpunch schema");
         return NULL;
     }
     return (PyObject *)self;
@@ -820,32 +833,55 @@ Board_new(PyTypeObject *subtype,
 }
 
 static PyObject *
-Board_add_spec(BoardObject *self, PyObject *args)
+Board_add_spec(BoardObject *self, PyObject *args, PyObject *kwds)
 {
+    static char *kwlist[] = { "name", "spec", "path", NULL };
     const char *name;
-    FormatSpecObject *schema;
+    PyObject *spec = NULL;
+    const char *path = NULL;
+    struct ast_node_hdl *schema = NULL;
+    int ret;
 
-    if (!PyArg_ParseTuple(args, "sO", &name, &schema)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|Os", kwlist,
+                                     &name, &spec, &path)) {
         return NULL;
     }
-    if (PyObject_IsInstance((PyObject *)schema,
-                            (PyObject *)&FormatSpecType)) {
-        Py_INCREF(schema);
-    } else {
-        PyObject *subarg;
-
-        subarg = PyTuple_Pack(1, (PyObject *)schema);
-        if (NULL == subarg) {
-            return NULL;
-        }
-        schema = (FormatSpecObject *)PyObject_CallObject(
-            (PyObject *)&FormatSpecType, subarg);
-        Py_DECREF(subarg);
-        if (NULL == schema) {
-            return NULL;
-        }
+    if (NULL == spec && NULL == path) {
+        PyErr_SetString(PyExc_TypeError, "Board.add_spec() arguments error");
+        return NULL;
     }
-    bitpunch_board_add_item(self->board, name, schema->schema);
+    if (NULL != spec && NULL != path) {
+        PyErr_SetString(PyExc_TypeError, "Board.add_spec() arguments error");
+        return NULL;
+    }
+    if (NULL != path) {
+        ret = bitpunch_schema_create_from_path(&schema, path);
+    } else if (PyString_Check(spec)) {
+        const char *contents;
+
+        /* compile the provided text contents */
+        contents = PyString_AsString(spec);
+        ret = bitpunch_schema_create_from_string(&schema, contents);
+    } else if (PyFile_Check(spec)) {
+        FILE *file;
+
+        /* compile the contents from the file object */
+        file = PyFile_AsFile(spec);
+        //PyFile_IncUseCount((PyFileObject *)spec);
+        ret = bitpunch_schema_create_from_file_descriptor(
+            &schema, fileno(file));
+    } else {
+        Py_DECREF((PyObject *)self);
+        PyErr_SetString(PyExc_TypeError,
+                        "The spec argument must be a string or a file object");
+        return NULL;
+    }
+    if (-1 == ret) {
+        PyErr_SetString(PyExc_OSError,
+                        "Error loading bitpunch schema from specification");
+        return NULL;
+    }
+    bitpunch_board_add_item(self->board, name, schema);
 
     Py_INCREF((PyObject *)self);
     return (PyObject *)self;
@@ -969,12 +1005,15 @@ Board_eval_expr(BoardObject *board, PyObject *args)
 }
 
 static PyMethodDef Board_methods[] = {
-    { "add_spec", (PyCFunction)Board_add_spec, METH_VARARGS,
-      "add specification code to the board from a string, buffer or file object"
+    { "add_spec", (PyCFunction)Board_add_spec,
+      METH_VARARGS | METH_KEYWORDS,
+      "add specification code to the board from a string, buffer, "
+      "file object or path"
     },
     { "add_data_source", (PyCFunction)Board_add_data_source,
       METH_VARARGS | METH_KEYWORDS,
-      "add a data source to the board from a string, buffer or file object"
+      "add a data source to the board from a string, buffer, "
+      "file object or path"
     },
     { "add_expr", (PyCFunction)Board_add_expr, METH_VARARGS,
       "add an expression to the board from a string"

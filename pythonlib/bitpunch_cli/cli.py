@@ -94,10 +94,6 @@ class CLI(NestedCmd):
         self.intro = '*** BitPunch command-line interface ***'
         self.prompt = 'bitpunch> '
         self.expr_operators_delim = (' ', '(', ')', '&', '<>')
-
-        self.format_spec = None
-        self.format_spec_path = None
-        self.bin_file = None
         self.board = model.Board()
 
     def _init_config(self):
