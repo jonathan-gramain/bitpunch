@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import pytest
 
 from bitpunch import model
@@ -253,22 +254,13 @@ def spec_ldb():
     };
     """
 
-@pytest.fixture
-def data_ldb():
-    return {
-        'data': conftest.load_test_dat(__file__, 'test1.ldb'),
-        'nb_entries': 237
-    }
-
-
-def test_ldb(spec_ldb, data_ldb):
-    data, nb_entries = (data_ldb['data'],
-                        data_ldb['nb_entries'])
+def test_ldb(spec_ldb):
+    nb_entries = 237
     board = model.Board()
     board.add_spec('LDB', spec_ldb)
-    board.add_data_source('data', data)
+    ldb_dir = os.path.dirname(os.path.realpath(__file__))
+    board.add_data_source('data', path='{0}/test1.ldb'.format(ldb_dir))
     dtree = board.eval_expr('data <> LDB.LDBFile')
-    #dtree = model.DataTree(data, spec_ldb)
     index = dtree.eval_expr('?index')
     assert index.offset == 265031
     assert index.size == 5676

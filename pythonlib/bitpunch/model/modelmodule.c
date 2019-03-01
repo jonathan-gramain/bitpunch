@@ -861,22 +861,16 @@ Board_add_data_source(BoardObject *self, PyObject *args, PyObject *kwds)
     int ret;
     struct ast_node_hdl *data_source;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "sO|s", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|Os", kwlist,
                                      &name, &data, &path)) {
         return NULL;
     }
     if (NULL == data && NULL == path) {
-        PyErr_SetString(
-            PyExc_TypeError,
-            "Board.add_data_source() takes at least two arguments or "
-            "one and a path= keyword argument");
+        PyErr_SetString(PyExc_TypeError, "Board.add_data_source() usage error");
         return NULL;
     }
     if (NULL != data && NULL != path) {
-        PyErr_SetString(
-            PyExc_TypeError,
-            "Board.add_data_source() takes either two arguments or "
-            "one and a path= keyword argument");
+        PyErr_SetString(PyExc_TypeError, "Board.add_data_source() usage error");
         return NULL;
     }
     if (NULL != path) {
