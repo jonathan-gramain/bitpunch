@@ -1298,8 +1298,7 @@ DataItem_eval_expr(DataItemObject *item, PyObject *args, PyObject *kwds)
     static char *kwlist[] = { "expr", NULL };
     const char *expr;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|i", kwlist,
-                                     &expr)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s", kwlist, &expr)) {
         return NULL;
     }
     return eval_expr_as_python_object(item, expr);
@@ -3535,8 +3534,7 @@ mod_bitpunch_get_builtin_names(PyObject *self,
     PyObject *list;
     PyObject *item;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|s", kwlist,
-                                     &prefix)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|s", kwlist, &prefix)) {
         return NULL;
     }
     list = PyList_New(0);
