@@ -98,7 +98,6 @@ class CLI(NestedCmd):
         self.format_spec = None
         self.format_spec_path = None
         self.bin_file = None
-        self.data_tree = None
         self.board = model.Board()
 
     def _init_config(self):
@@ -113,19 +112,6 @@ class CLI(NestedCmd):
     def preloop(self):
         super(CLI, self).preloop()
         completer.word_break_characters += '&'
-
-    def open_data_tree(self, cmdname):
-        if self.data_tree is not None:
-            return
-        if self.format_spec is None:
-            raise CommandError(cmdname,
-                               'missing format specification file '
-                               '(see "file" command)')
-        if self.bin_file is None:
-            raise CommandError(cmdname,
-                               'missing binary data file '
-                               '(see "file" command)')
-        self.data_tree = model.DataTree(self.bin_file, self.format_spec)
 
     def _complete_expression(self, text, begin, end,
                              ignore_primitive_types=False):
@@ -210,9 +196,6 @@ class CLI(NestedCmd):
 
         expr = extract_active_dpath_expr(text[:end])
 
-        if self.format_spec and self.bin_file:
-            self.open_data_tree('(complete expression)')
-
         #FIXME: not working with slices
         if expr.endswith(']'):
             item = expr
@@ -251,7 +234,7 @@ class CLI(NestedCmd):
                          repr(sep), repr(sep_end),
                          repr(completion_base)))
         if item:
-            obj = self.data_tree.eval_expr(item)
+            obj = self.board.eval_expr(item)
             if not (obj.get_filter_type() == 'composite' and sep == '.' or
                     obj.get_filter_type() == 'array' and sep in ('.', '[', ':')):
                 return
@@ -265,7 +248,7 @@ class CLI(NestedCmd):
                 yield completion_prefix + builtin + '('
 
         if obj is None:
-            obj = self.data_tree
+            obj = self.board
             if obj is None:
                 return
 
@@ -363,9 +346,7 @@ class CLI(NestedCmd):
 
     def _do_dump_generic(self, args, dump_type, dump_func):
         pargs = self.parse_dump_args('dump {0}'.format(dump_type), args)
-        if self.format_spec and self.bin_file:
-            self.open_data_tree('dump {0}'.format(dump_type))
-        dump_obj = self.data_tree.eval_expr(pargs.expression)
+        dump_obj = self.board.eval_expr(pargs.expression)
         if pargs.output_file == '-':
             dump_func(dump_obj, sys.stdout)
         else:
@@ -504,7 +485,6 @@ class CLI(NestedCmd):
             if self.bin_file:
                 self.bin_file.close()
             self.bin_file = new_bin_file
-            self.data_tree = None
         else:
             print('file   -> {bin}\n'
                   'format -> {fmt}'
@@ -512,9 +492,6 @@ class CLI(NestedCmd):
                           else '<not loaded>',
                           fmt=self.format_spec_path if self.format_spec_path
                           else '<not loaded>'));
-
-    def attach_data_tree(self, data_tree):
-        self.data_tree = data_tree
 
     def complete_file(self, text, begin, end):
         logging.debug('complete_file text=%s begin=%d end=%d'
@@ -537,7 +514,7 @@ class CLI(NestedCmd):
         if not expr:
             raise CommandError('let',
                                "missing expression argument to 'let'")
-        self.board.add_spec(name, expr)
+        self.board.add_expr(name, expr)
 
 
     def do_list(self, args):
@@ -546,9 +523,7 @@ class CLI(NestedCmd):
     Usage: list [<expression>]
 """
         expr = args
-        if self.format_spec and self.bin_file:
-            self.open_data_tree('list')
-        obj = self.data_tree.eval_expr(expr) if expr else self.data_tree
+        obj = self.board.eval_expr(expr) if expr else self.board
         keys = list(str(key) for key in model.Tracker(
             obj, iter_mode=model.Tracker.ITER_MEMBER_NAMES))
         self.columnize(keys)
@@ -566,8 +541,6 @@ class CLI(NestedCmd):
         if not expr:
             raise CommandError('print',
                                "missing expression argument to 'print'")
-        #if self.format_spec and self.bin_file:
-        #    self.open_data_tree('print')
         expr_value = self.board.eval_expr(expr)
         print repr(model.make_python_object(expr_value))
 
@@ -585,8 +558,7 @@ class CLI(NestedCmd):
         if not expr:
             raise CommandError('xdump',
                                "missing expression argument to 'xdump'")
-        self.open_data_tree('xdump')
-        obj = self.data_tree.eval_expr(expr)
+        obj = self.board.eval_expr(expr)
         try:
             memview = memoryview(obj)
             lines = hexdump.hexdump(memview, result='generator')

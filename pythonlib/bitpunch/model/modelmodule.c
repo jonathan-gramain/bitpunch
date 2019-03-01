@@ -852,14 +852,16 @@ Board_add_spec(BoardObject *self, PyObject *args)
 }
 
 static PyObject *
-Board_add_data_source(BoardObject *self, PyObject *args)
+Board_add_data_source(BoardObject *self, PyObject *args, PyObject *kwds)
 {
+    static char *kwlist[] = { "path", NULL };
     const char *name;
     PyObject *data;
     int ret;
     struct ast_node_hdl *data_source;
 
-    if (!PyArg_ParseTuple(args, "sO", &name, &data)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "sO", kwlist,
+                                     &name, &data)) {
         return NULL;
     }
     if (PyString_Check(data)) {
@@ -904,6 +906,31 @@ Board_add_data_source(BoardObject *self, PyObject *args)
 }
 
 static PyObject *
+Board_add_expr(BoardObject *board, PyObject *args)
+{
+    const char *name;
+    const char *expr;
+    bitpunch_status_t bt_ret;
+    struct tracker_error *tk_err = NULL;
+
+    if (!PyArg_ParseTuple(args, "ss", &name, &expr)) {
+        return NULL;
+    }
+    bt_ret = bitpunch_board_add_expr(board->board, name, expr);
+    if (BITPUNCH_OK != bt_ret) {
+        if (NULL != tk_err) {
+            set_tracker_error(tk_err, tk_err->bt_ret);
+        } else {
+            PyErr_Format(PyExc_ValueError,
+                         "Error compiling expression '%s'", expr);
+        }
+        return NULL;
+    }
+    Py_INCREF(board);
+    return (PyObject *)board;
+}
+
+static PyObject *
 Board_eval_expr(BoardObject *board, PyObject *args)
 {
     const char *expr;
@@ -935,6 +962,9 @@ static PyMethodDef Board_methods[] = {
     },
     { "add_data_source", (PyCFunction)Board_add_data_source, METH_VARARGS,
       "add a data source to the board from a string, buffer or file object"
+    },
+    { "add_expr", (PyCFunction)Board_add_expr, METH_VARARGS,
+      "add an expression to the board from a string"
     },
     { "eval_expr", (PyCFunction)Board_eval_expr,
       METH_VARARGS | METH_KEYWORDS,
