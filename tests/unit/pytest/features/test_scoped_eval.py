@@ -275,7 +275,7 @@ def test_nested_scoping_eval(params_nested_scoping_eval):
     bar = foo.eval_expr('bar[0..sizeof(Spec.Foo.Bar)] <> Spec.Foo.Bar')
     assert bar.eval_expr('?foo_name') == 'foo'
 
-    two_bars = foo.eval_expr('bar[0..2 * sizeof(Foo.Bar)] <> [2] Foo.Bar')
+    two_bars = foo.eval_expr('bar[0..2 * sizeof(Spec.Foo.Bar)] <> [2] Spec.Foo.Bar')
     assert two_bars.eval_expr('self[1].?foo_name') == 'foo'
 
     assert dtree.eval_expr(
