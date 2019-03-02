@@ -535,9 +535,12 @@ class CLI(NestedCmd):
     Usage: list [<expression>]
 """
         expr = args
-        obj = self.board.eval_expr(expr) if expr else self.board
-        keys = list(str(key) for key in model.Tracker(
-            obj, iter_mode=model.Tracker.ITER_MEMBER_NAMES))
+        if expr:
+            obj = self.board.eval_expr(expr)
+            keys = list(str(key) for key in model.Tracker(
+                obj, iter_mode=model.Tracker.ITER_MEMBER_NAMES))
+        else:
+            keys = list(str(key) for key in self.board)
         self.columnize(keys)
 
     def complete_list(self, text, begin, end):

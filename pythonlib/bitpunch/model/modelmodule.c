@@ -1102,6 +1102,134 @@ Board_dealloc(BoardObject *self)
     Py_TYPE(self)->tp_free(self);
 }
 
+PyDoc_STRVAR(ScopeIter__doc__, "Scope iterator object");
+
+typedef struct ScopeIterObject {
+    PyObject_HEAD
+    struct named_expr *cur;
+} ScopeIterObject;
+
+static PyObject *
+ScopeIter_new(PyTypeObject *subtype,
+              PyObject *args, PyObject *kwds)
+{
+    ScopeIterObject *self;
+
+    self = (ScopeIterObject *)subtype->tp_alloc(subtype, 0);
+    return (PyObject *)self;
+}
+
+static int
+ScopeIter_clear(ScopeIterObject *self)
+{
+    return 0;
+}
+
+static void
+ScopeIter_dealloc(ScopeIterObject *self)
+{
+    Py_TYPE(self)->tp_free(self);
+}
+
+static PyObject *
+ScopeIter_iternext(ScopeIterObject *iter)
+{
+    PyObject *name;
+
+    if (NULL == iter->cur) {
+        return NULL;
+    }
+    name = PyString_FromString(iter->cur->nstmt.name);
+    iter->cur = STATEMENT_NEXT(named_expr, iter->cur, list);
+    return name;
+}
+
+static PyMethodDef ScopeIter_methods[] = {
+    { NULL, NULL, 0, NULL }
+};
+
+static PyTypeObject ScopeIterType = {
+    PyObject_HEAD_INIT(NULL)
+    0,                           /* ob_size */
+    "bitpunch.ScopeIter",        /* tp_name */
+    sizeof(ScopeIterObject),     /* tp_basicsize */
+    0,                           /* tp_itemsize */
+    0,                           /* tp_dealloc */
+    0,                           /* tp_print */
+    0,                           /* tp_getattr */
+    0,                           /* tp_setattr */
+    0,                           /* tp_compare */
+    0,                           /* tp_repr */
+    0,                           /* tp_as_number */
+    0,                           /* tp_as_sequence */
+    0,                           /* tp_as_mapping */
+    0,                           /* tp_hash */
+    0,                           /* tp_call */
+    0,                           /* tp_str */
+    0,                           /* tp_getattro */
+    0,                           /* tp_setattro */
+    0,                           /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT |
+    Py_TPFLAGS_BASETYPE |
+    Py_TPFLAGS_HAVE_ITER,        /* tp_flags */
+    ScopeIter__doc__,            /* tp_doc */
+    0,                           /* tp_traverse */
+    0,                           /* tp_clear */
+    0,                           /* tp_richcompare */
+    0,                           /* tp_weaklistoffset */
+    0,                           /* tp_iter */
+    0,                           /* tp_iternext */
+    ScopeIter_methods,           /* tp_methods */
+    0,                           /* tp_members */
+    0,                           /* tp_getset */
+    0,                           /* tp_base */
+    0,                           /* tp_dict */
+    0,                           /* tp_descr_get */
+    0,                           /* tp_descr_set */
+    0,                           /* tp_dictoffset */
+    0,                           /* tp_init */
+    0,                           /* tp_alloc */
+    0,                           /* tp_new */
+};
+
+static int
+ScopeIterType_setup(void)
+{
+    ScopeIterType.ob_type = &PyType_Type;
+    ScopeIterType.tp_new = ScopeIter_new;
+    ScopeIterType.tp_clear = (inquiry)ScopeIter_clear;
+    ScopeIterType.tp_dealloc = (destructor)ScopeIter_dealloc;
+    ScopeIterType.tp_iternext = (iternextfunc)ScopeIter_iternext;
+    if (PyType_Ready(&ScopeIterType) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static ScopeIterObject *
+make_scope_iter(struct scope_def *scope_def)
+{
+    ScopeIterObject *self;
+
+    self = (ScopeIterObject *)ScopeIter_new(&ScopeIterType, NULL, NULL);
+    if (NULL == self) {
+        return NULL;
+    }
+    self->cur = STATEMENT_FIRST(
+        named_expr, scope_def->block_stmt_list.named_expr_list);
+    return self;
+}
+
+
+
+
+static PyObject *
+Board_iter(BoardObject *self)
+{
+    return (PyObject *)
+        make_scope_iter(&self->board->ast_root->ndat->u.scope_def);
+}
+
 static PyTypeObject BoardType = {
     PyObject_HEAD_INIT(NULL)
     0,                         /* ob_size */
@@ -1152,6 +1280,7 @@ BoardType_setup(void)
     BoardType.tp_new = Board_new;
     BoardType.tp_clear = (inquiry)Board_clear;
     BoardType.tp_dealloc = (destructor)Board_dealloc;
+    BoardType.tp_iter = (getiterfunc)Board_iter;
     if (PyType_Ready(&BoardType) < 0) {
         return -1;
     }
@@ -3841,6 +3970,14 @@ initmodel_ext(void)
     }
     Py_INCREF(&DataItemType);
     PyModule_AddObject(bitpunch_m, "DataItem", (PyObject *)&DataItemType);
+
+    /* ScopeIter */
+    if (ScopeIterType_setup() < 0) {
+        return ;
+    }
+    Py_INCREF(&ScopeIterType);
+    PyModule_AddObject(bitpunch_m,
+                       "ScopeIter", (PyObject *)&ScopeIterType);
 
     /* Board */
     if (BoardType_setup() < 0) {
