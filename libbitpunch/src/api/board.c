@@ -81,6 +81,30 @@ bitpunch_board_add_item(
     board_add_named_expr(board, name, item);
 }
 
+static int
+board_remove_named_expr(
+    struct bitpunch_board *board,
+    const char *name)
+{
+    int has_removed;
+
+    has_removed = scope_remove_named_expr(
+        &board->ast_root->ndat->u.scope_def, name);
+    if (has_removed) {
+        board->ast_root->resolved_tags = 0;
+        dep_resolver_node_init(&board->ast_root->dr_node);
+    }
+    return has_removed;
+}
+
+int
+bitpunch_board_remove_item(
+    struct bitpunch_board *board,
+    const char *name)
+{
+    return board_remove_named_expr(board, name);
+}
+
 void
 bitpunch_board_import_spec(
     struct bitpunch_board *board,

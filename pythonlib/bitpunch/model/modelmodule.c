@@ -1013,6 +1013,23 @@ Board_add_expr(BoardObject *board, PyObject *args)
 }
 
 static PyObject *
+Board_remove(BoardObject *board, PyObject *args)
+{
+    const char *name;
+
+    if (!PyArg_ParseTuple(args, "s", &name)) {
+        return NULL;
+    }
+    if (bitpunch_board_remove_item(board->board, name)) {
+        Py_INCREF(Py_True);
+        return Py_True;
+    } else {
+        Py_INCREF(Py_False);
+        return Py_False;
+    }
+}
+
+static PyObject *
 Board_eval_expr(BoardObject *board, PyObject *args)
 {
     const char *expr;
@@ -1056,6 +1073,13 @@ static PyMethodDef Board_methods[] = {
     },
     { "add_expr", (PyCFunction)Board_add_expr, METH_VARARGS,
       "add an expression to the board from a string"
+    },
+    { "remove", (PyCFunction)Board_remove, METH_VARARGS,
+      "remove a name from the board\n"
+      "\n"
+      "return value:\n"
+      " - True -- one or more items have been removed\n"
+      " - False -- no item has been removed"
     },
     { "eval_expr", (PyCFunction)Board_eval_expr,
       METH_VARARGS | METH_KEYWORDS,
@@ -1362,7 +1386,7 @@ static PyMethodDef DataItem_methods[] = {
     },
     { "eval_expr", (PyCFunction)DataItem_eval_expr,
       METH_VARARGS | METH_KEYWORDS,
-      "evaluate a bitpunch expression in the item's scope"
+      "evaluate a bitpunch expression in the item's scope\n"
       "\n"
       "keyword arguments:\n"
       "tracker -- if True, return a Tracker object pointing\n"

@@ -142,6 +142,11 @@ scope_add_named_expr(
     const char *name,
     struct ast_node_hdl *expr);
 
+int
+scope_remove_named_expr(
+    struct scope_def *scope_def,
+    const char *name);
+
 void
 scope_import_all_named_exprs_from_scope(
     struct scope_def *scope_def,

@@ -465,11 +465,8 @@ class CLI(NestedCmd):
         if text[:begin].find(' ') != -1:
             return ['=']
 
-    def import_spec_from_file(self, path):
-        self.board.import_spec(path=os.path.expanduser(path))
-
-    def parse_import_args(self, args):
-        parser = ArgListParser('import')
+    def parse_use_args(self, args):
+        parser = ArgListParser('use')
         parser.add_argument('spec_file', type=str,
                             help='path to specification file')
         pargs = parser.parse_line(args)
@@ -479,19 +476,28 @@ class CLI(NestedCmd):
             parser.error('missing path to specification file')
         return pargs
 
+    def use_spec_from_file(self, path):
+        self.board.import_spec(path=os.path.expanduser(path))
 
-    def do_import(self, args):
-        """Import all symbols from a specification file into the board
+
+    def do_use(self, args):
+        """Import all names from a specification file into the board
+
+        Notes:
+        - removes previous names imported from a previous invocation
+          of 'use' before importing the new names
+        - keeps the names previously defined by 'let' command
 
     Usage:
 
-    import <file_path>
-"""
-        pargs = self.parse_import_args(args)
-        self.import_spec_from_file(pargs.spec_file)
+    use <file_path>
 
-    def complete_import(self, text, begin, end):
-        logging.debug('complete_import text=%s begin=%d end=%d'
+        """
+        pargs = self.parse_use_args(args)
+        self.use_spec_from_file(pargs.spec_file)
+
+    def complete_use(self, text, begin, end):
+        logging.debug('complete_use text=%s begin=%d end=%d'
                       % (repr(text), begin, end))
         return self.complete_filename(text[begin:end])
 

@@ -594,6 +594,26 @@ scope_add_named_expr(
                       (struct statement *)named_expr, list);
 }
 
+int
+scope_remove_named_expr(
+    struct scope_def *scope_def,
+    const char *name)
+{
+    struct named_expr *named_expr;
+    int found = FALSE;
+
+    STATEMENT_FOREACH(named_expr, named_expr,
+                      scope_def->block_stmt_list.named_expr_list, list) {
+        if (0 == strcmp(named_expr->nstmt.name, name)) {
+            TAILQ_REMOVE(scope_def->block_stmt_list.named_expr_list,
+                         (struct statement *)named_expr, list);
+            // keep going, as there may be duplicates
+            found = TRUE;
+        }
+    }
+    return found;
+}
+
 void
 scope_import_all_named_exprs_from_scope(
     struct scope_def *scope_def,
