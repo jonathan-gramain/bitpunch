@@ -247,10 +247,14 @@ class CLI(NestedCmd):
             obj = self.board
             if obj is None:
                 return
+            key_source = obj
+        else:
+            key_source = model.Tracker(
+                obj, iter_mode=model.Tracker.ITER_MEMBER_NAMES)
 
         nb_found_keys = 0
         first_key = None
-        for key in model.Tracker(obj, iter_mode=model.Tracker.ITER_MEMBER_NAMES):
+        for key in key_source:
             if not filter_type(obj, key):
                 key_str = build_completion(key, obj, completion_base)
                 if key_str.startswith(completion_base):
