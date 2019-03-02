@@ -92,6 +92,11 @@ bitpunch_board_add_item(
     const char *name,
     struct ast_node_hdl *item);
 
+void
+bitpunch_board_import_spec(
+    struct bitpunch_board *board,
+    struct ast_node_hdl *spec);
+
 bitpunch_status_t
 bitpunch_board_add_expr(
     struct bitpunch_board *board,

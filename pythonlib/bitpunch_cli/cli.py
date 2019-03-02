@@ -465,6 +465,37 @@ class CLI(NestedCmd):
         if text[:begin].find(' ') != -1:
             return ['=']
 
+    def import_spec_from_file(self, path):
+        self.board.import_spec(path=os.path.expanduser(path))
+
+    def parse_import_args(self, args):
+        parser = ArgListParser('import')
+        parser.add_argument('spec_file', type=str,
+                            help='path to specification file')
+        pargs = parser.parse_line(args)
+        logging.debug('pargs=%s', repr(pargs))
+        logging.debug('spec_file=%s', repr(pargs.spec_file))
+        if not pargs.spec_file:
+            parser.error('missing path to specification file')
+        return pargs
+
+
+    def do_import(self, args):
+        """Import all symbols from a specification file into the board
+
+    Usage:
+
+    import <file_path>
+"""
+        pargs = self.parse_import_args(args)
+        self.import_spec_from_file(pargs.spec_file)
+
+    def complete_import(self, text, begin, end):
+        logging.debug('complete_import text=%s begin=%d end=%d'
+                      % (repr(text), begin, end))
+        return self.complete_filename(text[begin:end])
+
+
     def do_let(self, args):
         """Attach an expression to a local name
 

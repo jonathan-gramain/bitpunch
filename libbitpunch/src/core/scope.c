@@ -578,6 +578,38 @@ scope_get_first_declared_attribute(
     return NULL;
 }
 
+void
+scope_add_named_expr(
+    struct scope_def *scope_def,
+    const char *name,
+    struct ast_node_hdl *expr)
+{
+    struct named_expr *named_expr;
+
+    named_expr = new_safe(struct named_expr);
+    named_expr->nstmt.name = strdup_safe(name);
+    named_expr->expr = expr;
+
+    TAILQ_INSERT_TAIL(scope_def->block_stmt_list.named_expr_list,
+                      (struct statement *)named_expr, list);
+}
+
+void
+scope_import_all_named_exprs_from_scope(
+    struct scope_def *scope_def,
+    struct scope_def *from_scope)
+{
+    struct block_stmt_list *lists;
+    struct named_expr *named_expr;
+
+    lists = &from_scope->block_stmt_list;
+    STATEMENT_FOREACH(named_expr, named_expr,
+                      lists->named_expr_list, list) {
+        scope_add_named_expr(
+            scope_def, named_expr->nstmt.name, named_expr->expr);
+    }
+}
+
 
 /* browse backend */
 

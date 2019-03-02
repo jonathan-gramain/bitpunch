@@ -832,56 +832,90 @@ Board_new(PyTypeObject *subtype,
     return (PyObject *)self;
 }
 
-static PyObject *
-Board_add_spec(BoardObject *self, PyObject *args, PyObject *kwds)
+static struct ast_node_hdl *
+load_spec_internal(PyObject *spec_arg, const char *path)
 {
-    static char *kwlist[] = { "name", "spec", "path", NULL };
-    const char *name;
-    PyObject *spec = NULL;
-    const char *path = NULL;
-    struct ast_node_hdl *schema = NULL;
     int ret;
+    struct ast_node_hdl *spec_node = NULL;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|Os", kwlist,
-                                     &name, &spec, &path)) {
+    if (NULL == spec_arg && NULL == path) {
+        PyErr_SetString(PyExc_TypeError, "arguments error");
         return NULL;
     }
-    if (NULL == spec && NULL == path) {
-        PyErr_SetString(PyExc_TypeError, "Board.add_spec() arguments error");
+    if (NULL != spec_arg && NULL != path) {
+        PyErr_SetString(PyExc_TypeError, "arguments error");
         return NULL;
     }
-    if (NULL != spec && NULL != path) {
-        PyErr_SetString(PyExc_TypeError, "Board.add_spec() arguments error");
-        return NULL;
-    }
+
     if (NULL != path) {
-        ret = bitpunch_schema_create_from_path(&schema, path);
-    } else if (PyString_Check(spec)) {
+        ret = bitpunch_schema_create_from_path(&spec_node, path);
+    } else if (PyString_Check(spec_arg)) {
         const char *contents;
 
         /* compile the provided text contents */
-        contents = PyString_AsString(spec);
-        ret = bitpunch_schema_create_from_string(&schema, contents);
-    } else if (PyFile_Check(spec)) {
+        contents = PyString_AsString(spec_arg);
+        ret = bitpunch_schema_create_from_string(&spec_node, contents);
+    } else if (PyFile_Check(spec_arg)) {
         FILE *file;
 
         /* compile the contents from the file object */
-        file = PyFile_AsFile(spec);
-        //PyFile_IncUseCount((PyFileObject *)spec);
+        file = PyFile_AsFile(spec_arg);
+        //PyFile_IncUseCount((PyFileObject *)spec_arg);
         ret = bitpunch_schema_create_from_file_descriptor(
-            &schema, fileno(file));
+            &spec_node, fileno(file));
     } else {
-        Py_DECREF((PyObject *)self);
         PyErr_SetString(PyExc_TypeError,
                         "The spec argument must be a string or a file object");
         return NULL;
     }
     if (-1 == ret) {
         PyErr_SetString(PyExc_OSError,
-                        "Error loading bitpunch schema from specification");
+                        "Error loading bitpunch specification from file");
         return NULL;
     }
-    bitpunch_board_add_item(self->board, name, schema);
+    return spec_node;
+}
+
+static PyObject *
+Board_add_spec(BoardObject *self, PyObject *args, PyObject *kwds)
+{
+    static char *kwlist[] = { "name", "spec", "path", NULL };
+    const char *name;
+    PyObject *spec_arg = NULL;
+    const char *path = NULL;
+    struct ast_node_hdl *spec_node;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|Os", kwlist,
+                                     &name, &spec_arg, &path)) {
+        return NULL;
+    }
+    spec_node = load_spec_internal(spec_arg, path);
+    if (NULL == spec_node) {
+        return NULL;
+    }
+    bitpunch_board_add_item(self->board, name, spec_node);
+
+    Py_INCREF((PyObject *)self);
+    return (PyObject *)self;
+}
+
+static PyObject *
+Board_import_spec(BoardObject *self, PyObject *args, PyObject *kwds)
+{
+    static char *kwlist[] = { "spec", "path", NULL };
+    PyObject *spec_arg = NULL;
+    const char *path = NULL;
+    struct ast_node_hdl *spec_node;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|Os", kwlist,
+                                     &spec_arg, &path)) {
+        return NULL;
+    }
+    spec_node = load_spec_internal(spec_arg, path);
+    if (NULL == spec_node) {
+        return NULL;
+    }
+    bitpunch_board_import_spec(self->board, spec_node);
 
     Py_INCREF((PyObject *)self);
     return (PyObject *)self;
@@ -1009,6 +1043,11 @@ static PyMethodDef Board_methods[] = {
       METH_VARARGS | METH_KEYWORDS,
       "add specification code to the board from a string, buffer, "
       "file object or path"
+    },
+    { "import_spec", (PyCFunction)Board_import_spec,
+      METH_VARARGS | METH_KEYWORDS,
+      "import all names from a specification into the board, from a string, "
+      "buffer, file object or path"
     },
     { "add_data_source", (PyCFunction)Board_add_data_source,
       METH_VARARGS | METH_KEYWORDS,

@@ -38,6 +38,7 @@
 
 #include "core/parser.h"
 #include "core/browse.h"
+#include "core/scope.h"
 #include "filters/data_source.h"
 #include "api/bitpunch_api.h"
 
@@ -65,16 +66,7 @@ board_add_named_expr(
     const char *name,
     struct ast_node_hdl *expr)
 {
-    struct scope_def *scope_def;
-    struct named_expr *named_expr;
-
-    scope_def = &board->ast_root->ndat->u.scope_def;
-    named_expr = new_safe(struct named_expr);
-    named_expr->nstmt.name = strdup_safe(name);
-    named_expr->expr = expr;
-
-    TAILQ_INSERT_TAIL(scope_def->block_stmt_list.named_expr_list,
-                      (struct statement *)named_expr, list);
+    scope_add_named_expr(&board->ast_root->ndat->u.scope_def, name, expr);
 
     board->ast_root->resolved_tags = 0;
     dep_resolver_node_init(&board->ast_root->dr_node);
@@ -87,6 +79,16 @@ bitpunch_board_add_item(
     struct ast_node_hdl *item)
 {
     board_add_named_expr(board, name, item);
+}
+
+void
+bitpunch_board_import_spec(
+    struct bitpunch_board *board,
+    struct ast_node_hdl *spec)
+{
+    assert(ast_node_is_scope_def(spec));
+    scope_import_all_named_exprs_from_scope(
+        &board->ast_root->ndat->u.scope_def, &spec->ndat->u.scope_def);
 }
 
 bitpunch_status_t

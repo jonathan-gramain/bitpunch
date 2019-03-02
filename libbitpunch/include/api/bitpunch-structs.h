@@ -93,7 +93,7 @@ struct bitpunch_file_source {
 };
 
 struct bitpunch_board {
-    /** root node for the environment, of type AST_NODE_TYPE_SCOPE_DEF */
+    /** root node of the board, of type AST_NODE_TYPE_SCOPE_DEF */
     struct ast_node_hdl *ast_root;
 };
 
