@@ -44,4 +44,12 @@ int
 data_source_create_from_file_path_internal(
     struct bitpunch_data_source **dsp, const char *path, int external);
 
+int
+data_source_create_from_memory_internal(
+    struct bitpunch_data_source **dsp,
+    const char *data, size_t data_size, int manage_buffer);
+
+int
+data_source_release_internal(struct bitpunch_data_source *ds);
+
 #endif

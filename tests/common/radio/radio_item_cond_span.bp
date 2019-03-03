@@ -15,7 +15,7 @@ let RadioCode = struct {
        }
 };
 
-env("DATASOURCE") <> struct {
+let Radio = struct {
      n_codes: u32;
      codes: [n_codes] RadioCode;
 };

@@ -1,0 +1,111 @@
+/*
+ * LevelDB by Google, Inc.
+ *
+ * LevelDB SST Table format:
+ * https://github.com/google/leveldb/blob/master/doc/table_format.md
+ *
+ * LevelDB log format:
+ * https://github.com/google/leveldb/blob/master/doc/log_format.md
+ *
+ * One interesting characteristic of the log format is that blocks are
+ * fixed-sized 32KB, except the last block which can be
+ * truncated. This forces the browse code to skip to the tail block
+ * whenever there is less than 32KB to read from the file.
+ *
+ * Otherwise it's a pretty straightforward format.
+ */
+
+
+// Define some basic types used by LevelDB
+
+let FixInt = integer {
+    @signed: false;
+    @endian: 'little';
+};
+let FixInt8  = byte     <> FixInt;
+let FixInt16 = [2] byte <> FixInt;
+let FixInt32 = [4] byte <> FixInt;
+let VarInt   = varint;
+
+
+// SST (.ldb) file structure
+
+let SSTFile = struct {
+    payload: [] byte;
+    footer:  struct {
+        metaindex_handle: BlockHandle;
+        index_handle:     BlockHandle;
+                          []  byte;
+        magic:            [8] byte;
+
+        @span: 48;
+    };
+
+    let ?index     = footer.index_handle;
+    let ?metaindex = footer.metaindex_handle;
+
+    let BlockHandle = struct {
+        offset: VarInt;
+        size:   VarInt;
+
+        let ?stored_block =
+            payload[offset ..
+                    offset + size + sizeof(BlockTrailer)] <> FileBlock;
+    };
+
+    let BlockTrailer = struct {
+        blocktype: FixInt8;
+        crc:       FixInt32;
+    };
+
+    let FileBlock = struct {
+        if (trailer.blocktype == 0) { // uncompressed
+            DataBlock;
+        }
+        if (trailer.blocktype == 1) {
+            snappy <> DataBlock;
+        }
+        trailer: BlockTrailer;
+    };
+
+    let DataBlock = struct {
+        let KeyValue = struct {
+            key_shared_size:     VarInt;
+            key_non_shared_size: VarInt;
+            value_size:          VarInt;
+            key_non_shared:      [key_non_shared_size] byte;
+            value:               [value_size] byte;
+        };
+        entries:     [] KeyValue;
+        restarts:    [nb_restarts] FixInt32;
+        nb_restarts: FixInt32;
+    };
+};
+
+
+/*
+ * log (.log) data structures
+ */
+
+let LogFile = struct {
+    head_blocks: [] LogBlock;
+    tail_block: LogTailBlock;
+
+    let LogBlock = struct {
+        records: [] LogRecord;
+        trailer: [] byte;
+        @span: 32768;
+    };
+
+    let LogTailBlock = struct {
+        records: [] LogRecord;
+    };
+
+    let LogRecord = struct {
+        checksum: FixInt32;
+        length:   FixInt16;
+        rtype:    FixInt8;
+        data:     [length] byte <> string;
+        @minspan: 7;
+    };
+};

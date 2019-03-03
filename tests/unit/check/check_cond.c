@@ -63,11 +63,11 @@ static const char *check_cond_def =
     "    }\n"
     "    @span: sizeof (hdr) + hdr.size;\n"
     "};\n"
-    "env(\"DATASOURCE\") <> struct {\n"
+    "let Root = struct {\n"
     "    ifs: [2] IfStruct;\n"
     "};\n";
 
-static struct ast_node_hdl *check_cond_def_hdl;
+static struct ast_node_hdl *check_cond_schema_hdl;
 
 
 static const char check_cond_valid1_contents[] = {
@@ -163,7 +163,7 @@ static const struct test_tracker_expect_box check_cond_valid1_expect[] = {
 
 static const struct test_tracker_spec check_cond_valid1_spec = {
     .test_name = "cond.valid1",
-    .contents_def = &check_cond_def_hdl,
+    .schema_hdl = &check_cond_schema_hdl,
     .contents = check_cond_valid1_contents,
     .contents_size = sizeof (check_cond_valid1_contents),
     .expect_boxes = check_cond_valid1_expect,
@@ -176,13 +176,13 @@ static void cond_setup(void)
     int ret;
 
     ret = bitpunch_schema_create_from_string(
-        &check_cond_def_hdl, check_cond_def);
+        &check_cond_schema_hdl, check_cond_def);
     assert(0 == ret);
 }
 
 static void cond_teardown(void)
 {
-    bitpunch_schema_free(check_cond_def_hdl);
+    bitpunch_schema_free(check_cond_schema_hdl);
 }
 
 

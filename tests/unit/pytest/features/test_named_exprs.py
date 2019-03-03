@@ -14,7 +14,7 @@ let Number = struct {
     let ?value = raw <> integer { @signed: false; @endian: 'little'; };
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     typed:   [3] u16;
     untyped: [3] Number;
 };
@@ -38,7 +38,7 @@ let Number = struct {
     let ?value = raw <> integer { @signed: false; @endian: 'little'; };
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     typed:   [3] u16;
     untyped: [3] Number;
 };
@@ -67,7 +67,7 @@ let Number = struct {
     @key: raw <> integer { @signed: false; @endian: 'little'; };
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     typed:   [3] u16;
     untyped: [3] Number;
 };
@@ -110,7 +110,7 @@ spec_file_named_exprs_2_1 = """
 
 let u16 = [2] byte <> integer { @signed: false; @endian: 'little'; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     typed:   [3] u16;
     untyped: [6] byte;
 
@@ -127,7 +127,7 @@ let Foo = struct {
     bar: [] byte;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     typed:   [3] u16;
     untyped: [6] byte;
 
@@ -174,7 +174,7 @@ let Number = struct {
     @key: value;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     typed:   [3] u16;
     numbers: [3] Number;
 
@@ -216,7 +216,7 @@ let Number = struct {
     value: u16;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     data: [] byte;
     let ?second_and_third_numbers = data[sizeof(Number)..] <> [] Number;
 };
@@ -263,11 +263,11 @@ let ?two = ?one + ?one;
 let Series = struct {
     values:        [?series_length] u16;
 
-    let ?my_index = index(series, self);
-    let ?series_length = series_length[?my_index];
+    let ?my_index = index(Schema::series, self);
+    let ?series_length = Schema::series_length[?my_index];
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     nb_series:     u8;
     series_length: [nb_series] u8;
     series:        [nb_series] Series;
@@ -339,7 +339,7 @@ let T = struct {
     }
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     items: [] T;
 };
 
@@ -381,7 +381,7 @@ let SubT = struct {
     }
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     items: [] T;
 };
 
@@ -458,7 +458,7 @@ let T = struct {
     }
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     items: [] T;
 };
 
@@ -555,7 +555,7 @@ let SubT = struct {
     }
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     items: [] T;
 };
 
@@ -588,7 +588,7 @@ def test_named_exprs_polymorphic_hydra(params_named_exprs_polymorphic_hydra):
 
 spec_file_named_exprs_polymorphic_attribute = """
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     encoded: byte <> integer { @signed: false; };
     data: [] byte;
     if (encoded == 0) {
@@ -652,7 +652,7 @@ let Number = struct {
     value: u16;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     data: [] byte;
     let ?something = does_not_exist;
 };
@@ -667,7 +667,7 @@ let Number = struct {
     value: u16;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     data: [] byte;
     let ?something = ?does_not_exist;
 };
@@ -687,6 +687,6 @@ def params_named_exprs_invalid(request):
 
 def test_named_exprs_invalid(params_named_exprs_invalid):
     params = params_named_exprs_invalid
-    spec = params['spec']
+    board = model.Board()
     with pytest.raises(OSError):
-        dtree = model.DataTree('', spec)
+        board.add_spec('Spec', params['spec'])

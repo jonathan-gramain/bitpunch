@@ -281,3 +281,15 @@ correctly (b_filter is empty)
 
 - BUG: "no match for operator 'add' with operands of type 'any
   value-type' and 'integer'"
+
+- modify env() builtin to access the actual environment of the running
+  process, not an artificial environment (previously used to provision
+  data sources)
+
+- box->scope should be replaced by "ast_node->scope", because the
+  scope is defined at compile time. That will allow resolve phase to
+  work on filter expressions that do not have data context.
+
+- BUG: when compilation of some nodes fail on the board during the
+  resolve phase across available names, the compilation state should
+  be reinitialized for those nodes.

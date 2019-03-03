@@ -13,7 +13,7 @@ import conftest
 spec_string_table = """
 let cstr = string { @boundary: '\\0'; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     string_table: [] cstr;
 };
 """
@@ -27,7 +27,7 @@ data_string_table_1 = """
 spec_string_table_multi_char_boundary = """
 let cstr = string { @boundary: '--delimiter--'; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     string_table: [] cstr;
 };
 """
@@ -46,7 +46,7 @@ data_string_table_multi_char_boundary = """
 
 
 spec_string_table_dynamic_boundary_1 = """
-env("DATASOURCE") <> struct {
+let Schema = struct {
     let cstr = string { @boundary: delimiter; };
 
     delimiter: string { @boundary: "\\0"; };
@@ -68,7 +68,7 @@ data_string_table_dynamic_boundary_1 = """
 """
 
 spec_string_table_conditional_boundary = """
-env("DATASOURCE") <> struct {
+let Schema = struct {
     let cstr = string {
         if (is_multichar == 1) {
             @boundary: "|---|";
@@ -96,7 +96,7 @@ spec_file_string_table_dynamic_boundary_2 = """
 
 let u8 = byte <> integer { @signed: false; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     let BoundedString = string { @boundary: boundary; };
 
     boundary_size: u8;

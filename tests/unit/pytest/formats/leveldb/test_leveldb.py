@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import pytest
 
 from bitpunch import model
@@ -21,38 +22,36 @@ import conftest
 
 @pytest.fixture
 def spec_log():
-    fmt = """
+    return """
     let FixInt = integer { @signed: false; @endian: 'little'; };
 
     let FixInt8 =  byte     <> FixInt;
     let FixInt16 = [2] byte <> FixInt;
     let FixInt32 = [4] byte <> FixInt;
 
-    env("DATASOURCE") <> struct {
+    let LogFile = struct {
         head_blocks: [] LogBlock;
         tail_block: LogTailBlock;
     };
 
     let LogBlock = struct {
-           records: [] Record;
-           trailer: [] byte;
-           @span: 32768;
+        records: [] Record;
+        trailer: [] byte;
+        @span: 32768;
     };
 
     let LogTailBlock = struct {
-           records: [] Record;
+        records: [] Record;
     };
 
     let Record = struct {
-           checksum: FixInt32;
-           length:   FixInt16;
-           rtype:    FixInt8;
-           data:     [length] byte <> string;
-           @minspan: 7;
+        checksum: FixInt32;
+        length:   FixInt16;
+        rtype:    FixInt8;
+        data:     [length] byte <> string;
+        @minspan: 7;
     };
 """
-
-    return model.FormatSpec(fmt)
 
 
 @pytest.fixture
@@ -91,7 +90,10 @@ def data_log_multiblock():
 def test_leveldb_log_browse(spec_log, data_log_empty, data_log_small):
     inputs = [data_log_empty, data_log_small]
     for data in inputs:
-        dtree = model.DataTree(data, spec_log)
+        board = model.Board()
+        board.add_spec('Log', spec_log)
+        board.add_data_source('data', data)
+        dtree = board.eval_expr('data <> Log.LogFile')
         block_count = 0
         for block in dtree.head_blocks:
             block_count += 1
@@ -109,7 +111,10 @@ def test_leveldb_log_browse(spec_log, data_log_empty, data_log_small):
 
 
 def test_leveldb_log_empty(spec_log, data_log_empty):
-    dtree = model.DataTree(data_log_empty, spec_log)
+    board = model.Board()
+    board.add_spec('Log', spec_log)
+    board.add_data_source('data', data_log_empty)
+    dtree = board.eval_expr('data <> Log.LogFile')
     assert model.make_python_object(dtree.head_blocks) == []
     assert model.make_python_object(dtree.tail_block.records) == []
     assert len(dtree.head_blocks) == 0
@@ -126,7 +131,10 @@ def test_leveldb_log_empty(spec_log, data_log_empty):
 
 
 def test_leveldb_log_small(spec_log, data_log_small):
-    dtree = model.DataTree(data_log_small, spec_log)
+    board = model.Board()
+    board.add_spec('Log', spec_log)
+    board.add_data_source('data', data_log_small)
+    dtree = board.eval_expr('data <> Log.LogFile')
     assert model.make_python_object(dtree.head_blocks) == []
     records = dtree.tail_block.records
     assert len(records) == 2
@@ -154,7 +162,10 @@ def test_leveldb_log_small(spec_log, data_log_small):
 
 
 def test_leveldb_log_multiblock(spec_log, data_log_multiblock):
-    dtree = model.DataTree(data_log_multiblock, spec_log)
+    board = model.Board()
+    board.add_spec('Log', spec_log)
+    board.add_data_source('data', data_log_multiblock)
+    dtree = board.eval_expr('data <> Log.LogFile')
     assert len(dtree.head_blocks) == 1
     assert len(dtree.head_blocks[0].records) == 762
     assert len(dtree.tail_block.records) == 3
@@ -221,7 +232,7 @@ def spec_ldb():
         size:   VarInt;
 
         let ?stored_block =
-            payload[offset .. offset + size + sizeof(BlockTrailer)]
+            LDBFile::payload[offset .. offset + size + sizeof(BlockTrailer)]
                  <> FileBlock;
     };
 
@@ -234,7 +245,7 @@ def spec_ldb():
         @span: 48;
     };
 
-    env("DATASOURCE") <> struct {
+    let LDBFile = struct {
         payload: [] byte;
         footer:  Footer;
 
@@ -243,18 +254,13 @@ def spec_ldb():
     };
     """
 
-@pytest.fixture
-def data_ldb():
-    return {
-        'data': conftest.load_test_dat(__file__, 'test1.ldb'),
-        'nb_entries': 237
-    }
-
-
-def test_ldb(spec_ldb, data_ldb):
-    data, nb_entries = (data_ldb['data'],
-                        data_ldb['nb_entries'])
-    dtree = model.DataTree(data, spec_ldb)
+def test_ldb(spec_ldb):
+    nb_entries = 237
+    board = model.Board()
+    board.add_spec('LDB', spec_ldb)
+    ldb_dir = os.path.dirname(os.path.realpath(__file__))
+    board.add_data_source('data', path='{0}/test1.ldb'.format(ldb_dir))
+    dtree = board.eval_expr('data <> LDB.LDBFile')
     index = dtree.eval_expr('?index')
     assert index.offset == 265031
     assert index.size == 5676
@@ -272,7 +278,7 @@ def test_ldb(spec_ldb, data_ldb):
     assert index_block.restarts.get_size() == 4 * index_block.nb_restarts
 
     # get a heading child block
-    child_handle = index_block.eval_expr('entries[1].value <> BlockHandle')
+    child_handle = index_block.eval_expr('entries[1].value <> LDB.BlockHandle')
     assert child_handle.offset == 959
     assert child_handle.size == 1423
     child_block = child_handle['?stored_block']
@@ -282,7 +288,7 @@ def test_ldb(spec_ldb, data_ldb):
     assert len(child_block.entries[2].value) == 1022
 
     # get an intermediate child block
-    child_handle = index_block.eval_expr('entries[42].value <> BlockHandle')
+    child_handle = index_block.eval_expr('entries[42].value <> LDB.BlockHandle')
     assert child_handle.offset == 33953
     assert child_handle.size == 821
     child_block = child_handle['?stored_block']
@@ -296,9 +302,9 @@ def test_ldb(spec_ldb, data_ldb):
     # some more complex expression tests
 
     assert index_block.eval_expr(
-        '(entries[42].value <> BlockHandle).offset') == 33953
+        '(entries[42].value <> LDB.BlockHandle).offset') == 33953
 
     # this used to trigger a SEGV because of missing compilation step
     # for "[] byte" filter
     assert index_block.eval_expr(
-        '(entries[42].value <> [] byte <> BlockHandle).offset') == 33953
+        '(entries[42].value <> [] byte <> LDB.BlockHandle).offset') == 33953

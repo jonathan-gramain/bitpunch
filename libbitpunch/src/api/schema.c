@@ -46,16 +46,15 @@
 #include "core/filter.h"
 #include "core/scope.h"
 
-static struct ast_node_hdl *
-bitpunch_schema_new(void)
+struct ast_node_hdl *
+ast_node_hdl_create_scope_parsed()
 {
-    struct ast_node_hdl *schema_node;
+    struct ast_node_hdl *scope_node;
 
-    schema_node = ast_node_hdl_create(AST_NODE_TYPE_FILTER_DEF, NULL);
-    schema_node->ndat->u.filter_def.filter_type = "__schema__";
-    init_block_stmt_list(&schema_node->ndat->u.scope_def.block_stmt_list);
+    scope_node = ast_node_hdl_create(AST_NODE_TYPE_SCOPE_DEF_PARSED, NULL);
+    init_block_stmt_list(&scope_node->ndat->u.scope_def.block_stmt_list);
 
-    return schema_node;
+    return scope_node;
 }
 
 static int
@@ -90,8 +89,8 @@ schema_read_data_from_fd(struct ast_node_hdl *schema, int fd)
         }
         if (0 == n_read) {
             buffer = realloc_safe(buffer, cur_offset);
-            schema->ndat->u.schema_def.data = buffer;
-            schema->ndat->u.schema_def.data_length = cur_offset;
+            schema->ndat->u.scope_def_parsed.data = buffer;
+            schema->ndat->u.scope_def_parsed.data_length = cur_offset;
             return 0;
         }
         cur_offset += n_read;
@@ -103,7 +102,8 @@ schema_read_data_from_fd(struct ast_node_hdl *schema, int fd)
     } else {
         strerror_r(errno, error_buf, sizeof error_buf);
     }
-    fprintf(stderr, "error reading bitpunch schema file: %s", error_buf);
+    fprintf(stderr, "error reading bitpunch spec from file descriptor %d: %s\n",
+            fd, error_buf);
     free(buffer);
     return -1;
 }
@@ -121,7 +121,8 @@ schema_read_data_from_path(struct ast_node_hdl *schema, const char *path)
 
         error_buf[0] = '\0';
         strerror_r(errno, error_buf, sizeof error_buf);
-        fprintf(stderr, "error reading bitpunch schema file: %s", error_buf);
+        fprintf(stderr, "error reading bitpunch spec from file \"%s\": %s\n",
+                path, error_buf);
         free(path_dup);
         return -1;
     }
@@ -130,7 +131,7 @@ schema_read_data_from_path(struct ast_node_hdl *schema, const char *path)
         free(path_dup);
         return -1;
     }
-    schema->ndat->u.schema_def.file_path = path_dup;
+    schema->ndat->u.scope_def_parsed.file_path = path_dup;
     return 0;
 }
 
@@ -143,7 +144,7 @@ bitpunch_schema_create_from_path(
     assert(NULL != path);
     assert(NULL != schemap);
 
-    schema = bitpunch_schema_new();
+    schema = ast_node_hdl_create_scope_parsed();
     if (-1 == schema_read_data_from_path(schema, path)) {
         bitpunch_schema_free(schema);
         return -1;
@@ -165,7 +166,7 @@ bitpunch_schema_create_from_file_descriptor(
     assert(-1 != fd);
     assert(NULL != schemap);
 
-    schema = bitpunch_schema_new();
+    schema = ast_node_hdl_create_scope_parsed();
     if (-1 == schema_read_data_from_fd(schema, fd)) {
         bitpunch_schema_free(schema);
         return -1;
@@ -186,10 +187,10 @@ bitpunch_schema_create_from_buffer(
 
     assert(NULL != schemap);
 
-    schema = bitpunch_schema_new();
-    schema->ndat->u.schema_def.data =
+    schema = ast_node_hdl_create_scope_parsed();
+    schema->ndat->u.scope_def_parsed.data =
         memcpy(malloc_safe(buf_size), buf, buf_size);
-    schema->ndat->u.schema_def.data_length = buf_size;
+    schema->ndat->u.scope_def_parsed.data_length = buf_size;
     if (-1 == load_schema_common(schema)) {
         bitpunch_schema_free(schema);
         return -1;
@@ -210,44 +211,4 @@ bitpunch_schema_free(
     struct ast_node_hdl *schema)
 {
     free(schema);
-}
-
-static int
-compile_node_backends_schema(struct ast_node_hdl *filter,
-                             struct compile_ctx *ctx)
-{
-    return compile_node_backends_scope(filter, ctx);
-}
-
-static struct filter_instance *
-schema_filter_instance_build(struct ast_node_hdl *filter)
-{
-    return new_safe(struct filter_instance);
-}
-
-static int
-schema_filter_instance_compile(struct ast_node_hdl *filter,
-                               struct filter_instance *f_instance,
-                               dep_resolver_tagset_t tags,
-                               struct compile_ctx *ctx)
-{
-    if (0 != (tags & COMPILE_TAG_BROWSE_BACKENDS)
-        && -1 == compile_node_backends_schema(filter, ctx)) {
-        return -1;
-    }
-    return 0;
-}
-
-void
-filter_class_declare_schema(void)
-{
-    int ret;
-
-    ret = filter_class_declare("__schema__",
-                               EXPR_VALUE_TYPE_UNSET,
-                               schema_filter_instance_build,
-                               schema_filter_instance_compile,
-                               0u,
-                               0);
-    assert(0 == ret);
 }

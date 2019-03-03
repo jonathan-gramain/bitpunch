@@ -61,45 +61,71 @@ bitpunch_schema_free(struct ast_node_hdl *schema);
 
 int
 bitpunch_data_source_create_from_file_path(
-    struct bitpunch_data_source **dsp, const char *path);
+    struct ast_node_hdl **dsp, const char *path);
 
 void
 bitpunch_data_source_notify_file_change(const char *path);
 
 int
 bitpunch_data_source_create_from_file_descriptor(
-    struct bitpunch_data_source **dsp, int fd);
+    struct ast_node_hdl **dsp, int fd);
 
 int
 bitpunch_data_source_create_from_memory(
-    struct bitpunch_data_source **dsp,
+    struct ast_node_hdl **dsp,
     const char *data, size_t data_size, int manage_buffer);
 
 int
-bitpunch_data_source_release(struct bitpunch_data_source *ds);
+bitpunch_data_source_release(struct ast_node_hdl *ds);
 
 
-struct bitpunch_env *
-bitpunch_env_new(void);
-
-void
-bitpunch_env_free(
-    struct bitpunch_env *env);
+struct bitpunch_board *
+bitpunch_board_new(void);
 
 void
-bitpunch_env_add_data_source(
-    struct bitpunch_env *env,
+bitpunch_board_free(
+    struct bitpunch_board *board);
+
+void
+bitpunch_board_add_let_expression(
+    struct bitpunch_board *board,
     const char *name,
-    struct bitpunch_data_source *ds);
-
+    struct ast_node_hdl *expr);
 
 int
-bitpunch_eval_expr(struct ast_node_hdl *schema,
-                   struct bitpunch_env *env,
-                   const char *expr,
-                   struct box *scope,
-                   expr_value_t *valuep, expr_dpath_t *dpathp,
-                   struct tracker_error **errp);
+bitpunch_board_remove_by_name(
+    struct bitpunch_board *board,
+    const char *name);
+
+void
+bitpunch_board_use_spec(
+    struct bitpunch_board *board,
+    struct ast_node_hdl *spec);
+
+void
+bitpunch_board_forget_spec(
+    struct bitpunch_board *board);
+
+bitpunch_status_t
+bitpunch_board_add_expr(
+    struct bitpunch_board *board,
+    const char *name,
+    const char *expr);
+
+bitpunch_status_t
+bitpunch_compile_expr(
+    struct bitpunch_board *board,
+    const char *expr,
+    struct ast_node_hdl **expr_nodep);
+
+bitpunch_status_t
+bitpunch_eval_expr(
+    struct bitpunch_board *board,
+    const char *expr,
+    struct box *scope,
+    struct ast_node_hdl **parsed_exprp,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct tracker_error **errp);
 
 const char *
 bitpunch_status_pretty(bitpunch_status_t bt_ret);

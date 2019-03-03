@@ -14,7 +14,7 @@ let CircularStruct = struct {
     circular: CircularStruct;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     a: CircularStruct;
 };
 """
@@ -32,7 +32,7 @@ let InnerStruct = struct {
     outer: OuterStruct; // circular
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     a: OuterStruct;
 };
 """
@@ -69,7 +69,7 @@ let OkUnion1 = union {
     b: [5] byte;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     a: OkStruct1;
 };
 """
@@ -107,13 +107,13 @@ let CircularUnion1 = union {
     c: [5] byte;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     a: OuterStruct;
 };
 """
 
 spec_file_circular_dependency_4 = """
-env("DATASOURCE") <> struct {
+let Schema = struct {
     a: OuterStruct;
 };
 
@@ -159,7 +159,7 @@ let OkUnion1 = union {
     b: [5] byte;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     a: OuterStruct;
 };
 """
@@ -168,7 +168,7 @@ spec_file_no_circular_dependency_2 = """
 
 let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     a: OuterStruct;
 };
 
@@ -212,9 +212,9 @@ def test_circular_dependency(params_circular_dependency):
     spec = params['spec']
     circular = params['circular']
 
-    data = 'foobarfoobarfoobarfoobarfoobar'
+    board = model.Board()
     if circular:
         with pytest.raises(OSError):
-            dtree = model.DataTree(data, spec)
+            board.add_spec('Spec', spec)
     else:
-        dtree = model.DataTree(data, spec)
+        board.add_spec('Spec', spec)

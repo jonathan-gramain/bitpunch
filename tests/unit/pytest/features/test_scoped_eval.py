@@ -11,7 +11,7 @@ let u8 = byte <> integer { @signed: false; };
 
 let Thing = struct {
     nb_props: u8;
-    props:    [nb_props] ThingProp;
+    props:    [nb_props] ThingBox.ThingProp;
 };
 
 let AsArray = struct {
@@ -27,7 +27,7 @@ let ThingBox = struct {
     };
 };
 
-env("DATASOURCE") <> ThingBox;
+let Schema = ThingBox;
 
 """
 
@@ -53,7 +53,7 @@ let u8 = byte <> integer { @signed: false; };
 
 let Thing = struct {
     nb_props: u8;
-    props:    [nb_props] ThingProp;
+    props:    [nb_props] ThingBox.ThingProp;
 };
 
 let AsArray = struct {
@@ -73,7 +73,7 @@ let ThingBox = struct {
     };
 };
 
-env("DATASOURCE") <> ThingBox;
+let Schema = ThingBox;
 
 """
 
@@ -127,7 +127,7 @@ let ThingBox = struct {
     things:    [nb_things] Thing;
 };
 
-env("DATASOURCE") <> ThingBox;
+let Schema = ThingBox;
 
 """
 
@@ -157,7 +157,7 @@ let ThingBox = struct {
     };
 };
 
-env("DATASOURCE") <> ThingBox;
+let Schema = ThingBox;
 
 """
 
@@ -211,20 +211,20 @@ def test_scoped_eval(params_scoped_eval):
     int_values = [ord('i'), ord('j'), ord('k'), ord('l')]
 
     assert memoryview(dtree.eval_expr('things[1].props[0].name')) == 'ijkl'
-    values = dtree.eval_expr('(things[1].props[0].name <> AsArray).values')
+    values = dtree.eval_expr('(things[1].props[0].name <> Spec.AsArray).values')
     assert model.make_python_object(values) == int_values
 
     thing = dtree.things[1]
     assert memoryview(thing.eval_expr('props[0].name')) == 'ijkl'
-    thing_values = thing.eval_expr('(props[0].name <> AsArray).values')
+    thing_values = thing.eval_expr('(props[0].name <> Spec.AsArray).values')
     assert model.make_python_object(thing_values) == int_values
 
     prop = thing.props[0]
     assert memoryview(prop.eval_expr('name')) == 'ijkl'
-    prop_values = prop.eval_expr('(name <> AsArray).values')
+    prop_values = prop.eval_expr('(name <> Spec.AsArray).values')
     assert model.make_python_object(prop_values) == int_values
 
-    prop_first_value = prop.eval_expr('(name <> AsArray).values[0]')
+    prop_first_value = prop.eval_expr('(name <> Spec.AsArray).values[0]')
     assert memoryview(prop_first_value) == 'i'
 
     
@@ -247,7 +247,7 @@ let Root = struct {
     foo: [sizeof (Foo)] byte;
 };
 
-env("DATASOURCE") <> Root;
+let Schema = Root;
 
 """
 
@@ -271,30 +271,32 @@ def test_nested_scoping_eval(params_nested_scoping_eval):
     params = params_nested_scoping_eval
     dtree = params['dtree']
 
-    foo = dtree.eval_expr('foo <> Foo')
-    bar = foo.eval_expr('bar[0..sizeof(Foo.Bar)] <> Foo.Bar')
+    foo = dtree.eval_expr('foo <> Spec.Foo')
+    bar = foo.eval_expr('bar[0..sizeof(Spec.Foo.Bar)] <> Spec.Foo.Bar')
     assert bar.eval_expr('?foo_name') == 'foo'
 
-    two_bars = foo.eval_expr('bar[0..2 * sizeof(Foo.Bar)] <> [2] Foo.Bar')
+    two_bars = foo.eval_expr('bar[0..2 * sizeof(Spec.Foo.Bar)] <> [2] Spec.Foo.Bar')
     assert two_bars.eval_expr('self[1].?foo_name') == 'foo'
 
     assert dtree.eval_expr(
-        '(foo <> Foo).?first_bar.?foo_name') == 'foo'
+        '(foo <> Spec.Foo).?first_bar.?foo_name') == 'foo'
     # this checks that expression scoping retains outer filter scopes
     # during evaluation of members (here, evaluation of
     # <instance of Foo.Bar>.?foo_name expects to find a Foo type in its
     # scope, which should have been set and retained by evaluation of
     # (foo <> Foo)).
     assert dtree.eval_expr(
-        '((foo <> Foo).bar[0..sizeof(Foo.Bar)] <> Foo.Bar).?foo_name') == 'foo'
+        '((foo <> Spec.Foo).bar[0..sizeof(Spec.Foo.Bar)]' +
+        ' <> Spec.Foo.Bar).?foo_name') == 'foo'
 
     # variants with a few extra inserted filters
     assert dtree.eval_expr(
-        '((foo <> Foo <> [] byte <> Foo)' +
-        '.bar[0..sizeof(Foo.Bar)] <> [] byte <> Foo.Bar).?foo_name') == 'foo'
+        '((foo <> Spec.Foo <> [] byte <> Spec.Foo)' +
+        '.bar[0..sizeof(Spec.Foo.Bar)]' +
+        ' <> [] byte <> Spec.Foo.Bar).?foo_name') == 'foo'
 
-    assert dtree.eval_expr('(foo <> Foo <> Foo.Bar).?foo_name') == 'foo'
+    assert dtree.eval_expr('(foo <> Spec.Foo <> Spec.Foo.Bar).?foo_name') == 'foo'
 
     # no Foo type in the expression, so ?foo_name cannot be evaluated
     with pytest.raises(ValueError):
-        dtree.eval_expr('(foo <> Foo.Bar).?foo_name')
+        dtree.eval_expr('(foo <> Spec.Foo.Bar).?foo_name')

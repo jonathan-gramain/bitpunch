@@ -578,6 +578,81 @@ scope_get_first_declared_attribute(
     return NULL;
 }
 
+void
+scope_add_named_expr(
+    struct scope_def *scope_def,
+    const char *name,
+    struct ast_node_hdl *expr)
+{
+    struct named_expr *named_expr;
+
+    named_expr = new_safe(struct named_expr);
+    named_expr->nstmt.name = strdup_safe(name);
+    named_expr->expr = expr;
+
+    TAILQ_INSERT_TAIL(scope_def->block_stmt_list.named_expr_list,
+                      (struct statement *)named_expr, list);
+}
+
+int
+scope_remove_named_exprs_with_name(
+    struct scope_def *scope_def,
+    const char *name)
+{
+    struct named_expr *named_expr;
+    int n_removed = 0;
+
+    STATEMENT_FOREACH(named_expr, named_expr,
+                      scope_def->block_stmt_list.named_expr_list, list) {
+        if (0 == strcmp(named_expr->nstmt.name, name)) {
+            TAILQ_REMOVE(scope_def->block_stmt_list.named_expr_list,
+                         (struct statement *)named_expr, list);
+            // keep going, as there may be duplicates
+            ++n_removed;
+        }
+    }
+    return n_removed;
+}
+
+void
+scope_import_all_named_exprs_from_scope(
+    struct scope_def *scope_def,
+    struct scope_def *from_scope)
+{
+    struct block_stmt_list *lists;
+    struct named_expr *named_expr;
+
+    lists = &from_scope->block_stmt_list;
+    STATEMENT_FOREACH(named_expr, named_expr,
+                      lists->named_expr_list, list) {
+        scope_add_named_expr(
+            scope_def, named_expr->nstmt.name, named_expr->expr);
+    }
+}
+
+void
+scope_remove_all_named_exprs_in_scope(
+    struct scope_def *scope_def,
+    struct scope_def *in_scope)
+{
+    struct block_stmt_list *lists, *lists_in;
+    struct named_expr *named_expr, *named_expr_in;
+
+    // TODO optimize to avoid O(nm) cost
+    lists = &scope_def->block_stmt_list;
+    lists_in = &in_scope->block_stmt_list;
+    STATEMENT_FOREACH(named_expr, named_expr,
+                      lists->named_expr_list, list) {
+        STATEMENT_FOREACH(named_expr, named_expr_in,
+                          lists_in->named_expr_list, list) {
+            if (named_expr->expr == named_expr_in->expr) {
+                TAILQ_REMOVE(scope_def->block_stmt_list.named_expr_list,
+                             (struct statement *)named_expr, list);
+            }
+        }
+    }
+}
+
 
 /* browse backend */
 
@@ -742,94 +817,4 @@ void
 tracker_goto_nil__scope(struct tracker *tk)
 {
     tk->cur = track_path_from_field(NULL);
-}
-
-
-void
-compile_node_backends__filter__scope(struct ast_node_hdl *filter)
-{
-    // TODO
-}
-
-static void
-compile_node_backends__box__scope(struct ast_node_hdl *item)
-{
-    struct box_backend *b_box = NULL;
-
-    b_box = &item->ndat->u.rexpr_filter.f_instance->b_box;
-    memset(b_box, 0, sizeof (*b_box));
-
-    b_box->get_n_items = box_get_n_items__scope;
-
-    b_box->compute_slack_size = box_compute__error;
-    b_box->compute_span_size = box_compute__error;
-    b_box->compute_min_span_size = box_compute__error;
-    b_box->compute_max_span_size = box_compute__error;
-    b_box->compute_used_size = box_compute__error;
-}
-
-static void
-compile_node_backends__tracker__scope(struct ast_node_hdl *item)
-{
-    struct tracker_backend *b_tk;
-
-    b_tk = &item->ndat->u.rexpr_filter.f_instance->b_tk;
-    memset(b_tk, 0, sizeof (*b_tk));
-
-    b_tk->get_item_key = tracker_get_item_key__scope;
-
-    b_tk->goto_first_item = tracker_goto_first_item__scope;
-    b_tk->goto_next_item = tracker_goto_next_item__scope;
-    b_tk->goto_nth_item = tracker_goto_nth_item__scope;
-    b_tk->goto_named_item = tracker_goto_named_item__scope;
-    b_tk->goto_next_key_match = tracker_goto_next_key_match__scope;
-    b_tk->goto_next_item_with_key =
-        tracker_goto_next_item_with_key__scope;
-    b_tk->goto_nth_item_with_key =
-        tracker_goto_nth_item_with_key__scope;
-    b_tk->goto_end_path = tracker_goto_end_path__scope;
-    b_tk->goto_nil = tracker_goto_nil__scope;
-}
-
-int
-compile_node_backends_scope(struct ast_node_hdl *filter,
-                            struct compile_ctx *ctx)
-{
-    compile_node_backends__filter__scope(filter);
-    compile_node_backends__box__scope(filter);
-    compile_node_backends__tracker__scope(filter);
-    return 0;
-}
-
-static struct filter_instance *
-scope_filter_instance_build(struct ast_node_hdl *filter)
-{
-    return new_safe(struct filter_instance);
-}
-
-static int
-scope_filter_instance_compile(struct ast_node_hdl *filter,
-                              struct filter_instance *f_instance,
-                              dep_resolver_tagset_t tags,
-                              struct compile_ctx *ctx)
-{
-    if (0 != (tags & COMPILE_TAG_BROWSE_BACKENDS)
-        && -1 == compile_node_backends_scope(filter, ctx)) {
-        return -1;
-    }
-    return 0;
-}
-
-void
-filter_class_declare_scope(void)
-{
-    int ret;
-
-    ret = filter_class_declare("__scope__",
-                               EXPR_VALUE_TYPE_UNSET,
-                               scope_filter_instance_build,
-                               scope_filter_instance_compile,
-                               0u,
-                               0);
-    assert(0 == ret);
 }

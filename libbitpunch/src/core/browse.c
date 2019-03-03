@@ -45,6 +45,7 @@
 #include "core/browse_internal.h"
 #include "core/expr_internal.h"
 #include "core/debug.h"
+#include "api/data_source_internal.h"
 
 //FIXME remove once filters become isolated
 #include "filters/composite.h"
@@ -168,7 +169,7 @@ browse_state_init_scope(struct browse_state *bst, struct box *scope)
 {
     browse_state_init(bst);
     bst->scope = scope;
-    bst->env = scope ? scope->env : NULL;
+    bst->board = scope ? scope->board : NULL;
 }
 
 void
@@ -209,12 +210,12 @@ browse_state_cleanup(struct browse_state *bst)
 
 bitpunch_status_t
 browse_state_set_environment(struct browse_state *bst,
-                             struct bitpunch_env *env)
+                             struct bitpunch_board *board)
 {
-    bst->env = env;
-    if (NULL != env && -1 == bitpunch_compile_env(env)) {
-        // TODO log
-        return BITPUNCH_DATA_ERROR;
+    bst->board = board;
+    if (NULL != board
+        && -1 == bitpunch_compile_schema(board->ast_root)) {
+        return BITPUNCH_INVALID_PARAM;
     }
     return BITPUNCH_OK;
 }
@@ -854,7 +855,7 @@ box_construct(struct box *o_box,
     // reference to the box)
     TAILQ_INIT(&o_box->cached_children);
     o_box->use_count = 1;
-    o_box->env = bst->env;
+    o_box->board = bst->board;
 
     if (NULL != parent_box
         && parent_box->depth_level == BOX_MAX_DEPTH_LEVEL) {
@@ -1023,14 +1024,14 @@ box_new_root_box_internal(struct ast_node_hdl *schema,
 
 struct box *
 box_new_root_box(struct ast_node_hdl *schema,
-                 struct bitpunch_env *env,
+                 struct bitpunch_board *board,
                  int manage_env)
 {
     struct browse_state bst;
     bitpunch_status_t bt_ret;
 
     browse_state_init(&bst);
-    bt_ret = browse_state_set_environment(&bst, env);
+    bt_ret = browse_state_set_environment(&bst, board);
     if (BITPUNCH_OK != bt_ret) {
         return NULL;
     }
@@ -1112,7 +1113,7 @@ box_apply_local_filter__data_filter(struct box *box, struct browse_state *bst)
         box->end_offset_used =
             (filtered_data + filtered_size) - box->ds_out->ds_data;
     } else {
-        (void) bitpunch_data_source_create_from_memory(
+        (void) data_source_create_from_memory_internal(
             &box->ds_out, filtered_data, filtered_size, TRUE);
         box->flags |= BOX_DATA_SOURCE;
         box->start_offset_used = 0;
@@ -1227,11 +1228,11 @@ box_free(struct box *box)
         }
     }
     if (0 != (box->flags & BOX_DATA_SOURCE)) {
-        (void)bitpunch_data_source_release(
+        (void)data_source_release_internal(
             (struct bitpunch_data_source *)box->ds_out);
     }
     if (0 != (box->flags & BOX_MANAGE_ENV)) {
-        bitpunch_env_free(box->env);
+        bitpunch_board_free(box->board);
     }
     free(box);
 }
@@ -2123,35 +2124,9 @@ bitpunch_status_t
 track_box_contents_internal(struct box *box,
                             struct tracker **tkp, struct browse_state *bst)
 {
-    assert(bst->env == box->env);
+    assert(bst->board == box->board);
     *tkp = tracker_new(box);
     return BITPUNCH_OK;
-}
-
-struct tracker *
-track_data_source(struct ast_node_hdl *schema,
-                  const char *ds_name, struct bitpunch_data_source *ds,
-                  struct tracker_error **errp)
-{
-    struct box *root_box;
-    struct bitpunch_env *env;
-    struct tracker *tk;
-    bitpunch_status_t bt_ret;
-
-    // FIXME tracker should steal environment to manage its lifetime
-    env = bitpunch_env_new();
-    bitpunch_env_add_data_source(env, ds_name, ds);
-
-    root_box = box_new_root_box(schema, env, TRUE);
-    if (NULL == root_box) {
-        return NULL;
-    }
-    bt_ret = track_box_contents(root_box, &tk, errp);
-    box_delete_non_null(root_box);
-    if (BITPUNCH_OK != bt_ret) {
-        return NULL;
-    }
-    return tk;
 }
 
 bitpunch_status_t
@@ -2806,7 +2781,6 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
 {
     struct ast_node_hdl *expr_node;
     struct parser_ctx *parser_ctx = NULL;
-    struct box *root_box;
     bitpunch_status_t bt_ret;
     expr_dpath_t eval_dpath;
     struct tracker *tk_tmp;
@@ -2816,11 +2790,7 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
     if (-1 == bitpunch_parse_expr(dpath_expr, &expr_node, &parser_ctx)) {
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
-    root_box = tk->box;
-    while (NULL != root_box->scope) {
-        root_box = root_box->scope;
-    }
-    if (-1 == bitpunch_resolve_expr(expr_node, root_box)) {
+    if (-1 == bitpunch_resolve_expr(expr_node, tk->box)) {
         free(parser_ctx);
         /* TODO free expr_node */
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
@@ -2829,7 +2799,7 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
         free(parser_ctx);
         return tracker_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
-    bt_ret = expr_evaluate_dpath_internal(expr_node, root_box,
+    bt_ret = expr_evaluate_dpath_internal(expr_node, tk->box,
                                           &eval_dpath, bst);
     if (BITPUNCH_OK != bt_ret) {
         tracker_error_add_tracker_context(

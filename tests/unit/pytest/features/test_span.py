@@ -12,7 +12,7 @@ import conftest
 spec_embedded = """
 let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     greeting_set: GreetingSet;
     garbage: [] byte;
 };

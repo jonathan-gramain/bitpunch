@@ -4,7 +4,7 @@ let u16 = [2] byte <> RadioInt;
 let u32 = [4] byte <> RadioInt;
 let u64 = [8] byte <> RadioInt;
 
-env("DATASOURCE") <> struct {
+let Radio = struct {
     n_codes:          u32;
     radio_item_sizes: [n_codes] u8;
     codes:            [n_codes] RadioCode;

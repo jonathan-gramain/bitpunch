@@ -84,8 +84,7 @@ static const char *radio_codenames[] = {
 };
 
 struct radio_source_info {
-    struct ast_node_hdl *bp;
-    struct bitpunch_data_source *bin;
+    struct bitpunch_board *board;
     struct tracker *tk;
     int64_t codename_offset[N_ELEM(radio_codenames)];
     int codename_is_named_expr;
@@ -97,35 +96,50 @@ static void testcase_radio_setup(void)
 {
     int i;
     int ret;
+    bitpunch_status_t bt_ret;
     char filepath[128];
     struct radio_source_info *info;
+    struct ast_node_hdl *bp_schema;
+    struct ast_node_hdl *ds_node;
+    struct bitpunch_data_source *ds;
     int c;
     const char *codename;
     char *location;
-    struct schema_def *schema_def;
+    struct scope_def_parsed *schema_def;
 
     for (i = 0; i < N_ELEM(radio_sources); ++i) {
         info = &radio_source_info[i];
 
-        snprintf(filepath, sizeof (filepath),
-                 "tests/common/radio/radio_%s.bp", radio_sources[i]);
-        ret = bitpunch_schema_create_from_path(&info->bp, filepath);
+        info->board = bitpunch_board_new();
+
+        snprintf(filepath, sizeof (filepath), "tests/common/radio/radio_%s.bin",
+                 radio_sources[i]);
+        ret = bitpunch_data_source_create_from_file_path(&ds_node, filepath);
         assert(0 == ret);
+        bitpunch_board_add_let_expression(info->board, "data", ds_node);
+        bt_ret = filter_instance_get_data_source(ds_node, NULL, &ds, NULL);
+        assert(BITPUNCH_OK == bt_ret);
 
         snprintf(filepath, sizeof (filepath),
-                 "tests/common/radio/radio_%s.bin", radio_sources[i]);
-        ret = bitpunch_data_source_create_from_file_path(&info->bin, filepath);
+                 "tests/common/radio/radio_%s.bp", radio_sources[i]);
+        ret = bitpunch_schema_create_from_path(&bp_schema, filepath);
         assert(0 == ret);
+        bitpunch_board_add_let_expression(info->board, "Schema", bp_schema);
+
+        bt_ret = bitpunch_board_add_expr(
+            info->board, "Model", "data <> Schema.Radio");
+        assert(BITPUNCH_OK == bt_ret);
 
         for (c = 0; c < N_ELEM(radio_codenames); ++c) {
             codename = radio_codenames[c];
-            location = memmem(info->bin->ds_data,
-                              info->bin->ds_data_length,
+            location = memmem(ds->ds_data,
+                              ds->ds_data_length,
                               codename, strlen(codename));
             assert(NULL != location);
-            info->codename_offset[c] = location - info->bin->ds_data;
+            info->codename_offset[c] = location - ds->ds_data;
         }
-        schema_def = (struct schema_def *)ast_node_get_scope_def(info->bp);
+        schema_def = (struct scope_def_parsed *)
+            ast_node_get_scope_def(bp_schema);
         if (memmem(schema_def->data, schema_def->data_length,
                    "let codename", strlen("let codename")) != 0) {
             info->codename_is_named_expr = TRUE;
@@ -140,8 +154,7 @@ static void testcase_radio_teardown(void)
 
     for (i = 0; i < N_ELEM(radio_sources); ++i) {
         info = &radio_source_info[i];
-        bitpunch_schema_free(info->bp);
-        bitpunch_data_source_release(info->bin);
+        bitpunch_board_free(info->board);
     }
 }
 
@@ -232,13 +245,19 @@ static void check_codename_entry(struct radio_source_info *info,
 
 void testcase_radio_launch_test_iterate(struct radio_source_info *info)
 {
+    expr_dpath_t dpath;
     struct tracker *tk;
     bitpunch_status_t bt_ret;
     int c;
     int code_idx;
 
-    tk = track_data_source(info->bp, "DATASOURCE", info->bin, NULL);
-    ck_assert(NULL != tk);
+    bt_ret = bitpunch_eval_expr(info->board, "Model", NULL,
+                                NULL, NULL, &dpath, NULL);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+    bt_ret = track_dpath_contents(dpath, &tk, NULL);
+    expr_dpath_destroy(dpath);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+    ck_assert_ptr_ne(tk, NULL);
 
     bt_ret = tracker_goto_named_item(tk, "codes", NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
@@ -298,14 +317,20 @@ END_TEST
 
 void testcase_radio_launch_test_index(struct radio_source_info *info)
 {
+    expr_dpath_t dpath;
     struct tracker *tk;
     bitpunch_status_t bt_ret;
     int c;
     int code_idx;
     expr_value_t item_key;
 
-    tk = track_data_source(info->bp, "DATASOURCE", info->bin, NULL);
-    ck_assert(NULL != tk);
+    bt_ret = bitpunch_eval_expr(info->board, "Model", NULL,
+                                NULL, NULL, &dpath, NULL);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+    bt_ret = track_dpath_contents(dpath, &tk, NULL);
+    expr_dpath_destroy(dpath);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+    ck_assert_ptr_ne(tk, NULL);
 
     bt_ret = tracker_goto_named_item(tk, "codes", NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
@@ -380,14 +405,20 @@ END_TEST
 
 void testcase_radio_launch_test_slices(struct radio_source_info *info)
 {
+    expr_dpath_t dpath;
     struct tracker *tk;
     struct tracker *tk_end;
     bitpunch_status_t bt_ret;
     int c;
     int code_idx;
 
-    tk = track_data_source(info->bp, "DATASOURCE", info->bin, NULL);
-    ck_assert(NULL != tk);
+    bt_ret = bitpunch_eval_expr(info->board, "Model", NULL,
+                                NULL, NULL, &dpath, NULL);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+    bt_ret = track_dpath_contents(dpath, &tk, NULL);
+    expr_dpath_destroy(dpath);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+    ck_assert_ptr_ne(tk, NULL);
 
     bt_ret = tracker_goto_named_item(tk, "codes", NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
@@ -477,13 +508,20 @@ static void check_goto_dpath(struct radio_source_info *info,
 
 void testcase_radio_launch_test_dpath(struct radio_source_info *info)
 {
+    expr_dpath_t dpath;
     struct tracker *tk;
+    bitpunch_status_t bt_ret;
     int c;
     int code_idx;
     char dpath_expr[128];
 
-    tk = track_data_source(info->bp, "DATASOURCE", info->bin, NULL);
-    ck_assert(NULL != tk);
+    bt_ret = bitpunch_eval_expr(info->board, "Model", NULL,
+                                NULL, NULL, &dpath, NULL);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+    bt_ret = track_dpath_contents(dpath, &tk, NULL);
+    expr_dpath_destroy(dpath);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+    ck_assert_ptr_ne(tk, NULL);
 
     for (c = 0; c < N_ELEM(radio_codenames); ++c) {
         code_idx = (c * 7) % 26;
@@ -550,6 +588,7 @@ check_codename_range(struct radio_source_info *info,
 
 void testcase_radio_launch_test_slice_dpath(struct radio_source_info *info)
 {
+    expr_dpath_t dpath;
     struct tracker *tk;
     bitpunch_status_t bt_ret;
     char dpath_expr[128];
@@ -573,8 +612,13 @@ void testcase_radio_launch_test_slice_dpath(struct radio_source_info *info)
     int idx_end;
     int r;
 
-    tk = track_data_source(info->bp, "DATASOURCE", info->bin, NULL);
-    ck_assert(NULL != tk);
+    bt_ret = bitpunch_eval_expr(info->board, "Model", NULL,
+                                NULL, NULL, &dpath, NULL);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+    bt_ret = track_dpath_contents(dpath, &tk, NULL);
+    expr_dpath_destroy(dpath);
+    ck_assert_int_eq(bt_ret, BITPUNCH_OK);
+    ck_assert_ptr_ne(tk, NULL);
 
     for (r = 0; r < N_ELEM(ranges_to_check); ++r) {
         char start_str[16];

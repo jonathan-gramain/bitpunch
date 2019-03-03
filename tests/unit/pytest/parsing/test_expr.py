@@ -100,8 +100,6 @@ def test_string_literals():
 
 spec_file_expr_parsing = """
 
-let DS = env("DATASOURCE");
-
 let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Contents = struct {
@@ -109,7 +107,7 @@ let Contents = struct {
     b: u32;
 };
 
-DS <> struct {
+let Schema = struct {
     contents_struct: Contents;
 };
 
@@ -153,8 +151,6 @@ def test_expr_parsing(params_expr_parsing):
 
 spec_file_expr_parsing_with_scoping = """
 
-let DS = env("DATASOURCE");
-
 let u32 = [4] byte <> integer { @signed: false; @endian: 'little'; };
 
 let Contents = struct {
@@ -167,7 +163,7 @@ let Contents = struct {
     };
 };
 
-DS <> struct {
+let Schema = struct {
     content_bytes: [] byte;
 };
 
@@ -192,6 +188,6 @@ def test_expr_parsing_with_scoping(params_expr_parsing_with_scoping):
     dtree = params['dtree']
 
     assert dtree.eval_expr(
-        '(content_bytes <> Contents <> Contents.Numbers).a') == 1
+        '(content_bytes <> Spec.Contents <> Spec.Contents.Numbers).a') == 1
     with pytest.raises(ValueError):
-        dtree.eval_expr('(content_bytes <> Contents.Numbers).a')
+        dtree.eval_expr('(content_bytes <> Spec.Contents.Numbers).a')

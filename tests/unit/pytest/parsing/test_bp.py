@@ -13,7 +13,7 @@ let Foobar = struct {
     value: [6] byte <> string;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     foobars: [5] Foobar;
 
     let ?foobar_slice = foobars[2..];
@@ -35,7 +35,10 @@ def test_bp(params_bp):
     spec = params['spec']
 
     data = 'foobarfoobarfoobarfoobarfoobar'
-    dtree = model.DataTree(data, spec)
+    board = model.Board()
+    board.add_spec('Spec', spec)
+    board.add_data_source('data', data)
+    dtree = board.eval_expr('data <> Spec.Schema')
 
 
 spec_file_invalid_attribute = """
@@ -48,7 +51,7 @@ let Foobar = struct {
     $foo: 42; // invalid
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     foobars: [5] Foobar;
 };
 """
@@ -65,6 +68,6 @@ def test_invalid_bp(params_invalid_bp):
     params = params_invalid_bp
     spec = params['spec']
 
-    data = 'foobarfoobarfoobarfoobarfoobar'
     with pytest.raises(OSError):
-        dtree = model.DataTree(data, spec)
+        board = model.Board()
+        board.add_spec('Spec', spec)

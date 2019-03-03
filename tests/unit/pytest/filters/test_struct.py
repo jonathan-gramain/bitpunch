@@ -7,7 +7,7 @@ import conftest
 
 spec_empty_struct = """
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     empty: struct {};
     foo: byte;
 };

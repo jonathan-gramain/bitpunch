@@ -45,29 +45,37 @@
 static PyObject *BitpunchExc_NoItemError;
 static PyObject *BitpunchExc_DataError;
 static PyObject *BitpunchExc_OutOfBoundsError;
+static PyObject *BitpunchExc_NoDataError;
 
 struct DataItemObject;
-struct DataTreeObject;
+struct BoardObject;
+struct ScopeIterObject;
 struct TrackerObject;
 
 static int
 expr_value_from_PyObject(PyObject *py_expr,
                          expr_value_t *exprp);
 static PyObject *
-expr_value_and_dpath_to_PyObject(struct DataTreeObject *dtree,
+expr_value_and_dpath_to_PyObject(struct BoardObject *dtree,
                                  expr_value_t value, expr_dpath_t dpath);
 static PyObject *
-expr_value_to_native_PyObject(struct DataTreeObject *dtree,
+expr_value_to_native_PyObject(struct BoardObject *dtree,
                               expr_value_t value_eval);
 static PyObject *
-expr_value_to_native_PyObject_nodestroy(struct DataTreeObject *dtree,
+expr_value_to_native_PyObject_nodestroy(struct BoardObject *dtree,
                                         expr_value_t value_eval);
 static PyObject *
 eval_expr_as_python_object(struct DataItemObject *cont, const char *expr);
 
 static PyObject *
-tracker_item_to_shallow_PyObject(struct DataTreeObject *dtree,
+tracker_item_to_shallow_PyObject(struct BoardObject *dtree,
                                  struct tracker *tk);
+
+static struct ScopeIterObject *
+make_scope_iter(struct scope_def *scope_def);
+
+static struct ScopeIterObject *
+make_filter_iter(struct ast_node_hdl *filter);
 
 static int
 tk_goto_item_by_key(struct tracker *tk, PyObject *index,
@@ -321,6 +329,9 @@ set_tracker_error(struct tracker_error *err,
     case BITPUNCH_NOT_IMPLEMENTED:
         PyErr_SetObject(PyExc_NotImplementedError, errobj);
         break ;
+    case BITPUNCH_NO_DATA:
+        PyErr_SetObject(BitpunchExc_NoDataError, errobj);
+        break ;
     case BITPUNCH_ERROR:
         PyErr_SetObject(PyExc_RuntimeError, errobj);
         break ;
@@ -335,40 +346,134 @@ set_tracker_error(struct tracker_error *err,
 
 
 static PyObject *
-tracker_item_to_deep_PyObject(struct DataTreeObject *dtree, struct tracker *tk);
+tracker_item_to_deep_PyObject(struct BoardObject *dtree, struct tracker *tk);
 
 static PyObject *
-box_to_deep_PyObject(struct DataTreeObject *dtree, struct box *box);
+box_to_deep_PyObject(struct BoardObject *dtree, struct box *box);
 
 static PyObject *
-box_to_deep_PyDict(struct DataTreeObject *dtree, struct box *box);
+box_to_deep_PyDict(struct BoardObject *dtree, struct box *box);
 
 static PyObject *
-box_to_deep_PyList(struct DataTreeObject *dtree, struct box *box);
+box_to_deep_PyList(struct BoardObject *dtree, struct box *box);
 
 
 /*
  * Format
  */
 
-PyDoc_STRVAR(FormatSpec__doc__,
+PyDoc_STRVAR(SpecNode__doc__,
              "Compiled representation of the format of a binary file");
 
-typedef struct FormatSpecObject {
+typedef struct SpecNodeObject {
     PyObject_HEAD
     struct ast_node_hdl *schema;
-} FormatSpecObject;
+} SpecNodeObject;
 
-static PyMethodDef FormatSpec_methods[] = {
+static PyMethodDef SpecNode_methods[] = {
 
     { NULL, NULL, 0, NULL }
 };
 
-static PyTypeObject FormatSpecType = {
+static SpecNodeObject *
+create_SpecNode(struct ast_node_hdl *node);
+
+static PyObject *
+SpecNode_get_attributes_dict(SpecNodeObject *self)
+{
+    PyObject *dict;
+
+    dict = PyDict_New();
+    if (NULL == dict) {
+        return NULL;
+    }
+    // TODO
+    return dict;
+}
+
+static PyObject *
+SpecNode_eval_attr(SpecNodeObject *self, const char *attr_name)
+{
+    struct ast_node_hdl *parsed_target;
+    struct ast_node_hdl *parsed_filter;
+    struct scope_def *scope_def = NULL;
+    struct named_expr *named_expr;
+
+    parsed_target = ast_node_get_named_expr_target(self->schema);
+    if (ast_node_is_scope_def(parsed_target)) {
+        scope_def = &parsed_target->ndat->u.scope_def;
+    } else {
+        parsed_filter = ast_node_get_target_filter(parsed_target);
+        if (ast_node_is_filter(parsed_filter)) {
+            scope_def = filter_get_scope_def(parsed_filter);
+        }
+    }
+    if (NULL != scope_def) {
+        STATEMENT_FOREACH(named_expr, named_expr,
+                          scope_def->block_stmt_list.named_expr_list, list) {
+            if (0 == strcmp(named_expr->nstmt.name, attr_name)) {
+                return (PyObject *)create_SpecNode(named_expr->expr);
+            }
+        }
+    }
+    PyErr_Format(PyExc_AttributeError,
+                 "no such named expression: %s", attr_name);
+    return NULL;
+}
+
+static PyObject *
+SpecNode_get_item(SpecNodeObject *self, PyObject *attr_name,
+                    int getattr)
+{
+    PyObject *attr;
+    const char *attr_str;
+
+    if (PyString_Check(attr_name)) {
+        attr_str = PyString_AS_STRING(attr_name);
+        if (getattr) {
+            if (0 == strcmp(attr_str, "__dict__")) {
+                return SpecNode_get_attributes_dict(self);
+            }
+            attr = PyObject_GenericGetAttr((PyObject *)self, attr_name);
+            if (NULL != attr) {
+                return attr;
+            }
+            if (!PyErr_ExceptionMatches(
+                    getattr ? PyExc_AttributeError : PyExc_IndexError)) {
+                return NULL;
+            }
+            PyErr_Clear();
+        }
+        attr = SpecNode_eval_attr(self, attr_str);
+        if (NULL != attr) {
+            return attr;
+        }
+    }
+    return NULL;
+}
+
+static PyObject *
+SpecNode_getattro(SpecNodeObject *self, PyObject *attr_name)
+{
+    return SpecNode_get_item(self, attr_name, TRUE);
+}
+
+static PyObject *
+SpecNode_mp_subscript(SpecNodeObject *self, PyObject *key)
+{
+    return SpecNode_get_item(self, key, FALSE);
+}
+
+static PyMappingMethods SpecNode_as_mapping = {
+    .mp_subscript = (binaryfunc)SpecNode_mp_subscript,
+    .mp_ass_subscript = NULL
+};
+
+static PyTypeObject SpecNodeType = {
     PyObject_HEAD_INIT(NULL)
     0,                         /* ob_size */
-    "bitpunch.FormatSpec",     /* tp_name */
-    sizeof(FormatSpecObject),  /* tp_basicsize */
+    "bitpunch.SpecNode",       /* tp_name */
+    sizeof(SpecNodeObject),    /* tp_basicsize */
     0,                         /* tp_itemsize */
     0,                         /* tp_dealloc */
     0,                         /* tp_print */
@@ -378,7 +483,7 @@ static PyTypeObject FormatSpecType = {
     0,                         /* tp_repr */
     0,                         /* tp_as_number */
     0,                         /* tp_as_sequence */
-    0,                         /* tp_as_mapping */
+    &SpecNode_as_mapping,      /* tp_as_mapping */
     0,                         /* tp_hash */
     0,                         /* tp_call */
     0,                         /* tp_str */
@@ -387,14 +492,14 @@ static PyTypeObject FormatSpecType = {
     0,                         /* tp_as_buffer */
     Py_TPFLAGS_DEFAULT |
     Py_TPFLAGS_BASETYPE,       /* tp_flags */
-    FormatSpec__doc__,         /* tp_doc */
+    SpecNode__doc__,           /* tp_doc */
     0,                         /* tp_traverse */
     0,                         /* tp_clear */
     0,                         /* tp_richcompare */
     0,                         /* tp_weaklistoffset */
     0,                         /* tp_iter */
     0,                         /* tp_iternext */
-    FormatSpec_methods,        /* tp_methods */
+    SpecNode_methods,          /* tp_methods */
     0,                         /* tp_members */
     0,                         /* tp_getset */
     0,                         /* tp_base */
@@ -408,73 +513,71 @@ static PyTypeObject FormatSpecType = {
 };
 
 static PyObject *
-FormatSpec_new(PyTypeObject *subtype,
+SpecNode_new(PyTypeObject *subtype,
                PyObject *args, PyObject *kwds)
 {
-    int ret;
-    PyObject *arg;
-    FormatSpecObject *self;
+    SpecNodeObject *self;
 
-    if (!PyArg_ParseTuple(args, "O", &arg)) {
-        return NULL;
-    }
-    self = (FormatSpecObject *)subtype->tp_alloc(subtype, 0);
-    if (NULL == self) {
-        return NULL;
-    }
-    if (PyString_Check(arg)) {
-        const char *contents;
-
-        /* compile the provided text contents */
-        contents = PyString_AsString(arg);
-        ret = bitpunch_schema_create_from_string(&self->schema, contents);
-    } else if (PyFile_Check(arg)) {
-        FILE *file;
-
-        /* compile the contents from the file object */
-        file = PyFile_AsFile(arg);
-        //PyFile_IncUseCount((PyFileObject *)arg);
-        ret = bitpunch_schema_create_from_file_descriptor(
-            &self->schema, fileno(file));
-    } else {
-        Py_DECREF((PyObject *)self);
-        PyErr_SetString(PyExc_TypeError,
-                        "The argument must be a string or a file object");
-        return NULL;
-    }
-    if (-1 == ret) {
-        Py_DECREF((PyObject *)self);
-        PyErr_SetString(PyExc_OSError,
-                        "Error loading binary definition grammar");
-        return NULL;
-    }
+    self = (SpecNodeObject *)subtype->tp_alloc(subtype, 0);
     return (PyObject *)self;
 }
 
+static SpecNodeObject *
+create_SpecNode(struct ast_node_hdl *node)
+{
+    SpecNodeObject *ast_node;
+
+    ast_node = (SpecNodeObject *)
+        SpecNode_new(&SpecNodeType, NULL, NULL);
+    if (NULL == ast_node) {
+        return NULL;
+    }
+    ast_node->schema = node;
+    return ast_node;
+}
+
 
 static void
-FormatSpec_clear(FormatSpecObject *self)
+SpecNode_clear(SpecNodeObject *self)
 {
-    if (NULL != self->schema) {
-        bitpunch_schema_free(self->schema);
-        self->schema = NULL;
-    }
 }
 
 static void
-FormatSpec_dealloc(FormatSpecObject *self)
+SpecNode_dealloc(SpecNodeObject *self)
 {
-    FormatSpec_clear(self);
+    SpecNode_clear(self);
     Py_TYPE(self)->tp_free(self);
 }
 
-static int
-FormatSpecType_setup(void)
+static PyObject *
+SpecNode_iter(SpecNodeObject *self)
 {
-    FormatSpecType.ob_type = &PyType_Type;
-    FormatSpecType.tp_new = FormatSpec_new;
-    FormatSpecType.tp_dealloc = (destructor)FormatSpec_dealloc;
-    if (PyType_Ready(&FormatSpecType) < 0) {
+    struct ast_node_hdl *parsed_target;
+    struct ast_node_hdl *parsed_filter;
+
+    parsed_target = ast_node_get_named_expr_target(self->schema);
+    if (ast_node_is_scope_def(parsed_target)) {
+        return (PyObject *)make_scope_iter(
+            &parsed_target->ndat->u.scope_def);
+    }
+    parsed_filter = ast_node_get_target_filter(parsed_target);
+    if (ast_node_is_filter(parsed_filter)) {
+        return (PyObject *)make_filter_iter(parsed_filter);
+    }
+    PyErr_SetString(PyExc_TypeError,
+                    "spec node is not iterable");
+    return NULL;
+}
+
+static int
+SpecNodeType_setup(void)
+{
+    SpecNodeType.ob_type = &PyType_Type;
+    SpecNodeType.tp_new = SpecNode_new;
+    SpecNodeType.tp_dealloc = (destructor)SpecNode_dealloc;
+    SpecNodeType.tp_getattro = (getattrofunc)SpecNode_getattro;
+    SpecNodeType.tp_iter = (getiterfunc)SpecNode_iter;
+    if (PyType_Ready(&SpecNodeType) < 0) {
         return -1;
     }
     return 0;
@@ -792,6 +895,522 @@ IndexKeyType_setup(void)
 }
 
 /*
+ * Board
+ */
+
+typedef struct BoardObject {
+    PyObject_HEAD
+    struct bitpunch_board *board;
+    //ARRAY_HEAD(datasource_array, struct ast_node_hdl) data_sources;
+} BoardObject;
+
+PyDoc_STRVAR(Board__doc__,
+             "Represents the workspace where to load schemas and data sources "
+             "and where expressions can be evaluated");
+
+static PyObject *
+Board_new(PyTypeObject *subtype,
+          PyObject *args, PyObject *kwds)
+{
+    BoardObject *self;
+
+    self = (BoardObject *)subtype->tp_alloc(subtype, 0);
+    if (NULL == self) {
+        return NULL;
+    }
+    self->board = bitpunch_board_new();
+    return (PyObject *)self;
+}
+
+static struct ast_node_hdl *
+load_spec_internal(PyObject *spec_arg, const char *path)
+{
+    int ret;
+    struct ast_node_hdl *spec_node = NULL;
+
+    if (NULL == spec_arg && NULL == path) {
+        PyErr_SetString(PyExc_TypeError, "arguments error");
+        return NULL;
+    }
+    if (NULL != spec_arg && NULL != path) {
+        PyErr_SetString(PyExc_TypeError, "arguments error");
+        return NULL;
+    }
+
+    if (NULL != path) {
+        ret = bitpunch_schema_create_from_path(&spec_node, path);
+    } else if (PyString_Check(spec_arg)) {
+        const char *contents;
+
+        /* compile the provided text contents */
+        contents = PyString_AsString(spec_arg);
+        ret = bitpunch_schema_create_from_string(&spec_node, contents);
+    } else if (PyFile_Check(spec_arg)) {
+        FILE *file;
+
+        /* compile the contents from the file object */
+        file = PyFile_AsFile(spec_arg);
+        //PyFile_IncUseCount((PyFileObject *)spec_arg);
+        ret = bitpunch_schema_create_from_file_descriptor(
+            &spec_node, fileno(file));
+    } else {
+        PyErr_SetString(PyExc_TypeError,
+                        "The spec argument must be a string or a file object");
+        return NULL;
+    }
+    if (-1 == ret) {
+        PyErr_SetString(PyExc_OSError,
+                        "Error loading bitpunch specification from file");
+        return NULL;
+    }
+    return spec_node;
+}
+
+static PyObject *
+Board_add_spec(BoardObject *self, PyObject *args, PyObject *kwds)
+{
+    static char *kwlist[] = { "name", "spec", "path", NULL };
+    const char *name;
+    PyObject *spec_arg = NULL;
+    const char *path = NULL;
+    struct ast_node_hdl *spec_node;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|Os", kwlist,
+                                     &name, &spec_arg, &path)) {
+        return NULL;
+    }
+    spec_node = load_spec_internal(spec_arg, path);
+    if (NULL == spec_node) {
+        return NULL;
+    }
+    bitpunch_board_add_let_expression(self->board, name, spec_node);
+
+    Py_INCREF((PyObject *)self);
+    return (PyObject *)self;
+}
+
+static PyObject *
+Board_use_spec(BoardObject *self, PyObject *args, PyObject *kwds)
+{
+    static char *kwlist[] = { "spec", "path", NULL };
+    PyObject *spec_arg = NULL;
+    const char *path = NULL;
+    struct ast_node_hdl *spec_node;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "|Os", kwlist,
+                                     &spec_arg, &path)) {
+        return NULL;
+    }
+    spec_node = load_spec_internal(spec_arg, path);
+    if (NULL == spec_node) {
+        return NULL;
+    }
+    bitpunch_board_use_spec(self->board, spec_node);
+
+    Py_INCREF((PyObject *)self);
+    return (PyObject *)self;
+}
+
+static PyObject *
+Board_forget_spec(BoardObject *board)
+{
+    bitpunch_board_forget_spec(board->board);
+    Py_INCREF(Py_None);
+    return Py_None;
+}
+
+static PyObject *
+Board_add_data_source(BoardObject *self, PyObject *args, PyObject *kwds)
+{
+    static char *kwlist[] = { "name", "data", "path", NULL };
+    const char *name;
+    PyObject *data = NULL;
+    const char *path = NULL;
+    int ret;
+    struct ast_node_hdl *data_source;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|Os", kwlist,
+                                     &name, &data, &path)) {
+        return NULL;
+    }
+    if (NULL == data && NULL == path) {
+        PyErr_SetString(PyExc_TypeError, "Board.add_data_source() usage error");
+        return NULL;
+    }
+    if (NULL != data && NULL != path) {
+        PyErr_SetString(PyExc_TypeError, "Board.add_data_source() usage error");
+        return NULL;
+    }
+    if (NULL != path) {
+        ret = bitpunch_data_source_create_from_file_path(
+            &data_source, path);
+    } else if (PyString_Check(data)) {
+        char *contents;
+        Py_ssize_t length;
+
+        /* load the provided text contents */
+        ret = PyString_AsStringAndSize(data, &contents, &length);
+        assert(-1 != ret);
+        ret = bitpunch_data_source_create_from_memory(
+            &data_source, contents, length, FALSE);
+    } else if (PyByteArray_Check(data)) {
+        char *contents;
+        Py_ssize_t length;
+
+        /* load the provided text contents */
+        contents = PyByteArray_AS_STRING(data);
+        length = PyByteArray_GET_SIZE(data);
+        ret = bitpunch_data_source_create_from_memory(
+            &data_source, contents, length, FALSE);
+    } else if (PyFile_Check(data)) {
+        FILE *file;
+
+        /* load the contents from the file object */
+        file = PyFile_AsFile(data);
+        //PyFile_IncUseCount((PyFileObject *)data);
+        ret = bitpunch_data_source_create_from_file_descriptor(
+            &data_source, fileno(file));
+    } else {
+        PyErr_SetString(PyExc_TypeError,
+                        "The first argument must be a string or a file object");
+        return NULL;
+    }
+    if (-1 == ret) {
+        PyErr_SetString(PyExc_OSError, "Error loading binary contents");
+        return NULL;
+    }
+    bitpunch_board_add_let_expression(self->board, name, data_source);
+
+    Py_INCREF((PyObject *)self);
+    return (PyObject *)self;
+}
+
+static PyObject *
+Board_add_expr(BoardObject *board, PyObject *args)
+{
+    const char *name;
+    const char *expr;
+    bitpunch_status_t bt_ret;
+    struct tracker_error *tk_err = NULL;
+
+    if (!PyArg_ParseTuple(args, "ss", &name, &expr)) {
+        return NULL;
+    }
+    bt_ret = bitpunch_board_add_expr(board->board, name, expr);
+    if (BITPUNCH_OK != bt_ret) {
+        if (NULL != tk_err) {
+            set_tracker_error(tk_err, tk_err->bt_ret);
+        } else {
+            PyErr_Format(PyExc_ValueError,
+                         "Error compiling expression '%s'", expr);
+        }
+        return NULL;
+    }
+    Py_INCREF(board);
+    return (PyObject *)board;
+}
+
+static PyObject *
+Board_remove(BoardObject *board, PyObject *args)
+{
+    const char *name;
+    int n_removed;
+
+    if (!PyArg_ParseTuple(args, "s", &name)) {
+        return NULL;
+    }
+    n_removed = bitpunch_board_remove_by_name(board->board, name);
+    return PyInt_FromLong(n_removed);
+}
+
+static PyObject *
+Board_get_spec(BoardObject *self)
+{
+    return (PyObject *)create_SpecNode(self->board->ast_root);
+}
+
+static PyObject *
+Board_eval_expr(BoardObject *board, PyObject *args)
+{
+    const char *expr;
+    bitpunch_status_t bt_ret;
+    struct ast_node_hdl *parsed_expr;
+    expr_value_t expr_value;
+    expr_dpath_t expr_dpath;
+    struct tracker_error *tk_err = NULL;
+
+    if (!PyArg_ParseTuple(args, "s", &expr)) {
+        return NULL;
+    }
+    bt_ret = bitpunch_eval_expr(
+        board->board, expr, NULL,
+        &parsed_expr, &expr_value, &expr_dpath, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
+        if (BITPUNCH_NO_DATA == bt_ret) {
+            return (PyObject *)create_SpecNode(parsed_expr);
+        }
+        set_tracker_error(tk_err, bt_ret);
+        return NULL;
+    }
+    return expr_value_and_dpath_to_PyObject(board, expr_value, expr_dpath);
+}
+
+static PyMethodDef Board_methods[] = {
+    { "add_spec", (PyCFunction)Board_add_spec,
+      METH_VARARGS | METH_KEYWORDS,
+      "add specification code to the board from a string, buffer, "
+      "file object or path"
+    },
+    { "use_spec", (PyCFunction)Board_use_spec,
+      METH_VARARGS | METH_KEYWORDS,
+      "import all names from a specification into the board, from a string, "
+      "buffer, file object or path"
+    },
+    { "forget_spec", (PyCFunction)Board_forget_spec,
+      METH_NOARGS,
+      "clear all name from the currently imported specification"
+    },
+    { "add_data_source", (PyCFunction)Board_add_data_source,
+      METH_VARARGS | METH_KEYWORDS,
+      "add a data source to the board from a string, buffer, "
+      "file object or path"
+    },
+    { "add_expr", (PyCFunction)Board_add_expr,
+      METH_VARARGS,
+      "add an expression to the board from a string"
+    },
+    { "remove", (PyCFunction)Board_remove,
+      METH_VARARGS,
+      "remove a name from the board\n"
+      "\n"
+      "returns the number of references removed"
+    },
+    { "get_spec", (PyCFunction)Board_get_spec,
+      METH_NOARGS,
+      "Get the specification root node"
+    },
+    { "eval_expr", (PyCFunction)Board_eval_expr,
+      METH_VARARGS | METH_KEYWORDS,
+      "evaluate a bitpunch expression in the board's scope"
+    },
+    { NULL, NULL, 0, NULL }
+};
+
+static int
+Board_clear(BoardObject *self)
+{
+    bitpunch_board_free(self->board);
+    return 0;
+}
+
+static void
+Board_dealloc(BoardObject *self)
+{
+    Board_clear(self);
+    Py_TYPE(self)->tp_free(self);
+}
+
+PyDoc_STRVAR(ScopeIter__doc__, "Scope iterator object");
+
+typedef struct ScopeIterObject {
+    PyObject_HEAD
+    struct named_expr *cur;
+} ScopeIterObject;
+
+static PyObject *
+ScopeIter_new(PyTypeObject *subtype,
+              PyObject *args, PyObject *kwds)
+{
+    ScopeIterObject *self;
+
+    self = (ScopeIterObject *)subtype->tp_alloc(subtype, 0);
+    return (PyObject *)self;
+}
+
+static int
+ScopeIter_clear(ScopeIterObject *self)
+{
+    return 0;
+}
+
+static void
+ScopeIter_dealloc(ScopeIterObject *self)
+{
+    Py_TYPE(self)->tp_free(self);
+}
+
+static PyObject *
+ScopeIter_iter(ScopeIterObject *self)
+{
+    Py_INCREF(self);
+    return (PyObject *)self;
+}
+
+static PyObject *
+ScopeIter_iternext(ScopeIterObject *iter)
+{
+    PyObject *name;
+
+    if (NULL == iter->cur) {
+        return NULL;
+    }
+    name = PyString_FromString(iter->cur->nstmt.name);
+    iter->cur = STATEMENT_NEXT(named_expr, iter->cur, list);
+    return name;
+}
+
+static PyMethodDef ScopeIter_methods[] = {
+    { NULL, NULL, 0, NULL }
+};
+
+static PyTypeObject ScopeIterType = {
+    PyObject_HEAD_INIT(NULL)
+    0,                           /* ob_size */
+    "bitpunch.ScopeIter",        /* tp_name */
+    sizeof(ScopeIterObject),     /* tp_basicsize */
+    0,                           /* tp_itemsize */
+    0,                           /* tp_dealloc */
+    0,                           /* tp_print */
+    0,                           /* tp_getattr */
+    0,                           /* tp_setattr */
+    0,                           /* tp_compare */
+    0,                           /* tp_repr */
+    0,                           /* tp_as_number */
+    0,                           /* tp_as_sequence */
+    0,                           /* tp_as_mapping */
+    0,                           /* tp_hash */
+    0,                           /* tp_call */
+    0,                           /* tp_str */
+    0,                           /* tp_getattro */
+    0,                           /* tp_setattro */
+    0,                           /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT |
+    Py_TPFLAGS_BASETYPE |
+    Py_TPFLAGS_HAVE_ITER,        /* tp_flags */
+    ScopeIter__doc__,            /* tp_doc */
+    0,                           /* tp_traverse */
+    0,                           /* tp_clear */
+    0,                           /* tp_richcompare */
+    0,                           /* tp_weaklistoffset */
+    0,                           /* tp_iter */
+    0,                           /* tp_iternext */
+    ScopeIter_methods,           /* tp_methods */
+    0,                           /* tp_members */
+    0,                           /* tp_getset */
+    0,                           /* tp_base */
+    0,                           /* tp_dict */
+    0,                           /* tp_descr_get */
+    0,                           /* tp_descr_set */
+    0,                           /* tp_dictoffset */
+    0,                           /* tp_init */
+    0,                           /* tp_alloc */
+    0,                           /* tp_new */
+};
+
+static int
+ScopeIterType_setup(void)
+{
+    ScopeIterType.ob_type = &PyType_Type;
+    ScopeIterType.tp_new = ScopeIter_new;
+    ScopeIterType.tp_clear = (inquiry)ScopeIter_clear;
+    ScopeIterType.tp_dealloc = (destructor)ScopeIter_dealloc;
+    ScopeIterType.tp_iter = (getiterfunc)ScopeIter_iter;
+    ScopeIterType.tp_iternext = (iternextfunc)ScopeIter_iternext;
+    if (PyType_Ready(&ScopeIterType) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+static ScopeIterObject *
+make_scope_iter(struct scope_def *scope_def)
+{
+    ScopeIterObject *self;
+
+    self = (ScopeIterObject *)ScopeIter_new(&ScopeIterType, NULL, NULL);
+    if (NULL == self) {
+        return NULL;
+    }
+    self->cur = STATEMENT_FIRST(
+        named_expr, scope_def->block_stmt_list.named_expr_list);
+    return self;
+}
+
+static ScopeIterObject *
+make_filter_iter(struct ast_node_hdl *filter)
+{
+    return make_scope_iter(filter_get_scope_def(filter));
+}
+
+
+
+static PyObject *
+Board_iter(BoardObject *self)
+{
+    return (PyObject *)
+        make_scope_iter(&self->board->ast_root->ndat->u.scope_def);
+}
+
+static PyTypeObject BoardType = {
+    PyObject_HEAD_INIT(NULL)
+    0,                         /* ob_size */
+    "bitpunch.Board",          /* tp_name */
+    sizeof(BoardObject),       /* tp_basicsize */
+    0,                         /* tp_itemsize */
+    0,                         /* tp_dealloc */
+    0,                         /* tp_print */
+    0,                         /* tp_getattr */
+    0,                         /* tp_setattr */
+    0,                         /* tp_compare */
+    0,                         /* tp_repr */
+    0,                         /* tp_as_number */
+    0,                         /* tp_as_sequence */
+    0,                         /* tp_as_mapping */
+    0,                         /* tp_hash */
+    0,                         /* tp_call */
+    0,                         /* tp_str */
+    0,                         /* tp_getattro */
+    0,                         /* tp_setattro */
+    0,                         /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT |
+    Py_TPFLAGS_BASETYPE,       /* tp_flags */
+    Board__doc__,              /* tp_doc */
+    0,                         /* tp_traverse */
+    0,                         /* tp_clear */
+    0,                         /* tp_richcompare */
+    0,                         /* tp_weaklistoffset */
+    0,                         /* tp_iter */
+    0,                         /* tp_iternext */
+    Board_methods,             /* tp_methods */
+    0,                         /* tp_members */
+    0,                         /* tp_getset */
+    0,                         /* tp_base */
+    0,                         /* tp_dict */
+    0,                         /* tp_descr_get */
+    0,                         /* tp_descr_set */
+    0,                         /* tp_dictoffset */
+    0,                         /* tp_init */
+    0,                         /* tp_alloc */
+    0,                         /* tp_new */
+};
+
+static int
+BoardType_setup(void)
+{
+    BoardType.ob_type = &PyType_Type;
+    BoardType.tp_new = Board_new;
+    BoardType.tp_clear = (inquiry)Board_clear;
+    BoardType.tp_dealloc = (destructor)Board_dealloc;
+    BoardType.tp_iter = (getiterfunc)Board_iter;
+    if (PyType_Ready(&BoardType) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+
+
+/*
  * DataItem
  */
 
@@ -800,19 +1419,12 @@ PyDoc_STRVAR(DataItem__doc__,
 
 typedef struct DataItemObject {
     PyObject_HEAD
-    struct DataTreeObject *dtree;
+    struct BoardObject *dtree;
     expr_value_t value;
     expr_dpath_t dpath;
 
     struct box *filtered_box;
 } DataItemObject;
-
-typedef struct DataTreeObject {
-    DataItemObject item;
-    FormatSpecObject *fmt;
-    struct bitpunch_env *env;
-    ARRAY_HEAD(datasource_array, struct bitpunch_data_source) data_sources;
-} DataTreeObject;
 
 static int
 DataItem_bf_getbuffer(DataItemObject *exporter,
@@ -1024,7 +1636,7 @@ static PyMethodDef DataItem_methods[] = {
     },
     { "eval_expr", (PyCFunction)DataItem_eval_expr,
       METH_VARARGS | METH_KEYWORDS,
-      "evaluate a bitpunch expression in the item's scope"
+      "evaluate a bitpunch expression in the item's scope\n"
       "\n"
       "keyword arguments:\n"
       "tracker -- if True, return a Tracker object pointing\n"
@@ -1171,7 +1783,7 @@ DataItem_new(PyTypeObject *subtype,
 }
 
 static PyObject *
-DataItem_new_from_tracker(struct DataTreeObject *dtree, struct tracker *tk)
+DataItem_new_from_tracker(struct BoardObject *dtree, struct tracker *tk)
 {
     DataItemObject *self;
 
@@ -1186,7 +1798,7 @@ DataItem_new_from_tracker(struct DataTreeObject *dtree, struct tracker *tk)
 }
 
 static PyObject *
-DataItem_new_from_box(struct DataTreeObject *dtree, struct box *box)
+DataItem_new_from_box(struct BoardObject *dtree, struct box *box)
 {
     DataItemObject *self;
 
@@ -1221,7 +1833,7 @@ DataItem_dealloc(DataItemObject *self)
 }
 
 static void
-DataItem_construct(DataItemObject *self, struct DataTreeObject *dtree)
+DataItem_construct(DataItemObject *self, struct BoardObject *dtree)
 {
     self->dtree = dtree;
     Py_INCREF(dtree);
@@ -1712,7 +2324,7 @@ DataItem_bf_getbuffer(DataItemObject *exporter,
 
 
 static PyObject *
-box_to_deep_PyDict(struct DataTreeObject *dtree, struct box *box)
+box_to_deep_PyDict(struct BoardObject *dtree, struct box *box)
 {
     PyObject *dict;
     struct tracker *tk;
@@ -2079,7 +2691,7 @@ DataItem_get_slice(DataItemObject *self, PyObject *key)
 }
 
 static PyObject *
-box_to_deep_PyList(struct DataTreeObject *dtree, struct box *box)
+box_to_deep_PyList(struct BoardObject *dtree, struct box *box)
 {
     PyObject *list = NULL;
     struct tracker *tk;
@@ -2127,7 +2739,7 @@ box_to_deep_PyList(struct DataTreeObject *dtree, struct box *box)
 }
 
 static PyObject *
-box_to_native_PyObject(struct DataTreeObject *dtree, struct box *box)
+box_to_native_PyObject(struct BoardObject *dtree, struct box *box)
 {
     bitpunch_status_t bt_ret;
     expr_value_t value_eval;
@@ -2143,194 +2755,8 @@ box_to_native_PyObject(struct DataTreeObject *dtree, struct box *box)
     return expr_value_to_native_PyObject(dtree, value_eval);
 }
 
-/*
- * DataTree
- */
-
-PyDoc_STRVAR(DataTree__doc__,
-             "Represents the data tree of flat binary contents");
-
-static PyTypeObject DataTreeType = {
-    PyObject_HEAD_INIT(NULL)
-    0,                         /* ob_size */
-    "bitpunch.DataTree",       /* tp_name */
-    sizeof(DataTreeObject),    /* tp_basicsize */
-    0,                         /* tp_itemsize */
-    0,                         /* tp_dealloc */
-    0,                         /* tp_print */
-    0,                         /* tp_getattr */
-    0,                         /* tp_setattr */
-    0,                         /* tp_compare */
-    0,                         /* tp_repr */
-    0,                         /* tp_as_number */
-    0,                         /* tp_as_sequence */
-    0,                         /* tp_as_mapping */
-    0,                         /* tp_hash */
-    0,                         /* tp_call */
-    0,                         /* tp_str */
-    0,                         /* tp_getattro */
-    0,                         /* tp_setattro */
-    0,                         /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT |
-    Py_TPFLAGS_BASETYPE,       /* tp_flags */
-    DataTree__doc__,           /* tp_doc */
-    0,                         /* tp_traverse */
-    0,                         /* tp_clear */
-    0,                         /* tp_richcompare */
-    0,                         /* tp_weaklistoffset */
-    0,                         /* tp_iter */
-    0,                         /* tp_iternext */
-    0,                         /* tp_methods */
-    0,                         /* tp_members */
-    0,                         /* tp_getset */
-    &DataItemType,             /* tp_base */
-    0,                         /* tp_dict */
-    0,                         /* tp_descr_get */
-    0,                         /* tp_descr_set */
-    0,                         /* tp_dictoffset */
-    0,                         /* tp_init */
-    0,                         /* tp_alloc */
-    0,                         /* tp_new */
-};
-
 static PyObject *
-DataTree_new(PyTypeObject *subtype,
-             PyObject *args, PyObject *kwds)
-{
-    int ret;
-    PyObject *bin;
-    FormatSpecObject *fmt;
-    struct bitpunch_data_source *ds;
-    struct bitpunch_env *env;
-    DataTreeObject *self;
-    struct box *root_box;
-
-    if (!PyArg_ParseTuple(args, "OO", &bin, (PyObject **)&fmt)) {
-        return NULL;
-    }
-    if (PyObject_IsInstance((PyObject *)fmt,
-                            (PyObject *)&FormatSpecType)) {
-        Py_INCREF(fmt);
-    } else {
-        PyObject *subarg;
-
-        subarg = PyTuple_Pack(1, (PyObject *)fmt);
-        if (NULL == subarg) {
-            return NULL;
-        }
-        fmt = (FormatSpecObject *)PyObject_CallObject(
-            (PyObject *)&FormatSpecType, subarg);
-        Py_DECREF(subarg);
-        if (NULL == fmt) {
-            return NULL;
-        }
-    }
-    if (PyString_Check(bin)) {
-        char *contents;
-        Py_ssize_t length;
-
-        /* load the provided text contents */
-        ret = PyString_AsStringAndSize(bin, &contents, &length);
-        assert(-1 != ret);
-        ret = bitpunch_data_source_create_from_memory(
-            &ds, contents, length, FALSE);
-    } else if (PyByteArray_Check(bin)) {
-        char *contents;
-        Py_ssize_t length;
-
-        /* load the provided text contents */
-        contents = PyByteArray_AS_STRING(bin);
-        length = PyByteArray_GET_SIZE(bin);
-        ret = bitpunch_data_source_create_from_memory(
-            &ds, contents, length, FALSE);
-    } else if (PyFile_Check(bin)) {
-        FILE *file;
-
-        /* load the contents from the file object */
-        file = PyFile_AsFile(bin);
-        //PyFile_IncUseCount((PyFileObject *)bin);
-        ret = bitpunch_data_source_create_from_file_descriptor(
-            &ds, fileno(file));
-    } else {
-        PyErr_SetString(PyExc_TypeError,
-                        "The first argument must be a string or a file object");
-        return NULL;
-    }
-    if (-1 == ret) {
-        PyErr_SetString(PyExc_OSError, "Error loading binary contents");
-        return NULL;
-    }
-
-    env = bitpunch_env_new();
-    bitpunch_env_add_data_source(env, "DATASOURCE", ds);
-
-    self = (DataTreeObject *)DataItem_new(subtype, NULL, NULL);
-    if (NULL == self) {
-        (void) bitpunch_data_source_release(ds);
-        bitpunch_env_free(env);
-        return NULL;
-    }
-    root_box = box_new_root_box(fmt->schema, env, TRUE);
-    if (NULL == root_box) {
-        PyErr_SetString(PyExc_OSError, "Error creating root box");
-        Py_DECREF((PyObject *)self);
-        (void) bitpunch_data_source_release(ds);
-        bitpunch_env_free(env);
-        return NULL;
-    }
-    DataItem_construct(&self->item, self);
-    self->item.dpath = expr_dpath_as_container(root_box);
-    self->env = env;
-    self->fmt = fmt;
-    ARRAY_INIT(&self->data_sources, 0);
-    ARRAY_APPEND(&self->data_sources, *ds);
-    return (PyObject *)self;
-}
-
-static int
-DataTree_clear(DataTreeObject *self)
-{
-    PyObject *tmp;
-    struct bitpunch_data_source *ds;
-
-    DataItem_clear(&self->item);
-
-    if (NULL != self->env) {
-        bitpunch_env_free(self->env);
-        self->env = NULL;
-    }
-    tmp = (PyObject *)self->fmt;
-    self->fmt = NULL;
-    Py_XDECREF(tmp);
-    ARRAY_FOREACH(&self->data_sources, ds) {
-        bitpunch_data_source_release(ds);
-    }
-    ARRAY_DESTROY(&self->data_sources);
-    return 0;
-}
-
-static void
-DataTree_dealloc(DataTreeObject *self)
-{
-    DataTree_clear(self);
-    Py_TYPE(self)->tp_free(self);
-}
-
-static int
-DataTreeType_setup(void)
-{
-    DataTreeType.ob_type = &PyType_Type;
-    DataTreeType.tp_new = DataTree_new;
-    DataTreeType.tp_clear = (inquiry)DataTree_clear;
-    DataTreeType.tp_dealloc = (destructor)DataTree_dealloc;
-    if (PyType_Ready(&DataTreeType) < 0) {
-        return -1;
-    }
-    return 0;
-}
-
-static PyObject *
-tracker_item_to_deep_PyObject(DataTreeObject *dtree, struct tracker *tk)
+tracker_item_to_deep_PyObject(BoardObject *dtree, struct tracker *tk)
 {
     PyObject *res = NULL;
     bitpunch_status_t bt_ret;
@@ -2366,7 +2792,7 @@ tracker_item_to_deep_PyObject(DataTreeObject *dtree, struct tracker *tk)
 }
 
 static PyObject *
-box_to_deep_PyObject(struct DataTreeObject *dtree, struct box *box)
+box_to_deep_PyObject(struct BoardObject *dtree, struct box *box)
 {
     struct ast_node_hdl *node;
 
@@ -2422,13 +2848,13 @@ typedef enum TrackerIterType {
 
 PyDoc_STRVAR(Tracker__doc__,
              "A Tracker object is able to browse items over a "
-             "DataTree object. It can iterate a sequence of objects "
+             "Board object. It can iterate a sequence of objects "
              "and enter any complex object to further iterate its "
              "sub-elements.");
 
 typedef struct TrackerObject {
     PyObject_HEAD
-    DataTreeObject *dtree;
+    BoardObject *dtree;
     struct tracker *tk;
     TrackerIterType iter_mode;
     TrackerIterType current_iter_mode;
@@ -3360,7 +3786,7 @@ expr_value_from_PyObject(PyObject *py_expr,
  * @brief convert an expression into a native-typed python object
  */
 static PyObject *
-expr_value_to_native_PyObject_nodestroy(DataTreeObject *dtree,
+expr_value_to_native_PyObject_nodestroy(BoardObject *dtree,
                                         expr_value_t value_eval)
 {
     switch (value_eval.type) {
@@ -3387,7 +3813,7 @@ expr_value_to_native_PyObject_nodestroy(DataTreeObject *dtree,
  * @note this function call destroys @ref value_eval
  */
 static PyObject *
-expr_value_to_native_PyObject(DataTreeObject *dtree,
+expr_value_to_native_PyObject(BoardObject *dtree,
                               expr_value_t value_eval)
 {
     PyObject *res;
@@ -3405,7 +3831,7 @@ expr_value_to_native_PyObject(DataTreeObject *dtree,
  * dpath
  */
 static PyObject *
-expr_value_and_dpath_to_PyObject(DataTreeObject *dtree,
+expr_value_and_dpath_to_PyObject(BoardObject *dtree,
                                  expr_value_t value, expr_dpath_t dpath)
 {
     DataItemObject *item;
@@ -3426,11 +3852,10 @@ expr_value_and_dpath_to_PyObject(DataTreeObject *dtree,
 static PyObject *
 eval_expr_as_python_object(DataItemObject *item, const char *expr)
 {
-    DataTreeObject *dtree;
-    struct ast_node_hdl *schema;
-    struct bitpunch_env *env;
+    BoardObject *dtree;
+    struct bitpunch_board *board;
     struct box *scope;
-    int ret;
+    bitpunch_status_t bt_ret;
     expr_value_t expr_value;
     expr_dpath_t expr_dpath;
     struct tracker_error *tk_err = NULL;
@@ -3440,21 +3865,19 @@ eval_expr_as_python_object(DataItemObject *item, const char *expr)
             return NULL;
         }
         dtree = item->dtree;
-        schema = dtree->fmt->schema;
-        env = dtree->env;
+        board = dtree->board;
         scope = item->dpath.box;
     } else {
         dtree = NULL;
-        schema = NULL;
-        env = NULL;
+        board = NULL;
         scope = NULL;
     }
 
-    ret = bitpunch_eval_expr(schema, env, expr, scope,
-                             &expr_value, &expr_dpath, &tk_err);
-    if (-1 == ret) {
+    bt_ret = bitpunch_eval_expr(board, expr, scope,
+                                NULL, &expr_value, &expr_dpath, &tk_err);
+    if (BITPUNCH_OK != bt_ret) {
         if (NULL != tk_err) {
-            set_tracker_error(tk_err, tk_err->bt_ret);
+            set_tracker_error(tk_err, bt_ret);
         } else {
             PyErr_Format(PyExc_ValueError,
                          "Error evaluating expression '%s'", expr);
@@ -3465,7 +3888,7 @@ eval_expr_as_python_object(DataItemObject *item, const char *expr)
 }
 
 static PyObject *
-tracker_item_to_shallow_PyObject(DataTreeObject *dtree,
+tracker_item_to_shallow_PyObject(BoardObject *dtree,
                                  struct tracker *tk)
 {
     if (tracker_is_dangling(tk)) {
@@ -3494,6 +3917,10 @@ setup_exceptions(PyObject *bitpunch_m)
         PyErr_NewException("bitpunch.OutOfBoundsError", NULL, NULL);
     PyModule_AddObject(bitpunch_m, "OutOfBoundsError",
                        BitpunchExc_OutOfBoundsError);
+
+    BitpunchExc_NoDataError = PyErr_NewException("bitpunch.NoDataError",
+                                                 NULL, NULL);
+    PyModule_AddObject(bitpunch_m, "NoDataError", BitpunchExc_NoDataError);
     return 0;
 }
 
@@ -3646,13 +4073,13 @@ initmodel_ext(void)
         return ;
     }
 
-    /* FormatSpec */
-    if (FormatSpecType_setup() < 0) {
+    /* SpecNode */
+    if (SpecNodeType_setup() < 0) {
         return ;
     }
-    Py_INCREF(&FormatSpecType);
+    Py_INCREF(&SpecNodeType);
     PyModule_AddObject(bitpunch_m,
-                       "FormatSpec", (PyObject *)&FormatSpecType);
+                       "SpecNode", (PyObject *)&SpecNodeType);
 
     /* IndexKey */
     if (IndexKeyType_setup() < 0) {
@@ -3669,12 +4096,20 @@ initmodel_ext(void)
     Py_INCREF(&DataItemType);
     PyModule_AddObject(bitpunch_m, "DataItem", (PyObject *)&DataItemType);
 
-    /* DataTree */
-    if (DataTreeType_setup() < 0) {
+    /* ScopeIter */
+    if (ScopeIterType_setup() < 0) {
         return ;
     }
-    Py_INCREF(&DataTreeType);
-    PyModule_AddObject(bitpunch_m, "DataTree", (PyObject *)&DataTreeType);
+    Py_INCREF(&ScopeIterType);
+    PyModule_AddObject(bitpunch_m,
+                       "ScopeIter", (PyObject *)&ScopeIterType);
+
+    /* Board */
+    if (BoardType_setup() < 0) {
+        return ;
+    }
+    Py_INCREF(&BoardType);
+    PyModule_AddObject(bitpunch_m, "Board", (PyObject *)&BoardType);
 
     /* Tracker */
     if (TrackerType_setup() < 0) {

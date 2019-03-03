@@ -15,7 +15,7 @@ let Item = struct {
     @key: name;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     integers: [] Item;
 };
 
@@ -37,7 +37,7 @@ let Item = struct {
     @key: name;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     integers: [] Item;
 };
 
@@ -59,7 +59,7 @@ let Item = string { @boundary: '\\n'; } <> base64 <> struct {
     @key: name;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     integers: [] Item;
 };
 
@@ -111,7 +111,7 @@ let Item = struct {
     @key: name;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     integers: [] Item;
 };
 
@@ -185,7 +185,7 @@ let Item = struct {
     @key: name;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     integers: [] Item;
 };
 
@@ -317,7 +317,7 @@ let Item = struct {
     @key: name;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     integers: [] Item;
 };
 
@@ -449,7 +449,7 @@ let Item = [16] byte <> base64 <> struct {
     @key: name;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     integers: [] Item;
 };
 

@@ -61,14 +61,14 @@ static const char *check_struct_def =
     "    field3_u16: u16_le;\n"
     "    field4_u8: u8;\n"
     "};\n"
-    "env(\"DATASOURCE\") <> struct {\n"
+    "let Root = struct {\n"
     "    ms1: MyStruct;\n"
     "    ms2: MyStruct;\n"
     "    mu3: MyUnion;\n"
     "    u4: u32;\n"
     "};\n";
 
-static struct ast_node_hdl *check_struct_def_hdl;
+static struct ast_node_hdl *check_struct_schema_hdl;
 
 
 static const char check_struct_valid1_contents[] = {
@@ -166,7 +166,7 @@ static const struct test_tracker_expect_box check_struct_valid1_expect[] = {
 
 static const struct test_tracker_spec check_struct_valid1_spec = {
     .test_name = "struct.valid1",
-    .contents_def = &check_struct_def_hdl,
+    .schema_hdl = &check_struct_schema_hdl,
     .contents = check_struct_valid1_contents,
     .contents_size = sizeof (check_struct_valid1_contents),
     .expect_boxes = check_struct_valid1_expect,
@@ -275,7 +275,7 @@ check_struct_invalid_truncated1_expect[] = {
 static const struct test_tracker_spec
 check_struct_invalid_truncated1_spec = {
     .test_name = "struct.invalid_truncated1",
-    .contents_def = &check_struct_def_hdl,
+    .schema_hdl = &check_struct_schema_hdl,
     .contents = check_struct_invalid_truncated1_contents,
     .contents_size = sizeof (check_struct_invalid_truncated1_contents),
     .expect_boxes = check_struct_invalid_truncated1_expect,
@@ -301,14 +301,14 @@ static const char *check_vstruct_def =
     "    field3_u16: u16_le;\n"
     "    field4_u8: u8;\n"
     "};\n"
-    "env(\"DATASOURCE\") <> struct {\n"
+    "let Root = struct {\n"
     "    ms1: MyStruct;\n"
     "    ms2: MyStruct;\n"
     "    mu3: MyUnion;\n"
     "    u4: u32;\n"
     "};\n";
 
-static struct ast_node_hdl *check_vstruct_def_hdl;
+static struct ast_node_hdl *check_vstruct_schema_hdl;
 
 
 static const char check_vstruct_valid1_contents[] = {
@@ -408,7 +408,7 @@ static const struct test_tracker_expect_box check_vstruct_valid1_expect[] = {
 
 static const struct test_tracker_spec check_vstruct_valid1_spec = {
     .test_name = "vstruct.valid1",
-    .contents_def = &check_vstruct_def_hdl,
+    .schema_hdl = &check_vstruct_schema_hdl,
     .contents = check_vstruct_valid1_contents,
     .contents_size = sizeof (check_vstruct_valid1_contents),
     .expect_boxes = check_vstruct_valid1_expect,
@@ -421,18 +421,18 @@ static void struct_setup(void)
     int ret;
 
     ret = bitpunch_schema_create_from_string(
-        &check_struct_def_hdl, check_struct_def);
+        &check_struct_schema_hdl, check_struct_def);
     assert(0 == ret);
 
     ret = bitpunch_schema_create_from_string(
-        &check_vstruct_def_hdl, check_vstruct_def);
+        &check_vstruct_schema_hdl, check_vstruct_def);
     assert(0 == ret);
 }
 
 static void struct_teardown(void)
 {
-    bitpunch_schema_free(check_struct_def_hdl);
-    bitpunch_schema_free(check_vstruct_def_hdl);
+    bitpunch_schema_free(check_struct_schema_hdl);
+    bitpunch_schema_free(check_vstruct_schema_hdl);
 }
 
 

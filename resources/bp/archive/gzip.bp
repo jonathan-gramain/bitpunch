@@ -15,7 +15,7 @@ let Int32 = [4] byte <> Int;
 
 let NullString = string { @boundary: '\0'; };
 
-env("DATASOURCE") <> struct {
+let GZip = struct {
     members: [] Member;
 };
 

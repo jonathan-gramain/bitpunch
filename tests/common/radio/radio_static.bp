@@ -9,6 +9,6 @@ let RadioCode = struct {
        @key: codename;
 };
 
-env("DATASOURCE") <> struct {
+let Radio = struct {
      codes: [26] RadioCode;
 };

@@ -152,22 +152,22 @@ expr_value_cmp(expr_value_t value1, expr_value_t value2);
 
 bitpunch_status_t
 expr_evaluate(struct ast_node_hdl *expr,
-              struct box *scope, struct bitpunch_env *env,
+              struct box *scope, struct bitpunch_board *board,
               expr_value_t *valuep, expr_dpath_t *dpathp,
               struct tracker_error **errp);
 bitpunch_status_t
 expr_evaluate_value(struct ast_node_hdl *expr,
-                    struct box *scope, struct bitpunch_env *env,
+                    struct box *scope, struct bitpunch_board *board,
                     expr_value_t *valuep,
                     struct tracker_error **errp);
 bitpunch_status_t
 expr_evaluate_dpath(struct ast_node_hdl *expr,
-                    struct box *scope, struct bitpunch_env *env,
+                    struct box *scope, struct bitpunch_board *board,
                     expr_dpath_t *dpathp,
                     struct tracker_error **errp);
 bitpunch_status_t
 evaluate_conditional(struct ast_node_hdl *cond,
-                     struct box *scope, struct bitpunch_env *env,
+                     struct box *scope, struct bitpunch_board *board,
                      int *evalp,
                      struct tracker_error **errp);
 bitpunch_status_t

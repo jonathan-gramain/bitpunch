@@ -136,6 +136,26 @@ scope_get_first_declared_attribute(
     const struct scope_def *scope_def,
     const char *attr_name);
 
+void
+scope_add_named_expr(
+    struct scope_def *scope_def,
+    const char *name,
+    struct ast_node_hdl *expr);
+
+int
+scope_remove_named_exprs_with_name(
+    struct scope_def *scope_def,
+    const char *name);
+
+void
+scope_import_all_named_exprs_from_scope(
+    struct scope_def *scope_def,
+    struct scope_def *from_scope);
+
+void
+scope_remove_all_named_exprs_in_scope(
+    struct scope_def *scope_def,
+    struct scope_def *in_scope);
 
 /* browse backend */
 

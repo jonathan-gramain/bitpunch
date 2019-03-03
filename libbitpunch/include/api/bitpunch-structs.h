@@ -46,7 +46,8 @@ typedef enum bitpunch_status {
     BITPUNCH_DATA_ERROR = -6,
     BITPUNCH_OUT_OF_BOUNDS_ERROR = -7,
     BITPUNCH_NOT_IMPLEMENTED = -8,
-    BITPUNCH_STATUS_LAST = -8,
+    BITPUNCH_NO_DATA = -9,
+    BITPUNCH_STATUS_LAST = -9,
 } bitpunch_status_t;
 
 struct parser_ctx {
@@ -92,14 +93,10 @@ struct bitpunch_file_source {
     size_t    map_length;
 };
 
-enum bitpunch_env_flag {
-    BITPUNCH_ENV_COMPILED = (1u<<0),
-};
-
-struct bitpunch_env {
-    /** root node for the environment, of type AST_NODE_TYPE_SCOPE_DEF */
+struct bitpunch_board {
+    /** root node of the board, of type AST_NODE_TYPE_SCOPE_DEF */
     struct ast_node_hdl *ast_root;
-    enum bitpunch_env_flag flags;
+    struct ast_node_hdl *used_spec;
 };
 
 #endif

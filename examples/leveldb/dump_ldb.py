@@ -67,8 +67,11 @@ if __name__ == '__main__':
                              outf=output_file.name))
 
     script_dir = os.path.dirname(sys.argv[0])
-    ldb_bp = model.find_handler(path='database.leveldb.ldb')
-    ldb_model = model.DataTree(input_file, ldb_bp)
+    leveldb_bp = model.find_handler(path='database.leveldb')
+    board = model.Board()
+    board.add_spec('LevelDB', leveldb_bp)
+    board.add_data_source('db', input_file)
+    ldb_model = board.eval_expr('db <> LevelDB.SSTFile')
 
     # here goes the magic :)
     n_dumped_records = records_dumper(

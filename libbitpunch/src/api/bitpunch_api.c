@@ -60,55 +60,6 @@ bitpunch_cleanup(void)
     data_source_global_destroy();
 }
 
-int
-bitpunch_eval_expr(struct ast_node_hdl *schema,
-                   struct bitpunch_env *env,
-                   const char *expr,
-                   struct box *scope,
-                   expr_value_t *valuep, expr_dpath_t *dpathp,
-                   struct tracker_error **errp)
-{
-    struct ast_node_hdl *expr_node = NULL;
-    struct parser_ctx *parser_ctx = NULL;
-    bitpunch_status_t bt_ret;
-    int ret = -1;
-
-    assert(NULL != expr);
-
-    if (-1 == bitpunch_parse_expr(expr, &expr_node, &parser_ctx)) {
-        return -1;
-    }
-    if (NULL != env && -1 == bitpunch_compile_env(env)) {
-        return -1;
-    }
-    if (NULL != schema) {
-        if (NULL == scope) {
-            scope = box_new_root_box(schema, env, FALSE);
-            if (NULL == scope) {
-                goto end;
-            }
-        } else {
-            box_acquire(scope);
-        }
-    } else {
-        scope = NULL; // just in case
-    }
-    if (-1 == bitpunch_resolve_expr(expr_node, scope)) {
-        goto end;
-    }
-    assert(ast_node_is_rexpr(expr_node));
-    bt_ret = expr_evaluate(expr_node, scope, env, valuep, dpathp, errp);
-    if (BITPUNCH_OK == bt_ret) {
-        ret = 0;
-    }
-
-  end:
-    box_delete(scope);
-    /* TODO free expr_node */
-    free(parser_ctx);
-    return ret;
-}
-
 const char *
 bitpunch_status_pretty(bitpunch_status_t bt_ret)
 {
@@ -131,6 +82,8 @@ bitpunch_status_pretty(bitpunch_status_t bt_ret)
         return "out of data structure boundaries";
     case BITPUNCH_NOT_IMPLEMENTED:
         return "not implemented";
+    case BITPUNCH_NO_DATA:
+        return "no data input";
     default:
         return "unknown tracker status";
     }

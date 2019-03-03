@@ -34,7 +34,7 @@ let Item = struct {
     }
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     items: [] Item;
 };
 

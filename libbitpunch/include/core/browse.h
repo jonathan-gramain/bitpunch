@@ -47,7 +47,7 @@ struct box;
 enum filter_kind;
 
 struct browse_state {
-    struct bitpunch_env *env;
+    struct bitpunch_board *board;
     struct box *scope;
     struct tracker_error_slist *expected_errors;
     struct tracker_error *last_error;
@@ -140,7 +140,7 @@ struct box {
     struct bitpunch_data_source *ds_in;
     struct bitpunch_data_source *ds_out;
     struct box *scope;
-    struct bitpunch_env *env;
+    struct bitpunch_board *board;
 
     /** [ds_in] inherited parent's max offset */
     int64_t start_offset_parent;
@@ -341,7 +341,7 @@ struct ast_node_hdl *
 box_get_index_expr(const struct box *box);
 struct box *
 box_new_root_box(struct ast_node_hdl *schema,
-                 struct bitpunch_env *env,
+                 struct bitpunch_board *board,
                  int manage_env);
 void
 box_dump(const struct box *box);
@@ -373,10 +373,6 @@ tracker_set_dangling(struct tracker *tk);
 static inline int
 tracker_is_dangling(const struct tracker *tk);
 
-struct tracker *
-track_data_source(struct ast_node_hdl *schema,
-                  const char *ds_name, struct bitpunch_data_source *ds,
-                  struct tracker_error **errp);
 bitpunch_status_t
 box_get_n_items(struct box *box, int64_t *n_itemsp,
                 struct tracker_error **errp);

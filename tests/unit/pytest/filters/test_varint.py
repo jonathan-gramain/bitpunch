@@ -10,7 +10,7 @@ import conftest
 #
 
 spec_varint = """
-env("DATASOURCE") <> struct {
+let Schema = struct {
     value:   varint;
     trailer: [] byte;
 };
@@ -50,7 +50,7 @@ let v32 = [4] byte <> varint;
 let v64 = [8] byte <> varint;
 let vx = varint;
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     v8_count:  u8;
     v8_array:  [v8_count] v8;
     v16_count: u8;
@@ -128,7 +128,7 @@ def test_varint_pools(params_varint_pools):
 spec_varint_in_blocks = """
 let VarInt = varint;
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     blocks: [] Block;
 };
 

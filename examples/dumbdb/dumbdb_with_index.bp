@@ -16,6 +16,6 @@ let DumbDBValue = struct {
     @key: key_data;
 };
 
-env("DATASOURCE") <> struct {
+let DumbDB = struct {
     values: [] DumbDBValue;
 };

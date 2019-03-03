@@ -19,7 +19,7 @@ BLOCK_SIZES = [100, 30, 10, 3]
 
 spec_const_sized = """
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     huge_blocks: [] HugeBlock;
     big_blocks: [] BigBlock;
     avg_blocks: [] AvgBlock;

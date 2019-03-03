@@ -76,6 +76,15 @@ HISTORY_FILE_NAME = 'history'
 
 class NoCompletion(Exception): pass
 
+def is_identifier(key):
+    str_key = str(key)
+    return ((str_key[0].isalpha() or str_key[0] in ['_', '?']) and
+            all(c.isalnum() or c == '_' for c in str_key[1:]))
+
+def is_attribute(key):
+    str_key = str(key)
+    return len(str_key) > 0 and str_key[0] == '@'
+
 class CLI(NestedCmd):
 
     LOGLEVELS = {
@@ -94,11 +103,8 @@ class CLI(NestedCmd):
         self.intro = '*** BitPunch command-line interface ***'
         self.prompt = 'bitpunch> '
         self.expr_operators_delim = (' ', '(', ')', '&', '<>')
-
-        self.format_spec = None
-        self.format_spec_path = None
-        self.bin_file = None
-        self.data_tree = None
+        self.board = model.Board()
+        self.using_spec_file = None
 
     def _init_config(self):
         home_dir = os.path.expanduser('~')
@@ -112,19 +118,6 @@ class CLI(NestedCmd):
     def preloop(self):
         super(CLI, self).preloop()
         completer.word_break_characters += '&'
-
-    def open_data_tree(self, cmdname):
-        if self.data_tree is not None:
-            return
-        if self.format_spec is None:
-            raise CommandError(cmdname,
-                               'missing format specification file '
-                               '(see "file" command)')
-        if self.bin_file is None:
-            raise CommandError(cmdname,
-                               'missing binary data file '
-                               '(see "file" command)')
-        self.data_tree = model.DataTree(self.bin_file, self.format_spec)
 
     def _complete_expression(self, text, begin, end,
                              ignore_primitive_types=False):
@@ -172,17 +165,10 @@ class CLI(NestedCmd):
                 limit = parenthesis_index
             return ''
 
-        def is_identifier(key):
-            str_key = str(key)
-            return ((str_key[0].isalpha() or str_key[0] in ['_', '?']) and
-                    all(c.isalnum() or c == '_' for c in str_key[1:]))
-
-        def is_attribute(key):
-            str_key = str(key)
-            return len(str_key) > 0 and str_key[0] == '@'
-
         def filter_type(obj, key):
-            if not ignore_primitive_types:
+            if (not ignore_primitive_types or
+                isinstance(obj, model.Board) or
+                isinstance(obj, model.SpecNode)):
                 return False
             try:
                 child_obj = obj[key]
@@ -191,8 +177,9 @@ class CLI(NestedCmd):
                 return True
 
         def build_completion(candidate, obj, completion_base):
-            if (obj.get_filter_type() == 'composite' or
-                isinstance(candidate, str)):
+            if (isinstance(candidate, str) or
+                isinstance(candidate, model.SpecNode) or
+                obj.get_filter_type() == 'composite'):
                 return candidate
             elif isinstance(candidate, int):
                 return str(candidate)
@@ -207,10 +194,14 @@ class CLI(NestedCmd):
                 return None
             return s[rightmost_idx]
 
-        expr = extract_active_dpath_expr(text[:end])
+        def iter_members(obj):
+            if isinstance(obj, model.SpecNode):
+                return iter(obj)
+            else:
+                return model.Tracker(
+                    obj, iter_mode=model.Tracker.ITER_MEMBER_NAMES)
 
-        if self.format_spec and self.bin_file:
-            self.open_data_tree('(complete expression)')
+        expr = extract_active_dpath_expr(text[:end])
 
         #FIXME: not working with slices
         if expr.endswith(']'):
@@ -250,8 +241,9 @@ class CLI(NestedCmd):
                          repr(sep), repr(sep_end),
                          repr(completion_base)))
         if item:
-            obj = self.data_tree.eval_expr(item)
-            if not (obj.get_filter_type() == 'composite' and sep == '.' or
+            obj = self.board.eval_expr(item)
+            if not ((isinstance(obj, model.SpecNode) or
+                     obj.get_filter_type() == 'composite') and sep == '.' or
                     obj.get_filter_type() == 'array' and sep in ('.', '[', ':')):
                 return
             item += item_complement
@@ -264,13 +256,14 @@ class CLI(NestedCmd):
                 yield completion_prefix + builtin + '('
 
         if obj is None:
-            obj = self.data_tree
+            obj = self.board.get_spec()
             if obj is None:
                 return
+        key_source = iter_members(obj)
 
         nb_found_keys = 0
         first_key = None
-        for key in model.Tracker(obj, iter_mode=model.Tracker.ITER_MEMBER_NAMES):
+        for key in key_source:
             if not filter_type(obj, key):
                 key_str = build_completion(key, obj, completion_base)
                 if key_str.startswith(completion_base):
@@ -291,10 +284,10 @@ class CLI(NestedCmd):
 
 
         if nb_found_keys == 1:
-
             try:
                 child_obj = obj[first_key]
-                if (child_obj.get_filter_type() == 'composite' or
+                if (isinstance(child_obj, model.SpecNode) or
+                    child_obj.get_filter_type() == 'composite' or
                     child_obj.get_filter_type() == 'array'):
 
                     if str(first_key) != completion_base or sep_end:
@@ -306,11 +299,11 @@ class CLI(NestedCmd):
                             yield completion_prefix + item + sep + key_str + sep_end
                         return
 
-                    for child_key in model.Tracker(
-                            child_obj,
-                            iter_mode=model.Tracker.ITER_MEMBER_NAMES):
+                    key_source = iter_members(child_obj)
+                    for child_key in key_source:
                         if not filter_type(child_obj, child_key):
                             if (is_attribute(child_key) or
+                                isinstance(child_obj, model.SpecNode) or
                                 child_obj.get_filter_type() == 'composite'):
                                 yield completion_prefix + expr + sep_end + '.' + child_key
                             else:
@@ -362,9 +355,7 @@ class CLI(NestedCmd):
 
     def _do_dump_generic(self, args, dump_type, dump_func):
         pargs = self.parse_dump_args('dump {0}'.format(dump_type), args)
-        if self.format_spec and self.bin_file:
-            self.open_data_tree('dump {0}'.format(dump_type))
-        dump_obj = self.data_tree.eval_expr(pargs.expression)
+        dump_obj = self.board.eval_expr(pargs.expression)
         if pargs.output_file == '-':
             dump_func(dump_obj, sys.stdout)
         else:
@@ -455,83 +446,234 @@ class CLI(NestedCmd):
         return self._complete_dump(text, begin, end)
 
 
-    def do_file(self, args):
-        """Load a binary data file or show information about loaded files
+    def parse_import_args(self, args):
+        parser = ArgListParser('import')
+        parser.add_argument('name', type=str,
+                            help='local name to associate to the import')
+        parser.add_argument('spec_file', type=str,
+                            help='path to specification file')
+        pargs = parser.parse_line(args)
+        if not is_identifier(pargs.name):
+            raise CommandError('import',
+                               'import name "{0}" is not a valid identifier'
+                               .format(pargs.name))
+        logging.debug('pargs=%s', repr(pargs))
+        logging.debug('name=%s', repr(pargs.name))
+        logging.debug('spec_file=%s', repr(pargs.spec_file))
+        return pargs
+
+    def import_spec_from_file(self, name, path):
+        self.board.remove(name)
+        self.board.add_spec(name=name, path=os.path.expanduser(path))
+
+    def do_import(self, args):
+        """Import a specification file into the board under a local name
 
     Usage:
 
-    file <filename> [format_file_path]        
-        Load a binary file along with its format file. If
-        format_file_path is not given, try to find one matching the
-        file extension.
-
-    file
-        Show information about current binary file and associated
-        format file
+    import <name> <file_path>
 
         """
-        parser = ArgListParser('file')
-        parser.add_argument('filepath', type=str,
-                            help='path to definition file',
+        pargs = self.parse_import_args(args)
+        self.import_spec_from_file(pargs.name, pargs.spec_file)
+
+    def complete_import(self, text, begin, end):
+        logging.debug('complete_import text=%s begin=%d end=%d'
+                      % (repr(text), begin, end))
+        if text[:end].find(' ') != -1:
+            return self.complete_filename(text[begin:end])
+
+
+    def parse_use_args(self, args):
+        parser = ArgListParser('use')
+        parser.add_argument('spec_file', type=str,
+                            help='path to specification file',
                             nargs='?', default=None)
-        parser.add_argument('bppath', type=str,
-                            help='path to format file',
-                            nargs='?', default=None)
-        pargs = parser.parse_args(shlex.split(args, comments=True))
+        pargs = parser.parse_line(args)
+        logging.debug('pargs=%s', repr(pargs))
+        logging.debug('spec_file=%s', repr(pargs.spec_file))
+        return pargs
 
-        self.load_file(pargs.filepath, pargs.bppath)
+    def use_spec_from_file(self, path):
+        self.board.use_spec(path=os.path.expanduser(path))
 
+    def do_use(self, args):
+        """Import all top-level names from a specification file
 
-    def load_file(self, data_path=None, bp_path=None):
-        if bp_path:
-            format_spec_path = os.path.expanduser(bp_path)
-            self.format_spec = model.FormatSpec(open(format_spec_path, 'r'))
-            self.format_spec_path = format_spec_path
-        if data_path:
-            filepath = os.path.expanduser(data_path)
-            new_bin_file = open(filepath, 'r')
-            if not bp_path:
-                extension = filepath[filepath.rindex('.') + 1:]
-                format_handler = model.find_handler(extension=extension)
-                if not format_handler:
-                    new_bin_file.close()
-                    raise CommandError(
-                        'file', 'no handler found by file extension, please ' +
-                        'provide path to bitpunch model as second argument')
-                self.format_spec = model.FormatSpec(format_handler)
-                self.format_spec_path = format_handler.name;
-            if self.bin_file:
-                self.bin_file.close()
-            self.bin_file = new_bin_file
-            self.data_tree = None
+        Import all names defined in a specification file at top level
+        into the board
+
+    Usage:
+
+    use <file_path>
+
+        """
+        pargs = self.parse_use_args(args)
+        if pargs.spec_file:
+            self.using_spec_file = pargs.spec_file
+            self.use_spec_from_file(pargs.spec_file)
         else:
-            print('file   -> {bin}\n'
-                  'format -> {fmt}'
-                  .format(bin=self.bin_file.name if self.bin_file
-                          else '<not loaded>',
-                          fmt=self.format_spec_path if self.format_spec_path
-                          else '<not loaded>'));
+            if self.using_spec_file:
+                print '  using: {0}'.format(self.using_spec_file)
+            else:
+                print '  no specification file in use'
 
-    def attach_data_tree(self, data_tree):
-        self.data_tree = data_tree
-
-    def complete_file(self, text, begin, end):
-        logging.debug('complete_file text=%s begin=%d end=%d'
+    def complete_use(self, text, begin, end):
+        logging.debug('complete_use text=%s begin=%d end=%d'
                       % (repr(text), begin, end))
         return self.complete_filename(text[begin:end])
 
 
+    def do_clear(self, args):
+        """Clear names set by 'use' command
+
+        Clear names that have been defined by the previous 'use'
+        command, but keep the locally-defined (with 'let') names
+
+    Usage:
+
+    clear
+
+        """
+
+        if args.strip():
+            raise CommandError('clear', 'extra arguments')
+
+        self.board.forget_spec()
+
+
+    def do_let(self, args):
+        """Attach an expression to a local name
+
+        Create a local name bound to an expression. The local name
+        must be a valid bitpunch identifier.
+
+    Usage:
+
+    let <name> = <expression>
+
+        """
+        arglist = args.split('=', 1)
+        name, expr = ([arg.strip() for arg in arglist] + [None, None])[:2]
+        if not name:
+            raise CommandError('let', 'missing expression name')
+        if not is_identifier(name):
+            raise CommandError(
+                'let', 'expression name "{0}" is not a valid identifier'
+                .format(name))
+        if not expr:
+            raise CommandError('let', 'missing expression')
+
+        self.board.remove(name)
+        self.board.add_expr(name, expr)
+
+    def complete_let(self, text, begin, end):
+        logging.debug('complete_let text=%s begin=%d end=%d'
+                      % (repr(text), begin, end))
+        if text[:begin].find('=') != -1:
+            return self._complete_expression(text, begin, end)
+        if text[:begin].find(' ') != -1:
+            return ['=']
+
+
+    def do_unset(self, args):
+        """Unset one or more local expression name(s)
+
+        Remove one or more named expression(s) from the board (type
+        'list' to see currently defined named expressions).
+
+    Usage:
+
+    unset <name> [<name>...]
+        """
+        names = [arg.strip() for arg in args.split()]
+        if len(names) == 0:
+            raise CommandError('unset', 'missing name')
+        for name in names:
+            if not is_identifier(name):
+                raise CommandError(
+                    'unset', 'expression name "{0}" is not a valid identifier'
+                    .format(name))
+
+            n_removed = self.board.remove(name)
+            if n_removed == 0:
+                logging.warning('no such name "{0}" exists on board'
+                                .format(name))
+
+    def complete_unset(self, text, begin, end):
+        logging.debug('complete_unset text=%s begin=%d end=%d'
+                      % (repr(text), begin, end))
+        completion_prefix = text[begin:end]
+        for key in self.board:
+            if key.startswith(completion_prefix):
+                yield key
+
+
+    def parse_bind_args(self, args):
+        parser = ArgListParser('bind')
+        parser.add_argument('name', type=str,
+                            help='local name to associate to the bind')
+        parser.add_argument('file_path', type=str,
+                            help='file path to bind to the local name')
+        pargs = parser.parse_line(args)
+        if not is_identifier(pargs.name):
+            raise CommandError('bind',
+                               'bind name "{0}" is not a valid identifier'
+                               .format(pargs.name))
+        logging.debug('pargs=%s', repr(pargs))
+        logging.debug('name=%s', repr(pargs.name))
+        logging.debug('file_path=%s', repr(pargs.file_path))
+        return pargs
+
+    def bind_data_source_file(self, name, path):
+        self.board.remove(name)
+        self.board.add_expr(name, "file {{ @path: '{0}'; }}".format(path))
+
+    def do_bind(self, args):
+        """Bind a local data source file as a local name
+
+    The chosen file path then becomes a bitpunch object on the board
+    that can be linked to specification objects (with <> operator) for
+    inspection.
+
+    Note: this is a convenience function that provides a shorter
+    syntax than declaring a file filter explicitly, and provides
+    autocompletion of file paths.
+
+    Usage:
+
+    bind <name> <file_path>
+
+        This is equivalent to the following let expression:
+        let <name> = file { @path: "<file_path>"; }
+
+        """
+        pargs = self.parse_bind_args(args)
+        self.bind_data_source_file(pargs.name, pargs.file_path)
+
+    def complete_bind(self, text, begin, end):
+        logging.debug('complete_bind text=%s begin=%d end=%d'
+                      % (repr(text), begin, end))
+        if text[:end].find(' ') != -1:
+            return self.complete_filename(text[begin:end])
+
+
     def do_list(self, args):
+
         """List attributes of an object
 
     Usage: list [<expression>]
 """
         expr = args
-        if self.format_spec and self.bin_file:
-            self.open_data_tree('list')
-        obj = self.data_tree.eval_expr(expr) if expr else self.data_tree
-        keys = list(str(key) for key in model.Tracker(
-            obj, iter_mode=model.Tracker.ITER_MEMBER_NAMES))
+        if expr:
+            obj = self.board.eval_expr(expr)
+            if isinstance(obj, model.SpecNode):
+                keys = list(str(key) for key in obj)
+            else:
+                keys = list(str(key) for key in model.Tracker(
+                    obj, iter_mode=model.Tracker.ITER_MEMBER_NAMES))
+        else:
+            keys = list(str(key) for key in self.board)
         self.columnize(keys)
 
     def complete_list(self, text, begin, end):
@@ -547,12 +689,12 @@ class CLI(NestedCmd):
         if not expr:
             raise CommandError('print',
                                "missing expression argument to 'print'")
-        if self.format_spec and self.bin_file:
-            self.open_data_tree('print')
-        expr_value = self.data_tree.eval_expr(expr)
+        expr_value = self.board.eval_expr(expr)
         print repr(model.make_python_object(expr_value))
 
     def complete_print(self, text, begin, end):
+        logging.debug('complete_print text=%s begin=%d end=%d'
+                      % (repr(text), begin, end))
         return self._complete_expression(text, begin, end)
 
 
@@ -566,8 +708,7 @@ class CLI(NestedCmd):
         if not expr:
             raise CommandError('xdump',
                                "missing expression argument to 'xdump'")
-        self.open_data_tree('xdump')
-        obj = self.data_tree.eval_expr(expr)
+        obj = self.board.eval_expr(expr)
         try:
             memview = memoryview(obj)
             lines = hexdump.hexdump(memview, result='generator')

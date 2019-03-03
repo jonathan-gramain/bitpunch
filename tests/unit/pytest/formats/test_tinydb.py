@@ -7,11 +7,10 @@ import json
 import sys
 
 import bitpunch.model as model
-from bitpunch.model import FormatSpec, Tracker, DataTree
 
 @pytest.fixture
 def spec():
-    tinydb_fmt = """
+    return """
 let u32 = [4] byte <> integer { @signed: false; @endian: 'big'; };
 
 let TinyDBValue = struct {
@@ -22,12 +21,10 @@ let TinyDBValue = struct {
     value:      [value_size] byte;
 };
 
-env("DATASOURCE") <> struct {
+let Schema = struct {
     values: [] TinyDBValue;
 };
 """
-
-    return FormatSpec(tinydb_fmt)
 
 @pytest.fixture
 def data_ok1():
@@ -42,7 +39,10 @@ def data_ok1():
 
 def test_tinydb(spec, data_ok1):
 
-    dom = DataTree(data_ok1, spec)
+    board = model.Board()
+    board.add_spec('Spec', spec)
+    board.add_data_source('data', data_ok1)
+    dom = board.eval_expr('data <> Spec.Schema')
 
     assert len(dom['values']) == 3
     values = dom['values']

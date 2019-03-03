@@ -37,6 +37,7 @@
 
 #include "api/data_source_internal.h"
 #include "core/filter.h"
+#include "filters/bytes.h"
 
 static bitpunch_status_t
 file_get_data_source(
@@ -80,6 +81,7 @@ file_filter_instance_build(struct ast_node_hdl *filter)
 
     f_instance = new_safe(struct filter_instance);
     f_instance->get_data_source_func = file_get_data_source;
+    f_instance->read_func = bytes__read;
     return f_instance;
 }
 

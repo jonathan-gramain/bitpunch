@@ -13,7 +13,7 @@ let RadioCode = struct {
        @span: sizeof (foo) + 8 + sizeof (bar);
 };
 
-env("DATASOURCE") <> struct {
+let Radio = struct {
      n_codes: u32;
      codes: [n_codes] RadioCode;
 };
