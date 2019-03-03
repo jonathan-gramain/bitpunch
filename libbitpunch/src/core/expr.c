@@ -2673,11 +2673,6 @@ expr_evaluate_filter_type_op_filter(
         return expr_evaluate_filter_type_internal(
             filter->ndat->u.rexpr_op_filter.filter_expr, NULL, kind,
             filter_typep, bst);
-    case FILTER_KIND_ANCESTOR:
-        // skip filter to get ancestor, continue with the target
-        return expr_evaluate_filter_type_internal(
-            filter->ndat->u.rexpr_op_filter.target, NULL,
-            FILTER_KIND_FILTER, filter_typep, bst);
     default:
         assert(0);
     }
