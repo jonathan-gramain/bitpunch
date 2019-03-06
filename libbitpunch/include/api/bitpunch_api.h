@@ -113,12 +113,6 @@ bitpunch_board_add_expr(
     const char *expr);
 
 bitpunch_status_t
-bitpunch_compile_expr(
-    struct bitpunch_board *board,
-    const char *expr,
-    struct ast_node_hdl **expr_nodep);
-
-bitpunch_status_t
 bitpunch_eval_expr(
     struct bitpunch_board *board,
     const char *expr,

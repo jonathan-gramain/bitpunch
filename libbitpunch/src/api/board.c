@@ -42,6 +42,10 @@
 #include "filters/data_source.h"
 #include "api/bitpunch_api.h"
 
+static void
+board_refresh(
+    struct bitpunch_board *board);
+
 struct bitpunch_board *
 bitpunch_board_new(void)
 {
@@ -66,10 +70,8 @@ board_add_named_expr(
     const char *name,
     struct ast_node_hdl *expr)
 {
+    board_refresh(board);
     scope_add_named_expr(&board->ast_root->ndat->u.scope_def, name, expr);
-
-    board->ast_root->resolved_tags = 0;
-    dep_resolver_node_init(&board->ast_root->dr_node);
 }
 
 void
@@ -91,8 +93,7 @@ board_remove_named_exprs_with_name(
     n_removed = scope_remove_named_exprs_with_name(
         &board->ast_root->ndat->u.scope_def, name);
     if (n_removed > 0) {
-        board->ast_root->resolved_tags = 0;
-        dep_resolver_node_init(&board->ast_root->dr_node);
+        board_refresh(board);
     }
     return n_removed;
 }
@@ -127,6 +128,7 @@ bitpunch_board_forget_spec(
             &board->ast_root->ndat->u.scope_def,
             &board->used_spec->ndat->u.scope_def);
         board->used_spec = NULL;
+        board_refresh(board);
     }
 }
 
@@ -137,27 +139,11 @@ bitpunch_board_add_expr(
     const char *expr)
 {
     struct ast_node_hdl *expr_node;
-    bitpunch_status_t bt_ret;
-
-    bt_ret = bitpunch_compile_expr(board, expr, &expr_node);
-    if (BITPUNCH_OK == bt_ret) {
-        board_add_named_expr(board, name, expr_node);
-    }
-    return bt_ret;
-}
-
-bitpunch_status_t
-bitpunch_compile_expr(
-    struct bitpunch_board *board,
-    const char *expr,
-    struct ast_node_hdl **expr_nodep)
-{
-    struct ast_node_hdl *expr_node = NULL;
 
     if (-1 == bitpunch_parse_expr(expr, &expr_node)) {
         return BITPUNCH_INVALID_PARAM;
     }
-    *expr_nodep = expr_node;
+    board_add_named_expr(board, name, expr_node);
     return BITPUNCH_OK;
 }
 
@@ -182,12 +168,20 @@ bitpunch_eval_expr(
     if (NULL == scope && NULL != board) {
         _scope = box_new_root_box(board->ast_root, board, FALSE);
         if (NULL == _scope) {
+            // on resolve error, the board may need a refresh since
+            // its internal nodes may have been affected by failing
+            // resolve/compile stage
+            board_refresh(board);
             goto end;
         }
     } else {
         _scope = scope;
     }
     if (-1 == bitpunch_resolve_expr(expr_node, _scope)) {
+        // on resolve error, the board may need a refresh since its
+        // internal nodes may have been affected by failing
+        // resolve/compile stage
+        board_refresh(board);
         goto end;
     }
     assert(ast_node_is_rexpr(expr_node));
@@ -202,4 +196,48 @@ bitpunch_eval_expr(
     }
     /* TODO free expr_node */
     return bt_ret;
+}
+
+static void
+board_refresh(
+    struct bitpunch_board *board)
+{
+    struct parser_ctx *used_spec_parser_ctx = NULL;
+    struct named_expr *named_expr;
+    struct parser_ctx *parser_ctx;
+    struct ast_node_hdl *used_spec;
+
+    if (NULL == board) {
+        return ;
+    }
+    if (NULL != board->used_spec) {
+        used_spec_parser_ctx = board->used_spec->loc.parser_ctx;
+    }
+
+    board->ast_root->resolved_tags = 0;
+    dep_resolver_node_init(&board->ast_root->dr_node);
+
+    STATEMENT_FOREACH(
+        named_expr, named_expr,
+        board->ast_root->ndat->u.scope_def.block_stmt_list.named_expr_list,
+        list) {
+        parser_ctx = named_expr->expr->loc.parser_ctx;
+        if (NULL == parser_ctx || parser_ctx == used_spec_parser_ctx) {
+            continue ;
+        }
+        // re-parse original text to forget about old compilation state
+        (void) bitpunch_parse(parser_ctx, &named_expr->expr);
+    }
+    if (NULL != board->used_spec) {
+        if (-1 == bitpunch_parse(used_spec_parser_ctx, &used_spec)) {
+            return ;
+        }
+        scope_remove_all_named_exprs_in_scope(
+            &board->ast_root->ndat->u.scope_def,
+            &board->used_spec->ndat->u.scope_def);
+        scope_import_all_named_exprs_from_scope(
+            &board->ast_root->ndat->u.scope_def,
+            &used_spec->ndat->u.scope_def);
+        board->used_spec = used_spec;
+    }
 }

@@ -50,11 +50,17 @@ typedef enum bitpunch_status {
     BITPUNCH_STATUS_LAST = -9,
 } bitpunch_status_t;
 
+enum parser_type {
+    PARSER_TYPE_SCHEMA,
+    PARSER_TYPE_EXPR,
+};
+
 struct parser_ctx {
     const char *parser_filepath;
     const char *parser_data;
     size_t      parser_data_length;
-    int         start_token;
+    enum parser_type parser_type;
+    int         _start_token; // internal
 };
 
 enum bitpunch_schema_type {

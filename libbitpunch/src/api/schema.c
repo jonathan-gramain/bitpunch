@@ -67,7 +67,6 @@ create_parser_ctx_from_fd(int fd)
     struct parser_ctx *parser_ctx;
     char error_buf[256];
 
-    parser_ctx = new_safe(struct parser_ctx);
     error_buf[0] = '\0';
     buffer = malloc_safe(BITPUNCH_SCHEMA_MAX_LENGTH);
     cur_offset = 0;
@@ -80,9 +79,10 @@ create_parser_ctx_from_fd(int fd)
         }
         if (0 == n_read) {
             buffer = realloc_safe(buffer, cur_offset);
+            parser_ctx = new_safe(struct parser_ctx);
             parser_ctx->parser_data = buffer;
             parser_ctx->parser_data_length = cur_offset;
-            parser_ctx->start_token = START_SCHEMA;
+            parser_ctx->parser_type = PARSER_TYPE_SCHEMA;
             return parser_ctx;
         }
         cur_offset += n_read;
@@ -169,7 +169,7 @@ bitpunch_schema_create_from_buffer(
     parser_ctx = new_safe(struct parser_ctx);
     parser_ctx->parser_data = memcpy(malloc_safe(buf_size), buf, buf_size);
     parser_ctx->parser_data_length = buf_size;
-    parser_ctx->start_token = START_SCHEMA;
+    parser_ctx->parser_type = PARSER_TYPE_SCHEMA;
     return load_schema_common(parser_ctx, schemap);
 }
 

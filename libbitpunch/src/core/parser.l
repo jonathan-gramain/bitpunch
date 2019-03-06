@@ -92,8 +92,8 @@ int lit_alloc;
      */
     int _start_token;
 
-    _start_token = parser_ctx->start_token;
-    parser_ctx->start_token = -1;
+    _start_token = parser_ctx->_start_token;
+    parser_ctx->_start_token = -1;
     if (-1 != _start_token) {
         return _start_token;
     }
@@ -284,6 +284,16 @@ bitpunch_parse(
     if (NULL == fstream) {
         return -1;
     }
+    switch (parser_ctx->parser_type) {
+    case PARSER_TYPE_SCHEMA:
+        parser_ctx->_start_token = START_SCHEMA;
+        break ;
+    case PARSER_TYPE_EXPR:
+        parser_ctx->_start_token = START_EXPR;
+        break ;
+    default:
+        assert(0);
+    }
     yylex_init(&scanner);
     yyset_in(fstream, scanner);
     ret = yyparse(scanner, parser_ctx, astp);
@@ -305,9 +315,9 @@ bitpunch_parse_expr(
 
     parser_ctx = new_safe(struct parser_ctx);
     parser_ctx->parser_filepath = NULL;
-    parser_ctx->parser_data = expr;
+    parser_ctx->parser_data = strdup(expr);
     parser_ctx->parser_data_length = strlen(expr);
-    parser_ctx->start_token = START_EXPR;
+    parser_ctx->parser_type = PARSER_TYPE_EXPR;
 
     return bitpunch_parse(parser_ctx, expr_nodep);
 }
