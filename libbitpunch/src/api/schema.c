@@ -46,37 +46,28 @@
 #include "core/filter.h"
 #include "core/scope.h"
 
-struct ast_node_hdl *
-ast_node_hdl_create_scope_parsed()
-{
-    struct ast_node_hdl *scope_node;
-
-    scope_node = ast_node_hdl_create(AST_NODE_TYPE_SCOPE_DEF_PARSED, NULL);
-    init_block_stmt_list(&scope_node->ndat->u.scope_def.block_stmt_list);
-
-    return scope_node;
-}
-
 static int
-load_schema_common(struct ast_node_hdl *schema)
+load_schema_common(struct parser_ctx *parser_ctx, struct ast_node_hdl **astp)
 {
-    if (-1 == bitpunch_parse_schema(schema)) {
+    if (-1 == bitpunch_parse(parser_ctx, astp)) {
         return -1;
     }
-    if (-1 == bitpunch_compile_schema(schema)) {
+    if (-1 == bitpunch_compile_schema(*astp)) {
         return -1;
     }
     return 0;
 }
 
-static int
-schema_read_data_from_fd(struct ast_node_hdl *schema, int fd)
+static struct parser_ctx *
+create_parser_ctx_from_fd(int fd)
 {
     char *buffer = NULL;
     ssize_t n_read;
     off_t cur_offset;
+    struct parser_ctx *parser_ctx;
     char error_buf[256];
 
+    parser_ctx = new_safe(struct parser_ctx);
     error_buf[0] = '\0';
     buffer = malloc_safe(BITPUNCH_SCHEMA_MAX_LENGTH);
     cur_offset = 0;
@@ -89,9 +80,10 @@ schema_read_data_from_fd(struct ast_node_hdl *schema, int fd)
         }
         if (0 == n_read) {
             buffer = realloc_safe(buffer, cur_offset);
-            schema->ndat->u.scope_def_parsed.data = buffer;
-            schema->ndat->u.scope_def_parsed.data_length = cur_offset;
-            return 0;
+            parser_ctx->parser_data = buffer;
+            parser_ctx->parser_data_length = cur_offset;
+            parser_ctx->start_token = START_SCHEMA;
+            return parser_ctx;
         }
         cur_offset += n_read;
     }
@@ -105,16 +97,15 @@ schema_read_data_from_fd(struct ast_node_hdl *schema, int fd)
     fprintf(stderr, "error reading bitpunch spec from file descriptor %d: %s\n",
             fd, error_buf);
     free(buffer);
-    return -1;
+    return NULL;
 }
 
-static int
-schema_read_data_from_path(struct ast_node_hdl *schema, const char *path)
+static struct parser_ctx *
+create_parser_ctx_from_path(const char *path)
 {
-    char *path_dup;
     int fd;
+    struct parser_ctx *parser_ctx;
 
-    path_dup = strdup_safe(path);
     fd = open(path, O_RDONLY);
     if (-1 == fd) {
         char error_buf[256];
@@ -123,80 +114,63 @@ schema_read_data_from_path(struct ast_node_hdl *schema, const char *path)
         strerror_r(errno, error_buf, sizeof error_buf);
         fprintf(stderr, "error reading bitpunch spec from file \"%s\": %s\n",
                 path, error_buf);
-        free(path_dup);
-        return -1;
+        return NULL;
     }
-    if (-1 == schema_read_data_from_fd(schema, fd)) {
+    parser_ctx = create_parser_ctx_from_fd(fd);
+    if (NULL == parser_ctx) {
         close(fd);
-        free(path_dup);
-        return -1;
+        return NULL;
     }
-    schema->ndat->u.scope_def_parsed.file_path = path_dup;
-    return 0;
+    parser_ctx->parser_filepath = strdup_safe(path);
+    return parser_ctx;
 }
 
 int
 bitpunch_schema_create_from_path(
     struct ast_node_hdl **schemap, const char *path)
 {
-    struct ast_node_hdl *schema;
+    struct parser_ctx *parser_ctx;
 
     assert(NULL != path);
     assert(NULL != schemap);
 
-    schema = ast_node_hdl_create_scope_parsed();
-    if (-1 == schema_read_data_from_path(schema, path)) {
-        bitpunch_schema_free(schema);
+    parser_ctx = create_parser_ctx_from_path(path);
+    if (NULL == parser_ctx) {
         return -1;
     }
-    if (-1 == load_schema_common(schema)) {
-        bitpunch_schema_free(schema);
-        return -1;
-    }
-    *schemap = schema;
-    return 0;
+    return load_schema_common(parser_ctx, schemap);
 }
 
 int
 bitpunch_schema_create_from_file_descriptor(
     struct ast_node_hdl **schemap, int fd)
 {
-    struct ast_node_hdl *schema;
+    struct parser_ctx *parser_ctx;
 
     assert(-1 != fd);
     assert(NULL != schemap);
 
-    schema = ast_node_hdl_create_scope_parsed();
-    if (-1 == schema_read_data_from_fd(schema, fd)) {
-        bitpunch_schema_free(schema);
+    parser_ctx = create_parser_ctx_from_fd(fd);
+    if (NULL == parser_ctx) {
         return -1;
     }
-    if (-1 == load_schema_common(schema)) {
-        bitpunch_schema_free(schema);
-        return -1;
-    }
-    *schemap = schema;
-    return 0;
+    return load_schema_common(parser_ctx, schemap);
 }
 
 int
 bitpunch_schema_create_from_buffer(
     struct ast_node_hdl **schemap, const char *buf, size_t buf_size)
 {
-    struct ast_node_hdl *schema;
+    struct parser_ctx *parser_ctx;
 
     assert(NULL != schemap);
+    assert(NULL != buf);
 
-    schema = ast_node_hdl_create_scope_parsed();
-    schema->ndat->u.scope_def_parsed.data =
-        memcpy(malloc_safe(buf_size), buf, buf_size);
-    schema->ndat->u.scope_def_parsed.data_length = buf_size;
-    if (-1 == load_schema_common(schema)) {
-        bitpunch_schema_free(schema);
-        return -1;
-    }
-    *schemap = schema;
-    return 0;
+    parser_ctx = new_safe(struct parser_ctx);
+    parser_ctx->parser_data = memcpy(malloc_safe(buf_size), buf, buf_size);
+    parser_ctx->parser_data_length = buf_size;
+    parser_ctx->start_token = START_SCHEMA;
+    return load_schema_common(parser_ctx, schemap);
 }
 
 int

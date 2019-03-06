@@ -38,12 +38,14 @@ struct ast_node_hdl;
 struct parser_ctx;
 
 int
-bitpunch_parse_schema(struct ast_node_hdl *schema);
+bitpunch_parse(
+    struct parser_ctx *parser_ctx,
+    struct ast_node_hdl **astp);
 
 
 int
-bitpunch_parse_expr(const char *expr,
-                    struct ast_node_hdl **expr_nodep,
-                    struct parser_ctx **parser_ctxp);
+bitpunch_parse_expr(
+    const char *expr,
+    struct ast_node_hdl **expr_nodep);
 
 #endif /*__PARSER_H__*/

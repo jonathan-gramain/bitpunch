@@ -271,73 +271,43 @@ sizeof        { return OP_SIZEOF; }
 %%
 
 int
-bitpunch_parse_schema(struct ast_node_hdl *schema)
+bitpunch_parse(
+    struct parser_ctx *parser_ctx,
+    struct ast_node_hdl **astp)
 {
-    struct parser_ctx *parser_ctx;
     yyscan_t scanner;
     FILE *fstream;
     int ret;
 
-    parser_ctx = &schema->ndat->u.scope_def_parsed.parser_ctx;
-    memset(parser_ctx, 0, sizeof (*parser_ctx));
-    parser_ctx->parser_filepath = schema->ndat->u.scope_def_parsed.file_path;
-    parser_ctx->parser_data = schema->ndat->u.scope_def_parsed.data;
-    parser_ctx->parser_data_length = schema->ndat->u.scope_def_parsed.data_length;
-    parser_ctx->start_token = START_SCHEMA;
-
-    fstream = fmemopen((char *)schema->ndat->u.scope_def_parsed.data,
-                       schema->ndat->u.scope_def_parsed.data_length, "r");
+    fstream = fmemopen((char *)parser_ctx->parser_data,
+                       parser_ctx->parser_data_length, "r");
     if (NULL == fstream) {
         return -1;
     }
     yylex_init(&scanner);
     yyset_in(fstream, scanner);
-    ret = yyparse(scanner, parser_ctx, schema);
+    ret = yyparse(scanner, parser_ctx, astp);
     yylex_destroy(scanner);
     fclose(fstream);
     if (0 != ret) {
         return -1;
     }
+    (*astp)->loc.parser_ctx = parser_ctx;
     return 0;
 }
 
 int
-bitpunch_parse_expr(const char *expr,
-                    struct ast_node_hdl **expr_nodep,
-                    struct parser_ctx **parser_ctxp)
+bitpunch_parse_expr(
+    const char *expr,
+    struct ast_node_hdl **expr_nodep)
 {
-    yyscan_t scanner;
     struct parser_ctx *parser_ctx;
-    size_t expr_len;
-    FILE *expr_stream;
-    int ret;
 
-    expr_len = strlen(expr);
-    expr_stream = fmemopen((char *)expr, expr_len, "r");
-    if (NULL == expr_stream) {
-        fprintf(stderr,
-                "Cannot open memory stream for expression evaluation: "
-                "%s\n", strerror(errno));
-        return -1;
-    }
     parser_ctx = new_safe(struct parser_ctx);
     parser_ctx->parser_filepath = NULL;
     parser_ctx->parser_data = expr;
-    parser_ctx->parser_data_length = expr_len;
+    parser_ctx->parser_data_length = strlen(expr);
     parser_ctx->start_token = START_EXPR;
 
-    yylex_init(&scanner);
-    yyset_in(expr_stream, scanner);
-    ret = yyparse(scanner, parser_ctx, expr_nodep);
-    yylex_destroy(scanner);
-    fclose(expr_stream);
-    if (0 != ret) {
-        return -1;
-    }
-    if (NULL != parser_ctxp) {
-        *parser_ctxp = parser_ctx;
-    } else {
-        free(parser_ctx);
-    }
-    return 0;
+    return bitpunch_parse(parser_ctx, expr_nodep);
 }

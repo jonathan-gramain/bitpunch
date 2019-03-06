@@ -105,7 +105,6 @@ static void testcase_radio_setup(void)
     int c;
     const char *codename;
     char *location;
-    struct scope_def_parsed *schema_def;
 
     for (i = 0; i < N_ELEM(radio_sources); ++i) {
         info = &radio_source_info[i];
@@ -138,9 +137,8 @@ static void testcase_radio_setup(void)
             assert(NULL != location);
             info->codename_offset[c] = location - ds->ds_data;
         }
-        schema_def = (struct scope_def_parsed *)
-            ast_node_get_scope_def(bp_schema);
-        if (memmem(schema_def->data, schema_def->data_length,
+        if (memmem(bp_schema->loc.parser_ctx->parser_data,
+                   bp_schema->loc.parser_ctx->parser_data_length,
                    "let codename", strlen("let codename")) != 0) {
             info->codename_is_named_expr = TRUE;
         }

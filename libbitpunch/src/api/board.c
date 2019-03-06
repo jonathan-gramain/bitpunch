@@ -153,9 +153,8 @@ bitpunch_compile_expr(
     struct ast_node_hdl **expr_nodep)
 {
     struct ast_node_hdl *expr_node = NULL;
-    struct parser_ctx *parser_ctx = NULL;
 
-    if (-1 == bitpunch_parse_expr(expr, &expr_node, &parser_ctx)) {
+    if (-1 == bitpunch_parse_expr(expr, &expr_node)) {
         return BITPUNCH_INVALID_PARAM;
     }
     *expr_nodep = expr_node;
@@ -172,13 +171,12 @@ bitpunch_eval_expr(
     struct tracker_error **errp)
 {
     struct ast_node_hdl *expr_node = NULL;
-    struct parser_ctx *parser_ctx = NULL;
     struct box *_scope = NULL;
     bitpunch_status_t bt_ret = BITPUNCH_ERROR;
 
     assert(NULL != expr);
 
-    if (-1 == bitpunch_parse_expr(expr, &expr_node, &parser_ctx)) {
+    if (-1 == bitpunch_parse_expr(expr, &expr_node)) {
         return BITPUNCH_INVALID_PARAM;
     }
     if (NULL == scope && NULL != board) {
@@ -203,6 +201,5 @@ bitpunch_eval_expr(
         box_delete(_scope);
     }
     /* TODO free expr_node */
-    free(parser_ctx);
     return bt_ret;
 }
