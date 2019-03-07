@@ -49,8 +49,8 @@ enum filter_kind;
 struct browse_state {
     struct bitpunch_board *board;
     struct box *scope;
-    struct tracker_error_slist *expected_errors;
-    struct tracker_error *last_error;
+    struct bitpunch_error_slist *expected_errors;
+    struct bitpunch_error *last_error;
 };
 
 struct index_cache_mark_offset {
@@ -238,7 +238,7 @@ struct box {
 
 #define BOX_INDEX_CACHE_DEFAULT_LOG2_N_KEYS_PER_MARK 5
 
-struct tracker_error;
+struct bitpunch_error;
 
 struct tracker {
     struct box *box;         /**< container box */
@@ -274,57 +274,11 @@ enum tracker_state {
     TRACKER_STATE_COUNT = 8
 };
 
-struct tracker_error_context_info {
-    /** error context messages pointing to offsets in @ref error_buf */
-    const char *message;
-    struct tracker *tk;
-    struct box *box;
-    const struct ast_node_hdl *node;
-};
-
-/**
- * @brief information about last error that occurred during a tracker
- * API call
- */
-struct tracker_error {
-    struct tracker *tk;      /**< copy of tracker when the error
-                              * occurred (mutually exclusive with @ref
-                              * box) */
-
-    struct box *box;         /**< box when the error occurred
-                              * (mutually exclusive with @ref tk) */
-
-    bitpunch_status_t bt_ret; /**< error status code */
-
-    enum tracker_error_flags {
-        TRACKER_ERROR_STATIC = (1<<0), /**< error is statically allocated */
-    } flags;               /**< error flags */
-
-    const struct ast_node_hdl *node; /**< node that relates to the error */
-
-#define BITPUNCH_ERROR_BUF_SIZE 2048
-    /**< string table holding custom error message and context
-     * information */
-    char error_buf[BITPUNCH_ERROR_BUF_SIZE];
-
-    char *error_buf_end;     /**< end of @ref error_buf contents */
-
-    const char *reason;      /**< points to the reason phrase in @ref
-                              * error_buf */
-
-    int n_contexts;          /**< number of error context messages */
-
-#define BITPUNCH_ERROR_MAX_CONTEXTS 64
-    struct tracker_error_context_info contexts[BITPUNCH_ERROR_MAX_CONTEXTS];
-
-    union tracker_error_info { /** error-specific additional info */
-        struct tracker_error_info_out_of_bounds {
-            enum box_offset_type registered_offset_type;
-            int64_t registered_offset;
-            enum box_offset_type requested_offset_type;
-            int64_t requested_offset;
-        } out_of_bounds;
-    } u;
+struct bitpunch_error_info_out_of_bounds {
+    enum box_offset_type registered_offset_type;
+    int64_t registered_offset;
+    enum box_offset_type requested_offset_type;
+    int64_t requested_offset;
 };
 
 void
@@ -375,35 +329,35 @@ tracker_is_dangling(const struct tracker *tk);
 
 bitpunch_status_t
 box_get_n_items(struct box *box, int64_t *n_itemsp,
-                struct tracker_error **errp);
+                struct bitpunch_error **errp);
 bitpunch_status_t
 box_get_location(struct box *box,
                  int64_t *offsetp, int64_t *sizep,
-                 struct tracker_error **errp);
+                 struct bitpunch_error **errp);
 bitpunch_status_t
 box_read_value(struct box *box,
                expr_value_t *valuep,
-               struct tracker_error **errp);
+               struct bitpunch_error **errp);
 bitpunch_status_t
 box_compute_offset(struct box *box,
                    enum box_offset_type off_type,
                    int64_t *offsetp,
-                   struct tracker_error **errp);
+                   struct bitpunch_error **errp);
 bitpunch_status_t
 box_compute_size(struct box *box,
                  enum box_offset_type size_type,
                  int64_t *sizep,
-                 struct tracker_error **errp);
+                 struct bitpunch_error **errp);
 bitpunch_status_t
 track_box_contents_internal(struct box *box,
                             struct tracker **tkp, struct browse_state *bst);
 bitpunch_status_t
 box_apply_filter(struct box *box,
-                 struct tracker_error **errp);
+                 struct bitpunch_error **errp);
 bitpunch_status_t
 track_item_contents(struct tracker *tk,
                     struct tracker **tkp,
-                    struct tracker_error **errp);
+                    struct bitpunch_error **errp);
 bitpunch_status_t
 track_dpath_contents_internal(expr_dpath_t dpath,
                               struct tracker **tkp,
@@ -411,58 +365,58 @@ track_dpath_contents_internal(expr_dpath_t dpath,
 bitpunch_status_t
 track_dpath_contents(expr_dpath_t dpath,
                      struct tracker **tkp,
-                     struct tracker_error **errp);
+                     struct bitpunch_error **errp);
 
 bitpunch_status_t
 tracker_get_n_items(struct tracker *tk, int64_t *item_countp,
-                    struct tracker_error **errp);
+                    struct bitpunch_error **errp);
 
 
 void
 tracker_rewind(struct tracker *tk);
 bitpunch_status_t
 tracker_goto_first_item(struct tracker *tk,
-                        struct tracker_error **errp);
+                        struct bitpunch_error **errp);
 bitpunch_status_t
 tracker_goto_next_item(struct tracker *tk,
-                       struct tracker_error **errp);
+                       struct bitpunch_error **errp);
 bitpunch_status_t
 tracker_goto_nth_item(struct tracker *tk, int64_t index,
-                      struct tracker_error **errp);
+                      struct bitpunch_error **errp);
 bitpunch_status_t
 tracker_goto_nth_position(struct tracker *tk, int64_t index,
-                          struct tracker_error **errp);
+                          struct bitpunch_error **errp);
 bitpunch_status_t
 tracker_goto_named_item(struct tracker *tk, const char *name,
-                        struct tracker_error **errp);
+                        struct bitpunch_error **errp);
 bitpunch_status_t
 tracker_goto_first_item_with_key(struct tracker *tk,
                                  expr_value_t item_key,
-                                 struct tracker_error **errp);
+                                 struct bitpunch_error **errp);
 bitpunch_status_t
 tracker_goto_next_item_with_key(struct tracker *tk,
                                 expr_value_t item_key,
-                                struct tracker_error **errp);
+                                struct bitpunch_error **errp);
 bitpunch_status_t
 tracker_goto_nth_item_with_key(struct tracker *tk,
                                expr_value_t item_key,
                                int nth_twin,
-                               struct tracker_error **errp);
+                               struct bitpunch_error **errp);
 bitpunch_status_t
 tracker_goto_abs_dpath(struct tracker *tk, const char *dpath_expr,
-                       struct tracker_error **errp);
+                       struct bitpunch_error **errp);
 bitpunch_status_t
 tracker_goto_end(struct tracker *tk,
-                 struct tracker_error **errp);
+                 struct bitpunch_error **errp);
 bitpunch_status_t
 tracker_enter_item(struct tracker *tk,
-                   struct tracker_error **errp);
+                   struct bitpunch_error **errp);
 bitpunch_status_t
 tracker_enter_slice(struct tracker *tk, struct tracker *slice_end,
-                    struct tracker_error **errp);
+                    struct bitpunch_error **errp);
 bitpunch_status_t
 tracker_return(struct tracker *tk,
-               struct tracker_error **errp);
+               struct bitpunch_error **errp);
 int
 tracker_get_abs_dpath(const struct tracker *tk,
                       char *dpath_expr_buf, int buf_size);
@@ -475,43 +429,43 @@ tracker_dump_abs_dpath(const struct tracker *tk, FILE *stream);
 bitpunch_status_t
 tracker_get_item_filter(struct tracker *tk,
                         struct ast_node_hdl **item_filterp,
-                        struct tracker_error **errp);
+                        struct bitpunch_error **errp);
 
 bitpunch_status_t
 tracker_get_item_offset(struct tracker *tk, int64_t *item_offsetp,
-                        struct tracker_error **errp);
+                        struct bitpunch_error **errp);
 
 bitpunch_status_t
 tracker_get_item_size(struct tracker *tk, int64_t *item_sizep,
-                      struct tracker_error **errp);
+                      struct bitpunch_error **errp);
 
 bitpunch_status_t
 tracker_get_item_key(struct tracker *tk,
                      expr_value_t *keyp,
-                     struct tracker_error **errp);
+                     struct bitpunch_error **errp);
 
 bitpunch_status_t
 tracker_get_item_key_multi(struct tracker *tk,
                            expr_value_t *keyp,
                            int *nth_twinp,
-                           struct tracker_error **errp);
+                           struct bitpunch_error **errp);
 
 bitpunch_status_t
 tracker_get_item_location(struct tracker *tk,
                           int64_t *item_offsetp,
                           int64_t *item_sizep,
-                          struct tracker_error **errp);
+                          struct bitpunch_error **errp);
 
 bitpunch_status_t
 tracker_read_item_raw(struct tracker *tk,
                       const char **item_contentsp,
                       int64_t *item_sizep,
-                      struct tracker_error **errp);
+                      struct bitpunch_error **errp);
 
 bitpunch_status_t
 tracker_read_item_value(struct tracker *tk,
                         expr_value_t *valuep,
-                        struct tracker_error **errp);
+                        struct bitpunch_error **errp);
 
 /* dpath API */
 
@@ -519,32 +473,32 @@ bitpunch_status_t
 expr_dpath_to_dpath(expr_dpath_t src_dpath,
                     enum expr_dpath_type dst_type,
                     expr_dpath_t *dst_dpathp,
-                    struct tracker_error **errp);
+                    struct bitpunch_error **errp);
 
 bitpunch_status_t
 expr_dpath_get_size(expr_dpath_t dpath,
                     int64_t *dpath_sizep,
-                    struct tracker_error **errp);
+                    struct bitpunch_error **errp);
 
 bitpunch_status_t
 expr_dpath_get_location(expr_dpath_t dpath,
                         int64_t *offsetp, int64_t *sizep,
-                        struct tracker_error **errp);
+                        struct bitpunch_error **errp);
 
 bitpunch_status_t
 expr_dpath_get_filtered_data(
     expr_dpath_t dpath,
     struct bitpunch_data_source **dsp, int64_t *offsetp, int64_t *sizep,
     struct box **exported_data_boxp,
-    struct tracker_error **errp);
+    struct bitpunch_error **errp);
 
 /* error reporting */
 
 void
-tracker_error_dump(struct tracker_error *tk_err, FILE *out);
+bitpunch_error_dump(struct bitpunch_error *bp_err, FILE *out);
 
 void
-tracker_error_destroy(struct tracker_error *tk_err);
+bitpunch_error_destroy(struct bitpunch_error *bp_err);
 
 
 #include "core/browse_inlines.h"

@@ -78,7 +78,7 @@ box_new_slice_box(struct tracker *slice_start,
     int64_t slice_start_offset_span;
 
     if (NULL != slice_end && slice_start->box != slice_end->box) {
-        (void) tracker_error(BITPUNCH_INVALID_PARAM, slice_start, NULL, bst,
+        (void) bitpunch_error(BITPUNCH_INVALID_PARAM, slice_start, NULL, bst,
                              "can't set tracker slice: end of slice "
                              "tracker must track the same box");
         return NULL;
@@ -95,7 +95,7 @@ box_new_slice_box(struct tracker *slice_start,
         slice_filter = filter_get_global_instance__byte_slice();
         break ;
     default:
-        (void) tracker_error(BITPUNCH_INVALID_PARAM, slice_start, NULL, bst,
+        (void) bitpunch_error(BITPUNCH_INVALID_PARAM, slice_start, NULL, bst,
                              "can't set tracker slice: does not track "
                              "an array");
         return NULL;
@@ -106,7 +106,7 @@ box_new_slice_box(struct tracker *slice_start,
     }
     index_end = (NULL != slice_end ? slice_end->cur.u.array.index : -1);
     if (index_end != -1 && index_end < index_start) {
-        (void) tracker_error(BITPUNCH_DATA_ERROR, slice_start, NULL,
+        (void) bitpunch_error(BITPUNCH_DATA_ERROR, slice_start, NULL,
                              bst,
                              "slice end index %"PRIi64" before "
                              "start index %"PRIi64"",
@@ -303,7 +303,7 @@ tracker_goto_next_item__array_slice(struct tracker *tk,
     DBG_TRACKER_DUMP(tk);
     if (0 != (tk->flags & TRACKER_REVERSED) ||
         0 != (tk->box->flags & BOX_RALIGN)) {
-        return tracker_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst,
+        return bitpunch_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst,
                              "tracker_goto_next_item() not implemented "
                              "in reverse mode on array slices");
     }
@@ -370,7 +370,7 @@ tracker_goto_next_key_match__array_slice(struct tracker *tk,
 {
     DBG_TRACKER_DUMP(tk);
     // should not be called, only used internally by indexed arrays
-    return tracker_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst, NULL);
+    return bitpunch_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst, NULL);
 }
 
 static bitpunch_status_t
@@ -522,7 +522,7 @@ tracker_enter_slice_internal(struct tracker *tk, struct tracker *slice_end,
 
 bitpunch_status_t
 tracker_enter_slice(struct tracker *tk, struct tracker *slice_end,
-                    struct tracker_error **errp)
+                    struct bitpunch_error **errp)
 {
     struct browse_state bst;
 

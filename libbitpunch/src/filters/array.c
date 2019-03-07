@@ -212,7 +212,7 @@ compute_item_size__array_const_item_size(struct ast_node_hdl *item_filter,
                                           &item_count, bst);
     if (BITPUNCH_OK != bt_ret) {
         // FIXME more appropriate context
-        tracker_error_add_box_context(
+        bitpunch_error_add_box_context(
             scope, bst, "when evaluating array item count expression");
         return bt_ret;
     }
@@ -535,7 +535,7 @@ tracker_get_item_key__indexed_array_internal(
     }
     box_delete_non_null(filtered_box);
     if (BITPUNCH_OK != bt_ret) {
-        tracker_error_add_tracker_context(
+        bitpunch_error_add_tracker_context(
             tk, bst, "when evaluating item key expression");
         return bt_ret;
     }
@@ -934,13 +934,13 @@ tracker_goto_next_key_match__array(struct tracker *tk,
         tk->box->filter->ndat->u.rexpr_filter.f_instance;
     item_type = ast_node_get_as_type(array->item_type);
     if (!ast_node_is_filter(item_type)) {
-        return tracker_error(BITPUNCH_INVALID_PARAM, tk, item_type, bst,
+        return bitpunch_error(BITPUNCH_INVALID_PARAM, tk, item_type, bst,
                              "only arrays which items are structures can "
                              "be accessed through named index");
     }
     key_expr = ast_node_get_key_expr(tk->box->filter);
     if (NULL == key_expr) {
-        return tracker_error(BITPUNCH_INVALID_PARAM, tk, key_expr, bst,
+        return bitpunch_error(BITPUNCH_INVALID_PARAM, tk, key_expr, bst,
                              "array is not indexed");
     }
     while (search_boundary.type == TRACK_PATH_NOTYPE
@@ -957,7 +957,7 @@ tracker_goto_next_key_match__array(struct tracker *tk,
         }
         box_delete_non_null(filtered_box);
         if (BITPUNCH_OK != bt_ret) {
-            tracker_error_add_tracker_context(
+            bitpunch_error_add_tracker_context(
                 tk, bst, "when evaluating item key expression");
             expr_value_destroy(item_key);
             return bt_ret;

@@ -69,7 +69,7 @@ compute_item_size__byte_array_var_size(
         array->item_count, scope, &byte_count, bst);
     if (BITPUNCH_OK != bt_ret) {
         // FIXME more appropriate context
-        tracker_error_add_box_context(
+        bitpunch_error_add_box_context(
             scope, bst, "when evaluating byte array size expression");
         return bt_ret;
     }
@@ -210,7 +210,7 @@ tracker_goto_nth_item__byte_array_generic(
     DBG_TRACKER_DUMP(tk);
     if (0 != (tk->flags & TRACKER_REVERSED) ||
         0 != (tk->box->flags & BOX_RALIGN)) {
-        return tracker_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst,
+        return bitpunch_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst,
                              "tracker_goto_nth_item() not implemented "
                              "in reverse mode on byte arrays");
     }

@@ -113,13 +113,13 @@ scope_evaluate_identifier(
     struct scope_def *scope_def, struct box *scope,
     enum statement_type stmt_mask, const char *identifier,
     expr_value_t *valuep, expr_dpath_t *dpathp,
-    struct tracker_error **errp);
+    struct bitpunch_error **errp);
 
 bitpunch_status_t
 scope_iter_statements_next(
     struct statement_iterator *it,
     enum statement_type *stmt_typep, const struct statement **stmtp,
-    struct tracker_error **errp);
+    struct bitpunch_error **errp);
 
 void
 scope_attach_native_attribute(

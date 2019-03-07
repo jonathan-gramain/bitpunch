@@ -50,6 +50,56 @@ typedef enum bitpunch_status {
     BITPUNCH_STATUS_LAST = -9,
 } bitpunch_status_t;
 
+struct bitpunch_error_context_info {
+    /** error context messages pointing to offsets in @ref error_buf */
+    const char *message;
+    struct tracker *tk;
+    struct box *box;
+    const struct ast_node_hdl *node;
+};
+
+
+/** abstract type for error-specific info object */
+typedef void bitpunch_error_info_t;
+
+/**
+ * @brief information about last error that occurred during a tracker
+ * API call
+ */
+struct bitpunch_error {
+    struct tracker *tk;      /**< copy of tracker when the error
+                              * occurred (mutually exclusive with @ref
+                              * box) */
+
+    struct box *box;         /**< box when the error occurred
+                              * (mutually exclusive with @ref tk) */
+
+    bitpunch_status_t bt_ret; /**< error status code */
+
+    enum bitpunch_error_flags {
+        TRACKER_ERROR_STATIC = (1<<0), /**< error is statically allocated */
+    } flags;               /**< error flags */
+
+    const struct ast_node_hdl *node; /**< node that relates to the error */
+
+#define BITPUNCH_ERROR_BUF_SIZE 2048
+    /**< string table holding custom error message and context
+     * information */
+    char error_buf[BITPUNCH_ERROR_BUF_SIZE];
+
+    char *error_buf_end;     /**< end of @ref error_buf contents */
+
+    const char *reason;      /**< points to the reason phrase in @ref
+                              * error_buf */
+
+    int n_contexts;          /**< number of error context messages */
+
+#define BITPUNCH_ERROR_MAX_CONTEXTS 64
+    struct bitpunch_error_context_info contexts[BITPUNCH_ERROR_MAX_CONTEXTS];
+
+    bitpunch_error_info_t *error_info; /**< error-specific additional info */
+};
+
 enum parser_type {
     PARSER_TYPE_SCHEMA,
     PARSER_TYPE_EXPR,

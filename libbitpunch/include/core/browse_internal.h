@@ -34,17 +34,17 @@
 
 #include "core/browse.h"
 
-struct tracker_error_slist {
-    struct tracker_error tk_err;
-    struct tracker_error_slist *next;
+struct bitpunch_error_slist {
+    struct bitpunch_error bp_err;
+    struct bitpunch_error_slist *next;
 };
 
 #define WITH_EXPECTED_ERROR(BITPUNCH_ERROR_CODE, BODY) do {      \
-        struct tracker_error_slist __expected_error;            \
+        struct bitpunch_error_slist __expected_error;            \
                                                                 \
-        tracker_error_init(&__expected_error.tk_err,            \
+        bitpunch_error_init(&__expected_error.bp_err,            \
                            BITPUNCH_ERROR_CODE);                 \
-        __expected_error.tk_err.flags = TRACKER_ERROR_STATIC;   \
+        __expected_error.bp_err.flags = TRACKER_ERROR_STATIC;   \
         __expected_error.next = bst->expected_errors;           \
         bst->expected_errors = &__expected_error;               \
         BODY                                                    \
@@ -285,7 +285,7 @@ tracker_get_filtered_dpath_internal(struct tracker *tk,
 bitpunch_status_t
 tracker_get_filtered_dpath(struct tracker *tk,
                            expr_dpath_t *filtered_dpathp,
-                           struct tracker_error **errp);
+                           struct bitpunch_error **errp);
 bitpunch_status_t
 tracker_create_item_box_internal(struct tracker *tk,
                                  struct box **item_boxp,
@@ -300,7 +300,7 @@ tracker_get_filtered_item_box_internal(struct tracker *tk,
 bitpunch_status_t
 tracker_get_filtered_item_box(struct tracker *tk,
                               struct box **filtered_boxp,
-                              struct tracker_error **errp);
+                              struct bitpunch_error **errp);
 
 bitpunch_status_t
 track_item_contents_internal(struct tracker *tk,
@@ -313,7 +313,7 @@ tracker_compute_item_filter_internal(struct tracker *tk,
 bitpunch_status_t
 track_box_contents(struct box *box,
                    struct tracker **tkp,
-                   struct tracker_error **errp);
+                   struct bitpunch_error **errp);
 
 bitpunch_status_t
 tracker_check_item(struct tracker *tk,
@@ -466,20 +466,20 @@ track_path_from_array_slice(int64_t index_start, int64_t index_end);
 
 
 void
-tracker_error_init(struct tracker_error *tk_err,
+bitpunch_error_init(struct bitpunch_error *bp_err,
                    bitpunch_status_t bt_ret);
-struct tracker_error *
-tracker_error_new(bitpunch_status_t bt_ret,
+struct bitpunch_error *
+bitpunch_error_new(bitpunch_status_t bt_ret,
                   struct tracker *tk, struct box *box,
                   const struct ast_node_hdl *node,
                   const char *message_fmt, va_list message_args);
 
 bitpunch_status_t
 transmit_error(bitpunch_status_t bt_ret, struct browse_state *bst,
-               struct tracker_error **errp);
+               struct bitpunch_error **errp);
 
 bitpunch_status_t
-tracker_error(bitpunch_status_t bt_ret, struct tracker *tk,
+bitpunch_error(bitpunch_status_t bt_ret, struct tracker *tk,
               const struct ast_node_hdl *node,
               struct browse_state *bst,
               const char *message_fmt, ...)
@@ -504,24 +504,24 @@ box_error_out_of_bounds(struct box *box,
                         enum box_offset_type registered_end_offset_type,
                         struct browse_state *bst);
 bitpunch_status_t
-tracker_error_item_out_of_bounds(struct tracker *tk,
+bitpunch_error_item_out_of_bounds(struct tracker *tk,
                                  struct browse_state *bst);
 void
-tracker_error_add_context_message(struct browse_state *bst,
+bitpunch_error_add_context_message(struct browse_state *bst,
                                   const char *context_fmt, ...)
     __attribute__((format(printf, 2, 3), unused));
 void
-tracker_error_add_tracker_context(struct tracker *tk,
+bitpunch_error_add_tracker_context(struct tracker *tk,
                                   struct browse_state *bst,
                                   const char *context_fmt, ...)
     __attribute__((format(printf, 3, 4), unused));
 void
-tracker_error_add_box_context(struct box *box,
+bitpunch_error_add_box_context(struct box *box,
                               struct browse_state *bst,
                               const char *context_fmt, ...)
     __attribute__((format(printf, 3, 4), unused));
 void
-tracker_error_add_node_context(const struct ast_node_hdl *node,
+bitpunch_error_add_node_context(const struct ast_node_hdl *node,
                                struct browse_state *bst,
                                const char *context_fmt, ...)
     __attribute__((format(printf, 3, 4), unused));

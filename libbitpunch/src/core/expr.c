@@ -1779,7 +1779,7 @@ expr_evaluate_polymorphic_internal(
         expr->ndat->u.rexpr_polymorphic.identifier);
 
   error:
-    tracker_error_add_node_context(
+    bitpunch_error_add_node_context(
         expr, bst, "while evaluating polymorphic expression");
     return bt_ret;
 }
@@ -2901,7 +2901,7 @@ bitpunch_status_t
 expr_evaluate(struct ast_node_hdl *expr,
               struct box *scope, struct bitpunch_board *board,
               expr_value_t *valuep, expr_dpath_t *dpathp,
-              struct tracker_error **errp)
+              struct bitpunch_error **errp)
 {
     struct browse_state bst;
     bitpunch_status_t bt_ret;
@@ -2922,7 +2922,7 @@ bitpunch_status_t
 expr_evaluate_value(struct ast_node_hdl *expr,
                     struct box *scope, struct bitpunch_board *board,
                     expr_value_t *valuep,
-                    struct tracker_error **errp)
+                    struct bitpunch_error **errp)
 {
     struct browse_state bst;
     bitpunch_status_t bt_ret;
@@ -2943,7 +2943,7 @@ bitpunch_status_t
 expr_evaluate_dpath(struct ast_node_hdl *expr,
                     struct box *scope, struct bitpunch_board *board,
                     expr_dpath_t *dpathp,
-                    struct tracker_error **errp)
+                    struct bitpunch_error **errp)
 {
     struct browse_state bst;
     bitpunch_status_t bt_ret;
@@ -2964,7 +2964,7 @@ bitpunch_status_t
 evaluate_conditional(struct ast_node_hdl *cond,
                      struct box *scope, struct bitpunch_board *board,
                      int *evalp,
-                     struct tracker_error **errp)
+                     struct bitpunch_error **errp)
 {
     struct browse_state bst;
     bitpunch_status_t bt_ret;
@@ -2981,7 +2981,7 @@ evaluate_conditional(struct ast_node_hdl *cond,
 bitpunch_status_t
 dpath_read_value(expr_dpath_t dpath,
                  expr_value_t *expr_valuep,
-                 struct tracker_error **errp)
+                 struct bitpunch_error **errp)
 {
     struct browse_state bst;
 

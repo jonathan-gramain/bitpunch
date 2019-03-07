@@ -161,7 +161,7 @@ This is NOT an organized or prioritized list.
 - improve error reporting
 
   - notably, add more context information in various places where
-    errors occur, e.g. with tracker_error_add_xxx_context() (show
+    errors occur, e.g. with bitpunch_error_add_xxx_context() (show
     expressions from source schema etc.)
 
 - various structured outputs related to 'xdump' command (e.g. list all

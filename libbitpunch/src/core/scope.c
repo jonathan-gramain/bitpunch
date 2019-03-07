@@ -233,7 +233,7 @@ scope_iter_statements_next_internal(
         bt_ret = evaluate_conditional_internal(stmt->cond, it->scope,
                                                &cond_eval, bst);
         if (BITPUNCH_OK != bt_ret) {
-            tracker_error_add_box_context(it->scope, bst,
+            bitpunch_error_add_box_context(it->scope, bst,
                                           "when evaluating condition");
             return bt_ret;
         }
@@ -315,7 +315,7 @@ scope_lookup_statement_in_anonymous_field_recur(
     bt_ret = evaluate_conditional_internal(stmt->stmt.cond, scope,
                                            &cond_eval, bst);
     if (BITPUNCH_OK != bt_ret) {
-        tracker_error_add_box_context(scope, bst,
+        bitpunch_error_add_box_context(scope, bst,
                                       "when evaluating condition");
         return bt_ret;
     }
@@ -499,7 +499,7 @@ scope_evaluate_identifier(
     struct scope_def *scope_def, struct box *scope,
     enum statement_type stmt_mask, const char *identifier,
     expr_value_t *valuep, expr_dpath_t *dpathp,
-    struct tracker_error **errp)
+    struct bitpunch_error **errp)
 {
     struct browse_state bst;
 
@@ -515,7 +515,7 @@ bitpunch_status_t
 scope_iter_statements_next(
     struct statement_iterator *it,
     enum statement_type *stmt_typep, const struct statement **stmtp,
-    struct tracker_error **errp)
+    struct bitpunch_error **errp)
 {
     struct browse_state bst;
 
@@ -802,7 +802,7 @@ tracker_goto_next_key_match__scope(struct tracker *tk,
                                    struct browse_state *bst)
 {
     DBG_TRACKER_DUMP(tk);
-    return tracker_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst, NULL);
+    return bitpunch_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst, NULL);
 }
 
 bitpunch_status_t

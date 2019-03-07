@@ -154,7 +154,7 @@ bitpunch_eval_expr(
     struct box *scope,
     struct ast_node_hdl **parsed_exprp,
     expr_value_t *valuep, expr_dpath_t *dpathp,
-    struct tracker_error **errp)
+    struct bitpunch_error **errp)
 {
     struct ast_node_hdl *expr_node = NULL;
     struct box *_scope = NULL;

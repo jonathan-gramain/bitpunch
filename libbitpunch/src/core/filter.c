@@ -390,7 +390,7 @@ tracker_goto_first_item__data_filter(struct tracker *tk,
     DBG_TRACKER_DUMP(tk);
     if (0 != (tk->flags & TRACKER_REVERSED) ||
         0 != (tk->box->flags & BOX_RALIGN)) {
-        return tracker_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst,
+        return bitpunch_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst,
                              "tracker_goto_first_item() not implemented "
                              "in reverse mode on data filters");
     }
@@ -419,7 +419,7 @@ tracker_goto_next_item__data_filter(struct tracker *tk,
     DBG_TRACKER_DUMP(tk);
     if (0 != (tk->flags & TRACKER_REVERSED) ||
         0 != (tk->box->flags & BOX_RALIGN)) {
-        return tracker_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst,
+        return bitpunch_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst,
                              "tracker_goto_next_item() not implemented "
                              "in reverse mode on data filters");
     }
@@ -455,7 +455,7 @@ tracker_goto_nth_item__data_filter(
     DBG_TRACKER_DUMP(tk);
     if (0 != (tk->flags & TRACKER_REVERSED) ||
         0 != (tk->box->flags & BOX_RALIGN)) {
-        return tracker_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst,
+        return bitpunch_error(BITPUNCH_NOT_IMPLEMENTED, tk, NULL, bst,
                              "tracker_goto_nth_item() not implemented "
                              "in reverse mode on data filters");
     }
