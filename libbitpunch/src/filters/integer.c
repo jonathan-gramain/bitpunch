@@ -249,12 +249,11 @@ integer_read_endian_attribute(
     }
     endian = str2endian(attr_value.string);
     if (endian == ENDIAN_BAD) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
+        return node_error(
+            BITPUNCH_INVALID_PARAM, filter, bst,
             "bad endian value \"%.*s\": "
             "must be \"big\", \"little\" or \"native\"",
             (int)attr_value.string.len, attr_value.string.str);
-        return BITPUNCH_INVALID_PARAM;
     }
     if (endian == ENDIAN_NATIVE) {
         if (is_little_endian()) {
@@ -333,10 +332,10 @@ binary_integer_read_generic(
         READ_BRANCH_1(32);
         READ_BRANCH_1(64);
     default:
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
-                       "size %"PRIi64" not supported by integer filter",
-                       span_size);
-        return BITPUNCH_NOT_IMPLEMENTED;
+        return node_error(
+            BITPUNCH_NOT_IMPLEMENTED, filter, bst,
+            "size %"PRIi64" not supported by integer filter",
+            span_size);
     }
     return BITPUNCH_OK;
 }

@@ -62,11 +62,9 @@ deflate_read(struct ast_node_hdl *filter,
     assert(EXPR_VALUE_TYPE_INTEGER == attr_value.type);
     inflated_size = attr_value.integer;
     if (inflated_size > INFLATED_MAX_SIZE) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
-                       "inflated size too large "
-                       "(%zu bytes, max %d)",
-                       inflated_size, INFLATED_MAX_SIZE);
-        return BITPUNCH_DATA_ERROR;
+        return node_error(BITPUNCH_DATA_ERROR, filter, bst,
+                          "inflated size too large (%zu bytes, max %d)",
+                          inflated_size, INFLATED_MAX_SIZE);
     }
     zs.next_in = (z_const Bytef *)data;
     zs.avail_in = (uLong)span_size;
@@ -79,27 +77,26 @@ deflate_read(struct ast_node_hdl *filter,
     // window size used during compression
     zret = inflateInit2(&zs, -15);
     if (Z_OK != zret) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
-                       "error from inflateInit(): %s (%d)",
-                       zs.msg, zret);
-        return BITPUNCH_DATA_ERROR;
+        return node_error(BITPUNCH_DATA_ERROR, filter, bst,
+                          "error from inflateInit(): %s (%d)",
+                          zs.msg, zret);
     }
     inflated = malloc_safe(inflated_size);
     zs.next_out = (Bytef *)inflated;
     zs.avail_out = (uInt)inflated_size;
     zret = inflate(&zs, Z_FINISH);
     if (Z_STREAM_END != zret) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
-                       "error from inflate(): %s (%d)",
-                       zs.msg, zret);
+        node_error(BITPUNCH_DATA_ERROR, filter, bst,
+                   "error from inflate(): %s (%d)",
+                   zs.msg, zret);
         inflateEnd(&zs);
         return BITPUNCH_DATA_ERROR;
     }
     if (zs.avail_out != 0) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
-                       "inflate() did not fill the output buffer: "
-                       "%u bytes left (with %u input bytes unread)",
-                       zs.avail_out, zs.avail_in);
+        node_error(BITPUNCH_DATA_ERROR, filter, bst,
+                   "inflate() did not fill the output buffer: "
+                   "%u bytes left (with %u input bytes unread)",
+                   zs.avail_out, zs.avail_in);
         inflateEnd(&zs);
         return BITPUNCH_DATA_ERROR;
     }

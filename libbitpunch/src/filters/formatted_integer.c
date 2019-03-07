@@ -107,11 +107,9 @@ formatted_integer_read(struct ast_node_hdl *filter,
         if (BITPUNCH_NO_ITEM != bt_ret) {
             return bt_ret;
         }
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                       NULL != filter ? &filter->loc : NULL,
-                       "invalid formatted integer input buffer: "
-                       "empty buffer");
-        return BITPUNCH_DATA_ERROR;
+        return node_error(BITPUNCH_DATA_ERROR, filter, bst,
+                          "invalid formatted integer input buffer: "
+                          "empty buffer");
     }
     negative = FALSE;
     in = (const unsigned char *)data;
@@ -158,11 +156,9 @@ formatted_integer_read(struct ast_node_hdl *filter,
         parsed_value *= base;
         parsed_value += lookup_value;
         if (parsed_value < prev_parsed_value) {
-            semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                           NULL != filter ? &filter->loc : NULL,
-                           "unsupported formatted integer in input buffer: "
-                           "overflows a 64-bit signed integer value");
-            return BITPUNCH_DATA_ERROR;
+            return node_error(BITPUNCH_DATA_ERROR, filter, bst,
+                              "unsupported formatted integer in input buffer: "
+                              "overflows a 64-bit signed integer value");
         }
     }
     read_value->type = EXPR_VALUE_TYPE_INTEGER;
@@ -170,10 +166,8 @@ formatted_integer_read(struct ast_node_hdl *filter,
     return BITPUNCH_OK;
 
   invalid:
-    semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                   NULL != filter ? &filter->loc : NULL,
-                   "invalid formatted integer in input buffer");
-    return BITPUNCH_DATA_ERROR;
+    return node_error(BITPUNCH_DATA_ERROR, filter, bst,
+                      "invalid formatted integer in input buffer");
 }
 
 static struct filter_instance *

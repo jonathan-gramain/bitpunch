@@ -244,14 +244,16 @@ browse_state_pop_scope(struct browse_state *bst, struct box *scope,
 void
 browse_state_clear_error(struct browse_state *bst)
 {
-    bitpunch_error_destroy(bst->last_error);
-    bst->last_error = NULL;
+    if (NULL != bst) {
+        bitpunch_error_destroy(bst->last_error);
+        bst->last_error = NULL;
+    }
 }
 
 bitpunch_status_t
 browse_state_get_last_error_status(struct browse_state *bst)
 {
-    if (NULL == bst->last_error) {
+    if (NULL == bst || NULL == bst->last_error) {
         return BITPUNCH_OK;
     } else {
         return bst->last_error->bt_ret;
@@ -3771,6 +3773,9 @@ bitpunch_error(bitpunch_status_t bt_ret, struct tracker *tk,
 {
     va_list ap;
 
+    if (NULL == bst) {
+        return bt_ret;
+    }
     browse_state_clear_error(bst);
 
     va_start(ap, message_fmt);
@@ -3789,6 +3794,9 @@ box_error(bitpunch_status_t bt_ret, struct box *box,
 {
     va_list ap;
 
+    if (NULL == bst) {
+        return bt_ret;
+    }
     browse_state_clear_error(bst);
 
     va_start(ap, message_fmt);
@@ -3808,6 +3816,9 @@ node_error(bitpunch_status_t bt_ret,
 {
     va_list ap;
 
+    if (NULL == bst) {
+        return bt_ret;
+    }
     browse_state_clear_error(bst);
 
     va_start(ap, message_fmt);

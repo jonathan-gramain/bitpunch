@@ -127,20 +127,17 @@ base64_read(struct ast_node_hdl *filter,
 
     decoded_max_length = (span_size + 3) & ~0x3;
     if (decoded_max_length > DECODED_BUFFER_MAX_SIZE) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                       NULL != filter ? &filter->loc : NULL,
-                       "base64 decode buffer too large (%zu bytes, max %d)",
-                       decoded_max_length, DECODED_BUFFER_MAX_SIZE);
-        return BITPUNCH_DATA_ERROR;
+        return node_error(
+            BITPUNCH_DATA_ERROR, filter, bst,
+            "base64 decode buffer too large (%zu bytes, max %d)",
+            decoded_max_length, DECODED_BUFFER_MAX_SIZE);
     }
     decoded = malloc_safe(decoded_max_length);
     decoded_length = base64_decode(data, span_size, decoded);
     if (-1 == decoded_length) {
         // TODO add precision regarding the error
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                       NULL != filter ? &filter->loc : NULL,
-                       "invalid base64 input");
-        return BITPUNCH_DATA_ERROR;
+        return node_error(BITPUNCH_DATA_ERROR, filter, bst,
+                          "invalid base64 input");
     }
     read_value->type = EXPR_VALUE_TYPE_BYTES;
     read_value->bytes.buf = decoded;

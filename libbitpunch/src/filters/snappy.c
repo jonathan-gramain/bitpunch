@@ -54,26 +54,23 @@ snappy_read(struct ast_node_hdl *filter,
     snappy_ret = snappy_uncompressed_length(data, span_size,
                                             &uncompressed_length);
     if (SNAPPY_OK != snappy_ret) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
-                       "error from snappy_uncompressed_length() -> %d",
-                       snappy_ret);
-        return BITPUNCH_DATA_ERROR;
+        return node_error(BITPUNCH_DATA_ERROR, filter, bst,
+                          "error from snappy_uncompressed_length() -> %d",
+                          snappy_ret);
     }
     if (uncompressed_length > UNCOMPRESSED_BUFFER_MAX_SIZE) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
-                       "snappy uncompressed buffer too large "
-                       "(%zu bytes, max %d)",
-                       uncompressed_length, UNCOMPRESSED_BUFFER_MAX_SIZE);
-        return BITPUNCH_DATA_ERROR;
+        return node_error(BITPUNCH_DATA_ERROR, filter, bst,
+                          "snappy uncompressed buffer too large "
+                          "(%zu bytes, max %d)",
+                          uncompressed_length, UNCOMPRESSED_BUFFER_MAX_SIZE);
     }
     uncompressed = malloc_safe(uncompressed_length);
     snappy_ret = snappy_uncompress(data, span_size,
                                    uncompressed, &uncompressed_length);
     if (SNAPPY_OK != snappy_ret) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
-                       "error from snappy_uncompress() -> %d",
-                       snappy_ret);
-        return BITPUNCH_DATA_ERROR;
+        return node_error(BITPUNCH_DATA_ERROR, filter, bst,
+                          "error from snappy_uncompress() -> %d",
+                          snappy_ret);
     }
     read_value->type = EXPR_VALUE_TYPE_BYTES;
     read_value->bytes.buf = uncompressed;
