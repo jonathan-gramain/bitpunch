@@ -1647,6 +1647,8 @@ tracker_get_filtered_dpath_internal(struct tracker *tk,
         *filtered_dpathp = transform.dpath;
     } else {
         expr_dpath_destroy(transform.dpath);
+        bitpunch_error_add_tracker_context(
+            tk, bst, "when filtering data path");
     }
     return bt_ret;
 }
@@ -1695,6 +1697,10 @@ box_compute_min_span_size(struct box *box,
     bt_ret = box->filter->ndat->u.rexpr_filter.f_instance->b_box.compute_min_span_size(
         box, bst);
     browse_state_pop_scope(bst, box, &scope_storage);
+    if (BITPUNCH_OK != bt_ret) {
+        bitpunch_error_add_box_context(
+            box, bst, "when computing minimum span size");
+    }
     return bt_ret;
 }
 
@@ -1757,7 +1763,7 @@ box_compute_span_size(struct box *box,
     }
     if (BITPUNCH_OK != bt_ret) {
         bitpunch_error_add_box_context(
-            box, bst, "when computing used size");
+            box, bst, "when computing span size");
     }
     return bt_ret;
 }
@@ -1780,6 +1786,10 @@ box_compute_used_size(struct box *box, struct browse_state *bst)
     bt_ret = box->filter->ndat->u.rexpr_filter.f_instance->b_box.compute_used_size(
         box, bst);
     browse_state_pop_scope(bst, box, &scope_storage);
+    if (BITPUNCH_OK != bt_ret) {
+        bitpunch_error_add_box_context(
+            box, bst, "when computing used size");
+    }
     return bt_ret;
 }
 
@@ -2095,9 +2105,9 @@ box_read_value_internal(struct box *box,
         expr_value_attach_box(valuep, box);
     }
     if (BITPUNCH_OK != bt_ret) {
-        bitpunch_error_add_box_context(box, bst, "when reading box value");
+        bitpunch_error_add_box_context(box, bst, "when reading item value");
     }
-    return bt_ret;
+   return bt_ret;
 }
 
 bitpunch_status_t
@@ -3355,9 +3365,14 @@ tracker_compute_item_size_internal(struct tracker *tk,
     }
     f_instance = tk->dpath.item->ndat->u.rexpr_filter.f_instance;
     if (NULL != f_instance->b_item.compute_item_size) {
-        return f_instance->b_item.compute_item_size(
+        bt_ret = f_instance->b_item.compute_item_size(
             tk->dpath.item, tk->box,
             tk->item_offset, max_span_offset, item_sizep, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            bitpunch_error_add_tracker_context(
+                tk, bst, "when computing item size");
+        }
+        return bt_ret;
     }
     /* use the whole available slack space when filter does not define
      * its size */
@@ -3383,9 +3398,6 @@ tracker_compute_item_size(struct tracker *tk,
     bt_ret = tracker_compute_item_size_internal(tk, &item_size, bst);
     if (BITPUNCH_OK == bt_ret) {
         bt_ret = tracker_set_item_size(tk, item_size, bst);
-    } else {
-        bitpunch_error_add_tracker_context(tk, bst,
-                                          "when computing item size");
     }
     return bt_ret;
 }
@@ -3640,6 +3652,8 @@ tracker_read_item_value_direct_internal(struct tracker *tk,
         tk->dpath.filter, tk->box, FILTER_KIND_FILTER,
         &filter_type, bst);
     if (BITPUNCH_OK != bt_ret) {
+        bitpunch_error_add_tracker_context(
+            tk, bst, "when evaluating filter type");
         return bt_ret;
     }
     f_instance = filter_type->ndat->u.rexpr_filter.f_instance;
@@ -3650,10 +3664,14 @@ tracker_read_item_value_direct_internal(struct tracker *tk,
     }
     bt_ret = f_instance->b_item.read_value(
         filter_type, tk->box, item_offset, item_size, valuep, bst);
-    if (BITPUNCH_OK == bt_ret && NULL != valuep) {
+    if (BITPUNCH_OK != bt_ret) {
+        bitpunch_error_add_tracker_context(tk, bst, "when reading item value");
+        return bt_ret;
+    }
+    if (NULL != valuep) {
         expr_value_attach_box(valuep, tk->box);
     }
-    return bt_ret;
+    return BITPUNCH_OK;
 }
 
 bitpunch_status_t
@@ -3757,12 +3775,98 @@ bitpunch_error_destroy(struct bitpunch_error *bp_err)
     free(bp_err);
 }
 
-void
-bitpunch_error_dump(struct bitpunch_error *bp_err, FILE *out)
+static void
+error_dump_context_info(
+    const struct tracker *tk,
+    const struct box *box,
+    const struct ast_node_hdl *node,
+    const char *context_msg,
+    const struct tracker *prev_ctx_tk,
+    const struct box *prev_ctx_box,
+    const struct ast_node_hdl *prev_ctx_node,
+    FILE *out)
 {
-    fprintf(out, "%s - %s",
+    char *path_str = NULL;
+    const struct parser_location *loc = NULL;
+    const struct ast_node_hdl *cur_node, *prev_node;
+    int same_tk, same_box, same_node;
+    const char *prefix;
+
+    cur_node =
+        NULL != tk ? tk->dpath.filter :
+        NULL != box ? box->filter : node;
+    prev_node =
+        NULL != prev_ctx_tk ? prev_ctx_tk->dpath.filter :
+        NULL != prev_ctx_box ? prev_ctx_box->filter : prev_ctx_node;
+    same_tk = (tk != NULL && tk == prev_ctx_tk);
+    same_box = (box != NULL && box == prev_ctx_box);
+    same_node = (cur_node != NULL && cur_node == prev_node);
+
+    prefix = (same_tk || same_box || same_node ? "^^^^^^" : ">>>>>>");
+    if (same_tk) {
+        if (NULL != context_msg) {
+            fprintf(out, "^^^^^^ %s\n", context_msg);
+        }
+        return ;
+    }
+    if (NULL != tk && !same_tk) {
+        path_str = tracker_get_abs_dpath_alloc(tk);
+    }
+    if (NULL != box && !same_box) {
+        path_str = box_get_abs_dpath_alloc(box);
+    }
+    if (!same_node) {
+        loc = &cur_node->loc;
+    }
+    if (NULL != path_str) {
+        if (NULL != context_msg) {
+            fprintf(out, "%s %s of:\n%s", prefix, context_msg, path_str);
+        } else {
+            fprintf(out, "%s at %s", prefix, path_str);
+        }
+        free(path_str);
+    } else {
+        if (NULL != context_msg) {
+            fprintf(out, "%s %s", prefix, context_msg);
+        }
+    }
+    if (NULL != loc) {
+        fprintf(out, "%sdefined by:\n",
+                NULL != path_str || NULL != context_msg ? ", " : "");
+        bitpunch_parser_print_location(loc, out);
+    } else {
+        fprintf(out, "\n");
+    }
+}
+
+void
+bitpunch_error_dump_full(struct bitpunch_error *bp_err, FILE *out)
+{
+    int i;
+    struct bitpunch_error_context_info *ctx_info;
+    const struct tracker *prev_ctx_tk;
+    const struct box *prev_ctx_box;
+    const struct ast_node_hdl *prev_ctx_node;
+
+    fprintf(out, "error: %s - %s\n",
             bitpunch_status_pretty(bp_err->bt_ret),
             bp_err->reason);
+    error_dump_context_info(bp_err->tk, bp_err->box, bp_err->node,
+                            NULL, NULL, NULL, NULL, out);
+    prev_ctx_tk = bp_err->tk;
+    prev_ctx_box = bp_err->box;
+    prev_ctx_node = bp_err->node;
+    for (i = 0; i < bp_err->n_contexts; ++i) {
+        ctx_info = &bp_err->contexts[i];
+        error_dump_context_info(
+            ctx_info->tk, ctx_info->box, ctx_info->node,
+            ctx_info->message,
+            prev_ctx_tk, prev_ctx_box, prev_ctx_node,
+            out);
+        prev_ctx_tk = ctx_info->tk;
+        prev_ctx_box = ctx_info->box;
+        prev_ctx_node = ctx_info->node;
+    }
 }
 
 bitpunch_status_t

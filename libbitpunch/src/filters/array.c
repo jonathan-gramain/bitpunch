@@ -211,9 +211,8 @@ compute_item_size__array_const_item_size(struct ast_node_hdl *item_filter,
     bt_ret = expr_evaluate_value_internal(array->item_count, scope,
                                           &item_count, bst);
     if (BITPUNCH_OK != bt_ret) {
-        // FIXME more appropriate context
-        bitpunch_error_add_box_context(
-            scope, bst, "when evaluating array item count expression");
+        bitpunch_error_add_node_context(
+            item_filter, bst, "when evaluating array item count expression");
         return bt_ret;
     }
     //TODO optimize by storing the static size in the filter instance

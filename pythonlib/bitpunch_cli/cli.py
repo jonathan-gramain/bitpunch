@@ -318,6 +318,14 @@ class CLI(NestedCmd):
             except Exception:
                 yield completion_prefix + item + sep + first_key_str + sep_end
 
+    def do_func_with_exceptions(do_func):
+        def do_func_with_exception_handler(*args, **kwargs):
+            try:
+                do_func(*args, **kwargs)
+            except model.DataError, e:
+                err = e.args[0]
+                print err['description']
+        return do_func_with_exception_handler
 
     ### COMMANDS ###
 
@@ -353,6 +361,7 @@ class CLI(NestedCmd):
         else:
             return []
 
+    @do_func_with_exceptions
     def _do_dump_generic(self, args, dump_type, dump_func):
         pargs = self.parse_dump_args('dump {0}'.format(dump_type), args)
         dump_obj = self.board.eval_expr(pargs.expression)
@@ -466,6 +475,7 @@ class CLI(NestedCmd):
         self.board.remove(name)
         self.board.add_spec(name=name, path=os.path.expanduser(path))
 
+    @do_func_with_exceptions
     def do_import(self, args):
         """Import a specification file into the board under a local name
 
@@ -497,6 +507,7 @@ class CLI(NestedCmd):
     def use_spec_from_file(self, path):
         self.board.use_spec(path=os.path.expanduser(path))
 
+    @do_func_with_exceptions
     def do_use(self, args):
         """Import all top-level names from a specification file
 
@@ -542,6 +553,7 @@ class CLI(NestedCmd):
         self.board.forget_spec()
 
 
+    @do_func_with_exceptions
     def do_let(self, args):
         """Attach an expression to a local name
 
@@ -629,6 +641,7 @@ class CLI(NestedCmd):
         self.board.remove(name)
         self.board.add_expr(name, "file {{ @path: '{0}'; }}".format(path))
 
+    @do_func_with_exceptions
     def do_bind(self, args):
         """Bind a local data source file as a local name
 
@@ -658,6 +671,7 @@ class CLI(NestedCmd):
             return self.complete_filename(text[begin:end])
 
 
+    @do_func_with_exceptions
     def do_list(self, args):
 
         """List attributes of an object
@@ -680,6 +694,7 @@ class CLI(NestedCmd):
         return self._complete_expression(text, begin, end, True)
 
 
+    @do_func_with_exceptions
     def do_print(self, args):
         """Print the value of an expression
 
@@ -698,6 +713,7 @@ class CLI(NestedCmd):
         return self._complete_expression(text, begin, end)
 
 
+    @do_func_with_exceptions
     def do_xdump(self, args):
         """Print the raw contents of a dpath expression in hexadecimal + ascii
         format, 16 bytes per line

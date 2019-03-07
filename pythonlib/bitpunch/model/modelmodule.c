@@ -243,6 +243,9 @@ bitpunch_error_get_info_as_PyObject(struct bitpunch_error *err)
     int ctx_i;
     PyObject *info_obj;
     PyObject *contexts_obj;
+    FILE *memstr;
+    char *desc_str;
+    size_t desc_str_len;
 
     errobj = PyDict_New();
     if (NULL == errobj) {
@@ -270,8 +273,8 @@ bitpunch_error_get_info_as_PyObject(struct bitpunch_error *err)
         PyDict_SetItem(errobj, PyString_FromString("node"), info_obj);
     }
     PyDict_SetItem(errobj,
-                   PyString_FromString("message"),
-                   PyString_FromString(err->error_buf));
+                   PyString_FromString("reason"),
+                   PyString_FromString(err->reason));
     if (err->n_contexts == 0) {
         return errobj;
     }
@@ -290,6 +293,17 @@ bitpunch_error_get_info_as_PyObject(struct bitpunch_error *err)
         }
         PyList_SET_ITEM(contexts_obj, ctx_i, context_obj);
     }
+    memstr = open_memstream(&desc_str, &desc_str_len);
+    if (NULL == memstr) {
+        PyErr_SetString(PyExc_OSError, "error opening memory stream");
+        goto err;
+    }
+    bitpunch_error_dump_full(err, memstr);
+    fclose(memstr);
+    PyDict_SetItem(errobj,
+                   PyString_FromString("description"),
+                   PyString_FromStringAndSize(desc_str, desc_str_len));
+    free(desc_str);
     return errobj;
 
   err:
@@ -3905,20 +3919,20 @@ tracker_item_to_shallow_PyObject(BoardObject *dtree,
 static int
 setup_exceptions(PyObject *bitpunch_m)
 {
-    BitpunchExc_NoItemError = PyErr_NewException("bitpunch.NoItemError",
+    BitpunchExc_NoItemError = PyErr_NewException("bitpunch.model.NoItemError",
                                                 NULL, NULL);
     PyModule_AddObject(bitpunch_m, "NoItemError", BitpunchExc_NoItemError);
 
-    BitpunchExc_DataError = PyErr_NewException("bitpunch.DataError",
+    BitpunchExc_DataError = PyErr_NewException("bitpunch.model.DataError",
                                               NULL, NULL);
     PyModule_AddObject(bitpunch_m, "DataError", BitpunchExc_DataError);
 
     BitpunchExc_OutOfBoundsError =
-        PyErr_NewException("bitpunch.OutOfBoundsError", NULL, NULL);
+        PyErr_NewException("bitpunch.model.OutOfBoundsError", NULL, NULL);
     PyModule_AddObject(bitpunch_m, "OutOfBoundsError",
                        BitpunchExc_OutOfBoundsError);
 
-    BitpunchExc_NoDataError = PyErr_NewException("bitpunch.NoDataError",
+    BitpunchExc_NoDataError = PyErr_NewException("bitpunch.model.NoDataError",
                                                  NULL, NULL);
     PyModule_AddObject(bitpunch_m, "NoDataError", BitpunchExc_NoDataError);
     return 0;

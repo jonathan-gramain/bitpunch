@@ -495,7 +495,7 @@ expr_dpath_get_filtered_data(
 /* error reporting */
 
 void
-bitpunch_error_dump(struct bitpunch_error *bp_err, FILE *out);
+bitpunch_error_dump_full(struct bitpunch_error *bp_err, FILE *out);
 
 void
 bitpunch_error_destroy(struct bitpunch_error *bp_err);

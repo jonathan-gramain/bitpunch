@@ -289,6 +289,10 @@ filter_instance_read_value(struct ast_node_hdl *filter,
         bt_ret = f_instance->b_item.compute_item_size(
             filter, scope, item_offset, item_offset + item_size,
             &span_size, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            bitpunch_error_add_node_context(
+                filter, bst, "when computing item size");
+        }
     }
     if (BITPUNCH_OK == bt_ret) {
         memset(&value, 0, sizeof(value));
@@ -302,10 +306,12 @@ filter_instance_read_value(struct ast_node_hdl *filter,
             value.bytes.len = span_size;
         }
     }
-    if (BITPUNCH_OK == bt_ret && NULL != valuep) {
-        *valuep = value;
-    } else {
-        expr_value_destroy(value);
+    if (BITPUNCH_OK == bt_ret) {
+        if (NULL != valuep) {
+            *valuep = value;
+        } else {
+            expr_value_destroy(value);
+        }
     }
     return bt_ret;
 }

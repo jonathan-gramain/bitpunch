@@ -293,3 +293,7 @@ correctly (b_filter is empty)
 - BUG: when compilation of some nodes fail on the board during the
   resolve phase across available names, the compilation state should
   be reinitialized for those nodes.
+
+- TEST: spec with one formatted_integer, invalid data input: xdump
+  should still be able to display its raw form (today it refuses
+  because of a formatted_integer filter error)

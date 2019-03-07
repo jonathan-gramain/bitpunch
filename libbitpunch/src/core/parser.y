@@ -1074,20 +1074,26 @@ size_t
 bitpunch_parser_print_location(const struct parser_location *loc,
                                FILE *out)
 {
+    const struct parser_ctx *parser_ctx;
     const char *schema_end;
     const char *line_start;
     const char *line_end;
 
-    if (NULL == loc->parser_ctx) {
+    parser_ctx = loc->parser_ctx;
+    if (NULL == parser_ctx) {
         return 0;
     }
-    line_start = (loc->parser_ctx->parser_data + loc->end_offset)
+    if (NULL != parser_ctx->parser_filepath) {
+        fprintf(out, "%s:%d:\n",
+                parser_ctx->parser_filepath, loc->last_line);
+    }
+    line_start = (parser_ctx->parser_data + loc->end_offset)
         - loc->last_column;
     schema_end =
-        loc->parser_ctx->parser_data +
-        loc->parser_ctx->parser_data_length;
-    if (0 == loc->parser_ctx->parser_data_length) {
-        line_end = loc->parser_ctx->parser_data;
+        parser_ctx->parser_data +
+        parser_ctx->parser_data_length;
+    if (0 == parser_ctx->parser_data_length) {
+        line_end = parser_ctx->parser_data;
     } else {
         line_end = memchr(line_start, '\n', schema_end - line_start);
         if (NULL == line_end)
@@ -1096,7 +1102,7 @@ bitpunch_parser_print_location(const struct parser_location *loc,
     return fprintf(out, "%.*s\n%*s\n",
                    (int)(line_end - line_start), line_start,
                    (int)(loc->end_offset
-                         - (line_start - loc->parser_ctx->parser_data)),
+                         - (line_start - parser_ctx->parser_data)),
                    "^");
 }
 
@@ -1121,7 +1127,7 @@ void semantic_error(enum semantic_loglevel lvl,
 
     if (NULL != loc && NULL != loc->parser_ctx) {
         if (NULL != loc->parser_ctx->parser_filepath) {
-            fprintf(stderr, "%s in %s at line %d:\n",
+            fprintf(stderr, "%s at %s:%d:\n",
                     semantic_loglevel2str(lvl),
                     loc->parser_ctx->parser_filepath, loc->last_line);
         } else {
