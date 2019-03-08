@@ -67,6 +67,7 @@ formatted_integer_read(struct ast_node_hdl *filter,
                        const char *data, size_t span_size,
                        struct browse_state *bst)
 {
+    static const char *preamble = "invalid formatted integer";
     bitpunch_status_t bt_ret;
     expr_value_t attr_value;
     int base;
@@ -108,8 +109,7 @@ formatted_integer_read(struct ast_node_hdl *filter,
             return bt_ret;
         }
         return node_error(BITPUNCH_DATA_ERROR, filter, bst,
-                          "invalid formatted integer input buffer: "
-                          "empty buffer");
+                          "%s: empty buffer", preamble);
     }
     negative = FALSE;
     in = (const unsigned char *)data;
@@ -119,23 +119,30 @@ formatted_integer_read(struct ast_node_hdl *filter,
         switch (lookup_value) {
         case PLUS_SIGN:
             if (!_signed) {
-                goto invalid;
+                return node_error(
+                    BITPUNCH_DATA_ERROR, filter, bst,
+                    "%s: found an sign but expected unsigned integer",
+                    preamble);
             }
             break ;
         case MINUS_SIGN:
             if (!_signed) {
-                goto invalid;
+                return node_error(
+                    BITPUNCH_DATA_ERROR, filter, bst,
+                    "%s: found an sign but expected unsigned integer",
+                    preamble);
             }
             negative = !negative;
             break ;
         case -1:
-            goto invalid;
+            return node_error(BITPUNCH_DATA_ERROR, filter, bst,
+                              "%s: invalid digit", preamble);
         default:
             goto parse;
         }
     }
-    // no digit
-    goto invalid;
+    return node_error(BITPUNCH_DATA_ERROR, filter, bst,
+                      "%s: no digit found", preamble);
 
   parse:
     parsed_value = 0;
@@ -145,29 +152,27 @@ formatted_integer_read(struct ast_node_hdl *filter,
         case PLUS_SIGN:
         case MINUS_SIGN:
         case -1:
-            goto invalid;
+            return node_error(BITPUNCH_DATA_ERROR, filter, bst,
+                              "%s: invalid digit", preamble);
         default:
             break ;
         }
         if (lookup_value >= base) {
-            goto invalid;
+            return node_error(BITPUNCH_DATA_ERROR, filter, bst,
+                              "%s: digit not in base %d", preamble, base);
         }
         prev_parsed_value = parsed_value;
         parsed_value *= base;
         parsed_value += lookup_value;
         if (parsed_value < prev_parsed_value) {
             return node_error(BITPUNCH_DATA_ERROR, filter, bst,
-                              "unsupported formatted integer in input buffer: "
+                              "unsupported formatted integer: "
                               "overflows a 64-bit signed integer value");
         }
     }
     read_value->type = EXPR_VALUE_TYPE_INTEGER;
     read_value->integer = negative ? -parsed_value : parsed_value;
     return BITPUNCH_OK;
-
-  invalid:
-    return node_error(BITPUNCH_DATA_ERROR, filter, bst,
-                      "invalid formatted integer in input buffer");
 }
 
 static struct filter_instance *
