@@ -2388,6 +2388,12 @@ expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
     }
     }
     browse_state_pop_scope(bst, scope, &scope_storage);
+    if (BITPUNCH_OK != bt_ret) {
+        bitpunch_error_add_node_context(
+            expr, bst,
+            "when evaluating expression of type \"%s\"",
+            ast_node_type_str(expr->ndat->type));
+    }
     return bt_ret;
 }
 

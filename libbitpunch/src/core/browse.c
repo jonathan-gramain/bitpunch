@@ -3370,7 +3370,7 @@ tracker_compute_item_size_internal(struct tracker *tk,
 
     bt_ret = tracker_compute_item_filter_internal(tk, bst);
     if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
+        goto err;
     }
     if (0 != (tk->box->flags & (COMPUTING_SPAN_SIZE |
                                 COMPUTING_SLACK_CHILD_ALLOCATION))) {
@@ -3393,7 +3393,7 @@ tracker_compute_item_size_internal(struct tracker *tk,
                 &max_span_offset, bst);
         }
         if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
+            goto err;
         }
     }
     f_instance = tk->dpath.item->ndat->u.rexpr_filter.f_instance;
@@ -3402,10 +3402,9 @@ tracker_compute_item_size_internal(struct tracker *tk,
             tk->dpath.item, tk->box,
             tk->item_offset, max_span_offset, item_sizep, bst);
         if (BITPUNCH_OK != bt_ret) {
-            bitpunch_error_add_tracker_context(
-                tk, bst, "when computing item size");
+            goto err;
         }
-        return bt_ret;
+        return BITPUNCH_OK;
     }
     if (0 != (tk->dpath.item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
         /* use the whole available slack space */
@@ -3415,7 +3414,15 @@ tracker_compute_item_size_internal(struct tracker *tk,
         assert(*item_sizep >= 0);
         return BITPUNCH_OK;
     }
-    return tracker_compute_item_size__item_box(tk, item_sizep, bst);
+    bt_ret = tracker_compute_item_size__item_box(tk, item_sizep, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        goto err;
+    }
+    return BITPUNCH_OK;
+
+  err:
+    bitpunch_error_add_tracker_context(tk, bst, "when computing item size");
+    return bt_ret;
 }
 
 bitpunch_status_t
@@ -3762,6 +3769,7 @@ bitpunch_error_new(bitpunch_status_t bt_ret,
     struct bitpunch_error *bp_err;
 
     bp_err = new_safe(struct bitpunch_error);
+    bitpunch_error_init(bp_err, bt_ret);
     if (NULL != tk) {
         assert(NULL == box);
         bp_err->tk = tracker_dup_raw(tk);
@@ -3769,7 +3777,6 @@ bitpunch_error_new(bitpunch_status_t bt_ret,
         bp_err->box = box;
         box_acquire(box);
     }
-    bp_err->bt_ret = bt_ret;
     bp_err->node = node;
     if (NULL != message_fmt) {
         bp_err->error_buf_end =
@@ -3780,10 +3787,6 @@ bitpunch_error_new(bitpunch_status_t bt_ret,
             bp_err->error_buf + sizeof (bp_err->error_buf))
             bp_err->error_buf_end =
                 bp_err->error_buf + sizeof (bp_err->error_buf) - 1;
-    } else {
-        strcpy(bp_err->error_buf, bitpunch_status_pretty(bt_ret));
-        bp_err->error_buf_end =
-            bp_err->error_buf + strlen(bp_err->error_buf) + 1;
     }
     bp_err->reason = bp_err->error_buf;
     return bp_err;
@@ -3967,6 +3970,43 @@ node_error(bitpunch_status_t bt_ret,
     return bt_ret;
 }
 
+static const char *
+bitpunch_error_push_message_internal(
+    struct bitpunch_error *bp_err, const char *fmt, va_list args,
+    int new_message)
+{
+    const char *message;
+
+    if (!new_message && bp_err->error_buf_end > bp_err->error_buf) {
+        // remove last message's "\0"
+        bp_err->error_buf_end -= 1;
+    }
+    message = bp_err->error_buf_end;
+    bp_err->error_buf_end += vsnprintf(
+        bp_err->error_buf_end,
+        bp_err->error_buf + sizeof (bp_err->error_buf)
+        - message, fmt, args) + 1;
+
+    if (bp_err->error_buf_end >
+        bp_err->error_buf + sizeof (bp_err->error_buf)) {
+        bp_err->error_buf_end =
+            bp_err->error_buf + sizeof (bp_err->error_buf);
+    }
+    return message;
+}
+
+void
+bitpunch_error_message_append(struct bitpunch_error *bp_err,
+                              const char *message_fmt, ...)
+{
+    va_list message_args;
+
+    va_start(message_args, message_fmt);
+    (void) bitpunch_error_push_message_internal(
+        bp_err, message_fmt, message_args, FALSE);
+    va_end(message_args);
+}
+
 bitpunch_status_t
 box_error_out_of_bounds(struct box *box,
                         const struct ast_node_hdl *node,
@@ -4084,18 +4124,8 @@ bitpunch_error_add_context_internal(struct tracker *tk,
     }
     ctx->node = node;
     if (NULL != context_fmt) {
-        ctx->message = bp_err->error_buf_end;
-        bp_err->error_buf_end += vsnprintf(
-            bp_err->error_buf_end,
-            bp_err->error_buf + sizeof (bp_err->error_buf)
-            - bp_err->error_buf_end,
-            context_fmt, context_args) + 1;
-
-        if (bp_err->error_buf_end >=
-            bp_err->error_buf + sizeof (bp_err->error_buf)) {
-            bp_err->error_buf_end =
-                bp_err->error_buf + sizeof (bp_err->error_buf) - 1;
-        }
+        ctx->message = bitpunch_error_push_message_internal(
+            bp_err, context_fmt, context_args, TRUE);
     }
 }
 

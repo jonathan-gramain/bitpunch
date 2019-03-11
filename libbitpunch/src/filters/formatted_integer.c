@@ -33,8 +33,10 @@
 #define _GNU_SOURCE
 #include <assert.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
 #include "core/filter.h"
+#include "core/print.h"
 
 #define PLUS_SIGN -2
 #define MINUS_SIGN -3
@@ -59,6 +61,42 @@ static const char lookup[256] = {
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
     -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
 };
+
+static bitpunch_status_t
+node_error_with_data_context(
+    struct ast_node_hdl *filter,
+    struct browse_state *bst,
+    const char *data, size_t data_len,
+    const char *fmt,
+    ...)
+{
+    va_list ap;
+    FILE *data_loc_stream;
+    char *data_loc_str;
+    size_t data_loc_str_len;
+
+    if (NULL == bst) {
+        return BITPUNCH_DATA_ERROR;
+    }
+    browse_state_clear_error(bst);
+
+    va_start(ap, fmt);
+    bst->last_error = bitpunch_error_new(
+        BITPUNCH_DATA_ERROR, NULL, NULL, filter, fmt, ap);
+    va_end(ap);
+
+    data_loc_stream = open_memstream(&data_loc_str, &data_loc_str_len);
+    if (NULL == data_loc_stream) {
+        return BITPUNCH_ERROR;
+    }
+    fprintf(data_loc_stream, " when parsing: \"");
+    print_bytes(data, data_len, data_loc_stream, 20);
+    fprintf(data_loc_stream, "\"");
+    fclose(data_loc_stream);
+    bitpunch_error_add_node_context(filter, bst, "%s", data_loc_str);
+    free(data_loc_str);
+    return BITPUNCH_DATA_ERROR;
+}
 
 static bitpunch_status_t
 formatted_integer_read(struct ast_node_hdl *filter,
@@ -108,8 +146,9 @@ formatted_integer_read(struct ast_node_hdl *filter,
         if (BITPUNCH_NO_ITEM != bt_ret) {
             return bt_ret;
         }
-        return node_error(BITPUNCH_DATA_ERROR, filter, bst,
-                          "%s: empty buffer", preamble);
+        return node_error_with_data_context(
+            filter, bst, data, span_size,
+            "%s: empty buffer", preamble);
     }
     negative = FALSE;
     in = (const unsigned char *)data;
@@ -119,30 +158,32 @@ formatted_integer_read(struct ast_node_hdl *filter,
         switch (lookup_value) {
         case PLUS_SIGN:
             if (!_signed) {
-                return node_error(
-                    BITPUNCH_DATA_ERROR, filter, bst,
-                    "%s: found an sign but expected unsigned integer",
+                return node_error_with_data_context(
+                    filter, bst, data, span_size,
+                    "%s: found a sign but expected unsigned integer",
                     preamble);
             }
             break ;
         case MINUS_SIGN:
             if (!_signed) {
-                return node_error(
-                    BITPUNCH_DATA_ERROR, filter, bst,
-                    "%s: found an sign but expected unsigned integer",
+                return node_error_with_data_context(
+                    filter, bst, data, span_size,
+                    "%s: found a sign but expected unsigned integer",
                     preamble);
             }
             negative = !negative;
             break ;
         case -1:
-            return node_error(BITPUNCH_DATA_ERROR, filter, bst,
-                              "%s: invalid digit", preamble);
+            return node_error_with_data_context(
+                filter, bst, data, span_size,
+                "%s: invalid digit", preamble);
         default:
             goto parse;
         }
     }
-    return node_error(BITPUNCH_DATA_ERROR, filter, bst,
-                      "%s: no digit found", preamble);
+    return node_error_with_data_context(
+        filter, bst, data, span_size,
+        "%s: no digit found", preamble);
 
   parse:
     parsed_value = 0;
@@ -152,22 +193,25 @@ formatted_integer_read(struct ast_node_hdl *filter,
         case PLUS_SIGN:
         case MINUS_SIGN:
         case -1:
-            return node_error(BITPUNCH_DATA_ERROR, filter, bst,
-                              "%s: invalid digit", preamble);
+            return node_error_with_data_context(
+                filter, bst, data, span_size,
+                "%s: invalid digit", preamble);
         default:
             break ;
         }
         if (lookup_value >= base) {
-            return node_error(BITPUNCH_DATA_ERROR, filter, bst,
-                              "%s: digit not in base %d", preamble, base);
+            return node_error_with_data_context(
+                filter, bst, data, span_size,
+                "%s: digit not in base %d", preamble, base);
         }
         prev_parsed_value = parsed_value;
         parsed_value *= base;
         parsed_value += lookup_value;
         if (parsed_value < prev_parsed_value) {
-            return node_error(BITPUNCH_DATA_ERROR, filter, bst,
-                              "unsupported formatted integer: "
-                              "overflows a 64-bit signed integer value");
+            return node_error_with_data_context(
+                filter, bst, data, span_size,
+                "unsupported formatted integer: "
+                "overflows a 64-bit signed integer value");
         }
     }
     read_value->type = EXPR_VALUE_TYPE_INTEGER;

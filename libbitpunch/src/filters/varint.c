@@ -65,6 +65,7 @@ compute_item_size__varint(struct ast_node_hdl *filter,
         }
     }
     // invalid varint
+    // FIXME add context
     return BITPUNCH_DATA_ERROR;
 }
 
@@ -88,6 +89,7 @@ varint_read__little_endian(
     }
     if (bytepos == span_size) {
         // invalid varint
+        // FIXME add context
         return BITPUNCH_DATA_ERROR;
     }
     // zigzag encoding
@@ -114,6 +116,7 @@ varint_read__big_endian(
     }
     if (bytepos == span_size) {
         // invalid varint
+        // FIXME add context
         return BITPUNCH_DATA_ERROR;
     }
     // zigzag encoding

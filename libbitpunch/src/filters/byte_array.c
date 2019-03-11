@@ -68,21 +68,21 @@ compute_item_size__byte_array_var_size(
     bt_ret = expr_evaluate_value_internal(
         array->item_count, scope, &byte_count, bst);
     if (BITPUNCH_OK != bt_ret) {
-        // FIXME more appropriate context
-        bitpunch_error_add_box_context(
-            scope, bst, "when evaluating byte array size expression");
+        bitpunch_error_add_node_context(
+            array->item_count, bst,
+            "when evaluating byte array size expression");
         return bt_ret;
     }
     if (EXPR_VALUE_TYPE_INTEGER != byte_count.type) {
-        return box_error(
-            BITPUNCH_DATA_ERROR, scope, array->item_count, bst,
+        return node_error(
+            BITPUNCH_DATA_ERROR, array->item_count, bst,
             "evaluation of byte array size returned a value-type "
             "'%s', expect an integer",
             expr_value_type_str(byte_count.type));
     }
     if (byte_count.integer < 0) {
-        return box_error(
-            BITPUNCH_DATA_ERROR, scope, array->item_count, bst,
+        return node_error(
+            BITPUNCH_DATA_ERROR, array->item_count, bst,
             "evaluation of byte array size gives negative value (%"PRIi64")",
             byte_count.integer);
     }

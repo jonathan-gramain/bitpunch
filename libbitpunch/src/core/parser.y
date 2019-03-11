@@ -1231,10 +1231,10 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_REXPR_OP_MEMBER: return "operator 'member of'";
     case AST_NODE_TYPE_OP_SCOPE:
     case AST_NODE_TYPE_REXPR_OP_SCOPE: return "operator 'scope'";
-    case AST_NODE_TYPE_REXPR_FIELD: return "field expression";
+    case AST_NODE_TYPE_REXPR_FIELD: return "field value";
     case AST_NODE_TYPE_REXPR_NAMED_EXPR: return "named expression";
-    case AST_NODE_TYPE_REXPR_POLYMORPHIC: return "polymorphic";
-    case AST_NODE_TYPE_REXPR_BUILTIN: return "builtin expression";
+    case AST_NODE_TYPE_REXPR_POLYMORPHIC: return "polymorphic value";
+    case AST_NODE_TYPE_REXPR_BUILTIN: return "builtin function";
     }
     return "!!bad value type!!";
 }

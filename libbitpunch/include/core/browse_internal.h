@@ -491,6 +491,9 @@ node_error(bitpunch_status_t bt_ret,
            struct browse_state *bst,
            const char *message_fmt, ...)
     __attribute__((format(printf, 4, 5)));
+void
+bitpunch_error_message_append(struct bitpunch_error *bp_err,
+                              const char *message_fmt, ...);
 bitpunch_status_t
 box_error_out_of_bounds(struct box *box,
                         const struct ast_node_hdl *node,
