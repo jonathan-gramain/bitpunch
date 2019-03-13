@@ -70,10 +70,13 @@ compile_span_size_composite(struct ast_node_hdl *item,
     struct named_expr *attr;
     struct ast_node_hdl *min_span_expr;
     struct ast_node_hdl *max_span_expr;
+    int new_min_span_expr;
     const struct statement_list *field_list;
     struct field *field;
     struct ast_node_hdl_array field_items;
     struct ast_node_hdl *field_item;
+    int64_t hard_min_span_size;
+    int64_t user_min_span_size;
     int64_t min_span_size;
     int var_span;
     int var_used;
@@ -83,7 +86,9 @@ compile_span_size_composite(struct ast_node_hdl *item,
     int child_conditionally_spreads_slack;
     int child_fills_slack;
     int child_conditionally_fills_slack;
+    struct field *last_slack_field;
     struct field *first_trailer_field;
+    enum field_flag field_flags;
     bitpunch_status_t bt_ret;
 
     /* - Compute the minimum span size from the sum (struct) or
@@ -97,7 +102,6 @@ compile_span_size_composite(struct ast_node_hdl *item,
        the minimum
     */
 
-    min_span_size = 0;
     var_span = FALSE;
     var_used = FALSE;
     contains_last_attr = FALSE;
@@ -116,11 +120,14 @@ compile_span_size_composite(struct ast_node_hdl *item,
     }
     min_span_expr = NULL;
     max_span_expr = NULL;
+    user_min_span_size = 0;
     STATEMENT_FOREACH(
         named_expr, attr, scope_def->block_stmt_list.attribute_list, list) {
+        new_min_span_expr = FALSE;
         if (0 == strcmp(attr->nstmt.name, "@minspan")) {
             if (NULL == attr->nstmt.stmt.cond) {
                 min_span_expr = attr->expr;
+                new_min_span_expr = TRUE;
             }
             var_span = TRUE;
         } else if (0 == strcmp(attr->nstmt.name, "@maxspan")) {
@@ -132,14 +139,29 @@ compile_span_size_composite(struct ast_node_hdl *item,
             if (NULL == attr->nstmt.stmt.cond) {
                 min_span_expr = attr->expr;
                 max_span_expr = attr->expr;
+                new_min_span_expr = TRUE;
             } else {
                 var_span = TRUE;
             }
         } else if (0 == strcmp(attr->nstmt.name, "@last")) {
             contains_last_attr = TRUE;
         }
+        if (new_min_span_expr) {
+            assert(EXPR_VALUE_TYPE_INTEGER
+                   == min_span_expr->ndat->u.rexpr.value_type_mask);
+            if (AST_NODE_TYPE_REXPR_NATIVE == min_span_expr->ndat->type) {
+
+                user_min_span_size = MAX(
+                    user_min_span_size,
+                    min_span_expr->ndat->u.rexpr_native.value.integer);
+            } else {
+                var_span = TRUE;
+            }
+        }
     }
+    last_slack_field = NULL;
     first_trailer_field = NULL;
+    hard_min_span_size = 0;
     STATEMENT_FOREACH(field, field, field_list, list) {
         bt_ret = ast_node_filter_get_items(field->filter, &field_items);
         if (BITPUNCH_OK != bt_ret) {
@@ -157,10 +179,10 @@ compile_span_size_composite(struct ast_node_hdl *item,
                 /* only update min span size if field is not conditional */
                 assert(SPAN_SIZE_UNDEF != field_item->ndat->u.item.min_span_size);
                 if (COMPOSITE_TYPE_UNION == composite->type) {
-                    min_span_size = MAX(min_span_size,
+                    hard_min_span_size = MAX(hard_min_span_size,
                                         field_item->ndat->u.item.min_span_size);
                 } else /* struct */ {
-                    min_span_size += field_item->ndat->u.item.min_span_size;
+                    hard_min_span_size += field_item->ndat->u.item.min_span_size;
                 }
             } else {
                 // if at least one conditional field is present, the
@@ -175,6 +197,7 @@ compile_span_size_composite(struct ast_node_hdl *item,
                     child_conditionally_spreads_slack = TRUE;
                 } else {
                     child_spreads_slack = TRUE;
+                    last_slack_field = field;
                 }
             }
             if (0 != (field_item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
@@ -209,7 +232,9 @@ compile_span_size_composite(struct ast_node_hdl *item,
         }
         ast_node_hdl_array_destroy(&field_items);
     }
-    if (child_spreads_slack) {
+    if (child_spreads_slack ||
+        child_conditionally_spreads_slack) {
+        field_flags = FIELD_FLAG_HEADER;
         STATEMENT_FOREACH(field, field, field_list, list) {
             bt_ret = ast_node_filter_get_items(field->filter, &field_items);
             if (BITPUNCH_OK != bt_ret) {
@@ -217,49 +242,29 @@ compile_span_size_composite(struct ast_node_hdl *item,
             }
             field_item = ARRAY_ITEM(&field_items, 0);
             ast_node_hdl_array_destroy(&field_items);
-            if (0 == (field_item->ndat->u.item.flags
+            if (0 != (field_item->ndat->u.item.flags
                       & (ITEMFLAG_SPREADS_SLACK |
                          ITEMFLAG_CONDITIONALLY_SPREADS_SLACK))) {
-                field->nstmt.stmt.stmt_flags |= FIELD_FLAG_HEADER;
-            } else {
-                break ;
+                field_flags &= ~FIELD_FLAG_HEADER;
             }
+            if (field == last_slack_field) {
+                field_item->ndat->u.item.flags |= ITEMFLAG_FILLS_SLACK;
+            }
+            if (field == first_trailer_field) {
+                field_flags |= FIELD_FLAG_TRAILER;
+            }
+            field->nstmt.stmt.stmt_flags |= field_flags;
         }
     }
-    for (field = first_trailer_field;
-         NULL != field;
-         field = (struct field *)
-             TAILQ_NEXT((struct statement *)field, list)) {
-        field->nstmt.stmt.stmt_flags |= FIELD_FLAG_TRAILER;
-    }
-    if (NULL != min_span_expr) {
-        assert(EXPR_VALUE_TYPE_INTEGER
-               == min_span_expr->ndat->u.rexpr.value_type_mask);
-        if (AST_NODE_TYPE_REXPR_NATIVE == min_span_expr->ndat->type) {
-            int64_t user_min_span_size;
-
-            user_min_span_size = min_span_expr->ndat->u.rexpr_native.value.integer;
-            if (user_min_span_size < min_span_size) {
-                semantic_error(SEMANTIC_LOGLEVEL_ERROR,
-                               &min_span_expr->loc,
-                               "declared min span size too small to "
-                               "hold all contained fields (requires %"
-                               PRIi64" bytes but only spans %"PRIi64")",
-                               min_span_size, user_min_span_size);
-                return -1;
-            }
-            min_span_size = user_min_span_size;
-        } else {
-            var_span = TRUE;
-        }
-    }
+    min_span_size = MAX(hard_min_span_size, user_min_span_size);
     if (NULL != max_span_expr) {
         assert(EXPR_VALUE_TYPE_INTEGER
                == max_span_expr->ndat->u.rexpr.value_type_mask);
         if (AST_NODE_TYPE_REXPR_NATIVE == max_span_expr->ndat->type) {
             int64_t user_max_span_size;
 
-            user_max_span_size = max_span_expr->ndat->u.rexpr_native.value.integer;
+            user_max_span_size =
+                max_span_expr->ndat->u.rexpr_native.value.integer;
             if (user_max_span_size < min_span_size) {
                 semantic_error(SEMANTIC_LOGLEVEL_ERROR,
                                &max_span_expr->loc,
@@ -297,10 +302,15 @@ compile_span_size_composite(struct ast_node_hdl *item,
         } else if (child_conditionally_spreads_slack) {
             item->ndat->u.item.flags |= ITEMFLAG_CONDITIONALLY_SPREADS_SLACK;
         }
-        if (child_fills_slack) {
-            item->ndat->u.item.flags |= ITEMFLAG_FILLS_SLACK;
-        } else if (child_conditionally_fills_slack) {
-            item->ndat->u.item.flags |= ITEMFLAG_CONDITIONALLY_FILLS_SLACK;
+        // if @minspan is set, children (especially arrays) may query
+        // for space that is not available, hence not filling the
+        // slack space entirely.
+        if (NULL == min_span_expr) {
+            if (child_fills_slack) {
+                item->ndat->u.item.flags |= ITEMFLAG_FILLS_SLACK;
+            } else if (child_conditionally_fills_slack) {
+                item->ndat->u.item.flags |= ITEMFLAG_CONDITIONALLY_FILLS_SLACK;
+            }
         }
     }
     item->ndat->u.item.min_span_size = min_span_size;
@@ -317,7 +327,7 @@ compile_span_size_composite(struct ast_node_hdl *item,
 }
 
 static bitpunch_status_t
-box_compute_span_size__struct(struct box *box,
+box_compute_used_size__struct(struct box *box,
                               struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
@@ -338,10 +348,10 @@ box_compute_span_size__struct(struct box *box,
         assert(-1 != tk->item_offset);
         if (0 != (box->flags & BOX_RALIGN)) {
             bt_ret = box_set_start_offset(tk->box, tk->item_offset,
-                                          BOX_START_OFFSET_SPAN, bst);
+                                          BOX_START_OFFSET_USED, bst);
         } else {
             bt_ret = box_set_end_offset(tk->box, tk->item_offset,
-                                        BOX_END_OFFSET_SPAN, bst);
+                                        BOX_END_OFFSET_USED, bst);
         }
     }
     tracker_delete(tk);
@@ -349,7 +359,7 @@ box_compute_span_size__struct(struct box *box,
 }
 
 static bitpunch_status_t
-box_compute_span_size__union_var_size(struct box *box,
+box_compute_used_size__union_var_size(struct box *box,
                                       struct browse_state *bst)
 {
     struct tracker *tk;
@@ -373,7 +383,7 @@ box_compute_span_size__union_var_size(struct box *box,
         bt_ret = tracker_goto_next_field_internal(tk, TRUE, bst);
     }
     if (BITPUNCH_NO_ITEM == bt_ret) {
-        bt_ret = box_set_span_size(box, max_subitem_size, bst);
+        bt_ret = box_set_used_size(box, max_subitem_size, bst);
     }
     tracker_delete(tk);
     return bt_ret;
@@ -435,37 +445,42 @@ compile_node_backends__box__composite(struct ast_node_hdl *item)
     composite = (struct filter_instance_composite *)
         item->ndat->u.rexpr_filter.f_instance;
 
-    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
-        b_box->compute_span_size = box_compute_span_size__const_size;
-    } else if (0 != (item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
-        b_box->compute_span_size = box_compute_span_size__as_max_span;
-    } else if (COMPOSITE_TYPE_STRUCT == composite->type) {
-        b_box->compute_span_size = box_compute_span_size__struct;
-    } else /* union */ {
-        b_box->compute_span_size = box_compute_span_size__union_var_size;
+    if (NULL != filter_get_first_declared_attribute(item, "@span")) {
+        b_box->compute_span_size = box_compute_span_size__span_expr;
+    } else {
+        b_box->compute_span_size = box_compute_span_size__as_used;
     }
     if (NULL != filter_get_first_declared_attribute(item, "@span") ||
-        NULL != filter_get_first_declared_attribute(item, "@minspan") ||
-        NULL != filter_get_first_declared_attribute(item, "@maxspan")) {
+        NULL != filter_get_first_declared_attribute(item, "@minspan")) {
         b_box->compute_min_span_size = box_compute_min_span_size__span_expr;
-        b_box->compute_max_span_size = box_compute_max_span_size__span_expr;
     } else {
-        b_box->compute_min_span_size =
-            box_compute_min_span_size__as_hard_min;
-        if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
-            b_box->compute_max_span_size =
-                box_compute_max_span_size__as_span;
-        } else {
-            b_box->compute_max_span_size =
-                box_compute_max_span_size__as_slack;
-        }
+        b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
+    }
+
+    if (NULL != filter_get_first_declared_attribute(item, "@span") ||
+        NULL != filter_get_first_declared_attribute(item, "@maxspan")) {
+        b_box->compute_max_span_size = box_compute_max_span_size__span_expr;
+    } else if (0 == (item->ndat->u.item.flags
+                     & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
+        b_box->compute_max_span_size = box_compute_max_span_size__as_span;
+    } else {
+        b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
     }
     if (COMPOSITE_TYPE_STRUCT == composite->type) {
         b_box->get_slack_child_allocation =
             box_get_slack_child_allocation__struct;
     }
     b_box->get_n_items = box_get_n_items__scope;
-    b_box->compute_used_size = box_compute_used_size__as_span;
+
+    if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
+        b_box->compute_used_size = box_compute_used_size__const_size;
+    } else if (0 != (item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
+        b_box->compute_used_size = box_compute_used_size__as_max_span;
+    } else if (COMPOSITE_TYPE_STRUCT == composite->type) {
+        b_box->compute_used_size = box_compute_used_size__struct;
+    } else /* union */ {
+        b_box->compute_used_size = box_compute_used_size__union_var_size;
+    }
 }
 
 

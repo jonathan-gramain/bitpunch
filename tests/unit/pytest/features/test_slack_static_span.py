@@ -461,9 +461,6 @@ data_static_minmaxspan_and_subblocks = """
 00
 02   01 01
 00
-00
-00
-00
 01   01
 # end of BigBlock #1
 04 02 02 02 02
@@ -501,34 +498,35 @@ data_static_minmaxspan_and_subblocks = """
         'data': data_static_minspan_and_subblocks,
         'block_counts': [0, 1, 0, 0]
     }, { 
-        # set @minspan to 1 in blocks, because they can potentially be
-        # 0 bytes otherwise, leaving an ambiguous situation
+        # slack arrays can only have items with strictly positive span
+        # size, so @minspan can be 0
         'spec': spec_static_span_template.format(
-            span_huge='@minspan: 1; @maxspan: 100;',
-            span_big='@minspan: 1; @maxspan: 30;',
-            span_avg='@minspan: 1; @maxspan: 10;',
-            span_small='@minspan: 1; @maxspan: 3;'),
+            span_huge='@minspan: 0; @maxspan: 100;',
+            span_big='@minspan: 0; @maxspan: 30;',
+            span_avg='@minspan: 0; @maxspan: 10;',
+            span_small='@minspan: 0; @maxspan: 3;'),
         'data': data_static_maxspan_and_subblocks,
         'block_counts': [1, 0, 0, 0]
     }, {
         'spec': spec_static_span_template.format(
             span_huge='@minspan: 90; @maxspan: 110;',
-            span_big='@minspan: 26; @maxspan: 34;',
-            span_avg='@minspan: 9; @maxspan: 11;',
+            span_big='@minspan: 26; @maxspan: 28;',
+            span_avg='@minspan: 8; @maxspan: 9;',
             span_small='@minspan: 3; @maxspan: 3;'),
         'data': data_static_minmaxspan_and_subblocks,
         'block_counts': [0, 2, 1, 1]
     }
     ])
-def params_subblocks(request):
+def params_slack_static_span_and_subblocks(request):
     return conftest.make_testcase(request.param)
 
 
 
-def test_slack_static_span(params_subblocks):
+def test_slack_static_span_and_subblocks(
+        params_slack_static_span_and_subblocks):
     import sys
     #model.enable_debug_mode()
-    params = params_subblocks
+    params = params_slack_static_span_and_subblocks
     dtree, block_counts = params['dtree'], params['block_counts']
 
     cur_offset = 0

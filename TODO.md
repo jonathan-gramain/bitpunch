@@ -297,3 +297,7 @@ correctly (b_filter is empty)
 - TEST: spec with one formatted_integer, invalid data input: xdump
   should still be able to display its raw form (today it refuses
   because of a formatted_integer filter error)
+
+- TEST: add a test similar to test_slack_static_span, with a byte
+  array having a minspan attribute (suspecting issue with
+  ITEMFLAG_FILLS_SLACK being set erroneously)

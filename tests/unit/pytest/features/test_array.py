@@ -107,6 +107,19 @@ let Schema = struct {
 
 """
 
+spec_file_array_bytes_as_integers_explicit = """
+
+let u8 = byte <> integer { @signed: false; };
+
+let Schema = struct {
+    integers: array {
+        @item: u8;
+        @length: 10;
+    };
+};
+
+"""
+
 data_file_array_bytes_as_integers = """
 00 01 02 03 04 05 06 07 08 09
 """
@@ -144,6 +157,9 @@ data_file_array_bytes_as_integers_filtered = """
         'data': data_file_array_bytes_as_integers,
     }, {
         'spec': spec_file_array_bytes_as_integers_2,
+        'data': data_file_array_bytes_as_integers,
+    }, {
+        'spec': spec_file_array_bytes_as_integers_explicit,
         'data': data_file_array_bytes_as_integers,
     }, {
         'spec': spec_file_array_bytes_as_integers_filtered_1,

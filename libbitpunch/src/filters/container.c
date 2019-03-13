@@ -38,7 +38,7 @@
 #include "filters/container.h"
 
 bitpunch_status_t
-box_compute_span_size__packed_var_size(struct box *box,
+box_compute_used_size__packed_var_size(struct box *box,
                                        struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
@@ -59,10 +59,10 @@ box_compute_span_size__packed_var_size(struct box *box,
         assert(-1 != tk->item_offset);
         if (0 != (box->flags & BOX_RALIGN)) {
             bt_ret = box_set_start_offset(tk->box, tk->item_offset,
-                                          BOX_START_OFFSET_SPAN, bst);
+                                          BOX_START_OFFSET_USED, bst);
         } else {
             bt_ret = box_set_end_offset(tk->box, tk->item_offset,
-                                        BOX_END_OFFSET_SPAN, bst);
+                                        BOX_END_OFFSET_USED, bst);
         }
     }
     tracker_delete(tk);

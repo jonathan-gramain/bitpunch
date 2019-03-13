@@ -91,7 +91,7 @@ compute_item_size__byte_array_var_size(
 }
 
 static bitpunch_status_t
-box_compute_span_size__byte_array_var_size(
+box_compute_used_size__byte_array_var_size(
     struct box *box, struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
@@ -102,7 +102,7 @@ box_compute_span_size__byte_array_var_size(
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    return box_set_span_size(box, used_size, bst);
+    return box_set_used_size(box, used_size, bst);
 }
 
 static bitpunch_status_t
@@ -251,15 +251,16 @@ compile_node_backends__box__byte_array(struct ast_node_hdl *item)
     b_box->init = byte_array_box_init;
     b_box->destroy = byte_array_box_destroy;
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
+    b_box->compute_span_size = box_compute_span_size__as_used;
     if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
-        b_box->compute_span_size = box_compute_span_size__const_size;
+        b_box->compute_used_size = box_compute_used_size__const_size;
         b_box->compute_max_span_size = box_compute_max_span_size__as_span;
     } else {
         if (0 != (item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
-            b_box->compute_span_size = box_compute_span_size__as_max_span;
+            b_box->compute_used_size = box_compute_used_size__as_max_span;
         } else {
-            b_box->compute_span_size =
-                box_compute_span_size__byte_array_var_size;
+            b_box->compute_used_size =
+                box_compute_used_size__byte_array_var_size;
         }
         b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
     }
@@ -268,7 +269,6 @@ compile_node_backends__box__byte_array(struct ast_node_hdl *item)
     } else {
         b_box->get_n_items = box_get_n_items__byte_array_slack;
     }
-    b_box->compute_used_size = box_compute_used_size__as_span;
 }
 
 static void

@@ -87,10 +87,10 @@ compile_node_backends__box__byte(struct ast_node_hdl *item)
     memset(b_box, 0, sizeof (*b_box));
 
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
-    b_box->compute_span_size = box_compute_span_size__const_size;
+    b_box->compute_span_size = box_compute_span_size__as_used;
     b_box->compute_max_span_size = box_compute_max_span_size__as_span;
     b_box->get_n_items = box_get_n_items__byte;
-    b_box->compute_used_size = box_compute_used_size__as_span;
+    b_box->compute_used_size = box_compute_used_size__const_size;
 }
 
 

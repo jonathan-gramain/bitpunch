@@ -394,6 +394,11 @@ box_check_start_offset(struct box *box, int64_t start_offset,
                        enum box_offset_type type,
                        struct browse_state *bst)
 {
+    if (0 == (box->flags & BOX_OVERLAY) && type == BOX_END_OFFSET_USED) {
+        // used offsets are at the discretion of the box filter
+        // (provided they stay within their output data source)
+        return BITPUNCH_OK;
+    }
     switch (type) {
     case BOX_START_OFFSET_HARD_MIN:
         if (box->start_offset_min_span >= 0) {
@@ -407,6 +412,16 @@ box_check_start_offset(struct box *box, int64_t start_offset,
         }
         /*FALLTHROUGH*/
     case BOX_START_OFFSET_MIN_SPAN:
+        if (0 != (box->flags & BOX_OVERLAY) && box->start_offset_used >= 0) {
+            if (start_offset < box->start_offset_used) {
+                return box_error_out_of_bounds(box, NULL, type,
+                                               start_offset,
+                                               BOX_START_OFFSET_USED, bst);
+            }
+            break ;
+        }
+        /*FALLTHROUGH*/
+    case BOX_START_OFFSET_USED:
         if (box->start_offset_span >= 0) {
             if (start_offset < box->start_offset_span) {
                 return box_error_out_of_bounds(box, NULL, type,
@@ -439,7 +454,6 @@ box_check_start_offset(struct box *box, int64_t start_offset,
         /*FALLTHROUGH*/
     case BOX_START_OFFSET_PARENT:
     case BOX_START_OFFSET_MAX_SPAN:
-    case BOX_START_OFFSET_USED:
         break ;
     default:
         assert(0);
@@ -468,6 +482,16 @@ box_check_start_offset(struct box *box, int64_t start_offset,
         }
         /*FALLTHROUGH*/
     case BOX_START_OFFSET_SPAN:
+        if (0 != (box->flags & BOX_OVERLAY) && box->start_offset_used >= 0) {
+            if (start_offset > box->start_offset_used) {
+                return box_error_out_of_bounds(box, NULL, type,
+                                               start_offset,
+                                               BOX_START_OFFSET_USED, bst);
+            }
+            break ;
+        }
+        /*FALLTHROUGH*/
+    case BOX_START_OFFSET_USED:
         if (box->start_offset_min_span >= 0) {
             if (start_offset > box->start_offset_min_span) {
                 return box_error_out_of_bounds(box, NULL, type,
@@ -485,7 +509,6 @@ box_check_start_offset(struct box *box, int64_t start_offset,
         }
         /*FALLTHROUGH*/
     case BOX_START_OFFSET_HARD_MIN:
-    case BOX_START_OFFSET_USED:
         break ;
     default:
         assert(0);
@@ -499,6 +522,11 @@ box_check_end_offset(struct box *box, int64_t end_offset,
                      enum box_offset_type type,
                      struct browse_state *bst)
 {
+    if (0 == (box->flags & BOX_OVERLAY) && type == BOX_END_OFFSET_USED) {
+        // used offsets are at the discretion of the box filter
+        // (provided they stay within their output data source)
+        return BITPUNCH_OK;
+    }
     switch (type) {
     case BOX_END_OFFSET_HARD_MIN:
         if (box->end_offset_min_span >= 0) {
@@ -511,6 +539,16 @@ box_check_end_offset(struct box *box, int64_t end_offset,
         }
         /*FALLTHROUGH*/
     case BOX_END_OFFSET_MIN_SPAN:
+        if (0 != (box->flags & BOX_OVERLAY) && box->end_offset_used >= 0) {
+            if (end_offset > box->end_offset_used) {
+                return box_error_out_of_bounds(box, NULL, type,
+                                               end_offset,
+                                               BOX_END_OFFSET_USED, bst);
+            }
+            break ;
+        }
+        /*FALLTHROUGH*/
+    case BOX_END_OFFSET_USED:
         if (box->end_offset_span >= 0) {
             if (end_offset > box->end_offset_span) {
                 return box_error_out_of_bounds(box, NULL, type,
@@ -544,10 +582,6 @@ box_check_end_offset(struct box *box, int64_t end_offset,
     case BOX_END_OFFSET_PARENT:
     case BOX_END_OFFSET_MAX_SPAN:
         break ;
-    case BOX_END_OFFSET_USED:
-        // used offsets are at the discretion of the box filter
-        // (provided they stay within their output data source)
-        break ;
     default:
         assert(0);
     }
@@ -575,6 +609,16 @@ box_check_end_offset(struct box *box, int64_t end_offset,
         }
         /*FALLTHROUGH*/
     case BOX_END_OFFSET_SPAN:
+        if (0 != (box->flags & BOX_OVERLAY) && box->end_offset_used >= 0) {
+            if (end_offset < box->end_offset_used) {
+                return box_error_out_of_bounds(box, NULL, type,
+                                               end_offset,
+                                               BOX_END_OFFSET_USED, bst);
+            }
+            break ;
+        }
+        /*FALLTHROUGH*/
+    case BOX_END_OFFSET_USED:
         if (box->end_offset_min_span >= 0) {
             if (end_offset < box->end_offset_min_span) {
                 return box_error_out_of_bounds(box, NULL, type,
@@ -592,10 +636,6 @@ box_check_end_offset(struct box *box, int64_t end_offset,
         }
         /*FALLTHROUGH*/
     case BOX_END_OFFSET_HARD_MIN:
-        break ;
-    case BOX_END_OFFSET_USED:
-        // used offsets are at the discretion of the box filter
-        // (provided they stay within their output data source)
         break ;
     default:
         assert(0);
@@ -3074,10 +3114,12 @@ tracker_set_item_offset_at_box(struct tracker *tk,
 {
     int tracker_is_reversed;
     int box_is_ralign;
+    int box_is_overlay;
     bitpunch_status_t bt_ret;
 
     tracker_is_reversed = 0 != (tk->flags & TRACKER_REVERSED);
     box_is_ralign = 0 != (box->flags & BOX_RALIGN);
+    box_is_overlay = 0 != (box->flags & BOX_OVERLAY);
 
     bt_ret = box_apply_parent_filter_internal(box, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -3091,11 +3133,13 @@ tracker_set_item_offset_at_box(struct tracker *tk,
     }
     if (tracker_is_reversed) {
         tk->item_offset = box_get_known_end_offset_mask(
-            box, (BOX_END_OFFSET_SPAN |
+            box, ((box_is_overlay ? BOX_END_OFFSET_USED : 0u) |
+                  BOX_END_OFFSET_SPAN |
                   BOX_END_OFFSET_MAX_SPAN));
     } else {
         tk->item_offset = box_get_known_start_offset_mask(
-            box, (BOX_START_OFFSET_SPAN |
+            box, ((box_is_overlay ? BOX_START_OFFSET_USED : 0u) |
+                  BOX_START_OFFSET_SPAN |
                   BOX_START_OFFSET_MAX_SPAN));
     }
     assert(-1 != tk->item_offset);

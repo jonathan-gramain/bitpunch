@@ -35,7 +35,7 @@
 #include "filters/item.h"
   
 bitpunch_status_t
-box_compute_span_size__packed_var_size(struct box *box,
+box_compute_used_size__packed_var_size(struct box *box,
                                        struct browse_state *bst);
 
 #endif

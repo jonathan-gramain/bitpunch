@@ -39,11 +39,11 @@
 #include "filters/item.h"
 
 bitpunch_status_t
-box_compute_span_size__const_size(struct box *box,
-                                   struct browse_state *bst)
+box_compute_used_size__const_size(struct box *box,
+                                  struct browse_state *bst)
 {
     DBG_BOX_DUMP(box);
-    return box_set_span_size(box, box->filter->ndat->u.item.min_span_size, bst);
+    return box_set_used_size(box, box->filter->ndat->u.item.min_span_size, bst);
 }
 
 
@@ -99,7 +99,7 @@ box_compute_span_size__as_slack(struct box *box,
 }
 
 bitpunch_status_t
-box_compute_span_size__as_max_span(struct box *box,
+box_compute_used_size__as_max_span(struct box *box,
                                    struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
@@ -113,7 +113,7 @@ box_compute_span_size__as_max_span(struct box *box,
     }
     return box_set_size(box, box->end_offset_max_span
                         - box->start_offset_max_span,
-                        BOX_SIZE_SPAN, bst);
+                        BOX_SIZE_USED, bst);
 }
 
 bitpunch_status_t
@@ -138,6 +138,53 @@ box_compute_span_size__from_item_size(struct box *box,
         return bt_ret;
     }
     return box_set_size(box, span_size, BOX_SIZE_SPAN, bst);
+}
+
+bitpunch_status_t
+box_compute_span_size__span_expr(struct box *box,
+                                 struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    const struct named_expr *span_stmt;
+    expr_value_t span_size;
+
+    DBG_BOX_DUMP(box);
+    bt_ret = filter_evaluate_attribute_internal(
+        box->filter, box, "@span", &span_stmt, &span_size, NULL, bst);
+    switch (bt_ret) {
+    case BITPUNCH_OK:
+        break ;
+    case BITPUNCH_NO_ITEM:
+        // no variable span enabled by conditional: span is the
+        // used size
+        return box_compute_span_size__as_used(box, bst);
+    default:
+        return bt_ret;
+    }
+    /* TODO: show data path info in errors */
+    if (span_size.integer < 0) {
+        return box_error(BITPUNCH_DATA_ERROR, box, span_stmt->expr, bst,
+                         "evaluation of span size expression gives "
+                         "negative value (%"PRIi64")", span_size.integer);
+    }
+    bt_ret = box_set_span_size(box, span_size.integer, bst);
+    return bt_ret;
+}
+
+bitpunch_status_t
+box_compute_span_size__as_used(struct box *box,
+                               struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+
+    DBG_BOX_DUMP(box);
+    bt_ret = box_compute_used_size(box, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    return box_set_size(box, box->end_offset_used
+                        - box->start_offset_used,
+                        BOX_SIZE_SPAN, bst);
 }
 
 bitpunch_status_t

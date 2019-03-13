@@ -49,7 +49,7 @@ struct ast_node_hdl shared_ast_node_byte_slice = {
 #define AST_NODE_BYTE_SLICE &shared_ast_node_byte_slice
 
 static bitpunch_status_t
-box_compute_span_size__byte_slice(struct box *box,
+box_compute_used_size__byte_slice(struct box *box,
                                   struct browse_state *bst)
 {
     int64_t n_bytes;
@@ -60,7 +60,7 @@ box_compute_span_size__byte_slice(struct box *box,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    return box_set_span_size(box, n_bytes, bst);
+    return box_set_used_size(box, n_bytes, bst);
 }
 
 static struct filter_instance *
@@ -78,9 +78,9 @@ byte_slice_filter_instance_build(struct ast_node_hdl *item)
 
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
     b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
-    b_box->compute_span_size = box_compute_span_size__byte_slice;
+    b_box->compute_span_size = box_compute_span_size__as_used;
+    b_box->compute_used_size = box_compute_used_size__byte_slice;
     b_box->get_n_items = box_get_n_items__slice_generic;
-    b_box->compute_used_size = box_compute_used_size__as_span;
 
     b_tk->get_item_key = tracker_get_item_key__array_slice;
     b_tk->goto_first_item = tracker_goto_first_item__array_slice;
