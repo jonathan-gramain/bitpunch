@@ -1251,7 +1251,6 @@ static void
 compile_node_backends__tracker__array(struct ast_node_hdl *item)
 {
     struct filter_instance_array *array;
-    struct item_backend *b_item;
     struct tracker_backend *b_tk;
     bitpunch_status_t bt_ret;
     struct ast_node_hdl_array item_types;
@@ -1266,7 +1265,6 @@ compile_node_backends__tracker__array(struct ast_node_hdl *item)
     assert(ARRAY_SIZE(&item_types) >= 1);
     item_type = ARRAY_ITEM(&item_types, 0);
     ast_node_hdl_array_destroy(&item_types);
-    b_item = &array->filter.b_item;
     b_tk = &array->filter.b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
@@ -1274,9 +1272,6 @@ compile_node_backends__tracker__array(struct ast_node_hdl *item)
         b_tk->get_item_key = tracker_get_item_key__indexed_array;
     } else {
         b_tk->get_item_key = tracker_get_item_key__array_generic;
-    }
-    if (NULL == b_item->compute_item_size) {
-        b_tk->compute_item_size = tracker_compute_item_size__item_box;
     }
     if (NULL != array->item_count) {
         b_tk->goto_first_item = tracker_goto_first_item__array_non_slack;

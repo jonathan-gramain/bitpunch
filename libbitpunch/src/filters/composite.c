@@ -512,17 +512,12 @@ tracker_advance_item_offset__composite(struct tracker *tk,
 static void
 compile_node_backends__tracker__composite(struct ast_node_hdl *item)
 {
-    struct item_backend *b_item;
     struct tracker_backend *b_tk;
 
-    b_item = &item->ndat->u.rexpr_filter.f_instance->b_item;
     b_tk = &item->ndat->u.rexpr_filter.f_instance->b_tk;
     memset(b_tk, 0, sizeof (*b_tk));
 
     b_tk->get_item_key = tracker_get_item_key__scope;
-    if (NULL == b_item->compute_item_size) {
-        b_tk->compute_item_size = tracker_compute_item_size__item_box;
-    }
     b_tk->init_item_offset = tracker_init_item_offset__composite;
     b_tk->advance_item_offset = tracker_advance_item_offset__composite;
     b_tk->goto_first_item = tracker_goto_first_item__scope;

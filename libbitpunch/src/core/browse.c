@@ -3335,10 +3335,6 @@ tracker_compute_item_size_internal(struct tracker *tk,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    f_instance = tk->dpath.item->ndat->u.rexpr_filter.f_instance;
-    if (NULL != f_instance->b_tk.compute_item_size) {
-        return f_instance->b_tk.compute_item_size(tk, item_sizep, bst);
-    }
     if (0 != (tk->box->flags & (COMPUTING_SPAN_SIZE |
                                 COMPUTING_SLACK_CHILD_ALLOCATION))) {
         if (0 != (tk->flags & TRACKER_REVERSED)) {
@@ -3374,13 +3370,15 @@ tracker_compute_item_size_internal(struct tracker *tk,
         }
         return bt_ret;
     }
-    /* use the whole available slack space when filter does not define
-     * its size */
-    *item_sizep = 0 != (tk->flags & TRACKER_REVERSED) ?
-        tk->item_offset - max_span_offset :
-        max_span_offset - tk->item_offset;
-    assert(*item_sizep >= 0);
-    return BITPUNCH_OK;
+    if (0 != (tk->dpath.item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {
+        /* use the whole available slack space */
+        *item_sizep = 0 != (tk->flags & TRACKER_REVERSED) ?
+            tk->item_offset - max_span_offset :
+            max_span_offset - tk->item_offset;
+        assert(*item_sizep >= 0);
+        return BITPUNCH_OK;
+    }
+    return tracker_compute_item_size__item_box(tk, item_sizep, bst);
 }
 
 bitpunch_status_t

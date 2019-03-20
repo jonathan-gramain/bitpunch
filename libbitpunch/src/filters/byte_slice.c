@@ -86,7 +86,6 @@ byte_slice_filter_instance_build(struct ast_node_hdl *item)
     b_box->compute_used_size = box_compute_used_size__as_span;
 
     b_tk->get_item_key = tracker_get_item_key__array_slice;
-    b_tk->compute_item_size = tracker_compute_item_size__item_box;
     b_tk->goto_first_item = tracker_goto_first_item__array_slice;
     b_tk->goto_next_item = tracker_goto_next_item__array_slice;
     b_tk->goto_nth_item = tracker_goto_nth_item__array_slice;

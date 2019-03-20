@@ -93,9 +93,6 @@ struct tracker_backend {
                                      expr_value_t *keyp,
                                      int *nth_twinp,
                                      struct browse_state *bst);
-    bitpunch_status_t (*compute_item_size)(struct tracker *tk,
-                                          int64_t *item_sizep,
-                                          struct browse_state *bst);
     bitpunch_status_t (*init_item_offset)(struct tracker *tk,
                                           struct browse_state *bst);
     bitpunch_status_t (*advance_item_offset)(struct tracker *tk,
