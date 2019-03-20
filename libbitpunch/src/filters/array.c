@@ -570,25 +570,16 @@ tracker_get_item_key__indexed_array(struct tracker *tk,
         keyp, nth_twinp, bst);
 }
 
-bitpunch_status_t
-tracker_goto_first_item__array_generic(struct tracker *tk,
-                                       struct browse_state *bst)
+static bitpunch_status_t
+tracker_goto_first_item__array_generic(
+    struct tracker *tk, struct browse_state *bst)
 {
     struct filter_instance_array *array;
     bitpunch_status_t bt_ret;
-    int64_t n_items;
 
     DBG_TRACKER_DUMP(tk);
     array = (struct filter_instance_array *)
         tk->box->filter->ndat->u.rexpr_filter.f_instance;
-    bt_ret = box_get_n_items_internal(tk->box, &n_items, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    assert(-1 != n_items);
-    if (0 == n_items) {
-        return BITPUNCH_NO_ITEM;
-    }
     if (0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
         bt_ret = tracker_set_item_offset_at_box(tk, tk->box, bst);
         if (BITPUNCH_OK != bt_ret) {
@@ -602,28 +593,44 @@ tracker_goto_first_item__array_generic(struct tracker *tk,
     return BITPUNCH_OK;
 }
 
-static bitpunch_status_t
-tracker_goto_first_item__array_slack(struct tracker *tk,
-                                     struct browse_state *bst)
+bitpunch_status_t
+tracker_goto_first_item__array_non_slack(
+    struct tracker *tk, struct browse_state *bst)
 {
-    struct filter_instance_array *array;
     bitpunch_status_t bt_ret;
+    int64_t n_items;
 
     DBG_TRACKER_DUMP(tk);
-    array = (struct filter_instance_array *)
-        tk->box->filter->ndat->u.rexpr_filter.f_instance;
-    /* slack arrays require a maintained item offset to browse their
-     * elements */
-    tk->flags |= TRACKER_NEED_ITEM_OFFSET;
-    bt_ret = tracker_set_item_offset_at_box(tk, tk->box, bst);
+    bt_ret = box_get_n_items_internal(tk->box, &n_items, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    tk->cur.u.array.index = 0;
-    // FIXME reset item to NULL if filter is dynamic
-    tk->dpath.filter = array->item_type;
+    assert(-1 != n_items);
+    if (0 == n_items) {
+        return BITPUNCH_NO_ITEM;
+    }
+    bt_ret = tracker_goto_first_item__array_generic(tk, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     DBG_TRACKER_CHECK_STATE(tk);
+    return BITPUNCH_OK;
+}
 
+static bitpunch_status_t
+tracker_goto_first_item__array_slack(
+    struct tracker *tk, struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+
+    DBG_TRACKER_DUMP(tk);
+    /* slack arrays require a maintained item offset to browse their
+     * elements */
+    tk->flags |= TRACKER_NEED_ITEM_OFFSET;
+    bt_ret = tracker_goto_first_item__array_generic(tk, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
     /* check if there's size for at least one element */
     WITH_EXPECTED_ERROR(BITPUNCH_OUT_OF_BOUNDS_ERROR, {
         bt_ret = tracker_compute_item_location(tk, bst);
@@ -1272,7 +1279,7 @@ compile_node_backends__tracker__array(struct ast_node_hdl *item)
         b_tk->compute_item_size = tracker_compute_item_size__item_box;
     }
     if (NULL != array->item_count) {
-        b_tk->goto_first_item = tracker_goto_first_item__array_generic;
+        b_tk->goto_first_item = tracker_goto_first_item__array_non_slack;
     } else {
         b_tk->goto_first_item = tracker_goto_first_item__array_slack;
     }

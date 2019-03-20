@@ -304,7 +304,7 @@ compile_node_backends__tracker__byte_array(struct ast_node_hdl *item)
 
     b_tk->get_item_key = tracker_get_item_key__array_generic;
     if (NULL != array->item_count) {
-        b_tk->goto_first_item = tracker_goto_first_item__array_generic;
+        b_tk->goto_first_item = tracker_goto_first_item__array_non_slack;
     } else {
         b_tk->goto_first_item = tracker_goto_first_item__byte_array_slack;
     }

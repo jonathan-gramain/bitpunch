@@ -45,8 +45,9 @@ box_get_n_items__array_non_slack(struct box *box, int64_t *item_countp,
                                  struct browse_state *bst);
 
 bitpunch_status_t
-tracker_goto_first_item__array_generic(struct tracker *tk,
-                                       struct browse_state *bst);
+tracker_goto_first_item__array_non_slack(
+    struct tracker *tk,
+    struct browse_state *bst);
 bitpunch_status_t
 tracker_get_item_key__array_generic(struct tracker *tk,
                                     expr_value_t *keyp,
