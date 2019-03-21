@@ -325,6 +325,7 @@ class CLI(NestedCmd):
             except model.DataError, e:
                 err = e.args[0]
                 print err['description']
+        do_func_with_exception_handler.__doc__ = do_func.__doc__
         return do_func_with_exception_handler
 
     ### COMMANDS ###
