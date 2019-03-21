@@ -140,12 +140,17 @@ compile_span_size_array(struct ast_node_hdl *item,
              || 0 != (item_type->ndat->u.item.flags
                       & ITEMFLAG_IS_SPAN_SIZE_VARIABLE));
     } else {
-        // schedule compilation of item type and size without
-        // depending on it, so to allow recursive nesting of items and
-        // possibly empty arrays
         if (-1 == compile_node(item_type, ctx,
-                               0u, (COMPILE_TAG_NODE_TYPE |
-                                    COMPILE_TAG_NODE_SPAN_SIZE),
+                               COMPILE_TAG_NODE_TYPE, 0u,
+                               RESOLVE_EXPECT_TYPE |
+                               RESOLVE_EXPECT_FILTER)) {
+            return -1;
+        }
+        // schedule compilation of item size without depending on it,
+        // so to allow recursive nesting of items and possibly empty
+        // arrays
+        if (-1 == compile_node(item_type, ctx,
+                               0u, COMPILE_TAG_NODE_SPAN_SIZE,
                                RESOLVE_EXPECT_TYPE |
                                RESOLVE_EXPECT_FILTER)) {
             return -1;

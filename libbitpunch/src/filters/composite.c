@@ -62,6 +62,29 @@ union_filter_instance_build(struct ast_node_hdl *filter)
 }
 
 static int
+compile_type_composite(struct ast_node_hdl *item,
+                       struct filter_instance_composite *composite,
+                       struct compile_ctx *ctx)
+{
+    struct scope_def *scope_def;
+    struct named_expr *attr;
+    int contains_last_attr;
+
+    contains_last_attr = FALSE;
+    scope_def = filter_get_scope_def(item);
+    STATEMENT_FOREACH(
+        named_expr, attr, scope_def->block_stmt_list.attribute_list, list) {
+        if (0 == strcmp(attr->nstmt.name, "@last")) {
+            contains_last_attr = TRUE;
+        }
+    }
+    if (contains_last_attr) {
+        item->flags |= ASTFLAG_CONTAINS_LAST_ATTR;
+    }
+    return 0;
+}
+
+static int
 compile_span_size_composite(struct ast_node_hdl *item,
                             struct filter_instance_composite *composite,
                             struct compile_ctx *ctx)
@@ -80,7 +103,6 @@ compile_span_size_composite(struct ast_node_hdl *item,
     int64_t min_span_size;
     int var_span;
     int var_used;
-    int contains_last_attr;
     int child_uses_slack;
     int child_spreads_slack;
     int child_conditionally_spreads_slack;
@@ -104,7 +126,6 @@ compile_span_size_composite(struct ast_node_hdl *item,
 
     var_span = FALSE;
     var_used = FALSE;
-    contains_last_attr = FALSE;
     child_uses_slack = FALSE;
     child_spreads_slack = FALSE;
     child_conditionally_spreads_slack = FALSE;
@@ -143,8 +164,6 @@ compile_span_size_composite(struct ast_node_hdl *item,
             } else {
                 var_span = TRUE;
             }
-        } else if (0 == strcmp(attr->nstmt.name, "@last")) {
-            contains_last_attr = TRUE;
         }
         if (new_min_span_expr) {
             assert(EXPR_VALUE_TYPE_INTEGER
@@ -319,9 +338,6 @@ compile_span_size_composite(struct ast_node_hdl *item,
     }
     if (var_used) {
         item->ndat->u.item.flags |= ITEMFLAG_IS_USED_SIZE_VARIABLE;
-    }
-    if (contains_last_attr) {
-        item->flags |= ASTFLAG_CONTAINS_LAST_ATTR;
     }
     return 0;
 }
@@ -566,6 +582,10 @@ composite_filter_instance_compile(struct ast_node_hdl *filter,
     struct filter_instance_composite *composite;
 
     composite = (struct filter_instance_composite *)f_instance;
+    if (0 != (tags & COMPILE_TAG_NODE_TYPE)
+        && -1 == compile_type_composite(filter, composite, ctx)) {
+        return -1;
+    }
     if (0 != (tags & COMPILE_TAG_NODE_SPAN_SIZE)
         && -1 == compile_span_size_composite(filter, composite, ctx)) {
         return -1;
