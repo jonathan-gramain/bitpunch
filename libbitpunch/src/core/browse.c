@@ -1880,7 +1880,7 @@ box_compute_max_span_size(struct box *box,
     box->flags &= ~COMPUTING_SPAN_SIZE;
     if (BITPUNCH_OK != bt_ret) {
         bitpunch_error_add_box_context(
-            box, bst, "when computing slack size");
+            box, bst, "when computing max span size");
     }
     return bt_ret;
 }
