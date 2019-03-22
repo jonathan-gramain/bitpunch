@@ -222,7 +222,7 @@ static void check_codename_entry(struct radio_source_info *info,
         tk2->box->filter, tk2->box,
         STATEMENT_TYPE_FIELD | STATEMENT_TYPE_NAMED_EXPR |
         STATEMENT_TYPE_ATTRIBUTE,
-        "codename", &value, NULL, NULL);
+        "codename", 0u, &value, NULL, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     check_codename_value(info, value, code_idx);
     expr_value_destroy(value);
@@ -249,7 +249,7 @@ void testcase_radio_launch_test_iterate(struct radio_source_info *info)
     int c;
     int code_idx;
 
-    bt_ret = bitpunch_eval_expr(info->board, "Model", NULL,
+    bt_ret = bitpunch_eval_expr(info->board, "Model", NULL, 0u,
                                 NULL, NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);
@@ -322,7 +322,7 @@ void testcase_radio_launch_test_index(struct radio_source_info *info)
     int code_idx;
     expr_value_t item_key;
 
-    bt_ret = bitpunch_eval_expr(info->board, "Model", NULL,
+    bt_ret = bitpunch_eval_expr(info->board, "Model", NULL, 0u,
                                 NULL, NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);
@@ -410,7 +410,7 @@ void testcase_radio_launch_test_slices(struct radio_source_info *info)
     int c;
     int code_idx;
 
-    bt_ret = bitpunch_eval_expr(info->board, "Model", NULL,
+    bt_ret = bitpunch_eval_expr(info->board, "Model", NULL, 0u,
                                 NULL, NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);
@@ -513,7 +513,7 @@ void testcase_radio_launch_test_dpath(struct radio_source_info *info)
     int code_idx;
     char dpath_expr[128];
 
-    bt_ret = bitpunch_eval_expr(info->board, "Model", NULL,
+    bt_ret = bitpunch_eval_expr(info->board, "Model", NULL, 0u,
                                 NULL, NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);
@@ -610,7 +610,7 @@ void testcase_radio_launch_test_slice_dpath(struct radio_source_info *info)
     int idx_end;
     int r;
 
-    bt_ret = bitpunch_eval_expr(info->board, "Model", NULL,
+    bt_ret = bitpunch_eval_expr(info->board, "Model", NULL, 0u,
                                 NULL, NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);

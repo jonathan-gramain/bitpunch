@@ -55,7 +55,7 @@ compute_item_size__varint(struct ast_node_hdl *filter,
 
     data = scope->ds_in->ds_data + item_offset;
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@endian", NULL, &attr_value, NULL, bst);
+        filter, scope, "@endian", 0u, NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK == bt_ret) {
     }
     for (bytepos = 0; bytepos < max_span_offset - item_offset; ++bytepos) {

@@ -446,6 +446,7 @@ bitpunch_status_t
 scope_evaluate_identifier_internal(
     struct scope_def *scope_def, struct box *scope,
     enum statement_type stmt_mask, const char *identifier,
+    enum expr_evaluate_flag flags,
     enum statement_type *stmt_typep, const struct named_statement **stmtp,
     struct box **scopep,
     expr_value_t *valuep, expr_dpath_t *dpathp,
@@ -463,7 +464,7 @@ scope_evaluate_identifier_internal(
         return bt_ret;
     }
     bt_ret = evaluate_scoped_statement_internal(
-        stmt_scope, stmt_type, named_stmt, valuep, dpathp, bst);
+        stmt_scope, stmt_type, named_stmt, flags, valuep, dpathp, bst);
     if (BITPUNCH_OK == bt_ret) {
         if (NULL != stmt_typep) {
             *stmt_typep = stmt_type;
@@ -484,12 +485,13 @@ bitpunch_status_t
 scope_evaluate_attribute_internal(
     struct scope_def *scope_def, struct box *scope,
     const char *attr_name,
+    enum expr_evaluate_flag flags,
     const struct named_expr **attrp,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
     return scope_evaluate_identifier_internal(
-        scope_def, scope, STATEMENT_TYPE_ATTRIBUTE, attr_name,
+        scope_def, scope, STATEMENT_TYPE_ATTRIBUTE, attr_name, flags,
         NULL, (const struct named_statement **)attrp, NULL,
         valuep, dpathp, bst);
 }
@@ -498,6 +500,7 @@ bitpunch_status_t
 scope_evaluate_identifier(
     struct scope_def *scope_def, struct box *scope,
     enum statement_type stmt_mask, const char *identifier,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct bitpunch_error **errp)
 {
@@ -506,7 +509,7 @@ scope_evaluate_identifier(
     browse_state_init_scope(&bst, scope);
     return transmit_error(
         scope_evaluate_identifier_internal(
-            scope_def, scope, stmt_mask, identifier,
+            scope_def, scope, stmt_mask, identifier, flags,
             NULL, NULL, NULL, valuep, dpathp, &bst),
         &bst, errp);
 }

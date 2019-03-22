@@ -117,6 +117,7 @@ bitpunch_eval_expr(
     struct bitpunch_board *board,
     const char *expr,
     struct box *scope,
+    enum bitpunch_eval_flag flags,
     struct ast_node_hdl **parsed_exprp,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct bitpunch_error **errp);

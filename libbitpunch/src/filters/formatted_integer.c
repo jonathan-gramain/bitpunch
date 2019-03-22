@@ -123,7 +123,7 @@ formatted_integer_read(struct ast_node_hdl *filter,
     // has to represent a valid formatted number in its entirety.
 
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@base", NULL, &attr_value, NULL, bst);
+        filter, scope, "@base", 0u, NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK == bt_ret) {
         base = attr_value.integer;
     } else if (BITPUNCH_NO_ITEM == bt_ret) {
@@ -132,7 +132,7 @@ formatted_integer_read(struct ast_node_hdl *filter,
         return bt_ret;
     }
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@signed", NULL, &attr_value, NULL, bst);
+        filter, scope, "@signed", 0u, NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK == bt_ret) {
         _signed = attr_value.boolean;
     } else if (BITPUNCH_NO_ITEM == bt_ret) {
@@ -142,7 +142,7 @@ formatted_integer_read(struct ast_node_hdl *filter,
     }
     if (0 == span_size) {
         bt_ret = filter_evaluate_attribute_internal(
-            filter, scope, "@empty_value", NULL, read_value, NULL, bst);
+            filter, scope, "@empty_value", 0u, NULL, read_value, NULL, bst);
         if (BITPUNCH_NO_ITEM != bt_ret) {
             return bt_ret;
         }

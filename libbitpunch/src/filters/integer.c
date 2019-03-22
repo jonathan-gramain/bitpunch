@@ -243,7 +243,7 @@ integer_read_endian_attribute(
     enum endian endian;
 
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@endian", NULL, &attr_value, NULL, bst);
+        filter, scope, "@endian", 0u, NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -280,7 +280,7 @@ binary_integer_read_generic(
     enum endian endian;
 
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@signed", NULL, &attr_value, NULL, bst);
+        filter, scope, "@signed", 0u, NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK != bt_ret) {
         // @signed is a mandatory attribute so BITPUNCH_NO_ITEM shall
         // be considered an error

@@ -105,6 +105,10 @@ struct expr_value {
 
 typedef struct expr_value expr_value_t;
 
+enum expr_evaluate_flag {
+    EXPR_EVALFLAG_DPATH_XOR_VALUE = (1u<<0),
+};
+
 const struct expr_builtin_fn *
 expr_lookup_builtin_fn(const char *name,
                        const struct ast_node_hdl *object);
@@ -153,6 +157,7 @@ expr_value_cmp(expr_value_t value1, expr_value_t value2);
 bitpunch_status_t
 expr_evaluate(struct ast_node_hdl *expr,
               struct box *scope, struct bitpunch_board *board,
+              enum expr_evaluate_flag flags,
               expr_value_t *valuep, expr_dpath_t *dpathp,
               struct bitpunch_error **errp);
 bitpunch_status_t

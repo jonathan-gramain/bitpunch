@@ -44,25 +44,36 @@ struct dpath_transform {
 };
 
 bitpunch_status_t
-expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
-                       expr_value_t *valuep, expr_dpath_t *dpathp,
-                       struct browse_state *bst);
+expr_evaluate_internal(
+    struct ast_node_hdl *expr, struct box *scope,
+    enum expr_evaluate_flag flags,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst);
+
 bitpunch_status_t
-expr_evaluate_value_internal(struct ast_node_hdl *expr, struct box *scope,
-                             expr_value_t *valuep,
-                             struct browse_state *bst);
+expr_evaluate_value_internal(
+    struct ast_node_hdl *expr, struct box *scope,
+    expr_value_t *valuep,
+    struct browse_state *bst);
+
 bitpunch_status_t
-expr_evaluate_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
-                             expr_dpath_t *dpathp,
-                             struct browse_state *bst);
+expr_evaluate_dpath_internal(
+    struct ast_node_hdl *expr, struct box *scope,
+    expr_dpath_t *dpathp,
+    struct browse_state *bst);
+
 bitpunch_status_t
-expr_transform_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
-                              struct dpath_transform *transformp,
-                              struct browse_state *bst);
+expr_transform_dpath_internal(
+    struct ast_node_hdl *expr, struct box *scope,
+    struct dpath_transform *transformp,
+    struct browse_state *bst);
+
 bitpunch_status_t
-dpath_read_value_internal(expr_dpath_t dpath,
-                          expr_value_t *expr_valuep,
-                          struct browse_state *bst);
+dpath_read_value_internal(
+    expr_dpath_t dpath,
+    expr_value_t *expr_valuep,
+    struct browse_state *bst);
+
 enum filter_kind {
     FILTER_KIND_ITEM,
     FILTER_KIND_FILTER,
@@ -82,6 +93,7 @@ bitpunch_status_t
 evaluate_scoped_statement_internal(
     struct box *scope,
     enum statement_type stmt_type, const struct named_statement *named_stmt,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst);
 

@@ -697,7 +697,7 @@ tracker_goto_next_item__array(struct tracker *tk,
             return bt_ret;
         }
         bt_ret = filter_evaluate_attribute_internal(
-            filtered_box->filter, filtered_box, "@last",
+            filtered_box->filter, filtered_box, "@last", 0u,
             NULL, &last_eval, NULL, bst);
         box_delete_non_null(filtered_box);
         switch (bt_ret) {

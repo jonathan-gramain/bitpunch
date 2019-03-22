@@ -152,6 +152,7 @@ bitpunch_eval_expr(
     struct bitpunch_board *board,
     const char *expr,
     struct box *scope,
+    enum bitpunch_eval_flag flags,
     struct ast_node_hdl **parsed_exprp,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct bitpunch_error **errp)
@@ -188,7 +189,10 @@ bitpunch_eval_expr(
     if (NULL != parsed_exprp) {
         *parsed_exprp = expr_node;
     }
-    bt_ret = expr_evaluate(expr_node, _scope, board, valuep, dpathp, errp);
+    bt_ret = expr_evaluate(expr_node, _scope, board,
+                           0 != (flags & BITPUNCH_EVAL_DPATH_XOR_VALUE) ?
+                           EXPR_EVALFLAG_DPATH_XOR_VALUE : 0u,
+                           valuep, dpathp, errp);
 
   end:
     if (NULL == scope) {

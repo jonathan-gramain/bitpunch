@@ -155,4 +155,8 @@ struct bitpunch_board {
     struct ast_node_hdl *used_spec;
 };
 
+enum bitpunch_eval_flag {
+    BITPUNCH_EVAL_DPATH_XOR_VALUE = (1<<0),
+};
+
 #endif

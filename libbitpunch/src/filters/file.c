@@ -52,7 +52,7 @@ file_get_data_source(
     char file_path[1024];
 
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@path", NULL, &path_value, NULL, bst);
+        filter, scope, "@path", 0u, NULL, &path_value, NULL, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }

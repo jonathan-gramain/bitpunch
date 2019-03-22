@@ -55,7 +55,7 @@ deflate_read(struct ast_node_hdl *filter,
     char *inflated;
 
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@output_size", NULL, &attr_value, NULL, bst);
+        filter, scope, "@output_size", 0u, NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }

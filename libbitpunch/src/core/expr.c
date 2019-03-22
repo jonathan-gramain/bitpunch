@@ -769,12 +769,14 @@ expr_lookup_evaluator(enum ast_node_type op_type,
 
 
 static bitpunch_status_t
-expr_eval_builtin_env(struct ast_node_hdl *object,
-                      struct statement_list *params,
-                      int n_params,
-                      expr_value_t *valuep,
-                      expr_dpath_t *dpathp,
-                      struct browse_state *bst)
+expr_eval_builtin_env(
+    struct ast_node_hdl *object,
+    struct statement_list *params,
+    int n_params,
+    enum expr_evaluate_flag flags,
+    expr_value_t *valuep,
+    expr_dpath_t *dpathp,
+    struct browse_state *bst)
 {
     struct ast_node_hdl *expr;
     bitpunch_status_t bt_ret;
@@ -824,19 +826,21 @@ expr_eval_builtin_env(struct ast_node_hdl *object,
         expr_value_destroy(name_eval);
     }
     if (BITPUNCH_OK == bt_ret) {
-        bt_ret = expr_evaluate_internal(board_value_node, NULL,
+        bt_ret = expr_evaluate_internal(board_value_node, NULL, flags,
                                         valuep, dpathp, bst);
     }
     return bt_ret;
 }
 
 static bitpunch_status_t
-expr_eval_builtin_index(struct ast_node_hdl *object,
-                        struct statement_list *params,
-                        int n_params,
-                        expr_value_t *valuep,
-                        expr_dpath_t *dpathp,
-                        struct browse_state *bst)
+expr_eval_builtin_index(
+    struct ast_node_hdl *object,
+    struct statement_list *params,
+    int n_params,
+    enum expr_evaluate_flag flags,
+    expr_value_t *valuep,
+    expr_dpath_t *dpathp,
+    struct browse_state *bst)
 {
     struct ast_node_hdl *array_dpath;
     struct ast_node_hdl *item_dpath;
@@ -925,12 +929,14 @@ expr_eval_builtin_index(struct ast_node_hdl *object,
 }
 
 static bitpunch_status_t
-expr_eval_builtin_len(struct ast_node_hdl *object,
-                      struct statement_list *params,
-                      int n_params,
-                      expr_value_t *valuep,
-                      expr_dpath_t *dpathp,
-                      struct browse_state *bst)
+expr_eval_builtin_len(
+    struct ast_node_hdl *object,
+    struct statement_list *params,
+    int n_params,
+    enum expr_evaluate_flag flags,
+    expr_value_t *valuep,
+    expr_dpath_t *dpathp,
+    struct browse_state *bst)
 {
     struct ast_node_hdl *expr;
     int64_t item_count = 0;
@@ -1787,6 +1793,7 @@ expr_evaluate_polymorphic_internal(
 static bitpunch_status_t
 expr_evaluate_native(
     struct ast_node_hdl *expr,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
@@ -1802,6 +1809,7 @@ expr_evaluate_native(
 static bitpunch_status_t
 expr_evaluate_binary_operator(
     struct ast_node_hdl *expr,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
@@ -1836,6 +1844,7 @@ expr_evaluate_binary_operator(
 static bitpunch_status_t
 expr_evaluate_unary_operator(
     struct ast_node_hdl *expr,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
@@ -1863,6 +1872,7 @@ expr_evaluate_unary_operator(
 static bitpunch_status_t
 expr_evaluate_sizeof_internal(
     struct ast_node_hdl *expr,
+    enum expr_evaluate_flag flags,
     int64_t *item_sizep, struct browse_state *bst)
 {
     struct ast_node_hdl *opd;
@@ -1906,6 +1916,7 @@ expr_evaluate_sizeof_internal(
 static bitpunch_status_t
 expr_evaluate_sizeof(
     struct ast_node_hdl *expr,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
@@ -1913,7 +1924,7 @@ expr_evaluate_sizeof(
     bitpunch_status_t bt_ret;
 
     if (NULL != valuep) {
-        bt_ret = expr_evaluate_sizeof_internal(expr, &item_size, bst);
+        bt_ret = expr_evaluate_sizeof_internal(expr, flags, &item_size, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
@@ -1928,6 +1939,7 @@ expr_evaluate_sizeof(
 static bitpunch_status_t
 expr_evaluate_addrof(
     struct ast_node_hdl *expr,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
@@ -1970,6 +1982,7 @@ expr_evaluate_addrof(
 static bitpunch_status_t
 expr_evaluate_fcall(
     struct ast_node_hdl *expr,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
@@ -1981,12 +1994,14 @@ expr_evaluate_fcall(
     params = expr->ndat->u.rexpr_op_fcall.func_params;
     n_params = expr->ndat->u.rexpr_op_fcall.n_func_params;
 
-    return builtin->eval_fn(NULL, params, n_params, valuep, dpathp, bst);
+    return builtin->eval_fn(NULL, params, n_params, flags,
+                            valuep, dpathp, bst);
 }
 
 static bitpunch_status_t
 expr_evaluate_named_expr(
     struct ast_node_hdl *expr,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
@@ -2000,7 +2015,7 @@ expr_evaluate_named_expr(
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    bt_ret = expr_evaluate_internal(named_expr->expr, member_scope,
+    bt_ret = expr_evaluate_internal(named_expr->expr, member_scope, flags,
                                     valuep, dpathp, bst);
     box_delete(member_scope);
     return bt_ret;
@@ -2009,6 +2024,7 @@ expr_evaluate_named_expr(
 static bitpunch_status_t
 expr_evaluate_polymorphic(
     struct ast_node_hdl *expr,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
@@ -2023,15 +2039,17 @@ expr_evaluate_polymorphic(
         return bt_ret;
     }
     bt_ret = evaluate_scoped_statement_internal(
-        member_scope, stmt_type, nstmt, valuep, dpathp, bst);
+        member_scope, stmt_type, nstmt, flags, valuep, dpathp, bst);
     box_delete(member_scope);
     return bt_ret;
 }
 
 static bitpunch_status_t
-expr_evaluate_self(struct ast_node_hdl *expr,
-                   expr_value_t *valuep, expr_dpath_t *dpathp,
-                   struct browse_state *bst)
+expr_evaluate_self(
+    struct ast_node_hdl *expr,
+    enum expr_evaluate_flag flags,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     expr_dpath_t dpath;
@@ -2063,9 +2081,11 @@ expr_evaluate_self(struct ast_node_hdl *expr,
 }
 
 static bitpunch_status_t
-expr_evaluate_field(struct ast_node_hdl *expr,
-                    expr_value_t *valuep, expr_dpath_t *dpathp,
-                    struct browse_state *bst)
+expr_evaluate_field(
+    struct ast_node_hdl *expr,
+    enum expr_evaluate_flag flags,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     expr_dpath_t anchor_dpath;
@@ -2086,7 +2106,7 @@ expr_evaluate_field(struct ast_node_hdl *expr,
     }
     bt_ret = evaluate_scoped_statement_internal(
         anchor_scope, STATEMENT_TYPE_FIELD,
-        (struct named_statement *)expr->ndat->u.rexpr_field.field,
+        (struct named_statement *)expr->ndat->u.rexpr_field.field, flags,
         valuep, dpathp, bst);
     box_delete(anchor_scope);
     return bt_ret;
@@ -2095,6 +2115,7 @@ expr_evaluate_field(struct ast_node_hdl *expr,
 static bitpunch_status_t
 expr_evaluate_subscript(
     struct ast_node_hdl *expr,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
@@ -2154,6 +2175,7 @@ expr_evaluate_subscript(
 static bitpunch_status_t
 expr_evaluate_subscript_slice(
     struct ast_node_hdl *expr,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
@@ -2243,6 +2265,7 @@ expr_evaluate_subscript_slice(
 static bitpunch_status_t
 expr_evaluate_ancestor(
     struct ast_node_hdl *expr,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
@@ -2298,6 +2321,7 @@ expr_evaluate_ancestor(
 static bitpunch_status_t
 expr_evaluate_filter_chain(
     struct ast_node_hdl *expr,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
@@ -2313,7 +2337,11 @@ expr_evaluate_filter_chain(
         bt_ret = BITPUNCH_OK;
     }
     if (BITPUNCH_OK == bt_ret && NULL != valuep) {
-        bt_ret = dpath_read_value_internal(transform.dpath, valuep, bst);
+        if (0 == (flags & EXPR_EVALFLAG_DPATH_XOR_VALUE)) {
+            bt_ret = dpath_read_value_internal(transform.dpath, valuep, bst);
+        } else {
+            *valuep = expr_value_unset();
+        }
     }
     if (BITPUNCH_OK == bt_ret && NULL != dpathp) {
         *dpathp = transform.dpath;
@@ -2324,9 +2352,11 @@ expr_evaluate_filter_chain(
 }
 
 bitpunch_status_t
-expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
-                       expr_value_t *valuep, expr_dpath_t *dpathp,
-                       struct browse_state *bst)
+expr_evaluate_internal(
+    struct ast_node_hdl *expr, struct box *scope,
+    enum expr_evaluate_flag flags,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst)
 {
     struct box *scope_storage;
     bitpunch_status_t bt_ret;
@@ -2335,7 +2365,7 @@ expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
 
     switch (expr->ndat->type) {
     case AST_NODE_TYPE_REXPR_NATIVE:
-        bt_ret = expr_evaluate_native(expr, valuep, dpathp, bst);
+        bt_ret = expr_evaluate_native(expr, flags, valuep, dpathp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_OP_EQ:
     case AST_NODE_TYPE_REXPR_OP_NE:
@@ -2355,46 +2385,46 @@ expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
     case AST_NODE_TYPE_REXPR_OP_MUL:
     case AST_NODE_TYPE_REXPR_OP_DIV:
     case AST_NODE_TYPE_REXPR_OP_MOD:
-        bt_ret = expr_evaluate_binary_operator(expr, valuep, dpathp, bst);
+        bt_ret = expr_evaluate_binary_operator(expr, flags, valuep, dpathp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_OP_UPLUS:
     case AST_NODE_TYPE_REXPR_OP_UMINUS:
     case AST_NODE_TYPE_REXPR_OP_LNOT:
     case AST_NODE_TYPE_REXPR_OP_BWNOT:
-        bt_ret = expr_evaluate_unary_operator(expr, valuep, dpathp, bst);
+        bt_ret = expr_evaluate_unary_operator(expr, flags, valuep, dpathp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_OP_SIZEOF:
-        bt_ret = expr_evaluate_sizeof(expr, valuep, dpathp, bst);
+        bt_ret = expr_evaluate_sizeof(expr, flags, valuep, dpathp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_OP_ADDROF:
-        bt_ret = expr_evaluate_addrof(expr, valuep, dpathp, bst);
+        bt_ret = expr_evaluate_addrof(expr, flags, valuep, dpathp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_OP_FCALL:
-        bt_ret = expr_evaluate_fcall(expr, valuep, dpathp, bst);
+        bt_ret = expr_evaluate_fcall(expr, flags, valuep, dpathp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_NAMED_EXPR:
-        bt_ret = expr_evaluate_named_expr(expr, valuep, dpathp, bst);
+        bt_ret = expr_evaluate_named_expr(expr, flags, valuep, dpathp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_POLYMORPHIC:
-        bt_ret = expr_evaluate_polymorphic(expr, valuep, dpathp, bst);
+        bt_ret = expr_evaluate_polymorphic(expr, flags, valuep, dpathp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_SELF:
-        bt_ret = expr_evaluate_self(expr, valuep, dpathp, bst);
+        bt_ret = expr_evaluate_self(expr, flags, valuep, dpathp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_FIELD:
-        bt_ret = expr_evaluate_field(expr, valuep, dpathp, bst);
+        bt_ret = expr_evaluate_field(expr, flags, valuep, dpathp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT:
-        bt_ret = expr_evaluate_subscript(expr, valuep, dpathp, bst);
+        bt_ret = expr_evaluate_subscript(expr, flags, valuep, dpathp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE:
-        bt_ret = expr_evaluate_subscript_slice(expr, valuep, dpathp, bst);
+        bt_ret = expr_evaluate_subscript_slice(expr, flags, valuep, dpathp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
-        bt_ret = expr_evaluate_ancestor(expr, valuep, dpathp, bst);
+        bt_ret = expr_evaluate_ancestor(expr, flags, valuep, dpathp, bst);
         break ;
     default:
-        bt_ret = expr_evaluate_filter_chain(expr, valuep, dpathp, bst);
+        bt_ret = expr_evaluate_filter_chain(expr, flags, valuep, dpathp, bst);
         break ;
     }
     browse_state_pop_scope(bst, scope, &scope_storage);
@@ -2412,7 +2442,7 @@ expr_evaluate_value_internal(struct ast_node_hdl *expr, struct box *scope,
                              expr_value_t *valuep,
                              struct browse_state *bst)
 {
-    return expr_evaluate_internal(expr, scope, valuep, NULL, bst);
+    return expr_evaluate_internal(expr, scope, 0u, valuep, NULL, bst);
 }
 
 bitpunch_status_t
@@ -2420,7 +2450,7 @@ expr_evaluate_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
                              expr_dpath_t *dpathp,
                              struct browse_state *bst)
 {
-    return expr_evaluate_internal(expr, scope, NULL, dpathp, bst);
+    return expr_evaluate_internal(expr, scope, 0u, NULL, dpathp, bst);
 }
 
 static bitpunch_status_t
@@ -2607,9 +2637,10 @@ expr_transform_dpath_filter(
 }
 
 bitpunch_status_t
-expr_transform_dpath_internal(struct ast_node_hdl *expr, struct box *scope,
-                              struct dpath_transform *transformp,
-                              struct browse_state *bst)
+expr_transform_dpath_internal(
+    struct ast_node_hdl *expr, struct box *scope,
+    struct dpath_transform *transformp,
+    struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     struct box *scope_storage;
@@ -2774,6 +2805,7 @@ bitpunch_status_t
 evaluate_scoped_statement_internal(
     struct box *scope,
     enum statement_type stmt_type, const struct named_statement *named_stmt,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
@@ -2787,7 +2819,7 @@ evaluate_scoped_statement_internal(
 
         named_expr = (const struct named_expr *)named_stmt;
         expr = named_expr->expr;
-        return expr_evaluate_internal(expr, scope, valuep, dpathp, bst);
+        return expr_evaluate_internal(expr, scope, flags, valuep, dpathp, bst);
     }
     case STATEMENT_TYPE_FIELD: {
         struct tracker *tk;
@@ -2802,7 +2834,11 @@ evaluate_scoped_statement_internal(
         browse_state_push_scope(bst, scope, &scope_storage);
         bt_ret = tracker_goto_field_internal(tk, field, FALSE, bst);
         if (BITPUNCH_OK == bt_ret && NULL != valuep) {
-            bt_ret = tracker_read_item_value_internal(tk, valuep, bst);
+            if (0 == (flags & EXPR_EVALFLAG_DPATH_XOR_VALUE)) {
+                bt_ret = tracker_read_item_value_internal(tk, valuep, bst);
+            } else {
+                *valuep = expr_value_unset();
+            }
         }
         if (BITPUNCH_OK == bt_ret && NULL != dpathp) {
             *dpathp = expr_dpath_as_item(tk);
@@ -2916,6 +2952,7 @@ expr_value_type_mask_contains_dpath(enum expr_value_type value_type_mask)
 bitpunch_status_t
 expr_evaluate(struct ast_node_hdl *expr,
               struct box *scope, struct bitpunch_board *board,
+              enum expr_evaluate_flag flags,
               expr_value_t *valuep, expr_dpath_t *dpathp,
               struct bitpunch_error **errp)
 {
@@ -2930,7 +2967,7 @@ expr_evaluate(struct ast_node_hdl *expr,
         return bt_ret;
     }
     return transmit_error(
-        expr_evaluate_internal(expr, scope, valuep, dpathp, &bst),
+        expr_evaluate_internal(expr, scope, flags, valuep, dpathp, &bst),
         &bst, errp);
 }
 

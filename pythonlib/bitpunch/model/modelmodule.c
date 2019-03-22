@@ -1158,6 +1158,7 @@ Board_eval_expr(BoardObject *board, PyObject *args)
     }
     bt_ret = bitpunch_eval_expr(
         board->board, expr, NULL,
+        BITPUNCH_EVAL_DPATH_XOR_VALUE,
         &parsed_expr, &expr_value, &expr_dpath, &bp_err);
     if (BITPUNCH_OK != bt_ret) {
         if (BITPUNCH_NO_DATA == bt_ret) {
@@ -2457,6 +2458,7 @@ DataItem_eval_attr(DataItemObject *self, const char *attr_str,
         STATEMENT_TYPE_FIELD |
         STATEMENT_TYPE_NAMED_EXPR |
         STATEMENT_TYPE_ATTRIBUTE, attr_str,
+        EXPR_EVALFLAG_DPATH_XOR_VALUE,
         &attr_value, &attr_dpath, &bp_err);
     if (BITPUNCH_OK != bt_ret) {
         if (BITPUNCH_NO_ITEM == bt_ret) {
@@ -3876,8 +3878,10 @@ eval_expr_as_python_object(DataItemObject *item, const char *expr)
         scope = NULL;
     }
 
-    bt_ret = bitpunch_eval_expr(board, expr, scope,
-                                NULL, &expr_value, &expr_dpath, &bp_err);
+    bt_ret = bitpunch_eval_expr(
+        board, expr, scope,
+        BITPUNCH_EVAL_DPATH_XOR_VALUE,
+        NULL, &expr_value, &expr_dpath, &bp_err);
     if (BITPUNCH_OK != bt_ret) {
         if (NULL != bp_err) {
             set_bitpunch_error(bp_err, bt_ret);

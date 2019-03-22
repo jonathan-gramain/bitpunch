@@ -964,3 +964,41 @@ def test_dynamic_filter_param_integer(params_dynamic_filter_param_integer):
             print dtree.values[0]
     else:
         assert model.make_python_object(dtree.values) == [1, 2, 3, 4, 5]
+
+
+
+
+spec_file_filter_deferred_value_eval = """
+
+let Int = string { @boundary: "\\n"; } <> formatted_integer { @base: 10; };
+
+let Schema = struct {
+    good_int: Int;
+    bad_int: Int;
+};
+
+"""
+
+data_file_filter_deferred_value_eval = """
+# good_int
+"1234\n"
+# bad int
+"12efg\n"
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_filter_deferred_value_eval,
+        'data': data_file_filter_deferred_value_eval,
+    }])
+def params_filter_deferred_value_eval(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_filter_deferred_value_eval(params_filter_deferred_value_eval):
+    params = params_filter_deferred_value_eval
+    dtree = params['dtree']
+
+    assert dtree.good_int == 1234
+    assert model.make_python_object(memoryview(dtree.bad_int)) == "12efg"

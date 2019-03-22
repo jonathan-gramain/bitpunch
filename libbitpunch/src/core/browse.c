@@ -1185,12 +1185,21 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
 {
     const struct filter_class *filter_cls;
     struct filter_instance *f_instance;
+    bitpunch_status_t bt_ret;
 
     assert(NULL == box->ds_out);
 
     if (ast_node_is_scope_only(box->filter)) {
         // no data source (scope-only filter)
         return BITPUNCH_OK;
+    }
+    // when applying intermediate filter, compute source filter's used
+    // size first
+    if (0 != (box->flags & BOX_FILTER) && 0 == (box->flags & BOX_DATA_SOURCE)) {
+        bt_ret = box_compute_used_size(box->parent_box, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
     }
     filter_cls = box->filter->ndat->u.rexpr_filter.filter_cls;
     if (NULL == filter_cls
@@ -3897,7 +3906,7 @@ error_dump_context_info(
     if (NULL != box && !same_box) {
         path_str = box_get_abs_dpath_alloc(box);
     }
-    if (!same_node) {
+    if (NULL != cur_node && !same_node) {
         loc = &cur_node->loc;
     }
     if (NULL != path_str) {

@@ -215,6 +215,7 @@ static inline bitpunch_status_t
 filter_evaluate_identifier_internal(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier,
+    enum expr_evaluate_flag flags,
     enum statement_type *stmt_typep, const struct named_statement **stmtp,
     struct box **scopep,
     expr_value_t *valuep, expr_dpath_t *dpathp,
@@ -224,6 +225,7 @@ static inline bitpunch_status_t
 filter_evaluate_attribute_internal(
     struct ast_node_hdl *filter, struct box *scope,
     const char *attr_name,
+    enum expr_evaluate_flag flags,
     const struct named_expr **attrp,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst);
@@ -232,6 +234,7 @@ static inline bitpunch_status_t
 filter_evaluate_identifier(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier,
+    enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct bitpunch_error **errp);
 

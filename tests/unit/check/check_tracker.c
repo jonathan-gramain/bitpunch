@@ -109,7 +109,8 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
     bt_ret = bitpunch_board_add_expr(board, "Model", "data <> Schema.Root");
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
 
-    bt_ret = bitpunch_eval_expr(board, "Model", NULL, NULL, NULL, &dpath, NULL);
+    bt_ret = bitpunch_eval_expr(board, "Model", NULL, 0u,
+                                NULL, NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);
     expr_dpath_destroy(dpath);
@@ -281,7 +282,8 @@ check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
     bt_ret = bitpunch_board_add_expr(board, "Model", "data <> Schema.Root");
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
 
-    bt_ret = bitpunch_eval_expr(board, "Model", NULL, NULL, NULL, &dpath, NULL);
+    bt_ret = bitpunch_eval_expr(board, "Model", NULL, 0u,
+                                NULL, NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);
     expr_dpath_destroy(dpath);
@@ -330,7 +332,8 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
     bt_ret = bitpunch_board_add_expr(board, "Model", "data <> Schema.Root");
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
 
-    bt_ret = bitpunch_eval_expr(board, "Model", NULL, NULL, NULL, &dpath, NULL);
+    bt_ret = bitpunch_eval_expr(board, "Model", NULL, 0u,
+                                NULL, NULL, &dpath, NULL);
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
     bt_ret = track_dpath_contents(dpath, &tk, NULL);
     expr_dpath_destroy(dpath);

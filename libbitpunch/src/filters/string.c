@@ -143,7 +143,7 @@ compute_item_size__string__generic(struct ast_node_hdl *filter,
     const char *end;
 
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@boundary", NULL, &attr_value, NULL, bst);
+        filter, scope, "@boundary", 0u, NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK == bt_ret) {
         data = scope->ds_in->ds_data + item_offset;
         end = memmem(data, max_span_offset - item_offset,
@@ -174,7 +174,7 @@ string_read_generic(
     struct expr_value_string boundary;
 
     bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@boundary", NULL, &attr_value, NULL, bst);
+        filter, scope, "@boundary", 0u, NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK == bt_ret) {
         boundary = attr_value.string;
         read_value->type = EXPR_VALUE_TYPE_STRING;
