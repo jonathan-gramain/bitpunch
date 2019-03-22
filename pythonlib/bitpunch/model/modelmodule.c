@@ -2041,18 +2041,7 @@ DataItem_read_value(DataItemObject *self)
     bitpunch_status_t bt_ret;
     struct bitpunch_error *bp_err = NULL;
 
-    switch (self->dpath.type) {
-    case EXPR_DPATH_TYPE_CONTAINER:
-        bt_ret = box_read_value(self->dpath.box,
-                                &self->value, &bp_err);
-        break ;
-    case EXPR_DPATH_TYPE_ITEM:
-        bt_ret = tracker_read_item_value(self->dpath.tk,
-                                         &self->value, &bp_err);
-        break ;
-    default:
-        assert(0);
-    }
+    bt_ret = dpath_read_value(self->dpath, &self->value, &bp_err);
     if (BITPUNCH_OK != bt_ret) {
         set_bitpunch_error(bp_err, bt_ret);
         return -1;
