@@ -250,7 +250,6 @@ compile_node_backends__box__byte_array(struct ast_node_hdl *item)
 
     b_box->init = byte_array_box_init;
     b_box->destroy = byte_array_box_destroy;
-    b_box->compute_slack_size = box_compute_slack_size__as_container_slack;
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
     if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
         b_box->compute_span_size = box_compute_span_size__const_size;

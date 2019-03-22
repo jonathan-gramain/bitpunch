@@ -476,11 +476,8 @@ array_slice_filter_instance_build(struct ast_node_hdl *item)
     memset(b_box, 0, sizeof (*b_box));
     memset(b_tk, 0, sizeof (*b_tk));
 
-    b_box->compute_slack_size = box_compute_slack_size__from_parent;
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
-    //XXX should it be b_box->compute_max_span_size =
-    //box_compute_max_span_size__as_slack?
-    b_box->compute_max_span_size = box_compute_max_span_size__as_span;
+    b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
     b_box->compute_span_size = box_compute_span_size__array_slice;
     b_box->get_n_items = box_get_n_items__slice_generic;
     b_box->compute_used_size = box_compute_used_size__as_span;

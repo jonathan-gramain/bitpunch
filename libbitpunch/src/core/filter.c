@@ -505,7 +505,6 @@ compile_node_backends__box__filter(struct ast_node_hdl *item)
     // already, find a cleaner way to deal with this
     //memset(b_box, 0, sizeof (*b_box));
 
-    b_box->compute_slack_size = box_compute_slack_size__as_container_slack;
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
     b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
     if (NULL != b_item->compute_item_size) {

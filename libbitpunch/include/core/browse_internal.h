@@ -72,8 +72,6 @@ struct box_backend {
     bitpunch_status_t (*get_n_items)(struct box *box,
                                     int64_t *item_countp,
                                     struct browse_state *bst);
-    bitpunch_status_t (*compute_slack_size)(struct box *box,
-                                           struct browse_state *bst);
     bitpunch_status_t (*compute_max_span_size)(struct box *box,
                                           struct browse_state *bst);
     bitpunch_status_t (*compute_span_size)(struct box *box,

@@ -435,7 +435,6 @@ compile_node_backends__box__composite(struct ast_node_hdl *item)
     composite = (struct filter_instance_composite *)
         item->ndat->u.rexpr_filter.f_instance;
 
-    b_box->compute_slack_size = box_compute_slack_size__as_container_slack;
     if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
         b_box->compute_span_size = box_compute_span_size__const_size;
     } else if (0 != (item->ndat->u.item.flags & ITEMFLAG_FILLS_SLACK)) {

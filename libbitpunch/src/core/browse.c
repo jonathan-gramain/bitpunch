@@ -1885,6 +1885,43 @@ box_compute_max_span_size(struct box *box,
     return bt_ret;
 }
 
+static bitpunch_status_t
+box_compute_slack_size_internal(struct box *box,
+                                struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    int get_left_offset;
+    int64_t max_slack_offset;
+
+    DBG_BOX_DUMP(box);
+    // A filter box needs to know the actual size used by the upstream
+    // filtered data to know how much input data is available. On the
+    // other hand, an item box filter's size may have to be determined
+    // to compute the size of the parent (container) filter, hence the
+    // different call required.
+    get_left_offset = 0 != (box->flags & BOX_RALIGN);
+    if (0 != (box->flags & BOX_FILTER)) {
+        bt_ret = box_compute_used_size(box->parent_box, bst);
+    } else {
+        bt_ret = box_compute_max_span_size(box->parent_box, bst);
+    }
+    if (BITPUNCH_OK == bt_ret) {
+        bt_ret = box_get_slack_child_allocation(
+            box->parent_box, get_left_offset, &max_slack_offset, bst);
+    }
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    assert(-1 != max_slack_offset);
+    if (0 != (box->flags & BOX_RALIGN)) {
+        return box_set_start_offset(box, max_slack_offset,
+                                    BOX_START_OFFSET_SLACK, bst);
+    } else {
+        return box_set_end_offset(box, max_slack_offset,
+                                  BOX_END_OFFSET_SLACK, bst);
+    }
+}
+
 /**
  * @brief compute available space for @ref box
  */
@@ -1895,7 +1932,8 @@ box_compute_slack_size(struct box *box,
     bitpunch_status_t bt_ret;
     struct box *scope_storage;
 
-    if (-1 != box->start_offset_slack && -1 != box->end_offset_slack) {
+    if (NULL == box->parent_box
+        || (-1 != box->start_offset_slack && -1 != box->end_offset_slack)) {
         /* nothing to do */
         return BITPUNCH_OK;
     }
@@ -1904,8 +1942,7 @@ box_compute_slack_size(struct box *box,
         return bt_ret;
     }
     browse_state_push_scope(bst, box, &scope_storage);
-    bt_ret = box->filter->ndat->u.rexpr_filter.f_instance->b_box.compute_slack_size(
-        box, bst);
+    bt_ret = box_compute_slack_size_internal(box, bst);
     browse_state_pop_scope(bst, box, &scope_storage);
     if (BITPUNCH_OK != bt_ret) {
         bitpunch_error_add_box_context(

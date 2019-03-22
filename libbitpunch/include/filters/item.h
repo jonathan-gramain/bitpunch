@@ -39,12 +39,6 @@ bitpunch_status_t
 box_compute_span_size__const_size(struct box *box,
                                    struct browse_state *bst);
 bitpunch_status_t
-box_compute_slack_size__from_parent(struct box *box,
-                                    struct browse_state *bst);
-bitpunch_status_t
-box_compute_slack_size__as_container_slack(struct box *box,
-                                        struct browse_state *bst);
-bitpunch_status_t
 box_compute_max_span_size__as_span(struct box *box,
                                    struct browse_state *bst);
 bitpunch_status_t

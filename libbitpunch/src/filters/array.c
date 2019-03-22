@@ -1219,7 +1219,6 @@ compile_node_backends__box__array(struct ast_node_hdl *item)
 
     b_box->init = array_box_init;
     b_box->destroy = array_box_destroy;
-    b_box->compute_slack_size = box_compute_slack_size__as_container_slack;
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
     b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
     if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
