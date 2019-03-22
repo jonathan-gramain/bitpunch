@@ -2295,6 +2295,34 @@ expr_evaluate_ancestor(
     return BITPUNCH_OK;
 }
 
+static bitpunch_status_t
+expr_evaluate_filter_chain(
+    struct ast_node_hdl *expr,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst)
+{
+    struct dpath_transform transform;
+    bitpunch_status_t bt_ret;
+
+    transform.dpath.type = EXPR_DPATH_TYPE_NONE;
+    transform.dpath_is_data_source = FALSE;
+    if (expr->ndat->u.rexpr.dpath_type_mask != EXPR_DPATH_TYPE_UNSET &&
+        expr->ndat->u.rexpr.dpath_type_mask != EXPR_DPATH_TYPE_NONE) {
+        bt_ret = expr_transform_dpath_internal(expr, NULL, &transform, bst);
+    } else {
+        bt_ret = BITPUNCH_OK;
+    }
+    if (BITPUNCH_OK == bt_ret && NULL != valuep) {
+        bt_ret = dpath_read_value_internal(transform.dpath, valuep, bst);
+    }
+    if (BITPUNCH_OK == bt_ret && NULL != dpathp) {
+        *dpathp = transform.dpath;
+    } else {
+        expr_dpath_destroy(transform.dpath);
+    }
+    return bt_ret;
+}
+
 bitpunch_status_t
 expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
                        expr_value_t *valuep, expr_dpath_t *dpathp,
@@ -2365,27 +2393,9 @@ expr_evaluate_internal(struct ast_node_hdl *expr, struct box *scope,
     case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
         bt_ret = expr_evaluate_ancestor(expr, valuep, dpathp, bst);
         break ;
-    default: {
-        struct dpath_transform transform;
-
-        transform.dpath.type = EXPR_DPATH_TYPE_NONE;
-        transform.dpath_is_data_source = FALSE;
-        if (expr->ndat->u.rexpr.dpath_type_mask != EXPR_DPATH_TYPE_UNSET &&
-            expr->ndat->u.rexpr.dpath_type_mask != EXPR_DPATH_TYPE_NONE) {
-            bt_ret = expr_transform_dpath_internal(expr, NULL, &transform, bst);
-        } else {
-            bt_ret = BITPUNCH_OK;
-        }
-        if (BITPUNCH_OK == bt_ret && NULL != valuep) {
-            bt_ret = dpath_read_value_internal(transform.dpath, valuep, bst);
-        }
-        if (BITPUNCH_OK == bt_ret && NULL != dpathp) {
-            *dpathp = transform.dpath;
-        } else {
-            expr_dpath_destroy(transform.dpath);
-        }
+    default:
+        bt_ret = expr_evaluate_filter_chain(expr, valuep, dpathp, bst);
         break ;
-    }
     }
     browse_state_pop_scope(bst, scope, &scope_storage);
     if (BITPUNCH_OK != bt_ret) {
