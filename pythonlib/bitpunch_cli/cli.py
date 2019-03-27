@@ -328,6 +328,9 @@ class CLI(NestedCmd):
         do_func_with_exception_handler.__doc__ = do_func.__doc__
         return do_func_with_exception_handler
 
+    def attach_board(self, board):
+        self.board = board
+
     ### COMMANDS ###
 
     def parse_dump_args(self, cmd, args):

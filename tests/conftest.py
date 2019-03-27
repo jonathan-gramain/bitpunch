@@ -40,14 +40,15 @@ def make_testcase(param):
     board.add_spec('Spec', param['spec'])
     try:
         param['dtree'] = board.eval_expr('data <> Spec.Schema')
-    except (model.DataError, model.OutOfBoundsError) as e:
-        print e.args[0]['description']
+    except (model.DataError, model.OutOfBoundsError, ValueError) as e:
+        if 'args' in e and len(e.args) > 0 and 'description' in e.args[0]:
+            print e.args[0]['description']
         raise
     param['data'] = data
 
     if 'BITPUNCH_TEST_ENABLE_CLI' in os.environ:
         cli = CLI()
-        cli.attach_data_tree(param['dtree'])
+        cli.attach_board(board)
         cli.cmdloop()
 
     return param
