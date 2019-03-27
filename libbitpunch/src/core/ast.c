@@ -42,6 +42,7 @@
 #include "core/browse_internal.h"
 #include "core/print.h"
 #include "core/parser.h"
+#include "core/debug.h"
 #include "filters/composite.h"
 #include "filters/array.h"
 #include "filters/array_slice.h"
@@ -3992,6 +3993,9 @@ dump_ast(const struct ast_node_hdl *root)
 void
 fdump_ast(const struct ast_node_hdl *root, FILE *out)
 {
+    if (debug_output_newline_before_locations) {
+        fprintf(out, "\n");
+    }
     if (NULL == root) {
         fprintf(out, "<null>\n");
         return ;

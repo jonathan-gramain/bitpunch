@@ -41,6 +41,10 @@
 #include "core/print.h"
 #include "core/debug.h"
 
+// cleaner trace when using "display dump_ast()" functions in GDB
+// while letting GDB break the program
+int debug_output_newline_before_locations = FALSE;
+
 const char *
 dbg_tracker_get_dpath(const struct tracker *tk)
 {

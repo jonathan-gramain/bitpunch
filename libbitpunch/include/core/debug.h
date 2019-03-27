@@ -77,6 +77,8 @@
 
 struct tracker;
 
+extern int debug_output_newline_before_locations;
+
 const char *
 dbg_tracker_get_dpath(const struct tracker *tk);
 
