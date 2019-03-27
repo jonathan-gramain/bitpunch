@@ -1640,7 +1640,9 @@ expr_evaluate_dpath_anchor_common(struct ast_node_hdl *expr,
             box_acquire(anchor_scope);
             return BITPUNCH_OK;
         }
-        anchor_scope = anchor_scope->scope;
+        anchor_scope = (NULL != anchor_scope->parent_box ?
+                        anchor_scope->parent_box :
+                        anchor_scope->scope);
     }
     // no dpath associated to anchor (i.e. anchor is a data type) ->
     // to be double-checked
