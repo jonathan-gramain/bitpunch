@@ -300,3 +300,81 @@ def test_nested_scoping_eval(params_nested_scoping_eval):
     # no Foo type in the expression, so ?foo_name cannot be evaluated
     with pytest.raises(ValueError):
         dtree.eval_expr('(foo <> Spec.Foo.Bar).?foo_name')
+
+
+
+spec_file_scoped_eval_shadowing = """
+
+let u8 = byte <> integer { @signed: false; };
+
+let Osh = struct {
+    Root.Ka;
+
+    let ?item = Root::items[2];
+
+    let Ma = struct {
+        Tri;
+
+        let ?item = Root::items[0];
+
+        let Tri = struct {
+            [3] byte <> Osh;
+
+            let ?tri_item = Root::items[1];
+            let ?ma_item = ?item;    // Ma::?item (closest in scope, though
+                                     // further away than Osh::?item in the
+                                     // box parents chain)
+        };
+    };
+};
+
+let Root = struct {
+    items: [4] Osh.Ma;
+
+    let ?item = items[3];
+
+    let Ka = struct {
+       name: [3] byte <> string;
+
+       let ?ma = Osh::Ma::Tri::?ma_item;
+       let ?tri = Osh::Ma::Tri::?tri_item;
+       let ?osh = Osh::?item;
+       let ?ka = ?item;
+    };
+};
+
+let Schema = Root;
+"""
+
+data_file_scoped_eval_shadowing = """
+"Ma "
+"Tri"
+"Osh"
+"Ka "
+"""
+
+@pytest.fixture(
+    scope='module',
+    params=[{
+        'spec': spec_file_scoped_eval_shadowing,
+        'data': data_file_scoped_eval_shadowing,
+    }])
+def params_scoped_eval_shadowing(request):
+    return conftest.make_testcase(request.param)
+
+
+def test_scoped_eval_shadowing(params_scoped_eval_shadowing):
+    params = params_scoped_eval_shadowing
+    dtree = params['dtree']
+
+    assert [item.name for item in dtree.eval_expr('items')] == \
+        ['Ma ', 'Tri', 'Osh', 'Ka ']
+    for i, item in enumerate(dtree.eval_expr('items')):
+        assert item.eval_expr('?ma') == 'Ma '
+        assert dtree.eval_expr('items[{0}].?ma'.format(i)) == 'Ma '
+        assert item.eval_expr('?tri') == 'Tri'
+        assert dtree.eval_expr('items[{0}].?tri'.format(i)) == 'Tri'
+        assert item.eval_expr('?osh') == 'Osh'
+        assert dtree.eval_expr('items[{0}].?osh'.format(i)) == 'Osh'
+        assert item.eval_expr('?ka') == 'Ka '
+        assert dtree.eval_expr('items[{0}].?ka'.format(i)) == 'Ka '

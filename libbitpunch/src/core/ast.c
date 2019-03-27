@@ -1283,6 +1283,36 @@ dep_resolver_node_get_location(struct dep_resolver_node *node,
 }
 
 static const char *
+compile_tags_str(enum compile_tag tags)
+{
+    static char buffer[128];
+    int output_started = FALSE;
+
+    buffer[0] = '\0';
+    if (0 != (tags & COMPILE_TAG_NODE_TYPE)) {
+        strcat(buffer, "type");
+        output_started = TRUE;
+    }
+    if (0 != (tags & COMPILE_TAG_NODE_SPAN_SIZE)) {
+        if (output_started) {
+            strcat(buffer, "|");
+        } else {
+            output_started = TRUE;
+        }
+        strcat(buffer, "size");
+    }
+    if (0 != (tags & COMPILE_TAG_BROWSE_BACKENDS)) {
+        if (output_started) {
+            strcat(buffer, "|");
+        } else {
+            output_started = TRUE;
+        }
+        strcat(buffer, "backends");
+    }
+    return buffer;
+}
+
+static const char *
 compile_func_to_node_family(compile_func_t compile_cb)
 {
     if (compile_cb == compile_node_cb) {
@@ -1443,7 +1473,12 @@ process_compile_res(dep_resolver_status_t ret, struct compile_ctx *ctx)
         for (i = 0; NULL != (entry = circ_entries[i]); ++i) {
             req = (struct compile_req *)entry->arg;
             loc = dep_resolver_node_get_location(entry->node, req);
-            semantic_error(SEMANTIC_LOGLEVEL_INFO, loc, NULL);
+            semantic_error(SEMANTIC_LOGLEVEL_INFO, loc,
+                           "[node] %s, [tags] (%s)",
+                           ast_node_type_str(
+                               dep_resolver_node_to_ast_node(entry->node, req)
+                               ->ndat->type),
+                           compile_tags_str(entry->tags));
         }
         free(circ_entries);
         break ;
@@ -2668,7 +2703,9 @@ compile_rexpr_named_expr(
 
     anchor_expr = expr->ndat->u.rexpr_member_common.anchor_expr;
     if (NULL != anchor_expr
-        && -1 == compile_node(anchor_expr, ctx, tags, 0u,
+        && -1 == compile_node(anchor_expr, ctx,
+                              (tags & COMPILE_TAG_NODE_TYPE),
+                              (tags & ~COMPILE_TAG_NODE_TYPE),
                               RESOLVE_EXPECT_DPATH_EXPRESSION)) {
         return -1;
     }
@@ -2833,7 +2870,9 @@ compile_rexpr_member(
     struct ast_node_data *resolved_type;
 
     op = &expr->ndat->u.rexpr_op.op;
-    if (-1 == compile_node(op->operands[0], ctx, tags, 0u,
+    if (-1 == compile_node(op->operands[0], ctx,
+                           (tags & COMPILE_TAG_NODE_TYPE),
+                           (tags & ~COMPILE_TAG_NODE_TYPE),
                            RESOLVE_EXPECT_TYPE |
                            RESOLVE_EXPECT_DPATH_EXPRESSION)) {
         return -1;
