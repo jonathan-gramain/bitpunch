@@ -49,6 +49,14 @@ A list would be defined by:
 - a "dpath" to the next element from inside an item
 - use of already-implemented "last" keyword in the last item
 
+### Implement declared arrays and dictionaries
+
+A bitpunch schema file could contain array declarations, e.g. [1,2,3],
+that could be used along with arrays generated from data.
+
+Same idea for dictionaries (key->value association, where key is a
+string and value can be any bitpunch object).
+
 ### Reverse-lookup of dpath from byte offset or byte range
 
 That would allow a user to e.g. ask bitpunch what does this 0xC001C0DE
@@ -230,9 +238,6 @@ This is NOT an organized or prioritized list.
         then in test: data.offsets.atX == 3
         assert model.get_location(foo) == data.offsets.atX
 
-- filter callbacks should be able to return tracker errors by
-  themselves
-
 BUG: filters declared after 'key' statement are not initialized
 correctly (b_filter is empty)
 
@@ -250,8 +255,8 @@ correctly (b_filter is empty)
 
 - add properties to arrays, or even arbitrary types:
 
-  - e.g. myfield: [size] byte { minspan 30; };
-         myfield: MyStruct { maxspan: 60; };
+  - e.g. myfield: [size] byte { @minspan: 30; };
+         myfield: MyStruct { @maxspan: 60; };
 
 - ability to compare reference to objects with equal/notequal operators
 
@@ -274,11 +279,6 @@ correctly (b_filter is empty)
 - BUG: mandatory filter attributes are not checked when filter is
   declared without a block scope {...}
 
-- improvement: instead of "self" syntax, propose another more flexible
-  syntax that refers to the closest dpath bound to a given named
-  filter type (e.g. "<>filter_type", i.e. filter operator as unary
-  operator).
-
 - BUG: "no match for operator 'add' with operands of type 'any
   value-type' and 'integer'"
 
@@ -289,14 +289,6 @@ correctly (b_filter is empty)
 - box->scope should be replaced by "ast_node->scope", because the
   scope is defined at compile time. That will allow resolve phase to
   work on filter expressions that do not have data context.
-
-- BUG: when compilation of some nodes fail on the board during the
-  resolve phase across available names, the compilation state should
-  be reinitialized for those nodes.
-
-- TEST: spec with one formatted_integer, invalid data input: xdump
-  should still be able to display its raw form (today it refuses
-  because of a formatted_integer filter error)
 
 - TEST: add a test similar to test_slack_static_span, with a byte
   array having a minspan attribute (suspecting issue with
