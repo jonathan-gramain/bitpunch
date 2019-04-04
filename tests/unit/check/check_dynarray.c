@@ -53,7 +53,7 @@ START_TEST(test_dynarray)
     for (i = 0; i < 26; ++i) {
         item.a = 1 + i;
         item.b = 'a' + i;
-        ARRAY_APPEND(&array, item);
+        ARRAY_PUSH(&array, item);
     }
     for (i = 25; i >= 0; --i) {
         ck_assert_int_eq(ARRAY_ITEM(&array, i).a, 1 + i);
@@ -68,7 +68,7 @@ START_TEST(test_dynarray)
         if (i < 2)
             ARRAY_ITEM(&array, i) = item;
         else
-            ARRAY_APPEND(&array, item);
+            ARRAY_PUSH(&array, item);
     }
     ck_assert_int_eq(ARRAY_FIRST(&array).a, 1);
     ck_assert_int_eq(ARRAY_LAST(&array).a, 26);
@@ -86,7 +86,7 @@ START_TEST(test_dynarray)
         if (i < 1234)
             ARRAY_ITEM(&array, i) = item;
         else
-            ARRAY_APPEND(&array, item);
+            ARRAY_PUSH(&array, item);
     }
     for (i = 199999; i >= 0; --i) {
         ck_assert_int_eq(ARRAY_ITEM(&array, i).b, 42);

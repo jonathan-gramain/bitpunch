@@ -71,7 +71,7 @@
         (array)->n_item = initial_n_items;                              \
     } while (0)
 
-#define ARRAY_APPEND(array, item) do {                                  \
+#define ARRAY_PUSH(array, item) do {                                    \
         ARRAY_RESIZE(array, (array)->n_item + 1);                       \
         (array)->data[(array)->n_item++] = (item);                      \
     } while (0)
@@ -86,7 +86,7 @@
 #define ARRAY_SIZE(array) (array)->n_item
 #define ARRAY_ALLOC_SIZE(array, type)                   \
     __ARRAY_ALLOC_SIZE((array)->n_item * sizeof (type))
-#define ARRAY_DESTROY(array) do { free((array)->data); } while (0)
+#define ARRAY_DESTROY(array) free((array)->data)
 
 #define ARRAY_FOREACH(array, pvar)                              \
     for ((pvar) = &ARRAY_FIRST(array);                          \
@@ -101,10 +101,10 @@
         size_t initial_n_items);                        \
     void name##_destroy(                                \
         struct name *array);                            \
-    void name##_append(                                 \
+    void name##_push(                                   \
         struct name *array,                             \
         type item);                                     \
-    void name##_appendp(                                \
+    void name##_pushp(                                  \
         struct name *array,                             \
         type *item);                                    \
     void name##_pop(                                    \
@@ -120,15 +120,15 @@
         struct name *array) {                           \
         ARRAY_DESTROY(array);                           \
     }                                                   \
-    void name##_append(                                 \
+    void name##_push(                                   \
         struct name *array,                             \
         type item) {                                    \
-        ARRAY_APPEND(array, item);                      \
+        ARRAY_PUSH(array, item);                        \
     }                                                   \
-    void name##_appendp(                                \
+    void name##_pushp(                                  \
         struct name *array,                             \
         type *item) {                                   \
-        ARRAY_APPEND(array, *item);                     \
+        ARRAY_PUSH(array, *item);                       \
     }                                                   \
     void name##_pop(                                    \
         struct name *array) {                           \

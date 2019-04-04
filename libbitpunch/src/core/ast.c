@@ -3575,7 +3575,7 @@ ast_node_filter_get_items_int(
     case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
-        ast_node_hdl_array_append(itemsp, filter);
+        ast_node_hdl_array_push(itemsp, filter);
         return BITPUNCH_OK;
     default:
         return BITPUNCH_INVALID_PARAM;

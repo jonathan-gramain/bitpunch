@@ -115,7 +115,7 @@ box_array_add_mark_offset(struct box *box,
     assert(ARRAY_SIZE(&box->u.array.mark_offsets) == mark);
 
     mark_offset.item_offset = item_offset;
-    ARRAY_APPEND(&box->u.array.mark_offsets, mark_offset);
+    ARRAY_PUSH(&box->u.array.mark_offsets, mark_offset);
 }
 
 static void
