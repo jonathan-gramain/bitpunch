@@ -293,3 +293,30 @@ correctly (b_filter is empty)
 - TEST: add a test similar to test_slack_static_span, with a byte
   array having a minspan attribute (suspecting issue with
   ITEMFLAG_FILLS_SLACK being set erroneously)
+
+- implement array attributes "@minlength" and "@maxlength": replace
+  @length in a similar way than @minspan and @maxspan replace
+  @span. Shortcut can be declaring an array as "[min..max] type";
+
+  -> one use case: when specifying trailing bytes like "[..10] byte",
+     or any trailing array with fixed-size items, can help to
+     determine length of preceding slack array by binding its end
+     offset to be inside a range
+     "min_span_end_offset..max_span_end_offset".
+
+- alias filter's standard input and output as @in and @out
+  attributes, respectively
+
+  -> then, redesign the filter read_func() prototype so it does not
+     provide "data" and "size" directly but make the various data
+     sources available to the filter through
+     "filter_evaluate_attribute_internal()" calls, typically passing
+     "@in" to get the main input data source.
+
+- redesign the internal API around those backend functions to simplify:
+  - filter.read_value()
+  - filter.read_func()
+  - box.get_used_size()
+  - item.compute_item_size()
+
+- remove the need to keep COMPOSITE, ARRAY and BYTE special filter enums
