@@ -3013,7 +3013,6 @@ compile_node_type_int(struct ast_node_hdl *node,
     case AST_NODE_TYPE_FILTER_DEF:
         return compile_filter_def(node, tags, ctx, expect_mask);
     case AST_NODE_TYPE_REXPR_FILTER:
-    case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
@@ -3340,7 +3339,6 @@ ast_node_is_rexpr(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_OP_MEMBER:
     case AST_NODE_TYPE_REXPR_OP_FCALL:
     case AST_NODE_TYPE_REXPR_SELF:
-    case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_REXPR_FILTER:
@@ -3357,7 +3355,6 @@ ast_node_is_rexpr_filter(const struct ast_node_hdl *node)
         return FALSE;
     }
     switch (node->ndat->type) {
-    case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE:
@@ -3382,6 +3379,19 @@ ast_node_filter_maps_list(const struct ast_node_hdl *node)
     filter_cls = node->ndat->u.rexpr_filter.filter_cls;
     return NULL != filter_cls &&
         0 != (filter_cls->flags & FILTER_CLASS_MAPS_LIST);
+}
+
+int
+ast_node_filter_maps_object(const struct ast_node_hdl *node)
+{
+    const struct filter_class *filter_cls;
+
+    if (!ast_node_is_rexpr_filter(node)) {
+        return FALSE;
+    }
+    filter_cls = node->ndat->u.rexpr_filter.filter_cls;
+    return NULL != filter_cls &&
+        0 != (filter_cls->flags & FILTER_CLASS_MAPS_OBJECT);
 }
 
 struct ast_node_hdl *
@@ -3497,7 +3507,6 @@ ast_node_get_target_filter(struct ast_node_hdl *node)
     case AST_NODE_TYPE_REXPR_OP_FILTER:
         return ast_node_get_target_filter(
             node->ndat->u.rexpr_op_filter.filter_expr);
-    case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_ARRAY_SLICE:
@@ -3572,7 +3581,6 @@ ast_node_filter_get_items_int(
         return ast_node_filter_get_items__op_filter(filter, itemsp);
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_BYTE:
-    case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
         ast_node_hdl_array_push(itemsp, filter);
@@ -3605,60 +3613,6 @@ ast_node_filter_get_items(struct ast_node_hdl *filter,
 }
 
 int
-ast_node_is_container(const struct ast_node_hdl *node)
-{
-    switch (node->ndat->type) {
-    case AST_NODE_TYPE_COMPOSITE:
-    case AST_NODE_TYPE_ARRAY:
-    case AST_NODE_TYPE_ARRAY_SLICE:
-    case AST_NODE_TYPE_BYTE_ARRAY:
-    case AST_NODE_TYPE_BYTE_SLICE:
-        return TRUE;
-    default:
-        return FALSE;
-    }
-}
-
-int
-ast_node_is_origin_container(const struct ast_node_hdl *node)
-{
-    switch (node->ndat->type) {
-    case AST_NODE_TYPE_COMPOSITE:
-    case AST_NODE_TYPE_ARRAY:
-    case AST_NODE_TYPE_BYTE_ARRAY:
-        return TRUE;
-    default:
-        return FALSE;
-    }
-}
-
-int
-ast_node_is_byte_container(const struct ast_node_hdl *node)
-{
-    switch (node->ndat->type) {
-    case AST_NODE_TYPE_BYTE_ARRAY:
-    case AST_NODE_TYPE_BYTE_SLICE:
-        return TRUE;
-    default:
-        return FALSE;
-    }
-}
-
-int
-ast_node_is_subscriptable_container(const struct ast_node_hdl *node)
-{
-    switch (node->ndat->type) {
-    case AST_NODE_TYPE_ARRAY:
-    case AST_NODE_TYPE_ARRAY_SLICE:
-    case AST_NODE_TYPE_BYTE_ARRAY:
-    case AST_NODE_TYPE_BYTE_SLICE:
-        return TRUE;
-    default:
-        return FALSE;
-    }
-}
-
-int
 ast_node_is_slice_container(const struct ast_node_hdl *node)
 {
     switch (node->ndat->type) {
@@ -3679,7 +3633,6 @@ ast_node_is_item(const struct ast_node_hdl *node)
     switch (node->ndat->type) {
     case AST_NODE_TYPE_SCOPE_DEF:
     case AST_NODE_TYPE_FILTER_DEF:
-    case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
@@ -3699,12 +3652,14 @@ ast_node_is_trackable(const struct ast_node_hdl *node)
         return FALSE;
     }
     switch (node->ndat->type) {
-    case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
         return TRUE;
+    case AST_NODE_TYPE_REXPR_FILTER:
+        return (ast_node_filter_maps_list(node) ||
+                ast_node_filter_maps_object(node));
     default:
         return FALSE;
     }
@@ -3752,6 +3707,18 @@ ast_node_get_scope_def(struct ast_node_hdl *node)
     return NULL;
 }
 
+const struct scope_def *
+ast_node_get_const_scope_def(const struct ast_node_hdl *node)
+{
+    if (ast_node_is_filter(node)) {
+        return filter_get_const_scope_def(node);
+    }
+    if (ast_node_is_scope_def(node)) {
+        return &node->ndat->u.scope_def;
+    }
+    return NULL;
+}
+
 int
 ast_node_is_filter(const struct ast_node_hdl *node)
 {
@@ -3759,7 +3726,6 @@ ast_node_is_filter(const struct ast_node_hdl *node)
         return FALSE;
     }
     switch (node->ndat->type) {
-    case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_BYTE:
@@ -3851,7 +3817,6 @@ int64_t
 ast_node_get_min_span_size(const struct ast_node_hdl *node)
 {
     switch (node->ndat->type) {
-    case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
@@ -3974,15 +3939,10 @@ static void
 fdump_ast_recur(const struct ast_node_hdl *node, int depth,
                 struct list_of_visible_refs *visible_refs, FILE *stream);
 static void
-dump_scope_recur(const struct ast_node_hdl *filter,
-                 int depth,
-                 struct list_of_visible_refs *outer_refs,
-                 FILE *stream);
-static void
-dump_composite_recur(const struct ast_node_hdl *filter,
-                     int depth,
-                     struct list_of_visible_refs *outer_refs,
-                     FILE *stream);
+dump_filter_recur(const struct ast_node_hdl *filter,
+                  int depth,
+                  struct list_of_visible_refs *outer_refs,
+                  FILE *stream);
 static void
 dump_block_stmt_list_recur(const struct ast_node_hdl *filter,
                            const struct block_stmt_list *block_lists,
@@ -4045,13 +4005,7 @@ fdump_ast(const struct ast_node_hdl *root, FILE *out)
 void
 dump_filter(const struct ast_node_hdl *filter, FILE *out)
 {
-    dump_scope_recur(filter, 0, NULL, out);
-}
-
-void
-dump_composite(const struct ast_node_hdl *composite, FILE *out)
-{
-    dump_composite_recur(composite, 0, NULL, out);
+    dump_filter_recur(filter, 0, NULL, out);
 }
 
 static void
@@ -4106,12 +4060,6 @@ span_size_str(int64_t span_size)
 }
 
 static void
-dump_ast_item(const struct ast_node_hdl *node, int depth,
-              struct list_of_visible_refs *visible_refs, FILE *out)
-{
-}
-
-static void
 dump_ast_item_info(const struct ast_node_hdl *node, FILE *out)
 {
     fprintf(out, "min span size: %s%s%s",
@@ -4120,13 +4068,6 @@ dump_ast_item_info(const struct ast_node_hdl *node, FILE *out)
              " (variable span)" : ""),
             (0 != (node->ndat->u.item.flags & ITEMFLAG_IS_USED_SIZE_VARIABLE) ?
              " (variable used)" : ""));
-}
-
-static void
-dump_ast_container(const struct ast_node_hdl *node, int depth,
-                   struct list_of_visible_refs *visible_refs, FILE *out)
-{
-    dump_ast_item(node, depth, visible_refs, out);
 }
 
 static void
@@ -4167,17 +4108,12 @@ fdump_ast_recur(const struct ast_node_hdl *node, int depth,
         break ;
     case AST_NODE_TYPE_SCOPE_DEF:
         fprintf(out, "scope\n");
-        dump_scope_recur(node, depth + 1, visible_refs, out);
+        dump_filter_recur(node, depth + 1, visible_refs, out);
         break ;
     case AST_NODE_TYPE_FILTER_DEF:
         fprintf(out, "filter type: %s\n",
                 node->ndat->u.filter_def.filter_type);
-        dump_scope_recur(node, depth + 1, visible_refs, out);
-        break ;
-    case AST_NODE_TYPE_COMPOSITE:
-        dump_ast_item_info(node, out);
-        fprintf(out, "\n");
-        dump_composite_recur(node, depth + 1, visible_refs, out);
+        dump_filter_recur(node, depth + 1, visible_refs, out);
         break ;
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY: {
@@ -4192,7 +4128,6 @@ fdump_ast_recur(const struct ast_node_hdl *node, int depth,
         fprintf(out, "%*s\\_ value count:\n",
                 (depth + 1) * INDENT_N_SPACES, "");
         fdump_ast_recur(array->item_count, depth + 2, visible_refs, out);
-        dump_ast_container(node, depth, visible_refs, out);
         break ;
     }
     case AST_NODE_TYPE_ARRAY_SLICE:
@@ -4203,7 +4138,6 @@ fdump_ast_recur(const struct ast_node_hdl *node, int depth,
         break ;
     case AST_NODE_TYPE_BYTE:
         fprintf(out, "\n");
-        dump_ast_item(node, depth, visible_refs, out);
         break ;
     case AST_NODE_TYPE_CONDITIONAL:
         fprintf(out, "\n%*s\\_ condition expr:\n",
@@ -4373,24 +4307,13 @@ fdump_ast_recur(const struct ast_node_hdl *node, int depth,
         break ;
     case AST_NODE_TYPE_REXPR_FILTER: {
         const struct filter_class *filter_cls;
-        const struct filter_attr_def *attr_def;
-        struct named_expr *attr;
 
-        dump_ast_rexpr(node,out);
+        dump_ast_rexpr(node, out);
         filter_cls = node->ndat->u.rexpr_filter.filter_cls;
-        fprintf(out, " name: %s\n%*s\\_ filter attrs:\n",
-                filter_cls->name, (depth + 1) * INDENT_N_SPACES, "");
-        STATEMENT_FOREACH(
-            named_expr, attr,
-            filter_get_const_scope_def(node)->block_stmt_list.attribute_list,
-            list) {
-            attr_def = filter_class_get_attr(filter_cls, attr->nstmt.name);
-            assert(NULL != attr_def);
-            fprintf(out, "%*s\\_ \"%s\":\n",
-                    (depth + 2) * INDENT_N_SPACES, "",
-                    attr_def->name);
-            fdump_ast_recur(attr->expr, depth + 3, visible_refs, out);
-        }
+        fprintf(out, " name: %s ", filter_cls->name);
+        dump_ast_item_info(node, out);
+        fprintf(out, "\n");
+        dump_filter_recur(node, depth + 1, visible_refs, out);
         break ;
     }
     case AST_NODE_TYPE_REXPR_OP_FILTER:
@@ -4535,7 +4458,6 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_SCOPE_DEF:
     case AST_NODE_TYPE_FILTER_DEF:
-    case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
@@ -4615,7 +4537,7 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     switch (node->ndat->type) {
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
-    case AST_NODE_TYPE_COMPOSITE:
+    case AST_NODE_TYPE_REXPR_FILTER:
         type_name = reverse_lookup_typename(node, visible_refs);
         if (NULL == type_name) {
             noname = TRUE;
@@ -4633,31 +4555,17 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
 }
 
 static void
-dump_scope_recur(const struct ast_node_hdl *filter,
-                 int depth,
-                 struct list_of_visible_refs *outer_refs,
-                 FILE *out)
-{
-    if (NULL == filter) {
-        return ;
-    }
-    dump_block_stmt_list_recur(filter,
-                               &filter->ndat->u.scope_def.block_stmt_list,
-                               depth, outer_refs, out);
-}
-
-static void
-dump_composite_recur(const struct ast_node_hdl *filter,
-                     int depth,
-                     struct list_of_visible_refs *outer_refs,
-                     FILE *out)
+dump_filter_recur(const struct ast_node_hdl *filter,
+                  int depth,
+                  struct list_of_visible_refs *outer_refs,
+                  FILE *out)
 {
     if (NULL == filter) {
         return ;
     }
     dump_block_stmt_list_recur(
         filter,
-        &filter_get_const_scope_def(filter)->block_stmt_list,
+        &ast_node_get_const_scope_def(filter)->block_stmt_list,
         depth, outer_refs, out);
 }
 
@@ -4671,6 +4579,7 @@ dump_block_stmt_list_recur(const struct ast_node_hdl *filter,
     struct list_of_visible_refs visible_refs;
     const struct field *field;
     const struct named_expr *named_expr;
+    struct named_expr *attr;
 
     /* add current refs to the chain of visible refs */
     visible_refs.outer_refs = outer_refs;
@@ -4697,6 +4606,13 @@ dump_block_stmt_list_recur(const struct ast_node_hdl *filter,
         fprintf(out, "%*s\\_ field filter:\n",
                 (depth + 2) * INDENT_N_SPACES, "");
         fdump_ast_recur(field->filter, depth + 3, &visible_refs, out);
+    }
+    fprintf(out, "%*s\\_ attributes:\n", depth * INDENT_N_SPACES, "");
+    STATEMENT_FOREACH(named_expr, attr, block_lists->attribute_list, list) {
+        fprintf(out, "%*s\\_ \"%s\":\n",
+                (depth + 2) * INDENT_N_SPACES, "",
+                attr->nstmt.name);
+        fdump_ast_recur(attr->expr, depth + 3, &visible_refs, out);
     }
 }
 

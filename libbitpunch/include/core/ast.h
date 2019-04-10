@@ -165,6 +165,8 @@ int
 ast_node_is_rexpr_filter(const struct ast_node_hdl *node);
 int
 ast_node_filter_maps_list(const struct ast_node_hdl *node);
+int
+ast_node_filter_maps_object(const struct ast_node_hdl *node);
 struct ast_node_hdl *
 ast_node_get_target_item(struct ast_node_hdl *node);
 struct ast_node_hdl *
@@ -174,14 +176,6 @@ ast_node_get_named_expr_target(struct ast_node_hdl *node);
 bitpunch_status_t
 ast_node_filter_get_items(struct ast_node_hdl *filter,
                           struct ast_node_hdl_array *itemsp);
-int
-ast_node_is_container(const struct ast_node_hdl *node);
-int
-ast_node_is_origin_container(const struct ast_node_hdl *node);
-int
-ast_node_is_byte_container(const struct ast_node_hdl *node);
-int
-ast_node_is_subscriptable_container(const struct ast_node_hdl *node);
 int
 ast_node_is_slice_container(const struct ast_node_hdl *node);
 int
@@ -196,6 +190,8 @@ int
 ast_node_is_scope_def(const struct ast_node_hdl *node);
 struct scope_def *
 ast_node_get_scope_def(struct ast_node_hdl *node);
+const struct scope_def *
+ast_node_get_const_scope_def(const struct ast_node_hdl *node);
 int
 ast_node_is_filter(const struct ast_node_hdl *node);
 struct ast_node_hdl *

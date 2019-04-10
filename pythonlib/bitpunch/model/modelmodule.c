@@ -85,9 +85,11 @@ tk_goto_item_by_key(struct tracker *tk, PyObject *index,
 static int
 dpath_is_complex_type(const struct dpath_node *dpath)
 {
-    return ast_node_is_origin_container(dpath_node_get_as_type(dpath))
-        && AST_NODE_TYPE_REXPR_FILTER !=
-        ast_node_get_target_filter(dpath->filter)->ndat->type;
+    const struct ast_node_hdl *filter;
+
+    filter = ast_node_get_target_filter(dpath->filter);
+    return (ast_node_filter_maps_list(filter) ||
+            ast_node_filter_maps_object(filter));
 }
 
 static PyObject *
@@ -2119,8 +2121,6 @@ DataItem_get_filter_type_str(DataItemObject *self)
     switch (item->ndat->type) {
     case AST_NODE_TYPE_REXPR_FILTER:
         return item->ndat->u.rexpr_filter.filter_def->filter_type;
-    case AST_NODE_TYPE_COMPOSITE:
-        return "composite";
     case AST_NODE_TYPE_ARRAY:
         return "array";
     default:
@@ -2810,7 +2810,6 @@ box_to_deep_PyObject(struct BoardObject *dtree, struct box *box)
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
-    case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_REXPR_FILTER: {
         if (NULL != node->ndat->u.rexpr_filter.f_instance->read_func) {
             return box_to_native_PyObject(dtree, box);
@@ -2874,9 +2873,6 @@ Tracker_set_default_iter_mode(TrackerObject *self)
 
     node = self->tk->box->filter;
     switch (node->ndat->type) {
-    case AST_NODE_TYPE_COMPOSITE:
-        self->iter_mode = TRACKER_ITER_FIELD_NAMES;
-        break ;
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_ARRAY_SLICE:
         if (box_contains_indexed_items(self->tk->box)) {

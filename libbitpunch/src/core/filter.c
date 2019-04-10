@@ -199,10 +199,7 @@ filter_instance_build(struct ast_node_hdl *node,
     // template flag may be removed when compiling OP_FILTER
     ndat->flags |= ASTFLAG_DATA_TEMPLATE;
     ndat->u.item.min_span_size = SPAN_SIZE_UNDEF;
-    if (0 == strcmp(filter_def->filter_type, "struct") ||
-        0 == strcmp(filter_def->filter_type, "union")) {
-        ndat->type = AST_NODE_TYPE_COMPOSITE;
-    } else if (0 == strcmp(filter_def->filter_type, "array")) {
+    if (0 == strcmp(filter_def->filter_type, "array")) {
         ndat->type = AST_NODE_TYPE_ARRAY;
     } else if (0 == strcmp(filter_def->filter_type, "byte")) {
         ndat->type = AST_NODE_TYPE_BYTE;

@@ -48,6 +48,8 @@ enum filter_attr_flag {
 enum filter_class_flag {
     /** set when the filter maps to a list type */
     FILTER_CLASS_MAPS_LIST = (1u<<0),
+    /** set when the filter maps to an object type */
+    FILTER_CLASS_MAPS_OBJECT = (1u<<1),
 };
 
 struct filter_attr_def {

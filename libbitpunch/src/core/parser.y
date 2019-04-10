@@ -193,7 +193,6 @@
             AST_NODE_TYPE_IDENTIFIER,
             AST_NODE_TYPE_SCOPE_DEF,
             AST_NODE_TYPE_FILTER_DEF,
-            AST_NODE_TYPE_COMPOSITE,
             AST_NODE_TYPE_ARRAY,
             AST_NODE_TYPE_BYTE,
             AST_NODE_TYPE_BYTE_ARRAY,
@@ -1158,7 +1157,6 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_IDENTIFIER: return "identifier";
     case AST_NODE_TYPE_SCOPE_DEF: return "scope def";
     case AST_NODE_TYPE_FILTER_DEF: return "filter def";
-    case AST_NODE_TYPE_COMPOSITE: return "composite";
     case AST_NODE_TYPE_ARRAY: return "array";
     case AST_NODE_TYPE_BYTE: return "byte";
     case AST_NODE_TYPE_BYTE_ARRAY: return "byte array";

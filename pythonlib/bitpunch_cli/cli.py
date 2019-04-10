@@ -172,14 +172,15 @@ class CLI(NestedCmd):
                 return False
             try:
                 child_obj = obj[key]
-                return (child_obj.get_filter_type() not in ['composite', 'array'])
+                return (child_obj.get_filter_type() not in
+                        ['struct', 'union', 'array'])
             except Exception:
                 return True
 
         def build_completion(candidate, obj, completion_base):
             if (isinstance(candidate, str) or
                 isinstance(candidate, model.SpecNode) or
-                obj.get_filter_type() == 'composite'):
+                obj.get_filter_type() in ['struct', 'union']):
                 return candidate
             elif isinstance(candidate, int):
                 return str(candidate)
@@ -243,7 +244,7 @@ class CLI(NestedCmd):
         if item:
             obj = self.board.eval_expr(item)
             if not ((isinstance(obj, model.SpecNode) or
-                     obj.get_filter_type() == 'composite') and sep == '.' or
+                     obj.get_filter_type() in ['struct', 'union']) and sep == '.' or
                     obj.get_filter_type() == 'array' and sep in ('.', '[', ':')):
                 return
             item += item_complement
@@ -287,8 +288,7 @@ class CLI(NestedCmd):
             try:
                 child_obj = obj[first_key]
                 if (isinstance(child_obj, model.SpecNode) or
-                    child_obj.get_filter_type() == 'composite' or
-                    child_obj.get_filter_type() == 'array'):
+                    child_obj.get_filter_type() in ['struct', 'union', 'array']):
 
                     if str(first_key) != completion_base or sep_end:
                         key_str = build_completion(first_key, obj,
@@ -304,7 +304,7 @@ class CLI(NestedCmd):
                         if not filter_type(child_obj, child_key):
                             if (is_attribute(child_key) or
                                 isinstance(child_obj, model.SpecNode) or
-                                child_obj.get_filter_type() == 'composite'):
+                                child_obj.get_filter_type() in ['struct', 'union']):
                                 yield completion_prefix + expr + sep_end + '.' + child_key
                             else:
                                 key_str = build_completion(child_key,

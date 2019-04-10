@@ -139,7 +139,7 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
             }
             bt_ret = tracker_get_item_filter(tk, &item_filter, NULL);
             ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-            if (ast_node_is_container(item_filter)
+            if (ast_node_is_trackable(item_filter)
                 && AST_NODE_TYPE_BYTE_ARRAY != item_filter->ndat->type) {
                 /* recurse in container */
                 bt_ret = tracker_enter_item(tk, NULL);
@@ -229,7 +229,7 @@ check_tracker_browse_sub_trackers_recur(struct tracker *tk,
 
             bt_ret = tracker_get_item_filter(tk, &item_filter, NULL);
             ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-            if (ast_node_is_container(item_filter)
+            if (ast_node_is_trackable(item_filter)
                 && AST_NODE_TYPE_BYTE_ARRAY != item_filter->ndat->type) {
                 bt_ret = track_item_contents(tk, &sub_tk, NULL);
                 ck_assert_int_eq(bt_ret, BITPUNCH_OK);
@@ -377,7 +377,7 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
 
                     bt_ret = tracker_get_item_filter(tk, &item_filter, NULL);
                     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
-                    if (ast_node_is_container(item_filter)
+                    if (ast_node_is_trackable(item_filter)
                         && AST_NODE_TYPE_BYTE_ARRAY
                         != item_filter->ndat->type) {
                         bt_ret = tracker_enter_item(tk, NULL);

@@ -2661,7 +2661,6 @@ expr_transform_dpath_internal(
         break ;
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_BYTE:
-    case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
         bt_ret = expr_transform_dpath_filter(expr, transformp, bst);
@@ -2750,7 +2749,6 @@ expr_evaluate_filter_type_internal(
         break ;
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_BYTE:
-    case AST_NODE_TYPE_COMPOSITE:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
         *filter_typep = filter;
