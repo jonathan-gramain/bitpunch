@@ -895,7 +895,6 @@ box_construct(struct box *o_box,
     // first initialize the structural fields, so we get a valid box
     // in case of errors (as bst->last_error will then have a
     // reference to the box)
-    TAILQ_INIT(&o_box->cached_children);
     o_box->use_count = 1;
     o_box->board = bst->board;
 
@@ -971,7 +970,6 @@ box_dump_flags(const struct box *box, FILE *out)
     static const char *flag_desc[] = {
         "COMPUTING_SPAN_SIZE",
         "COMPUTING_SLACK_CHILD_ALLOCATION",
-        "BOX_CACHED",
         "BOX_RALIGN",
         "BOX_FILTER",
         "BOX_DATA_SOURCE",
@@ -1024,9 +1022,9 @@ box_dump_internal(const struct box *box, FILE *out, int indent)
             ast_node_type_str(box->filter->ndat->type));
     box_dump_flags(box, out);
     fprintf(out,
-            "\n%*sinternals: use_count=%d n_cached_children=%d\n",
+            "\n%*sinternals: use_count=%d\n",
             (indent + box->depth_level) * 4, "",
-            box->use_count, box->n_cached_children);
+            box->use_count);
     fprintf(out, "\n");
 }
 
@@ -1044,7 +1042,6 @@ box_fdump(const struct box *box, FILE *out)
 
 static struct box *
 box_new_root_box_internal(struct ast_node_hdl *schema,
-                          int manage_env,
                           struct browse_state *bst)
 {
     struct box *root_box;
@@ -1058,16 +1055,12 @@ box_new_root_box_internal(struct ast_node_hdl *schema,
         box_delete_non_null(root_box);
         return NULL;
     }
-    if (manage_env) {
-        root_box->flags |= BOX_MANAGE_ENV;
-    }
     return root_box;
 }
 
 struct box *
 box_new_root_box(struct ast_node_hdl *schema,
-                 struct bitpunch_board *board,
-                 int manage_env)
+                 struct bitpunch_board *board)
 {
     struct browse_state bst;
     bitpunch_status_t bt_ret;
@@ -1077,7 +1070,7 @@ box_new_root_box(struct ast_node_hdl *schema,
     if (BITPUNCH_OK != bt_ret) {
         return NULL;
     }
-    return box_new_root_box_internal(schema, manage_env, &bst);
+    return box_new_root_box_internal(schema, &bst);
 }
 
 struct box *
@@ -1281,9 +1274,6 @@ box_free(struct box *box)
     if (0 != (box->flags & BOX_DATA_SOURCE)) {
         (void)data_source_release_internal(
             (struct bitpunch_data_source *)box->ds_out);
-    }
-    if (0 != (box->flags & BOX_MANAGE_ENV)) {
-        bitpunch_board_free(box->board);
     }
     free(box);
 }
@@ -3218,9 +3208,6 @@ static int
 track_path_elem_dump_to_buf(struct track_path tp, int dump_separator,
                             char *dpath_expr_buf, int buf_size)
 {
-    if (0 != (tp.flags & TRACK_PATH_IS_ANCESTOR)) {
-        return snprintf(dpath_expr_buf, buf_size, "^");
-    }
     switch (tp.type) {
     case TRACK_PATH_NOTYPE:
         //return snprintf(dpath_expr_buf, buf_size, "(as)");
@@ -3255,9 +3242,6 @@ track_path_elem_dump(struct track_path tp, int dump_separator,
 {
     const char *name;
 
-    if (0 != (tp.flags & TRACK_PATH_IS_ANCESTOR)) {
-        return fprintf(stream, "^");
-    }
     switch (tp.type) {
     case TRACK_PATH_NOTYPE:
         //return fprintf(stream, "(as)");

@@ -167,7 +167,7 @@ bitpunch_eval_expr(
         return BITPUNCH_INVALID_PARAM;
     }
     if (NULL == scope && NULL != board) {
-        _scope = box_new_root_box(board->ast_root, board, FALSE);
+        _scope = box_new_root_box(board->ast_root, board);
         if (NULL == _scope) {
             // on resolve error, the board may need a refresh since
             // its internal nodes may have been affected by failing

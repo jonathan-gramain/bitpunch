@@ -114,9 +114,8 @@ struct track_path {
         TRACK_PATH_ARRAY_SLICE,
     } type;
     enum track_path_flags {
-        TRACK_PATH_IS_ANCESTOR = (1u<<0),
-        TRACK_PATH_HEADER      = (1u<<1),
-        TRACK_PATH_TRAILER     = (1u<<2),
+        TRACK_PATH_HEADER      = (1u<<0),
+        TRACK_PATH_TRAILER     = (1u<<1),
     } flags;
     union {
         const struct field *field;
@@ -190,17 +189,13 @@ struct box {
     enum box_flag {
         COMPUTING_SPAN_SIZE        = (1u<<0),
         COMPUTING_SLACK_CHILD_ALLOCATION = (1u<<1),
-        BOX_CACHED                 = (1u<<2),
-        BOX_RALIGN                 = (1u<<3),
-        BOX_FILTER                 = (1u<<4),
-        BOX_DATA_SOURCE            = (1u<<5),
-        BOX_OVERLAY                = (1u<<6),
-        BOX_FILTER_APPLIED         = (1u<<7),
-        BOX_MANAGE_ENV             = (1u<<8),
+        BOX_RALIGN                 = (1u<<2),
+        BOX_FILTER                 = (1u<<3),
+        BOX_DATA_SOURCE            = (1u<<4),
+        BOX_OVERLAY                = (1u<<5),
+        BOX_FILTER_APPLIED         = (1u<<6),
     } flags;
     union {
-        struct box_composite {
-        } composite;
         struct box_array_generic {
             int64_t n_items;
         } array_generic;
@@ -215,25 +210,9 @@ struct box {
             int64_t last_cached_item_offset;
             int cache_log2_n_keys_per_mark;
         } array;
-        struct box_byte_array {
-            struct box_array_generic array_generic; /* inherits */
-        } byte_array;
-        struct box_array_slice {
-            struct box_array_generic array_generic; /* inherits */
-        } array_slice;
-        struct box_byte_slice {
-            struct box_array_generic array_generic; /* inherits */
-        } byte_slice;
     } u;
 
     struct track_path track_path;
-
-    /* cache-related inclusive lists */
-    struct box_tailq cached_children;
-    int n_cached_children;
-
-    TAILQ_ENTRY(box) cached_boxes_list;
-    TAILQ_ENTRY(box) cached_children_list;
 };
 
 #define BOX_INDEX_CACHE_DEFAULT_LOG2_N_KEYS_PER_MARK 5
@@ -295,8 +274,7 @@ struct ast_node_hdl *
 box_get_index_expr(const struct box *box);
 struct box *
 box_new_root_box(struct ast_node_hdl *schema,
-                 struct bitpunch_board *board,
-                 int manage_env);
+                 struct bitpunch_board *board);
 void
 box_dump(const struct box *box);
 void
