@@ -41,18 +41,6 @@
 #include "filters/bytes.h"
 
 
-bitpunch_status_t
-byte_array_box_init(struct box *box, struct browse_state *bst)
-{
-    box->u.array_generic.n_items = -1;
-    return BITPUNCH_OK;
-}
-
-void
-byte_array_box_destroy(struct box *box)
-{
-}
-
 static bitpunch_status_t
 compute_item_size__byte_array_var_size(
     struct ast_node_hdl *item_filter, struct box *scope,
@@ -109,26 +97,27 @@ static bitpunch_status_t
 box_get_n_items__byte_array_slack(struct box *box, int64_t *item_countp,
                                   struct browse_state *bst)
 {
+    struct array_state_generic *array_state;
     bitpunch_status_t bt_ret;
 
     DBG_BOX_DUMP(box);
-    if (-1 == box->u.array_generic.n_items) {
+    array_state = box_array_state(box);
+    if (-1 == array_state->n_items) {
         bt_ret = box_compute_slack_size(box, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
         assert(-1 != box->end_offset_slack);
         /* deduce size from the available slack space */
-        box->u.array_generic.n_items =
-            box->end_offset_slack - box->start_offset_span;
+        array_state->n_items = box->end_offset_slack - box->start_offset_span;
         /* now is a good time to set the used size as well */
-        bt_ret = box_set_used_size(box, box->u.array_generic.n_items, bst);
+        bt_ret = box_set_used_size(box, array_state->n_items, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
     }
     if (NULL != item_countp) {
-        *item_countp = box->u.array_generic.n_items;
+        *item_countp = array_state->n_items;
     }
     return BITPUNCH_OK;
 }
@@ -168,16 +157,18 @@ static bitpunch_status_t
 tracker_goto_next_item__byte_array_generic(struct tracker *tk,
                                            struct browse_state *bst)
 {
+    struct array_state_generic *array_state;
     bitpunch_status_t bt_ret;
 
     DBG_TRACKER_DUMP(tk);
+    array_state = box_array_state(tk->box);
     ++tk->cur.u.array.index;
     if (0 != (tk->flags & TRACKER_NEED_ITEM_OFFSET)) {
         tk->item_offset += 1;
     }
-    if ((-1 != tk->box->u.array_generic.n_items
-         && tk->cur.u.array.index == tk->box->u.array_generic.n_items)
-        || (-1 == tk->box->u.array_generic.n_items
+    if ((-1 != array_state->n_items
+         && tk->cur.u.array.index == array_state->n_items)
+        || (-1 == array_state->n_items
             && tk->item_offset == tk->box->end_offset_slack)) {
         bt_ret = tracker_set_end(tk, bst);
         if (BITPUNCH_OK != bt_ret) {
@@ -248,8 +239,6 @@ compile_node_backends__box__byte_array(struct ast_node_hdl *item)
     b_box = &array->filter.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
-    b_box->init = byte_array_box_init;
-    b_box->destroy = byte_array_box_destroy;
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
     b_box->compute_span_size = box_compute_span_size__as_used;
     if (0 == (item->ndat->u.item.flags & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
@@ -283,6 +272,8 @@ compile_node_backends__item__byte_array(struct ast_node_hdl *item)
         item->ndat->u.rexpr_filter.f_instance;
     array->filter.read_func = bytes__read;
     b_item = &array->filter.b_item;
+    b_item->create_filter_state = array_create_generic_filter_state;
+    b_item->destroy_filter_state = array_destroy_generic_filter_state;
     if (NULL == b_item->compute_item_size
         && NULL != array->item_count) {
         b_item->compute_item_size = compute_item_size__byte_array_var_size;

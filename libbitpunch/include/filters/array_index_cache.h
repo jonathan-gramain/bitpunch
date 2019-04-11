@@ -35,7 +35,22 @@
 #include "utils/bloom.h"
 #include "core/expr.h"
 #include "core/browse.h"
-#include "filters/array.h"
+
+struct index_cache_mark_offset {
+    int64_t item_offset;
+};
+
+struct array_cache {
+    struct bloom_book *cache_by_key;
+    ARRAY_HEAD(index_cache_mark_offset_repo,
+               struct index_cache_mark_offset) mark_offsets;
+    int mark_offsets_exists;
+    int64_t last_cached_index;
+    struct ast_node_hdl *last_cached_item;
+    int64_t last_cached_item_offset;
+#define BOX_INDEX_CACHE_DEFAULT_LOG2_N_KEYS_PER_MARK 5
+    int cache_log2_n_keys_per_mark;
+};
 
 struct index_cache_iterator {
     struct bloom_book_cookie bloom_cookie;
@@ -47,13 +62,20 @@ struct index_cache_iterator {
     int first;
 };
 
-bitpunch_status_t
-array_box_init_index_cache(struct box *box, struct browse_state *bst);
-void
-array_box_destroy_index_cache(struct box *box);
-
+int64_t
+array_get_index_mark(struct array_cache *cache, int64_t index);
 int
-box_index_cache_exists(const struct box *box);
+index_cache_exists(struct array_cache *cache);
+
+bitpunch_status_t
+array_index_cache_init(struct array_cache *cache, struct box *scope,
+                       struct ast_node_hdl *filter, struct browse_state *bst);
+void
+array_index_cache_destroy(struct array_cache *cache);
+
+bitpunch_status_t
+tracker_index_cache_add_item(struct tracker *tk, expr_value_t item_key,
+                             struct browse_state *bst);
 bitpunch_status_t
 box_index_cache_lookup_key_twins(struct box *box,
                                  expr_value_t item_key,
@@ -67,12 +89,13 @@ index_cache_iterator_next_twin(struct index_cache_iterator *iter,
 void
 index_cache_iterator_done(struct index_cache_iterator *iter);
 
-int64_t
-box_array_get_index_mark(struct box *box, int64_t index);
-
 bitpunch_status_t
-tracker_index_cache_add_item(struct tracker *tk, expr_value_t item_key,
-                             struct browse_state *bst);
+tracker_index_cache_goto_twin(struct tracker *tk,
+                              expr_value_t item_key,
+                              int nth_twin,
+                              struct track_path in_slice_path,
+                              int *last_twinp,
+                              struct browse_state *bst);
 bitpunch_status_t
 tracker_index_cache_lookup_current_twin_index(
     struct tracker *tk,
@@ -81,18 +104,11 @@ tracker_index_cache_lookup_current_twin_index(
     int *nth_twinp,
     struct browse_state *bst);
 bitpunch_status_t
-tracker_index_cache_goto_twin(struct tracker *tk,
-                              expr_value_t item_key,
-                              int nth_twin,
-                              struct track_path in_slice_path,
-                              int *last_twinp,
-                              struct browse_state *bst);
-void
-tracker_goto_last_cached_item_internal(struct tracker *tk,
-                                       struct browse_state *bst);
-bitpunch_status_t
 tracker_goto_mark_internal(struct tracker *tk,
                            int64_t mark,
                            struct browse_state *bst);
+void
+tracker_goto_last_cached_item_internal(struct tracker *tk,
+                                       struct browse_state *bst);
 
 #endif

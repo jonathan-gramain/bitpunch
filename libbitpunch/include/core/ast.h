@@ -201,8 +201,6 @@ ast_node_get_as_type(struct ast_node_hdl *node);
 int64_t
 ast_node_get_min_span_size(const struct ast_node_hdl *node);
 int
-ast_node_is_slack(const struct ast_node_hdl *node);
-int
 ast_node_is_indexed(const struct ast_node_hdl *node);
 struct ast_node_hdl *
 ast_node_get_key_expr(const struct ast_node_hdl *node);

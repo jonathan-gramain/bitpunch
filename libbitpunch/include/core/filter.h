@@ -101,6 +101,7 @@ struct filter_class {
     STAILQ_HEAD(filter_attr_list, filter_attr_def) attr_list;
 };
 
+
 int
 filter_class_declare(
     const char *name,

@@ -3830,22 +3830,6 @@ ast_node_get_min_span_size(const struct ast_node_hdl *node)
 }
 
 int
-ast_node_is_slack(const struct ast_node_hdl *node)
-{
-    struct filter_instance_array *array;
-
-    switch (node->ndat->type) {
-    case AST_NODE_TYPE_ARRAY:
-    case AST_NODE_TYPE_BYTE_ARRAY:
-        array = (struct filter_instance_array *)
-            node->ndat->u.rexpr_filter.f_instance;
-        return NULL == array->item_count;
-    default:
-        return FALSE;
-    }
-}
-
-int
 ast_node_is_indexed(const struct ast_node_hdl *node)
 {
     const struct ast_node_hdl *target;

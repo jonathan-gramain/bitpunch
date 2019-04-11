@@ -52,12 +52,20 @@ struct bitpunch_error_slist {
 } while (0)
 
 struct item_backend {
+    bitpunch_status_t (*create_filter_state)(
+        struct ast_node_hdl *filter, struct box *scope,
+        filter_state_t **filter_statep, struct browse_state *bst);
+
+    void              (*destroy_filter_state)(
+        filter_state_t *filter_state);
+
     bitpunch_status_t (*compute_item_size)(struct ast_node_hdl *item_filter,
                                            struct box *scope,
                                            int64_t item_offset,
                                            int64_t max_span_offset,
                                            int64_t *item_sizep,
                                            struct browse_state *bst);
+
     bitpunch_status_t (*read_value)(struct ast_node_hdl *item_filter,
                                     struct box *scope,
                                     int64_t item_offset,
@@ -67,8 +75,6 @@ struct item_backend {
 };
 
 struct box_backend {
-    bitpunch_status_t (*init)(struct box *box, struct browse_state *bst);
-    void              (*destroy)(struct box *box);
     bitpunch_status_t (*get_n_items)(struct box *box,
                                     int64_t *item_countp,
                                     struct browse_state *bst);

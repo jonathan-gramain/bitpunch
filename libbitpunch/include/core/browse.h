@@ -46,15 +46,14 @@ extern int tracker_debug_mode;
 struct box;
 enum filter_kind;
 
+/** opaque type for filter-specific state */
+typedef void filter_state_t;
+
 struct browse_state {
     struct bitpunch_board *board;
     struct box *scope;
     struct bitpunch_error_slist *expected_errors;
     struct bitpunch_error *last_error;
-};
-
-struct index_cache_mark_offset {
-    int64_t item_offset;
 };
 
 enum box_offset_type {
@@ -195,27 +194,10 @@ struct box {
         BOX_OVERLAY                = (1u<<5),
         BOX_FILTER_APPLIED         = (1u<<6),
     } flags;
-    union {
-        struct box_array_generic {
-            int64_t n_items;
-        } array_generic;
-        struct box_array {
-            struct box_array_generic array_generic; /* inherits */
-            struct bloom_book *cache_by_key;
-            ARRAY_HEAD(index_cache_mark_offset_repo,
-                       struct index_cache_mark_offset) mark_offsets;
-            int mark_offsets_exists;
-            int64_t last_cached_index;
-            struct ast_node_hdl *last_cached_item;
-            int64_t last_cached_item_offset;
-            int cache_log2_n_keys_per_mark;
-        } array;
-    } u;
 
+    filter_state_t *filter_state;
     struct track_path track_path;
 };
-
-#define BOX_INDEX_CACHE_DEFAULT_LOG2_N_KEYS_PER_MARK 5
 
 struct bitpunch_error;
 

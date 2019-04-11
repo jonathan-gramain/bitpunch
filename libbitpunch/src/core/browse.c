@@ -935,23 +935,27 @@ box_construct(struct box *o_box,
     switch (filter->ndat->type) {
     case AST_NODE_TYPE_ARRAY_SLICE:
     case AST_NODE_TYPE_BYTE_SLICE:
-        o_box->u.array_generic.n_items = -1;
-        break ;
     case AST_NODE_TYPE_REXPR_FILTER:
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
-        filter_cls = filter->ndat->u.rexpr_filter.filter_cls;
         f_instance = filter->ndat->u.rexpr_filter.f_instance;
-        if (0 != (filter_cls->value_type_mask &
-                  (EXPR_VALUE_TYPE_BYTES |
-                   EXPR_VALUE_TYPE_STRING))) {
-            o_box->u.array_generic.n_items = -1;
-        }
-        if (NULL != f_instance->b_box.init) {
-            bt_ret = f_instance->b_box.init(o_box, bst);
+        if (NULL != f_instance->b_item.create_filter_state) {
+            bt_ret = f_instance->b_item.create_filter_state(
+                filter, scope, &o_box->filter_state, bst);
             if (BITPUNCH_OK != bt_ret) {
                 return bt_ret;
+            }
+        } else {
+            filter_cls = filter->ndat->u.rexpr_filter.filter_cls;
+            if (0 != (filter_cls->value_type_mask &
+                      (EXPR_VALUE_TYPE_BYTES |
+                       EXPR_VALUE_TYPE_STRING))) {
+                bt_ret = array_create_generic_filter_state(
+                    filter, scope, &o_box->filter_state, bst);
+                if (BITPUNCH_OK != bt_ret) {
+                    return bt_ret;
+                }
             }
         }
         if (NULL != f_instance->get_data_source_func) {
@@ -1256,6 +1260,7 @@ static void
 box_free(struct box *box)
 {
     struct ast_node_hdl *item;
+    struct filter_instance *f_instance;
 
     item = box->filter;
     /* destroy internal state */
@@ -1263,8 +1268,9 @@ box_free(struct box *box)
         switch (item->ndat->type) {
         case AST_NODE_TYPE_REXPR_FILTER:
         case AST_NODE_TYPE_ARRAY:
-            if (NULL != item->ndat->u.rexpr_filter.f_instance->b_box.destroy) {
-                item->ndat->u.rexpr_filter.f_instance->b_box.destroy(box);
+            f_instance = item->ndat->u.rexpr_filter.f_instance;
+            if (NULL != f_instance->b_item.destroy_filter_state) {
+                f_instance->b_item.destroy_filter_state(box->filter_state);
             }
             break ;
         default:
@@ -2996,9 +3002,11 @@ tracker_goto_index_internal(struct tracker *tk,
                             int is_end_of_slice,
                             struct browse_state *bst)
 {
+    struct array_state_generic *array_state;
     expr_value_t item_index;
     bitpunch_status_t bt_ret;
 
+    array_state = box_array_state(tk->box);
     if (NULL != index.key) {
         bt_ret = expr_evaluate_value_internal(index.key, NULL,
                                               &item_index, bst);
@@ -3045,7 +3053,7 @@ tracker_goto_index_internal(struct tracker *tk,
                     SEMANTIC_LOGLEVEL_ERROR, &index.key->loc,
                     "%s %"PRIi64" is past array size (%"PRIi64")",
                     index_desc, item_index.integer,
-                    tk->box->u.array_generic.n_items);
+                    array_state->n_items);
             }
         } else {
             expr_value_t twin_index;
@@ -4300,17 +4308,19 @@ bitpunch_status_t
 box_get_n_items__as_used(struct box *box, int64_t *item_countp,
                          struct browse_state *bst)
 {
+    struct array_state_generic *array_state;
     bitpunch_status_t bt_ret;
 
     DBG_BOX_DUMP(box);
-    if (-1 == box->u.array_generic.n_items) {
-        bt_ret = box_get_used_size(box, &box->u.array_generic.n_items, bst);
+    array_state = box_array_state(box);
+    if (-1 == array_state->n_items) {
+        bt_ret = box_get_used_size(box, &array_state->n_items, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
     }
     if (NULL != item_countp) {
-        *item_countp = box->u.array_generic.n_items;
+        *item_countp = array_state->n_items;
     }
     return BITPUNCH_OK;
 }

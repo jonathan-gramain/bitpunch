@@ -184,17 +184,57 @@ compile_span_size_array(struct ast_node_hdl *item,
 }
 
 
-static bitpunch_status_t
-array_box_init(struct box *box, struct browse_state *bst)
+void
+array_state_generic_init(struct array_state_generic *array_generic)
 {
-    box->u.array_generic.n_items = -1;
-    return array_box_init_index_cache(box, bst);
+    array_generic->n_items = -1;
+}
+
+bitpunch_status_t
+array_create_generic_filter_state(
+    struct ast_node_hdl *filter, struct box *scope,
+    filter_state_t **filter_statep, struct browse_state *bst)
+{
+    struct array_state_generic *filter_state;
+
+    filter_state = new_safe(struct array_state_generic);
+    array_state_generic_init(filter_state);
+    *filter_statep = filter_state;
+    return BITPUNCH_OK;
+}
+
+void
+array_destroy_generic_filter_state(filter_state_t *filter_state)
+{
+    free(filter_state);
+}
+
+static bitpunch_status_t
+array_create_filter_state_with_cache(
+    struct ast_node_hdl *filter, struct box *scope,
+    filter_state_t **filter_statep, struct browse_state *bst)
+{
+    struct array_state_with_cache *filter_state;
+    bitpunch_status_t bt_ret;
+
+    filter_state = new_safe(struct array_state_with_cache);
+    array_state_generic_init(&filter_state->array_generic);
+    bt_ret = array_index_cache_init(&filter_state->cache, scope, filter, bst);
+    if (BITPUNCH_OK == bt_ret) {
+        *filter_statep = filter_state;
+    } else {
+        free(filter_state);
+    }
+    return bt_ret;
 }
 
 static void
-array_box_destroy(struct box *box)
+array_destroy_filter_state_with_cache(filter_state_t *_filter_state)
 {
-    array_box_destroy_index_cache(box);
+    struct array_state_with_cache *filter_state = _filter_state;
+
+    array_index_cache_destroy(&filter_state->cache);
+    free(filter_state);
 }
 
 static bitpunch_status_t
@@ -265,11 +305,13 @@ static bitpunch_status_t
 box_compute_n_items_by_iteration(struct box *box,
                                  struct browse_state *bst)
 {
+    struct array_state_generic *array_state;
     bitpunch_status_t bt_ret;
     struct tracker *tk;
     int64_t n_items;
 
     DBG_BOX_DUMP(box);
+    array_state = box_array_state(box);
     /* first compute available slack space to notify iteration where
      * to stop */
     bt_ret = box_compute_max_span_size(box, bst);
@@ -289,8 +331,8 @@ box_compute_n_items_by_iteration(struct box *box,
         bt_ret = tracker_goto_next_item_internal(tk, bst);
     }
     if (BITPUNCH_NO_ITEM == bt_ret) {
-        if (-1 == box->u.array_generic.n_items) {
-            box->u.array_generic.n_items = n_items;
+        if (-1 == array_state->n_items) {
+            array_state->n_items = n_items;
         }
         if (0 != (box->flags & BOX_RALIGN)) {
             bt_ret = box_set_start_offset(box, tk->item_offset,
@@ -311,16 +353,18 @@ static bitpunch_status_t
 box_get_n_items__by_iteration(struct box *box, int64_t *item_countp,
                               struct browse_state *bst)
 {
+    struct array_state_generic *array_state;
     bitpunch_status_t bt_ret;
 
     DBG_BOX_DUMP(box);
-    if (-1 == box->u.array_generic.n_items) {
+    array_state = box_array_state(box);
+    if (-1 == array_state->n_items) {
         bt_ret = box_compute_n_items_by_iteration(box, bst);
     } else {
         bt_ret = BITPUNCH_OK;
     }
     if (BITPUNCH_OK == bt_ret && NULL != item_countp) {
-        *item_countp = box->u.array_generic.n_items;
+        *item_countp = array_state->n_items;
     }
     return bt_ret;
 }
@@ -330,10 +374,12 @@ box_get_n_items__array_non_slack(struct box *box, int64_t *item_countp,
                                  struct browse_state *bst)
 {
     struct filter_instance_array *array;
+    struct array_state_generic *array_state;
     expr_value_t item_count;
 
     DBG_BOX_DUMP(box);
-    if (-1 == box->u.array_generic.n_items) {
+    array_state = box_array_state(box);
+    if (-1 == array_state->n_items) {
         bitpunch_status_t bt_ret;
 
         array = (struct filter_instance_array *)
@@ -358,10 +404,10 @@ box_get_n_items__array_non_slack(struct box *box, int64_t *item_countp,
                 "evaluation of array items count gives "
                 "negative value (%"PRIi64")", item_count.integer);
         }
-        box->u.array_generic.n_items = item_count.integer;
+        array_state->n_items = item_count.integer;
     }
     if (NULL != item_countp) {
-        *item_countp = box->u.array_generic.n_items;
+        *item_countp = array_state->n_items;
     }
     return BITPUNCH_OK;
 }
@@ -371,11 +417,13 @@ box_get_n_items__array_non_slack_with_last(struct box *box,
                                            int64_t *item_countp,
                                            struct browse_state *bst)
 {
+    struct array_state_generic *array_state;
     bitpunch_status_t bt_ret;
     int64_t n_items;
 
     DBG_BOX_DUMP(box);
-    if (-1 == box->u.array_generic.n_items) {
+    array_state = box_array_state(box);
+    if (-1 == array_state->n_items) {
         // start by evaluating array size
         bt_ret = box_get_n_items__array_non_slack(box, &n_items, bst);
         if (BITPUNCH_OK != bt_ret) {
@@ -386,7 +434,7 @@ box_get_n_items__array_non_slack_with_last(struct box *box,
         bt_ret = BITPUNCH_OK;
     }
     if (BITPUNCH_OK == bt_ret && NULL != item_countp) {
-        *item_countp = box->u.array_generic.n_items;
+        *item_countp = array_state->n_items;
     }
     return bt_ret;
 }
@@ -398,13 +446,15 @@ box_get_n_items__array_slack_const_item_size(struct box *box,
                                               struct browse_state *bst)
 {
     struct filter_instance_array *array;
+    struct array_state_generic *array_state;
     bitpunch_status_t bt_ret;
     const struct ast_node_hdl *node;
     struct ast_node_hdl *item_type;
     int64_t item_size;
 
     DBG_BOX_DUMP(box);
-    if (-1 == box->u.array_generic.n_items) {
+    array_state = box_array_state(box);
+    if (-1 == array_state->n_items) {
         bt_ret = box_compute_max_span_size(box, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
@@ -429,17 +479,16 @@ box_get_n_items__array_slack_const_item_size(struct box *box,
         }
         /* deduce number of items from the available slack space and
          * the unit elem static size */
-        box->u.array_generic.n_items =
+        array_state->n_items =
             (box->end_offset_max_span - box->start_offset_max_span) / item_size;
         /* now is a good time to set the used size as well */
-        bt_ret = box_set_used_size(
-            box, box->u.array_generic.n_items * item_size, bst);
+        bt_ret = box_set_used_size(box, array_state->n_items * item_size, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
     }
     if (NULL != item_countp) {
-        *item_countp = box->u.array_generic.n_items;
+        *item_countp = array_state->n_items;
     }
     return BITPUNCH_OK;
 }
@@ -678,6 +727,7 @@ static bitpunch_status_t
 tracker_goto_next_item__array(struct tracker *tk,
                               struct browse_state *bst)
 {
+    struct array_state_generic *array_state;
     bitpunch_status_t bt_ret;
     struct box *filtered_box;
     int64_t item_size;
@@ -685,6 +735,7 @@ tracker_goto_next_item__array(struct tracker *tk,
     int is_last;
 
     DBG_TRACKER_DUMP(tk);
+    array_state = box_array_state(tk->box);
     is_last = FALSE;
     bt_ret = tracker_compute_item_filter_internal(tk, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -725,8 +776,8 @@ tracker_goto_next_item__array(struct tracker *tk,
         }
     }
     ++tk->cur.u.array.index;
-    if ((-1 != tk->box->u.array_generic.n_items
-         && tk->cur.u.array.index == tk->box->u.array_generic.n_items)
+    if ((-1 != array_state->n_items
+         && tk->cur.u.array.index == array_state->n_items)
         || is_last) {
         bt_ret = tracker_set_end(tk, bst);
         if (BITPUNCH_OK != bt_ret) {
@@ -734,7 +785,7 @@ tracker_goto_next_item__array(struct tracker *tk,
         }
         return BITPUNCH_NO_ITEM;
     }
-    if (-1 == tk->box->u.array_generic.n_items) {
+    if (-1 == array_state->n_items) {
         bt_ret = tracker_check_if_last_item__array_slack(tk, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
@@ -817,14 +868,16 @@ tracker_goto_nth_item__array_var_item_size(
     struct browse_state *bst)
 {
     struct tracker *xtk;
+    struct array_cache *cache;
     bitpunch_status_t bt_ret;
 
     DBG_TRACKER_DUMP(tk);
     xtk = tracker_dup(tk);
-    if (index < tk->box->u.array.last_cached_index) {
+    cache = box_array_cache(xtk->box);
+    if (index < cache->last_cached_index) {
         int64_t mark;
 
-        mark = box_array_get_index_mark(xtk->box, index);
+        mark = array_get_index_mark(cache, index);
         bt_ret = tracker_goto_mark_internal(xtk, mark, bst);
     } else {
         tracker_goto_last_cached_item_internal(xtk, bst);
@@ -840,10 +893,9 @@ tracker_goto_nth_item__array_var_item_size(
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    if (box_index_cache_exists(xtk->box)) {
+    if (index_cache_exists(cache)) {
         while (TRUE) {
-            if (xtk->cur.u.array.index
-                == xtk->box->u.array.last_cached_index + 1) {
+            if (xtk->cur.u.array.index == cache->last_cached_index + 1) {
                 expr_value_t index_key;
 
                 bt_ret = tracker_get_item_key_internal(xtk, &index_key, bst);
@@ -868,8 +920,7 @@ tracker_goto_nth_item__array_var_item_size(
         while (TRUE) {
             expr_value_t dummy;
 
-            if (xtk->cur.u.array.index
-                == xtk->box->u.array.last_cached_index + 1) {
+            if (xtk->cur.u.array.index == cache->last_cached_index + 1) {
                 bt_ret = tracker_index_cache_add_item(xtk, dummy, bst);
                 if (BITPUNCH_OK != bt_ret) {
                     break ;
@@ -900,16 +951,18 @@ tracker_goto_nth_item__array_non_slack_var_item_size(
     struct browse_state *bst)
 {
     struct filter_instance_array *array;
+    struct array_state_generic *array_state;
     struct ast_node_hdl *item_type;
     bitpunch_status_t bt_ret;
 
     DBG_TRACKER_DUMP(tk);
+    array_state = box_array_state(tk->box);
     bt_ret = box_get_n_items_internal(tk->box, NULL, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    assert(-1 != tk->box->u.array_generic.n_items);
-    if (index >= tk->box->u.array_generic.n_items) {
+    assert(-1 != array_state->n_items);
+    if (index >= array_state->n_items) {
         return BITPUNCH_NO_ITEM;
     }
     array = (struct filter_instance_array *)
@@ -934,6 +987,7 @@ tracker_goto_next_key_match__array(struct tracker *tk,
                                    struct browse_state *bst)
 {
     struct filter_instance_array *array;
+    struct array_cache *cache;
     const struct ast_node_hdl *item_type;
     struct ast_node_hdl *key_expr;
     bitpunch_status_t bt_ret;
@@ -941,6 +995,7 @@ tracker_goto_next_key_match__array(struct tracker *tk,
     struct box *filtered_box;
 
     DBG_TRACKER_DUMP(tk);
+    cache = box_array_cache(tk->box);
     assert(AST_NODE_TYPE_ARRAY == tk->box->filter->ndat->type);
     array = (struct filter_instance_array *)
         tk->box->filter->ndat->u.rexpr_filter.f_instance;
@@ -974,8 +1029,7 @@ tracker_goto_next_key_match__array(struct tracker *tk,
             expr_value_destroy(item_key);
             return bt_ret;
         }
-        if (tk->cur.u.array.index ==
-            tk->box->u.array.last_cached_index + 1) {
+        if (tk->cur.u.array.index == cache->last_cached_index + 1) {
             tracker_index_cache_add_item(tk, item_key, bst);
         }
         if (0 == expr_value_cmp(item_key, key)) {
@@ -998,6 +1052,7 @@ tracker_goto_next_item_with_key__indexed_array_internal(
     int64_t end_index,
     struct browse_state *bst)
 {
+    struct array_cache *cache;
     struct index_cache_iterator twin_iter;
     bitpunch_status_t bt_ret;
     struct track_path in_slice_path;
@@ -1006,9 +1061,10 @@ tracker_goto_next_item_with_key__indexed_array_internal(
     const struct ast_node_hdl *node;
  
     DBG_TRACKER_DUMP(tk);
-    assert(box_index_cache_exists(tk->box));
+    cache = box_array_cache(tk->box);
+    assert(index_cache_exists(cache));
 
-    if (tk->cur.u.array.index < tk->box->u.array.last_cached_index) {
+    if (tk->cur.u.array.index < cache->last_cached_index) {
         in_slice_path = track_path_from_array_slice(
             tk->cur.u.array.index + 1, end_index);
         bt_ret = box_index_cache_lookup_key_twins(
@@ -1069,7 +1125,6 @@ tracker_goto_nth_item_with_key__indexed_array_internal(
 
     DBG_TRACKER_DUMP(tk);
     //TODO use from_index and end_index
-    assert(box_index_cache_exists(tk->box));
 
     bt_ret = tracker_index_cache_goto_twin(
         tk, item_key, nth_twin,
@@ -1192,6 +1247,8 @@ compile_node_backends__item__array(struct ast_node_hdl *item)
     ast_node_hdl_array_destroy(&item_types);
 
     b_item = &array->filter.b_item;
+    b_item->create_filter_state = array_create_filter_state_with_cache;
+    b_item->destroy_filter_state = array_destroy_filter_state_with_cache;
     if (NULL == b_item->compute_item_size) {
         if (NULL != array->item_count
             && 0 == (item_type->ndat->u.item.flags
@@ -1223,8 +1280,6 @@ compile_node_backends__box__array(struct ast_node_hdl *item)
     b_box = &array->filter.b_box;
     memset(b_box, 0, sizeof (*b_box));
 
-    b_box->init = array_box_init;
-    b_box->destroy = array_box_destroy;
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
     b_box->compute_span_size = box_compute_span_size__as_used;
     b_box->compute_max_span_size = box_compute_max_span_size__as_slack;

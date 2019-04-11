@@ -33,12 +33,47 @@
 #define __FILTER_ARRAY_H__
 
 #include "filters/container.h"
+#include "filters/array_index_cache.h"
 
 struct filter_instance_array {
     struct filter_instance filter; /* inherits */
     struct ast_node_hdl *item_type;
     struct ast_node_hdl *item_count;
 };
+
+struct array_state_generic {
+    int64_t n_items;
+};
+
+struct array_state_with_cache {
+    struct array_state_generic array_generic; /* inherits */
+    struct array_cache cache;
+};
+
+static inline struct array_state_generic *
+box_array_state(struct box *box)
+{
+    return (struct array_state_generic *)box->filter_state;
+}
+
+static inline struct array_cache *
+box_array_cache(struct box *box)
+{
+    struct array_state_with_cache *array_state;
+
+    array_state = (struct array_state_with_cache *)box->filter_state;
+    return &array_state->cache;
+}
+
+void
+array_state_generic_init(struct array_state_generic *array_generic);
+
+bitpunch_status_t
+array_create_generic_filter_state(
+    struct ast_node_hdl *filter, struct box *scope,
+    filter_state_t **filter_statep, struct browse_state *bst);
+void
+array_destroy_generic_filter_state(filter_state_t *filter_state);
 
 bitpunch_status_t
 box_get_n_items__array_non_slack(struct box *box, int64_t *item_countp,

@@ -37,6 +37,7 @@
 #include "core/expr_internal.h"
 #include "core/debug.h"
 #include "filters/array.h"
+#include "filters/byte_array.h"
 #include "filters/byte_slice.h"
 
 struct ast_node_data shared_ast_node_data_byte_slice = {
@@ -101,10 +102,16 @@ byte_slice_filter_instance_build(struct ast_node_hdl *item)
 static void
 compile_node_backends__byte_slice(struct ast_node_hdl *item)
 {
-    item->ndat->u.rexpr_filter.f_instance =
-        byte_slice_filter_instance_build(item);
+    struct filter_instance *f_instance;
+    struct item_backend *b_item;
 
+    f_instance = byte_slice_filter_instance_build(item);
+    item->ndat->u.rexpr_filter.f_instance = f_instance;
     compile_node_backends__filter__filter(item);
+
+    b_item = &f_instance->b_item;
+    b_item->create_filter_state = array_create_generic_filter_state;
+    b_item->destroy_filter_state = array_destroy_generic_filter_state;
 }
 
 void

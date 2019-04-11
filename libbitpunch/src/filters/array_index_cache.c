@@ -35,19 +35,21 @@
 #include "core/expr_internal.h"
 #include "core/debug.h"
 #include "filters/array_index_cache.h"
+#include "filters/array.h"
 
 static bitpunch_status_t
-box_mark_offsets_repo_should_exist(struct box *box, int *should_existp,
-                                   struct browse_state *bst)
+mark_offsets_repo_should_exist(struct ast_node_hdl *filter, struct box *scope,
+                               int *should_existp,
+                               struct browse_state *bst)
 {
     struct filter_instance_array *array;
     bitpunch_status_t bt_ret;
     struct ast_node_hdl *item_type;
 
     array = (struct filter_instance_array *)
-        box->filter->ndat->u.rexpr_filter.f_instance;
+        filter->ndat->u.rexpr_filter.f_instance;
     bt_ret = expr_evaluate_filter_type_internal(
-        array->item_type, box, FILTER_KIND_ITEM, &item_type, bst);
+        array->item_type, scope, FILTER_KIND_ITEM, &item_type, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -56,163 +58,155 @@ box_mark_offsets_repo_should_exist(struct box *box, int *should_existp,
     return BITPUNCH_OK;
 }
 
-void
-box_init_mark_offsets_repo(struct box *box)
+static void
+init_mark_offsets_repo(struct array_cache *cache)
 {
-    box->u.array.mark_offsets_exists = TRUE;
-    ARRAY_INIT(&box->u.array.mark_offsets, 0);
+    cache->mark_offsets_exists = TRUE;
+    ARRAY_INIT(&cache->mark_offsets, 0);
 }
 
 static int
-box_mark_offsets_repo_exists(struct box *box)
+mark_offsets_repo_exists(struct array_cache *cache)
 {
-    return box->u.array.mark_offsets_exists;
+    return cache->mark_offsets_exists;
 }
 
 static void
-box_destroy_mark_offsets_repo(struct box *box)
+destroy_mark_offsets_repo(struct array_cache *cache)
 {
-    ARRAY_DESTROY(&box->u.array.mark_offsets);
-    box->u.array.mark_offsets_exists = FALSE;
+    ARRAY_DESTROY(&cache->mark_offsets);
+    cache->mark_offsets_exists = FALSE;
 }
 
 static int
-box_array_index_is_marked(struct box *box, int64_t index)
+array_index_is_marked(struct array_cache *cache, int64_t index)
 {
-    return 0 == (index & ((1 << box->u.array.cache_log2_n_keys_per_mark)
-                          - 1));
+    return 0 == (index & ((1 << cache->cache_log2_n_keys_per_mark) - 1));
 }
 
 int64_t
-box_array_get_index_mark(struct box *box, int64_t index)
+array_get_index_mark(struct array_cache *cache, int64_t index)
 {
-    return index >> box->u.array.cache_log2_n_keys_per_mark;
+    return index >> cache->cache_log2_n_keys_per_mark;
 }
 
 static int64_t
-box_array_get_mark_start_index(struct box *box, int64_t mark)
+array_get_mark_start_index(struct array_cache *cache, int64_t mark)
 {
-    return mark << box->u.array.cache_log2_n_keys_per_mark;
+    return mark << cache->cache_log2_n_keys_per_mark;
 }
 
 static int64_t
-box_array_get_mark_offset_at_index(struct box *box, int64_t index)
+array_get_mark_offset_at_index(struct array_cache *cache, int64_t index)
 {
     int64_t marks_index;
 
-    marks_index = box_array_get_index_mark(box, index);
-    assert(ARRAY_SIZE(&box->u.array.mark_offsets) > marks_index);
+    marks_index = array_get_index_mark(cache, index);
+    assert(ARRAY_SIZE(&cache->mark_offsets) > marks_index);
 
-    return ARRAY_ITEM(&box->u.array.mark_offsets, marks_index).item_offset;
+    return ARRAY_ITEM(&cache->mark_offsets, marks_index).item_offset;
 }
 
 static void
-box_array_add_mark_offset(struct box *box,
-                          int64_t mark, int64_t item_offset)
+array_add_mark_offset(struct array_cache *cache,
+                      int64_t mark, int64_t item_offset)
 {
     struct index_cache_mark_offset mark_offset;
 
-    assert(ARRAY_SIZE(&box->u.array.mark_offsets) == mark);
+    assert(ARRAY_SIZE(&cache->mark_offsets) == mark);
 
     mark_offset.item_offset = item_offset;
-    ARRAY_PUSH(&box->u.array.mark_offsets, mark_offset);
+    ARRAY_PUSH(&cache->mark_offsets, mark_offset);
 }
 
 static void
-box_init_index_cache_by_key(struct box *box)
+init_index_cache_by_key(struct array_cache *cache)
 {
-    box->u.array.cache_by_key = bloom_book_create();
+    cache->cache_by_key = bloom_book_create();
 }
 
 int
-box_index_cache_exists(const struct box *box)
+index_cache_exists(struct array_cache *cache)
 {
-    switch (box->filter->ndat->type) {
-    case AST_NODE_TYPE_ARRAY:
-        return (NULL != box->u.array.cache_by_key);
-    default:
-        return FALSE;
-    }
+    return NULL != cache->cache_by_key;
 }
 
 static void
-box_destroy_index_cache_by_key(struct box *box)
+destroy_index_cache_by_key(struct array_cache *cache)
 {
-    bloom_book_destroy(box->u.array.cache_by_key);
-    box->u.array.cache_by_key = NULL;
+    bloom_book_destroy(cache->cache_by_key);
+    cache->cache_by_key = NULL;
 }
 
 bitpunch_status_t
-array_box_init_index_cache(struct box *box, struct browse_state *bst)
+array_index_cache_init(struct array_cache *cache, struct box *scope,
+                       struct ast_node_hdl *filter, struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     int mark_offsets_should_exist;
 
-    bt_ret = box_mark_offsets_repo_should_exist(
-        box, &mark_offsets_should_exist, bst);
+    bt_ret = mark_offsets_repo_should_exist(
+        filter, scope, &mark_offsets_should_exist, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    box->u.array.last_cached_index = -1;
-    box->u.array.last_cached_item = NULL;
-    box->u.array.last_cached_item_offset = -1;
+    cache->last_cached_index = -1;
+    cache->last_cached_item = NULL;
+    cache->last_cached_item_offset = -1;
     if (mark_offsets_should_exist) {
-        box_init_mark_offsets_repo(box);
-        box->u.array.cache_log2_n_keys_per_mark =
+        init_mark_offsets_repo(cache);
+        cache->cache_log2_n_keys_per_mark =
             BOX_INDEX_CACHE_DEFAULT_LOG2_N_KEYS_PER_MARK;
     }
-    if (ast_node_is_indexed(box->filter)) {
-        box_init_index_cache_by_key(box);
-        box->u.array.cache_log2_n_keys_per_mark =
-            log2_i(bloom_book_suggested_n_words_per_mark(
-                       box->u.array.cache_by_key));
+    if (ast_node_is_indexed(filter)) {
+        init_index_cache_by_key(cache);
+        cache->cache_log2_n_keys_per_mark =
+            log2_i(bloom_book_suggested_n_words_per_mark(cache->cache_by_key));
     }
     return BITPUNCH_OK;
 }
 
 void
-array_box_destroy_index_cache(struct box *box)
+array_index_cache_destroy(struct array_cache *cache)
 {
-    if (box_index_cache_exists(box)) {
-        box_destroy_index_cache_by_key(box);
+    if (index_cache_exists(cache)) {
+        destroy_index_cache_by_key(cache);
     }
-    box_destroy_mark_offsets_repo(box);
+    destroy_mark_offsets_repo(cache);
 }
 
 bitpunch_status_t
 tracker_index_cache_add_item(struct tracker *tk, expr_value_t item_key,
                              struct browse_state *bst)
 {
+    struct array_cache *cache;
     const char *key_buf;
     int64_t key_len;
     int64_t mark;
 
     DBG_TRACKER_DUMP(tk);
-    assert(AST_NODE_TYPE_ARRAY == tk->box->filter->ndat->type);
-    assert(tk->cur.u.array.index ==
-           tk->box->u.array.last_cached_index + 1);
+    cache = box_array_cache(tk->box);
+    assert(tk->cur.u.array.index == cache->last_cached_index + 1);
 
-    if (box_index_cache_exists(tk->box)) {
-        if (box_array_index_is_marked(tk->box, tk->cur.u.array.index)) {
-            mark = (int64_t)bloom_book_add_mark(
-                tk->box->u.array.cache_by_key);
-            if (box_mark_offsets_repo_exists(tk->box)) {
-                box_array_add_mark_offset(tk->box, mark, tk->item_offset);
+    if (index_cache_exists(cache)) {
+        if (array_index_is_marked(cache, tk->cur.u.array.index)) {
+            mark = (int64_t)bloom_book_add_mark(cache->cache_by_key);
+            if (mark_offsets_repo_exists(cache)) {
+                array_add_mark_offset(cache, mark, tk->item_offset);
             }
         }
         expr_value_to_hashable(item_key, &key_buf, &key_len);
-        bloom_book_insert_word(tk->box->u.array.cache_by_key,
-                               key_buf, key_len);
+        bloom_book_insert_word(cache->cache_by_key, key_buf, key_len);
     } else {
-        if (box_mark_offsets_repo_exists(tk->box)
-            && box_array_index_is_marked(tk->box, tk->cur.u.array.index)) {
-            mark = box_array_get_index_mark(tk->box, tk->cur.u.array.index);
-            box_array_add_mark_offset(tk->box, mark, tk->item_offset);
+        if (mark_offsets_repo_exists(cache)
+            && array_index_is_marked(cache, tk->cur.u.array.index)) {
+            mark = array_get_index_mark(cache, tk->cur.u.array.index);
+            array_add_mark_offset(cache, mark, tk->item_offset);
         }
     }
-    tk->box->u.array.last_cached_index = tk->cur.u.array.index;
-    tk->box->u.array.last_cached_item = tk->dpath.item;
-    tk->box->u.array.last_cached_item_offset = tk->item_offset;
+    cache->last_cached_index = tk->cur.u.array.index;
+    cache->last_cached_item = tk->dpath.item;
+    cache->last_cached_item_offset = tk->item_offset;
     return BITPUNCH_OK;
 }
 
@@ -236,25 +230,25 @@ box_index_cache_lookup_key_twins(struct box *box,
                                  struct index_cache_iterator *iterp,
                                  struct browse_state *bst)
 {
+    struct array_cache *cache;
     const char *key_buf;
     int64_t key_len;
     bloom_book_mark_t from_mark;
     bitpunch_status_t bt_ret;
 
     DBG_BOX_DUMP(box);
-    assert(AST_NODE_TYPE_ARRAY == box->filter->ndat->type);
-    assert(box_index_cache_exists(box));
+    cache = box_array_cache(box);
+    assert(index_cache_exists(cache));
 
     expr_value_to_hashable(item_key, &key_buf, &key_len);
 
     if (! track_path_eq(in_slice_path, TRACK_PATH_NONE)) {
         assert(TRACK_PATH_ARRAY_SLICE == in_slice_path.type);
-        from_mark = box_array_get_index_mark(box,
-                                             in_slice_path.u.array.index);
+        from_mark = array_get_index_mark(cache, in_slice_path.u.array.index);
     } else {
         from_mark = BLOOM_BOOK_MARK_NONE;
     }
-    bloom_book_lookup_word_from_mark(box->u.array.cache_by_key,
+    bloom_book_lookup_word_from_mark(cache->cache_by_key,
                                      key_buf, key_len, from_mark,
                                      &iterp->bloom_cookie);
     iterp->key = item_key;
@@ -265,7 +259,7 @@ box_index_cache_lookup_key_twins(struct box *box,
     iterp->in_slice_path = in_slice_path;
     iterp->from_mark = from_mark;
     iterp->mark = bloom_book_lookup_word_get_next_candidate(
-        box->u.array.cache_by_key, &iterp->bloom_cookie);
+        cache->cache_by_key, &iterp->bloom_cookie);
     if (BLOOM_BOOK_MARK_NONE != iterp->mark) {
         bt_ret = tracker_goto_mark_internal(iterp->xtk, iterp->mark, bst);
         if (BITPUNCH_OK != bt_ret) {
@@ -282,12 +276,14 @@ tracker_goto_next_key_match_in_mark(struct tracker *tk,
                                     int64_t mark,
                                     struct browse_state *bst)
 {
+    struct array_cache *cache;
     struct track_path search_boundary;
 
     DBG_TRACKER_DUMP(tk);
+    cache = box_array_cache(tk->box);
     /* limit search to keys belonging to the current mark's scope */
     search_boundary = track_path_from_array_index(
-        box_array_get_mark_start_index(tk->box, mark + 1));
+        array_get_mark_start_index(cache, mark + 1));
 
     return tk->box->filter->ndat->u.rexpr_filter.f_instance->b_tk.goto_next_key_match(
         tk, key, search_boundary, bst);
@@ -299,10 +295,12 @@ index_cache_iterator_next_twin(struct index_cache_iterator *iter,
                                struct browse_state *bst)
 {
     struct tracker *xtk;
+    struct array_cache *cache;
     bitpunch_status_t bt_ret;
     int64_t index_end;
 
     xtk = iter->xtk;
+    cache = box_array_cache(xtk->box);
     if (BLOOM_BOOK_MARK_NONE == iter->mark) {
         return BITPUNCH_NO_ITEM;
     }
@@ -337,7 +335,7 @@ index_cache_iterator_next_twin(struct index_cache_iterator *iter,
             break ;
         }
         iter->mark = bloom_book_lookup_word_get_next_candidate(
-            xtk->box->u.array.cache_by_key, &iter->bloom_cookie);
+            cache->cache_by_key, &iter->bloom_cookie);
         if (BLOOM_BOOK_MARK_NONE == iter->mark) {
             return BITPUNCH_NO_ITEM;
         }
@@ -461,6 +459,7 @@ tracker_goto_mark_internal(struct tracker *tk,
                            struct browse_state *bst)
 {
     struct filter_instance_array *array;
+    struct array_cache *cache;
     struct track_path item_path;
     struct ast_node_hdl *array_item;
     int64_t item_offset;
@@ -469,6 +468,7 @@ tracker_goto_mark_internal(struct tracker *tk,
     DBG_TRACKER_DUMP(tk);
     array = (struct filter_instance_array *)
         tk->box->filter->ndat->u.rexpr_filter.f_instance;
+    cache = box_array_cache(tk->box);
     bt_ret = expr_evaluate_filter_type_internal(
         array->item_type, tk->box, FILTER_KIND_ITEM, &array_item, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -476,10 +476,10 @@ tracker_goto_mark_internal(struct tracker *tk,
     }
     memset(&item_path, 0, sizeof (item_path));
     item_path = track_path_from_array_index(
-        box_array_get_mark_start_index(tk->box, mark));
-    if (box_mark_offsets_repo_exists(tk->box)) {
-        item_offset = box_array_get_mark_offset_at_index(
-            tk->box, item_path.u.array.index);
+        array_get_mark_start_index(cache, mark));
+    if (mark_offsets_repo_exists(cache)) {
+        item_offset = array_get_mark_offset_at_index(
+            cache, item_path.u.array.index);
     } else {
         assert(0 == (array_item->ndat->u.item.flags
                      & ITEMFLAG_IS_SPAN_SIZE_VARIABLE));
@@ -502,21 +502,22 @@ tracker_goto_last_cached_item_internal(struct tracker *tk,
                                        struct browse_state *bst)
 {
     struct filter_instance_array *array;
+    struct array_cache *cache;
 
     DBG_TRACKER_DUMP(tk);
     array = (struct filter_instance_array *)
         tk->box->filter->ndat->u.rexpr_filter.f_instance;
-    assert(AST_NODE_TYPE_ARRAY == tk->box->filter->ndat->type);
-    if (-1 != tk->box->u.array.last_cached_index) {
+    cache = box_array_cache(tk->box);
+    if (-1 != cache->last_cached_index) {
         tk->dpath.filter = array->item_type;
-        tk->dpath.item = tk->box->u.array.last_cached_item;
+        tk->dpath.item = cache->last_cached_item;
         if (0 != (tk->dpath.item->ndat->u.item.flags
                   & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
             tk->item_size = -1;
         }
-        tk->item_offset = tk->box->u.array.last_cached_item_offset;
+        tk->item_offset = cache->last_cached_item_offset;
         tk->flags &= ~TRACKER_AT_END;
-        tk->cur.u.array.index = tk->box->u.array.last_cached_index;
+        tk->cur.u.array.index = cache->last_cached_index;
     } else {
         tracker_rewind(tk);
     }

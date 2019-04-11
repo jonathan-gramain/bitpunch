@@ -70,6 +70,7 @@ box_new_slice_box(struct tracker *slice_start,
                   struct browse_state *bst)
 {
     struct box *slice_box;
+    struct array_state_generic *array_state;
     bitpunch_status_t bt_ret;
     struct ast_node_hdl *slice_filter;
     int64_t index_start;
@@ -140,7 +141,8 @@ box_new_slice_box(struct tracker *slice_start,
     }
     slice_box->track_path = slice_path;
     if (0 != (TRACKER_AT_END & slice_start->flags)) {
-        slice_box->u.array_generic.n_items = 0;
+        array_state = box_array_state(slice_box);
+        array_state->n_items = 0;
     }
     return slice_box;
 }
@@ -188,6 +190,7 @@ bitpunch_status_t
 box_get_n_items__slice_generic(struct box *box, int64_t *item_countp,
                                struct browse_state *bst)
 {
+    struct array_state_generic *array_state;
     bitpunch_status_t bt_ret;
     int64_t array_n_items;
     int64_t index_start;
@@ -196,7 +199,8 @@ box_get_n_items__slice_generic(struct box *box, int64_t *item_countp,
 
     DBG_BOX_DUMP(box);
     assert(box->track_path.type == TRACK_PATH_ARRAY_SLICE);
-    if (-1 == box->u.array_generic.n_items) {
+    array_state = box_array_state(box);
+    if (-1 == array_state->n_items) {
         bt_ret = box_get_n_items_internal(box->parent_box, &array_n_items, bst);
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
@@ -213,10 +217,10 @@ box_get_n_items__slice_generic(struct box *box, int64_t *item_countp,
             index_start = index_end;
         }
         item_count = index_end - index_start;
-        box->u.array_generic.n_items = item_count;
+        array_state->n_items = item_count;
     }
     if (NULL != item_countp) {
-        *item_countp = box->u.array_generic.n_items;
+        *item_countp = array_state->n_items;
     }
     return BITPUNCH_OK;
 }
@@ -531,12 +535,18 @@ tracker_enter_slice(struct tracker *tk, struct tracker *slice_end,
 
 
 static void
-compile_node_backends__array_slice(struct ast_node_hdl *filter)
+compile_node_backends__array_slice(struct ast_node_hdl *item)
 {
-    filter->ndat->u.rexpr_filter.f_instance =
-        array_slice_filter_instance_build(filter);
+    struct filter_instance *f_instance;
+    struct item_backend *b_item;
 
-    compile_node_backends__filter__filter(filter);
+    f_instance = array_slice_filter_instance_build(item);
+    item->ndat->u.rexpr_filter.f_instance = f_instance;
+    compile_node_backends__filter__filter(item);
+
+    b_item = &f_instance->b_item;
+    b_item->create_filter_state = array_create_generic_filter_state;
+    b_item->destroy_filter_state = array_destroy_generic_filter_state;
 }
 
 void
