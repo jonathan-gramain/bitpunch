@@ -2098,8 +2098,7 @@ expr_evaluate_field(
         return bt_ret;
     }
     if (EXPR_DPATH_TYPE_NONE == anchor_dpath.type) {
-        return node_error(BITPUNCH_INVALID_PARAM, expr, bst,
-                          "cannot evaluate field value on non-dpath anchor");
+        return BITPUNCH_NO_DATA;
     }
     bt_ret = expr_dpath_to_box_internal(anchor_dpath, &anchor_scope, bst);
     expr_dpath_destroy(anchor_dpath);
@@ -2342,6 +2341,9 @@ expr_evaluate_filter_chain(
         if (0 == (flags & EXPR_EVALFLAG_DPATH_XOR_VALUE)) {
             bt_ret = dpath_read_value_internal(transform.dpath, valuep, bst);
         } else {
+            if (EXPR_DPATH_TYPE_NONE == transform.dpath.type) {
+                return BITPUNCH_NO_DATA;
+            }
             *valuep = expr_value_unset();
         }
     }
@@ -2465,8 +2467,6 @@ expr_transform_dpath_generic_internal(
     expr_dpath_t filtered_dpath;
 
     if (EXPR_DPATH_TYPE_NONE != transformp->dpath.type) {
-        /* return node_error(BITPUNCH_INVALID_PARAM, expr, bst, */
-        /*                   "cannot evaluate filtered dpath: multiple sources"); */
         expr_dpath_destroy(transformp->dpath);
         transformp->dpath.type = EXPR_DPATH_TYPE_NONE;
     }

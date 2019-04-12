@@ -1185,7 +1185,7 @@ static PyMethodDef Board_methods[] = {
     },
     { "forget_spec", (PyCFunction)Board_forget_spec,
       METH_NOARGS,
-      "clear all name from the currently imported specification"
+      "clear all names from the currently imported specification"
     },
     { "add_data_source", (PyCFunction)Board_add_data_source,
       METH_VARARGS | METH_KEYWORDS,
