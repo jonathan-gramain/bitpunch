@@ -137,7 +137,7 @@ bitpunch_status_t
 filter_instance_read_value(struct ast_node_hdl *filter,
                            struct box *scope,
                            int64_t item_offset,
-                           int64_t item_size,
+                           int64_t max_span_size,
                            expr_value_t *valuep,
                            struct browse_state *bst);
 bitpunch_status_t
@@ -150,14 +150,14 @@ bitpunch_status_t
 filter_read_value__bytes(struct ast_node_hdl *item_filter,
                          struct box *scope,
                          int64_t item_offset,
-                         int64_t item_size,
+                         int64_t max_span_size,
                          expr_value_t *valuep,
                          struct browse_state *bst);
 bitpunch_status_t
 filter_read_value__filter(struct ast_node_hdl *filter,
                           struct box *scope,
                           int64_t item_offset,
-                          int64_t item_size,
+                          int64_t max_span_size,
                           expr_value_t *valuep,
                           struct browse_state *bst);
 

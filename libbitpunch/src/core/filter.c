@@ -264,7 +264,7 @@ bitpunch_status_t
 filter_instance_read_value(struct ast_node_hdl *filter,
                            struct box *scope,
                            int64_t item_offset,
-                           int64_t item_size,
+                           int64_t max_span_size,
                            expr_value_t *valuep,
                            struct browse_state *bst)
 {
@@ -280,11 +280,11 @@ filter_instance_read_value(struct ast_node_hdl *filter,
     value.type = EXPR_VALUE_TYPE_UNSET;
     f_instance = filter->ndat->u.rexpr_filter.f_instance;
     if (NULL == f_instance->b_item.compute_item_size) {
-        span_size = item_size;
+        span_size = max_span_size;
         bt_ret = BITPUNCH_OK;
     } else {
         bt_ret = f_instance->b_item.compute_item_size(
-            filter, scope, item_offset, item_offset + item_size,
+            filter, scope, item_offset, item_offset + max_span_size,
             &span_size, bst);
         if (BITPUNCH_OK != bt_ret) {
             bitpunch_error_add_node_context(
@@ -330,7 +330,7 @@ bitpunch_status_t
 filter_read_value__bytes(struct ast_node_hdl *item_filter,
                          struct box *scope,
                          int64_t item_offset,
-                         int64_t item_size,
+                         int64_t max_span_size,
                          expr_value_t *valuep,
                          struct browse_state *bst)
 {
@@ -338,7 +338,7 @@ filter_read_value__bytes(struct ast_node_hdl *item_filter,
         memset(valuep, 0, sizeof(*valuep));
         valuep->type = EXPR_VALUE_TYPE_BYTES;
         valuep->bytes.buf = scope->ds_out->ds_data + item_offset;
-        valuep->bytes.len = item_size;
+        valuep->bytes.len = max_span_size;
     }
     return BITPUNCH_OK;
 }
@@ -347,7 +347,7 @@ bitpunch_status_t
 filter_read_value__filter(struct ast_node_hdl *filter,
                           struct box *scope,
                           int64_t item_offset,
-                          int64_t item_size,
+                          int64_t max_span_size,
                           expr_value_t *valuep,
                           struct browse_state *bst)
 {
@@ -364,10 +364,10 @@ filter_read_value__filter(struct ast_node_hdl *filter,
             return bt_ret;
         }
         return filter_read_value__bytes(
-            filter, scope, item_offset, item_size, valuep, bst);
+            filter, scope, item_offset, max_span_size, valuep, bst);
     }
     return filter_instance_read_value(filter, scope,
-                                      item_offset, item_size,
+                                      item_offset, max_span_size,
                                       valuep, bst);
 }
 

@@ -319,4 +319,4 @@ correctly (b_filter is empty)
   - box.get_used_size()
   - item.compute_item_size()
 
-- remove the need to keep COMPOSITE, ARRAY and BYTE special filter enums
+- remove the need to keep ARRAY and BYTE special filter enums
