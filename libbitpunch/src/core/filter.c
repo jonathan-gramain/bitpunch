@@ -357,9 +357,6 @@ filter_read_value__filter(struct ast_node_hdl *filter,
     // the bytes from the filter output.
     if (0 != (scope->flags & BOX_DATA_SOURCE)) {
         bt_ret = box_apply_filter_internal(scope, bst);
-        if (BITPUNCH_OK == bt_ret) {
-            bt_ret = box_compute_used_size(scope, bst);
-        }
         if (BITPUNCH_OK != bt_ret) {
             return bt_ret;
         }
