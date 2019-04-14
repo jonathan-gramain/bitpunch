@@ -97,12 +97,7 @@ compile_node_backends__box__byte(struct ast_node_hdl *item)
 void
 compile_node_backends__byte(struct ast_node_hdl *item)
 {
-    struct filter_instance *f_instance;
-
-    f_instance = item->ndat->u.rexpr_filter.f_instance;
-
     compile_node_backends__item__generic(item);
-    f_instance->read_func = bytes__read;
     compile_node_backends__box__byte(item);
 }
 

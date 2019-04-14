@@ -1101,6 +1101,10 @@ expr_value_destroy(expr_value_t value)
     case EXPR_VALUE_TYPE_STRING:
         box_delete(value.string.from_box);
         break ;
+    case EXPR_VALUE_TYPE_DATA:
+    case EXPR_VALUE_TYPE_DATA_RANGE:
+        bitpunch_data_source_release(value.data.ds);
+        break ;
     default:
         break ;
     }
@@ -2620,7 +2624,7 @@ expr_transform_dpath_filter(
 
     case EXPR_DPATH_TYPE_NONE:
         f_instance = expr->ndat->u.rexpr_filter.f_instance;
-        if (NULL == f_instance->get_data_source_func) {
+        if (NULL == f_instance->b_item.get_data_source) {
             return BITPUNCH_NO_DATA;
         }
         filtered_data_box = box_new_filter_box(NULL, expr, bst);
@@ -2942,7 +2946,9 @@ int
 expr_value_type_mask_contains_dpath(enum expr_value_type value_type_mask)
 {
     return (0 != (value_type_mask & (EXPR_VALUE_TYPE_STRING |
-                                     EXPR_VALUE_TYPE_BYTES)));
+                                     EXPR_VALUE_TYPE_BYTES |
+                                     EXPR_VALUE_TYPE_DATA |
+                                     EXPR_VALUE_TYPE_DATA_RANGE)));
 }
 
 /*

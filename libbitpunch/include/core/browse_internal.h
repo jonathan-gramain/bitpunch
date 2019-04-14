@@ -59,19 +59,33 @@ struct item_backend {
     void              (*destroy_filter_state)(
         filter_state_t *filter_state);
 
-    bitpunch_status_t (*compute_item_size)(struct ast_node_hdl *item_filter,
-                                           struct box *scope,
-                                           int64_t item_offset,
-                                           int64_t max_span_offset,
-                                           int64_t *item_sizep,
-                                           struct browse_state *bst);
+    bitpunch_status_t (*compute_item_size)(
+        struct ast_node_hdl *filter,
+        struct box *scope,
+        int64_t item_offset,
+        int64_t max_span_offset,
+        int64_t *item_sizep,
+        struct browse_state *bst);
 
-    bitpunch_status_t (*read_value)(struct ast_node_hdl *item_filter,
-                                    struct box *scope,
-                                    int64_t item_offset,
-                                    int64_t item_size,
-                                    expr_value_t *valuep,
-                                    struct browse_state *bst);
+    bitpunch_status_t (*compute_item_size_from_buffer)(
+        struct ast_node_hdl *filter,
+        struct box *scope,
+        const char *buffer, size_t buffer_size,
+        int64_t *item_sizep,
+        struct browse_state *bst);
+
+    bitpunch_status_t (*read_value_from_buffer)(
+        struct ast_node_hdl *filter,
+        struct box *scope,
+        const char *buffer, size_t buffer_size,
+        expr_value_t *valuep,
+        struct browse_state *bst);
+
+    bitpunch_status_t (*get_data_source)(
+        struct ast_node_hdl *filter,
+        struct box *scope,
+        struct bitpunch_data_source **ds_outp,
+        struct browse_state *bst);
 };
 
 struct box_backend {
@@ -186,13 +200,6 @@ bitpunch_status_t
 box_compute__error(struct box *box,
                    struct browse_state *bst);
 bitpunch_status_t
-filter_read_value__operator_filter(struct ast_node_hdl *filter,
-                                   struct box *scope,
-                                   int64_t item_offset,
-                                   int64_t item_size,
-                                   expr_value_t *valuep,
-                                   struct browse_state *bst);
-bitpunch_status_t
 box_get_slack_child_allocation(struct box *box,
                                int get_left_offset,
                                int64_t *max_slack_offsetp,
@@ -235,6 +242,16 @@ box_get_max_span_size(struct box *box, int64_t *max_span_sizep,
 bitpunch_status_t
 box_get_slack_size(struct box *box, int64_t *slack_sizep,
                    struct browse_state *bst);
+bitpunch_status_t
+box_compute_size_internal(struct box *box,
+                          enum box_offset_type off_type,
+                          int64_t *sizep,
+                          struct browse_state *bst);
+bitpunch_status_t
+box_compute_offset_internal(struct box *box,
+                            enum box_offset_type off_type,
+                            int64_t *offsetp,
+                            struct browse_state *bst);
 bitpunch_status_t
 box_get_location_internal(struct box *box,
                           int64_t *offsetp, int64_t *sizep,

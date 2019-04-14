@@ -99,11 +99,12 @@ node_error_with_data_context(
 }
 
 static bitpunch_status_t
-formatted_integer_read(struct ast_node_hdl *filter,
-                       struct box *scope,
-                       expr_value_t *read_value,
-                       const char *data, size_t span_size,
-                       struct browse_state *bst)
+formatted_integer_read(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    const char *buffer, size_t buffer_size,
+    expr_value_t *valuep,
+    struct browse_state *bst)
 {
     static const char *preamble = "invalid formatted integer";
     bitpunch_status_t bt_ret;
@@ -140,26 +141,26 @@ formatted_integer_read(struct ast_node_hdl *filter,
     } else {
         return bt_ret;
     }
-    if (0 == span_size) {
+    if (0 == buffer_size) {
         bt_ret = filter_evaluate_attribute_internal(
-            filter, scope, "@empty_value", 0u, NULL, read_value, NULL, bst);
+            filter, scope, "@empty_value", 0u, NULL, valuep, NULL, bst);
         if (BITPUNCH_NO_ITEM != bt_ret) {
             return bt_ret;
         }
         return node_error_with_data_context(
-            filter, bst, data, span_size,
+            filter, bst, buffer, buffer_size,
             "%s: empty buffer", preamble);
     }
     negative = FALSE;
-    in = (const unsigned char *)data;
-    end = in + span_size;
+    in = (const unsigned char *)buffer;
+    end = in + buffer_size;
     for (; in < end; ++in) {
         lookup_value = lookup[*in];
         switch (lookup_value) {
         case PLUS_SIGN:
             if (!_signed) {
                 return node_error_with_data_context(
-                    filter, bst, data, span_size,
+                    filter, bst, buffer, buffer_size,
                     "%s: found a sign but expected unsigned integer",
                     preamble);
             }
@@ -167,7 +168,7 @@ formatted_integer_read(struct ast_node_hdl *filter,
         case MINUS_SIGN:
             if (!_signed) {
                 return node_error_with_data_context(
-                    filter, bst, data, span_size,
+                    filter, bst, buffer, buffer_size,
                     "%s: found a sign but expected unsigned integer",
                     preamble);
             }
@@ -175,14 +176,14 @@ formatted_integer_read(struct ast_node_hdl *filter,
             break ;
         case -1:
             return node_error_with_data_context(
-                filter, bst, data, span_size,
+                filter, bst, buffer, buffer_size,
                 "%s: invalid digit", preamble);
         default:
             goto parse;
         }
     }
     return node_error_with_data_context(
-        filter, bst, data, span_size,
+        filter, bst, buffer, buffer_size,
         "%s: no digit found", preamble);
 
   parse:
@@ -194,14 +195,14 @@ formatted_integer_read(struct ast_node_hdl *filter,
         case MINUS_SIGN:
         case -1:
             return node_error_with_data_context(
-                filter, bst, data, span_size,
+                filter, bst, buffer, buffer_size,
                 "%s: invalid digit", preamble);
         default:
             break ;
         }
         if (lookup_value >= base) {
             return node_error_with_data_context(
-                filter, bst, data, span_size,
+                filter, bst, buffer, buffer_size,
                 "%s: digit not in base %d", preamble, base);
         }
         prev_parsed_value = parsed_value;
@@ -209,13 +210,13 @@ formatted_integer_read(struct ast_node_hdl *filter,
         parsed_value += lookup_value;
         if (parsed_value < prev_parsed_value) {
             return node_error_with_data_context(
-                filter, bst, data, span_size,
+                filter, bst, buffer, buffer_size,
                 "unsupported formatted integer: "
                 "overflows a 64-bit signed integer value");
         }
     }
-    read_value->type = EXPR_VALUE_TYPE_INTEGER;
-    read_value->integer = negative ? -parsed_value : parsed_value;
+    valuep->type = EXPR_VALUE_TYPE_INTEGER;
+    valuep->integer = negative ? -parsed_value : parsed_value;
     return BITPUNCH_OK;
 }
 
@@ -225,7 +226,7 @@ formatted_integer_filter_instance_build(struct ast_node_hdl *filter)
     struct filter_instance *f_instance;
 
     f_instance = new_safe(struct filter_instance);
-    f_instance->read_func = formatted_integer_read;
+    f_instance->b_item.read_value_from_buffer = formatted_integer_read;
     return f_instance;
 }
 
@@ -279,8 +280,8 @@ formatted_integer_read_test(expr_value_t *resultp,
         filter_attach_native_attribute(filter, "@signed",
                                        expr_value_as_boolean(_signed));
     }
-    bt_ret = formatted_integer_read(filter, NULL, resultp,
-                                    buffer, strlen(buffer), NULL);
+    bt_ret = formatted_integer_read(filter, NULL,
+                                    buffer, strlen(buffer), resultp, NULL);
     if (BITPUNCH_OK == bt_ret) {
         ck_assert_int_eq(resultp->type, EXPR_VALUE_TYPE_INTEGER);
         return 0;

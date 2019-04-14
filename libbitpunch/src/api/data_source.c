@@ -181,52 +181,27 @@ data_source_close_file_path(struct bitpunch_data_source *ds)
 }
 
 int
-data_source_create_from_file_path_internal(
-    struct bitpunch_data_source **dsp, const char *path, int external)
+bitpunch_data_source_create_from_file_path(
+    struct bitpunch_data_source **dsp, const char *path)
 {
     struct bitpunch_file_source *fs;
-    int fd;
 
     assert(NULL != path);
     assert(NULL != dsp);
 
     fs = lookup_cached_file_source(path);
     if (NULL == fs) {
-        fd = open(path, O_RDONLY);
-        if (-1 == fd) {
-            fprintf(stderr, "Unable to open binary file %s: open failed: %s\n",
-                    path, strerror(errno));
-            return -1;
-        }
         fs = new_safe(struct bitpunch_file_source);
         fs->ds.backend.close = data_source_close_file_path;
         if (-1 == open_file_source_from_file_path(fs, path)) {
-            fprintf(stderr, "Error loading binary file %s\n", path);
             free(fs);
             return -1;
         }
         fs->path = strdup_safe(path);
         add_file_source_to_cache(fs);
-        if (external) {
-            fs->ds.flags |= BITPUNCH_DATA_SOURCE_EXTERNAL;
-        }
     }
-    *dsp = &fs->ds;
+    *dsp = (struct bitpunch_data_source *)fs;
     return 0;
-}
-
-int
-bitpunch_data_source_create_from_file_path(
-    struct ast_node_hdl **dsp, const char *path)
-{
-    int ret;
-    struct bitpunch_data_source *ds;
-
-    ret = data_source_create_from_file_path_internal(&ds, path, TRUE);
-    if (0 == ret) {
-        *dsp = ast_node_hdl_create_data_source(ds);
-    }
-    return ret;
 }
 
 void
@@ -246,7 +221,7 @@ data_source_close_file_descriptor(struct bitpunch_data_source *ds)
 
 int
 bitpunch_data_source_create_from_file_descriptor(
-    struct ast_node_hdl **dsp, int fd)
+    struct bitpunch_data_source **dsp, int fd)
 {
     struct bitpunch_file_source *fs;
 
@@ -264,7 +239,7 @@ bitpunch_data_source_create_from_file_descriptor(
         free(fs);
         return -1;
     }
-    *dsp = ast_node_hdl_create_data_source(&fs->ds);
+    *dsp = (struct bitpunch_data_source *)fs;
     return 0;
 }
 
@@ -275,8 +250,22 @@ data_source_close_managed_memory(struct bitpunch_data_source *ds)
     return 0;
 }
 
-int
-data_source_create_from_memory_internal(
+void
+bitpunch_buffer_new(
+    struct bitpunch_data_source **dsp,
+    size_t buffer_size)
+{
+    struct bitpunch_data_source *ds;
+
+    ds = new_safe(struct bitpunch_data_source);
+    ds->backend.close = data_source_close_managed_memory;
+    ds->ds_data = malloc_safe(buffer_size);
+    ds->ds_data_length = buffer_size;
+    *dsp = ds;
+}
+
+void
+bitpunch_data_source_create_from_memory(
     struct bitpunch_data_source **dsp,
     const char *data, size_t data_size, int manage_buffer)
 {
@@ -288,26 +277,9 @@ data_source_create_from_memory_internal(
     } else {
         ds->flags = BITPUNCH_DATA_SOURCE_EXTERNAL;
     }
-    ds->ds_data = data;
+    ds->ds_data = (char *)data;
     ds->ds_data_length = data_size;
     *dsp = ds;
-    return 0;
-}
-
-int
-bitpunch_data_source_create_from_memory(
-    struct ast_node_hdl **dsp,
-    const char *data, size_t data_size, int manage_buffer)
-{
-    struct bitpunch_data_source *ds;
-    int ret;
-
-    ret = data_source_create_from_memory_internal(
-        &ds, data, data_size, manage_buffer);
-    if (0 == ret) {
-        *dsp = ast_node_hdl_create_data_source(ds);
-    }
-    return ret;
 }
 
 static int
@@ -335,7 +307,7 @@ data_source_free(struct bitpunch_data_source *ds)
 }
 
 int
-data_source_release_internal(struct bitpunch_data_source *ds)
+bitpunch_data_source_release(struct bitpunch_data_source *ds)
 {
     if (NULL == ds) {
         return 0;
@@ -346,22 +318,6 @@ data_source_release_internal(struct bitpunch_data_source *ds)
     }
     // we could implement cleanup for less-used cache entries here
     return 0;
-}
-
-int
-bitpunch_data_source_release(struct ast_node_hdl *ds_node)
-{
-    bitpunch_status_t bt_ret;
-    struct bitpunch_data_source *ds;
-
-    if (NULL == ds_node) {
-        return 0;
-    }
-    bt_ret = filter_instance_get_data_source(ds_node, NULL, &ds, NULL);
-    if (BITPUNCH_OK != bt_ret) {
-        return -1;
-    }
-    return data_source_release_internal(ds);
 }
 
 static int

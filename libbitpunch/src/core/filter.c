@@ -263,8 +263,8 @@ filter_class_get_attr(const struct filter_class *filter_cls,
 bitpunch_status_t
 filter_instance_read_value(struct ast_node_hdl *filter,
                            struct box *scope,
-                           int64_t item_offset,
-                           int64_t max_span_size,
+                           int64_t item_start_offset,
+                           int64_t item_end_offset,
                            expr_value_t *valuep,
                            struct browse_state *bst)
 {
@@ -274,29 +274,31 @@ filter_instance_read_value(struct ast_node_hdl *filter,
     const char *item_data;
     expr_value_t value;
 
-    assert(-1 != item_offset);
+    assert(-1 != item_start_offset);
     assert(NULL != scope->ds_in);
 
     value.type = EXPR_VALUE_TYPE_UNSET;
     f_instance = filter->ndat->u.rexpr_filter.f_instance;
-    if (NULL == f_instance->b_item.compute_item_size) {
-        span_size = max_span_size;
-        bt_ret = BITPUNCH_OK;
-    } else {
-        bt_ret = f_instance->b_item.compute_item_size(
-            filter, scope, item_offset, item_offset + max_span_size,
+    if (NULL != f_instance->b_item.compute_item_size_from_buffer) {
+        item_data = scope->ds_in->ds_data + item_start_offset;
+        bt_ret = f_instance->b_item.compute_item_size_from_buffer(
+            filter, scope,
+            item_data, item_end_offset - item_start_offset,
             &span_size, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            bitpunch_error_add_node_context(
-                filter, bst, "when computing item size");
-        }
+    } else if (NULL != f_instance->b_item.compute_item_size) {
+        bt_ret = f_instance->b_item.compute_item_size(
+            filter, scope, item_start_offset, item_end_offset,
+            &span_size, bst);
+    } else {
+        span_size = item_end_offset - item_start_offset;
+        bt_ret = BITPUNCH_OK;
     }
     if (BITPUNCH_OK == bt_ret) {
         memset(&value, 0, sizeof(value));
-        item_data = scope->ds_in->ds_data + item_offset;
-        if (NULL != f_instance->read_func) {
-            bt_ret = f_instance->read_func(filter, scope,
-                                           &value, item_data, span_size, bst);
+        item_data = scope->ds_in->ds_data + item_start_offset;
+        if (NULL != f_instance->b_item.read_value_from_buffer) {
+            bt_ret = f_instance->b_item.read_value_from_buffer(
+                filter, scope, item_data, span_size, &value, bst);
         } else {
             value.type = EXPR_VALUE_TYPE_BYTES;
             value.bytes.buf = item_data;
@@ -309,6 +311,9 @@ filter_instance_read_value(struct ast_node_hdl *filter,
         } else {
             expr_value_destroy(value);
         }
+    } else {
+        bitpunch_error_add_node_context(
+            filter, bst, "when computing item size");
     }
     return bt_ret;
 }
@@ -321,51 +326,9 @@ filter_instance_get_data_source(
     struct filter_instance *f_instance;
 
     f_instance = filter->ndat->u.rexpr_filter.f_instance;
-    assert(NULL != f_instance->get_data_source_func);
+    assert(NULL != f_instance->b_item.get_data_source);
 
-    return f_instance->get_data_source_func(filter, scope, ds_outp, bst);
-}
-
-bitpunch_status_t
-filter_read_value__bytes(struct ast_node_hdl *item_filter,
-                         struct box *scope,
-                         int64_t item_offset,
-                         int64_t max_span_size,
-                         expr_value_t *valuep,
-                         struct browse_state *bst)
-{
-    if (NULL != valuep) {
-        memset(valuep, 0, sizeof(*valuep));
-        valuep->type = EXPR_VALUE_TYPE_BYTES;
-        valuep->bytes.buf = scope->ds_out->ds_data + item_offset;
-        valuep->bytes.len = max_span_size;
-    }
-    return BITPUNCH_OK;
-}
-
-bitpunch_status_t
-filter_read_value__filter(struct ast_node_hdl *filter,
-                          struct box *scope,
-                          int64_t item_offset,
-                          int64_t max_span_size,
-                          expr_value_t *valuep,
-                          struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-
-    // if box filter is a data filter, getting the value is reading
-    // the bytes from the filter output.
-    if (0 != (scope->flags & BOX_DATA_SOURCE)) {
-        bt_ret = box_apply_filter_internal(scope, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
-        }
-        return filter_read_value__bytes(
-            filter, scope, item_offset, max_span_size, valuep, bst);
-    }
-    return filter_instance_read_value(filter, scope,
-                                      item_offset, max_span_size,
-                                      valuep, bst);
+    return f_instance->b_item.get_data_source(filter, scope, ds_outp, bst);
 }
 
 /*
@@ -477,12 +440,10 @@ tracker_goto_nth_item__data_filter(
 void
 compile_node_backends__filter__filter(struct ast_node_hdl *filter)
 {
-    struct item_backend *b_item = NULL;
+    //struct item_backend *b_item = NULL;
 
-    b_item = &filter->ndat->u.rexpr_filter.f_instance->b_item;
+    //b_item = &filter->ndat->u.rexpr_filter.f_instance->b_item;
     //memset(b_item, 0, sizeof (*b_item));
-
-    b_item->read_value = filter_read_value__filter;
 }
 
 static void
@@ -501,8 +462,12 @@ compile_node_backends__box__filter(struct ast_node_hdl *item)
 
     b_box->compute_min_span_size = box_compute_min_span_size__as_hard_min;
     b_box->compute_max_span_size = box_compute_max_span_size__as_slack;
-    if (NULL != b_item->compute_item_size) {
-        b_box->compute_span_size = box_compute_span_size__from_item_size;
+    if (NULL != b_item->compute_item_size_from_buffer) {
+        b_box->compute_span_size =
+            box_compute_span_size__from_compute_item_size_from_buffer;
+    } else if (NULL != b_item->compute_item_size) {
+        b_box->compute_span_size =
+            box_compute_span_size__from_compute_item_size;
     } else {
         b_box->compute_span_size = box_compute_span_size__as_slack;
     }

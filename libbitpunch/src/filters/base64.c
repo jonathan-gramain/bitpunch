@@ -115,33 +115,31 @@ base64_decode(const char *encoded, size_t encoded_size,
 }
 
 static bitpunch_status_t
-base64_read(struct ast_node_hdl *filter,
-            struct box *scope,
-            expr_value_t *read_value,
-            const char *data, size_t span_size,
-            struct browse_state *bst)
+base64_read(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    const char *buffer, size_t buffer_size,
+    expr_value_t *valuep,
+    struct browse_state *bst)
 {
     size_t decoded_max_length;
-    int64_t decoded_length;
-    char *decoded;
+    struct bitpunch_data_source *ds;
 
-    decoded_max_length = (span_size + 3) & ~0x3;
+    decoded_max_length = (buffer_size + 3) & ~0x3;
     if (decoded_max_length > DECODED_BUFFER_MAX_SIZE) {
         return node_error(
             BITPUNCH_DATA_ERROR, filter, bst,
             "base64 decode buffer too large (%zu bytes, max %d)",
             decoded_max_length, DECODED_BUFFER_MAX_SIZE);
     }
-    decoded = malloc_safe(decoded_max_length);
-    decoded_length = base64_decode(data, span_size, decoded);
-    if (-1 == decoded_length) {
+    bitpunch_buffer_new(&ds, decoded_max_length);
+    ds->ds_data_length = base64_decode(buffer, buffer_size, ds->ds_data);
+    if (-1 == ds->ds_data_length) {
         // TODO add precision regarding the error
         return node_error(BITPUNCH_DATA_ERROR, filter, bst,
                           "invalid base64 input");
     }
-    read_value->type = EXPR_VALUE_TYPE_BYTES;
-    read_value->bytes.buf = decoded;
-    read_value->bytes.len = decoded_length;
+    *valuep = expr_value_as_data(ds);
     return BITPUNCH_OK;
 }
 
@@ -151,7 +149,7 @@ base64_filter_instance_build(struct ast_node_hdl *filter)
     struct filter_instance *f_instance;
 
     f_instance = new_safe(struct filter_instance);
-    f_instance->read_func = base64_read;
+    f_instance->b_item.read_value_from_buffer = base64_read;
     return f_instance;
 }
 
@@ -212,21 +210,24 @@ START_TEST(test_filter_base64)
     };
     int i;
     expr_value_t decoded;
+    struct bitpunch_data_source *ds;
     const struct testcase *tcase;
     bitpunch_status_t bt_ret;
 
     for (i = 0; i < N_ELEM(testcases); ++i)
         {
             tcase = &testcases[i];
-            bt_ret = base64_read(NULL, NULL, &decoded,
-                                 tcase->encoded, tcase->encoded_length, NULL);
+            bt_ret = base64_read(NULL, NULL,
+                                 tcase->encoded, tcase->encoded_length,
+                                 &decoded, NULL);
             if (tcase->decoded_length != -1) {
                 ck_assert(BITPUNCH_OK == bt_ret);
-                ck_assert(decoded.bytes.len == tcase->decoded_length);
-                ck_assert(0 == memcmp(decoded.bytes.buf,
-                                      tcase->decoded, decoded.bytes.len));
-                //expr_value_destroy(EXPR_VALUE_TYPE_BYTES, &decoded);
-                free((char *)decoded.bytes.buf);
+                ck_assert(EXPR_VALUE_TYPE_DATA == decoded.type);
+                ds = decoded.data.ds;
+                ck_assert(ds->ds_data_length == tcase->decoded_length);
+                ck_assert(0 == memcmp(ds->ds_data,
+                                      tcase->decoded, ds->ds_data_length));
+                expr_value_destroy(decoded);
             } else {
                 ck_assert(BITPUNCH_DATA_ERROR == bt_ret);
             }

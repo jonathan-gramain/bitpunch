@@ -38,6 +38,7 @@
 #include "core/parser.h"
 #include "core/browse_internal.h"
 #include "core/scope.h"
+#include "api/bitpunch_api.h"
 
 #include PATH_TO_PARSER_TAB_H
 
@@ -59,26 +60,11 @@ struct filter_attr_def {
     enum filter_attr_flag flags;
 };
 
-typedef bitpunch_status_t (*filter_get_data_source_func_t)(
-    struct ast_node_hdl *filter,
-    struct box *scope,
-    struct bitpunch_data_source **ds_outp,
-    struct browse_state *bst);
-
-typedef bitpunch_status_t (*filter_read_func_t)(
-    struct ast_node_hdl *filter,
-    struct box *scope,
-    expr_value_t *read_value,
-    const char *data, size_t span_size,
-    struct browse_state *bst);
-
 struct filter_instance {
     struct item_node item; /* inherits */
     struct item_backend b_item;
     struct box_backend b_box;
     struct tracker_backend b_tk;
-    filter_get_data_source_func_t get_data_source_func;
-    filter_read_func_t read_func;
 };
 
 typedef struct filter_instance *
@@ -136,8 +122,8 @@ filter_instance_build_shared(struct ast_node_hdl *node,
 bitpunch_status_t
 filter_instance_read_value(struct ast_node_hdl *filter,
                            struct box *scope,
-                           int64_t item_offset,
-                           int64_t max_span_size,
+                           int64_t item_start_offset,
+                           int64_t item_end_offset,
                            expr_value_t *valuep,
                            struct browse_state *bst);
 bitpunch_status_t
@@ -145,21 +131,6 @@ filter_instance_get_data_source(
     struct ast_node_hdl *filter, struct box *scope,
     struct bitpunch_data_source **ds_outp, struct browse_state *bst);
 
-
-bitpunch_status_t
-filter_read_value__bytes(struct ast_node_hdl *item_filter,
-                         struct box *scope,
-                         int64_t item_offset,
-                         int64_t max_span_size,
-                         expr_value_t *valuep,
-                         struct browse_state *bst);
-bitpunch_status_t
-filter_read_value__filter(struct ast_node_hdl *filter,
-                          struct box *scope,
-                          int64_t item_offset,
-                          int64_t max_span_size,
-                          expr_value_t *valuep,
-                          struct browse_state *bst);
 
 void
 compile_node_backends__filter_generic(struct ast_node_hdl *filter);

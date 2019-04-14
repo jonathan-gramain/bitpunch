@@ -51,8 +51,11 @@ bitpunch_status_t
 box_compute_used_size__as_max_span(struct box *box,
                                    struct browse_state *bst);
 bitpunch_status_t
-box_compute_span_size__from_item_size(struct box *box,
-                                      struct browse_state *bst);
+box_compute_span_size__from_compute_item_size(
+    struct box *box, struct browse_state *bst);
+bitpunch_status_t
+box_compute_span_size__from_compute_item_size_from_buffer(
+    struct box *box, struct browse_state *bst);
 bitpunch_status_t
 box_compute_span_size__span_expr(struct box *box,
                                  struct browse_state *bst);

@@ -41,18 +41,19 @@
 #define INFLATED_MAX_SIZE (1024 * 1024 * 1024)
 
 static bitpunch_status_t
-deflate_read(struct ast_node_hdl *filter,
-            struct box *scope,
-            expr_value_t *read_value,
-            const char *data, size_t span_size,
-            struct browse_state *bst)
+deflate_read(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    const char *buffer, size_t buffer_size,
+    expr_value_t *valuep,
+    struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     int zret;
     z_stream zs;
     expr_value_t attr_value;
     int64_t inflated_size;
-    char *inflated;
+    struct bitpunch_data_source *inflated;
 
     bt_ret = filter_evaluate_attribute_internal(
         filter, scope, "@output_size", 0u, NULL, &attr_value, NULL, bst);
@@ -66,8 +67,8 @@ deflate_read(struct ast_node_hdl *filter,
                           "inflated size too large (%zu bytes, max %d)",
                           inflated_size, INFLATED_MAX_SIZE);
     }
-    zs.next_in = (z_const Bytef *)data;
-    zs.avail_in = (uLong)span_size;
+    zs.next_in = (z_const Bytef *)buffer;
+    zs.avail_in = (uLong)buffer_size;
     zs.zalloc = Z_NULL;
     zs.zfree = Z_NULL;
     zs.opaque = Z_NULL;
@@ -81,8 +82,8 @@ deflate_read(struct ast_node_hdl *filter,
                           "error from inflateInit(): %s (%d)",
                           zs.msg, zret);
     }
-    inflated = malloc_safe(inflated_size);
-    zs.next_out = (Bytef *)inflated;
+    bitpunch_buffer_new(&inflated, inflated_size);
+    zs.next_out = (Bytef *)inflated->ds_data;
     zs.avail_out = (uInt)inflated_size;
     zret = inflate(&zs, Z_FINISH);
     if (Z_STREAM_END != zret) {
@@ -101,9 +102,7 @@ deflate_read(struct ast_node_hdl *filter,
         return BITPUNCH_DATA_ERROR;
     }
     inflateEnd(&zs);
-    read_value->type = EXPR_VALUE_TYPE_BYTES;
-    read_value->bytes.buf = inflated;
-    read_value->bytes.len = inflated_size;
+    *valuep = expr_value_as_data(inflated);
     return BITPUNCH_OK;
 }
 
@@ -113,7 +112,7 @@ deflate_filter_instance_build(struct ast_node_hdl *filter)
     struct filter_instance *f_instance;
 
     f_instance = new_safe(struct filter_instance);
-    f_instance->read_func = deflate_read;
+    f_instance->b_item.read_value_from_buffer = deflate_read;
     return f_instance;
 }
 

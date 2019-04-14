@@ -75,10 +75,14 @@ enum expr_value_type {
     EXPR_VALUE_TYPE_BOOLEAN = (1<<1),
     EXPR_VALUE_TYPE_STRING = (1<<2),
     EXPR_VALUE_TYPE_BYTES = (1<<3),
+    EXPR_VALUE_TYPE_DATA = (1<<4),
+    EXPR_VALUE_TYPE_DATA_RANGE = (1<<5),
     EXPR_VALUE_TYPE_ANY = (EXPR_VALUE_TYPE_INTEGER |
                            EXPR_VALUE_TYPE_BOOLEAN |
                            EXPR_VALUE_TYPE_STRING |
-                           EXPR_VALUE_TYPE_BYTES),
+                           EXPR_VALUE_TYPE_BYTES |
+                           EXPR_VALUE_TYPE_DATA |
+                           EXPR_VALUE_TYPE_DATA_RANGE),
 };
 
 struct expr_value_string {
@@ -93,6 +97,16 @@ struct expr_value_bytes {
     struct box *from_box;
 };
 
+struct expr_value_data {
+    struct bitpunch_data_source *ds;
+};
+
+struct expr_value_data_range {
+    struct expr_value_data data; /* inherits */
+    int64_t start_offset;
+    int64_t end_offset;
+};
+
 struct expr_value {
     enum expr_value_type type;
     union {
@@ -100,6 +114,8 @@ struct expr_value {
         int boolean;
         struct expr_value_string string;
         struct expr_value_bytes bytes;
+        struct expr_value_data data;
+        struct expr_value_data_range data_range;
     };
 };
 
@@ -143,6 +159,11 @@ static inline expr_value_t
 expr_value_as_string_len(const char *str, int64_t len);
 static inline expr_value_t
 expr_value_as_bytes(const char *buf, int64_t len);
+static inline expr_value_t
+expr_value_as_data(struct bitpunch_data_source *ds);
+static inline expr_value_t
+expr_value_as_data_range(struct bitpunch_data_source *ds,
+                         int64_t start_offset, int64_t end_offset);
 void
 expr_value_attach_box(expr_value_t *value, struct box *box);
 int

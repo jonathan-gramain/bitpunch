@@ -270,12 +270,10 @@ compile_node_backends__item__byte_array(struct ast_node_hdl *item)
 
     array = (struct filter_instance_array *)
         item->ndat->u.rexpr_filter.f_instance;
-    array->filter.read_func = bytes__read;
     b_item = &array->filter.b_item;
     b_item->create_filter_state = array_create_generic_filter_state;
     b_item->destroy_filter_state = array_destroy_generic_filter_state;
-    if (NULL == b_item->compute_item_size
-        && NULL != array->item_count) {
+    if (NULL != array->item_count) {
         b_item->compute_item_size = compute_item_size__byte_array_var_size;
     }
 }

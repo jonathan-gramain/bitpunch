@@ -1043,7 +1043,7 @@ Board_add_data_source(BoardObject *self, PyObject *args, PyObject *kwds)
     PyObject *data = NULL;
     const char *path = NULL;
     int ret;
-    struct ast_node_hdl *data_source;
+    struct bitpunch_data_source *data_source;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "s|Os", kwlist,
                                      &name, &data, &path)) {
@@ -1058,8 +1058,7 @@ Board_add_data_source(BoardObject *self, PyObject *args, PyObject *kwds)
         return NULL;
     }
     if (NULL != path) {
-        ret = bitpunch_data_source_create_from_file_path(
-            &data_source, path);
+        ret = bitpunch_data_source_create_from_file_path(&data_source, path);
     } else if (PyString_Check(data)) {
         char *contents;
         Py_ssize_t length;
@@ -1067,8 +1066,9 @@ Board_add_data_source(BoardObject *self, PyObject *args, PyObject *kwds)
         /* load the provided text contents */
         ret = PyString_AsStringAndSize(data, &contents, &length);
         assert(-1 != ret);
-        ret = bitpunch_data_source_create_from_memory(
+        bitpunch_data_source_create_from_memory(
             &data_source, contents, length, FALSE);
+        ret = 0;
     } else if (PyByteArray_Check(data)) {
         char *contents;
         Py_ssize_t length;
@@ -1076,8 +1076,9 @@ Board_add_data_source(BoardObject *self, PyObject *args, PyObject *kwds)
         /* load the provided text contents */
         contents = PyByteArray_AS_STRING(data);
         length = PyByteArray_GET_SIZE(data);
-        ret = bitpunch_data_source_create_from_memory(
+        bitpunch_data_source_create_from_memory(
             &data_source, contents, length, FALSE);
+        ret = 0;
     } else if (PyFile_Check(data)) {
         FILE *file;
 
@@ -1095,7 +1096,8 @@ Board_add_data_source(BoardObject *self, PyObject *args, PyObject *kwds)
         PyErr_SetString(PyExc_OSError, "Error loading binary contents");
         return NULL;
     }
-    bitpunch_board_add_let_expression(self->board, name, data_source);
+    bitpunch_board_add_let_expression(
+        self->board, name, bitpunch_data_source_to_filter(data_source));
 
     Py_INCREF((PyObject *)self);
     return (PyObject *)self;
@@ -2811,13 +2813,13 @@ box_to_deep_PyObject(struct BoardObject *dtree, struct box *box)
     case AST_NODE_TYPE_BYTE:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_REXPR_FILTER: {
-        if (NULL != node->ndat->u.rexpr_filter.f_instance->read_func) {
-            return box_to_native_PyObject(dtree, box);
-        }
         if (ast_node_filter_maps_list(node)) {
             return box_to_deep_PyList(dtree, box);
         }
-        return box_to_deep_PyDict(dtree, box);
+        if (ast_node_filter_maps_object(node)) {
+            return box_to_deep_PyDict(dtree, box);
+        }
+        return box_to_native_PyObject(dtree, box);
     }
     default:
         PyErr_Format(PyExc_ValueError,

@@ -211,13 +211,13 @@ struct tracker {
 
     int64_t item_size;       /**< cached item size (-1 if unset) */
 
+    /** internal tracker flags */
     enum tracker_flags {
-        /* internal flags */
-        TRACKER_AT_END           = (1u<<0), /**< positioned at end of
-                                             *   container */
-        TRACKER_NEED_ITEM_OFFSET = (1u<<1), /**< force computing the
-                                             *   item offset (disable
-                                             *   lazy evaluation) */
+        /** positioned at end of container */
+        TRACKER_AT_END           = (1u<<0),
+        /** force computing the item offset (disable lazy evaluation) */
+        TRACKER_NEED_ITEM_OFFSET = (1u<<1),
+        /** tracker moves right-to-left */
         TRACKER_REVERSED         = (1u<<2),
     } flags;
 

@@ -34,7 +34,4 @@
 
 #include "api/bitpunch-structs.h"
 
-struct ast_node_hdl *
-ast_node_hdl_create_data_source(struct bitpunch_data_source *ds);
-
 #endif

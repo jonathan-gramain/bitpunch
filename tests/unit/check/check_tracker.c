@@ -35,6 +35,7 @@
 #include <stdlib.h>
 
 #include "core/debug.h"
+#include "filters/data_source.h"
 #include "check_bitpunch.h"
 #include "check_tracker.h"
 
@@ -86,7 +87,7 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
                                  int only_browse)
 {
     struct bitpunch_board *board;
-    struct ast_node_hdl *ds_in;
+    struct bitpunch_data_source *ds_in;
     expr_dpath_t dpath;
     struct tracker *tk;
     int ret;
@@ -99,12 +100,13 @@ check_tracker_browse_depth_first(const struct test_tracker_spec *test_spec,
 
     board = bitpunch_board_new();
 
-    ret = bitpunch_data_source_create_from_memory(
+    bitpunch_data_source_create_from_memory(
         &ds_in, test_spec->contents, test_spec->contents_size, FALSE);
-    ck_assert_int_eq(ret, 0);
 
-    bitpunch_board_add_let_expression(board, "data", ds_in);
-    bitpunch_board_add_let_expression(board, "Schema", *test_spec->schema_hdl);
+    bitpunch_board_add_let_expression(
+        board, "data", bitpunch_data_source_to_filter(ds_in));
+    bitpunch_board_add_let_expression(
+        board, "Schema", *test_spec->schema_hdl);
 
     bt_ret = bitpunch_board_add_expr(board, "Model", "data <> Schema.Root");
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
@@ -264,7 +266,7 @@ check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
                                   int only_browse)
 {
     struct bitpunch_board *board;
-    struct ast_node_hdl *ds_in;
+    struct bitpunch_data_source *ds_in;
     expr_dpath_t dpath;
     struct tracker *tk;
     bitpunch_status_t bt_ret;
@@ -272,12 +274,13 @@ check_tracker_browse_sub_trackers(const struct test_tracker_spec *test_spec,
 
     board = bitpunch_board_new();
 
-    ret = bitpunch_data_source_create_from_memory(
+    bitpunch_data_source_create_from_memory(
         &ds_in, test_spec->contents, test_spec->contents_size, FALSE);
-    ck_assert_int_eq(ret, 0);
 
-    bitpunch_board_add_let_expression(board, "data", ds_in);
-    bitpunch_board_add_let_expression(board, "Schema", *test_spec->schema_hdl);
+    bitpunch_board_add_let_expression(
+        board, "data", bitpunch_data_source_to_filter(ds_in));
+    bitpunch_board_add_let_expression(
+        board, "Schema", *test_spec->schema_hdl);
 
     bt_ret = bitpunch_board_add_expr(board, "Model", "data <> Schema.Root");
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);
@@ -306,7 +309,7 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
                                   int only_browse)
 {
     struct bitpunch_board *board;
-    struct ast_node_hdl *ds_in;
+    struct bitpunch_data_source *ds_in;
     expr_dpath_t dpath;
     struct tracker *tk;
     int ret;
@@ -322,12 +325,13 @@ check_tracker_browse_random_dpath(const struct test_tracker_spec *test_spec,
 
     board = bitpunch_board_new();
 
-    ret = bitpunch_data_source_create_from_memory(
+    bitpunch_data_source_create_from_memory(
         &ds_in, test_spec->contents, test_spec->contents_size, FALSE);
-    ck_assert_int_eq(ret, 0);
 
-    bitpunch_board_add_let_expression(board, "data", ds_in);
-    bitpunch_board_add_let_expression(board, "Schema", *test_spec->schema_hdl);
+    bitpunch_board_add_let_expression(
+        board, "data", bitpunch_data_source_to_filter(ds_in));
+    bitpunch_board_add_let_expression(
+        board, "Schema", *test_spec->schema_hdl);
 
     bt_ret = bitpunch_board_add_expr(board, "Model", "data <> Schema.Root");
     ck_assert_int_eq(bt_ret, BITPUNCH_OK);

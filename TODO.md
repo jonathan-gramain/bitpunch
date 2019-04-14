@@ -320,3 +320,11 @@ correctly (b_filter is empty)
   - item.compute_item_size()
 
 - remove the need to keep ARRAY and BYTE special filter enums
+
+- replace use of BITPUNCH_NO_ITEM by BITPUNCH_NO_ATTR when looking up
+  an attribute that does not exist (e.g. with
+  filter_evaluate_attribute_internal()), this to avoid mapping
+  different processing types to the same error.
+
+- implement both endians in compute_item_size__varint() function and
+  add tests for it

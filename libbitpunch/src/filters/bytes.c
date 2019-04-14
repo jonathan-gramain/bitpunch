@@ -36,28 +36,12 @@
 
 #include "core/filter.h"
 
-bitpunch_status_t
-bytes__read(
-    struct ast_node_hdl *filter,
-    struct box *scope,
-    expr_value_t *read_value,
-    const char *data, size_t span_size,
-    struct browse_state *bst)
-{
-    read_value->type = EXPR_VALUE_TYPE_BYTES;
-    read_value->bytes.buf = (char *)data;
-    read_value->bytes.len = span_size;
-    return BITPUNCH_OK;
-}
-
-
 static struct filter_instance *
 bytes_filter_instance_build(struct ast_node_hdl *filter)
 {
     struct filter_instance *f_instance;
 
     f_instance = new_safe(struct filter_instance);
-    f_instance->read_func = bytes__read;
     return f_instance;
 }
 

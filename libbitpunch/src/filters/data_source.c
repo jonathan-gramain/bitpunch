@@ -45,7 +45,7 @@ struct filter_instance_data_source {
 };
 
 struct ast_node_hdl *
-ast_node_hdl_create_data_source(struct bitpunch_data_source *ds)
+bitpunch_data_source_to_filter(struct bitpunch_data_source *ds)
 {
     struct filter_class *filter_cls;
     struct ast_node_hdl *node;
@@ -88,8 +88,7 @@ data_source_filter_instance_build(struct ast_node_hdl *filter)
     struct filter_instance_data_source *f_instance;
 
     f_instance = new_safe(struct filter_instance_data_source);
-    f_instance->filter.get_data_source_func = data_source_get_data_source;
-    f_instance->filter.read_func = bytes__read;
+    f_instance->filter.b_item.get_data_source = data_source_get_data_source;
     return (struct filter_instance *)f_instance;
 }
 

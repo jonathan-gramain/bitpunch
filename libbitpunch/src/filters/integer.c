@@ -270,8 +270,8 @@ static bitpunch_status_t
 binary_integer_read_generic(
     struct ast_node_hdl *filter,
     struct box *scope,
-    expr_value_t *read_value,
-    const char *data, size_t span_size,
+    const char *buffer, size_t buffer_size,
+    expr_value_t *valuep,
     struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
@@ -290,12 +290,12 @@ binary_integer_read_generic(
 
     bt_ret = integer_read_endian_attribute(filter, scope, &endian, bst);
     if (BITPUNCH_NO_ITEM == bt_ret) {
-        if (span_size > 1) {
+        if (buffer_size > 1) {
             return box_error(
                 BITPUNCH_INVALID_PARAM, scope, filter, bst,
                 "missing endian value: "
                 "mandatory for source larger than one byte (got %zu)",
-                span_size);
+                buffer_size);
         }
         endian = ENDIAN_BIG;
     } else if (BITPUNCH_OK != bt_ret) {
@@ -304,7 +304,7 @@ binary_integer_read_generic(
     assert(endian == ENDIAN_BIG || endian == ENDIAN_LITTLE);
 
 #define READ_BRANCH_3(NBITS, ENDIAN_STR, SIGN) do {                     \
-        read_value->integer = (int64_t)(SIGN##int##NBITS##_t)ENDIAN_STR##NBITS##toh(*(uint##NBITS##_t *)data); \
+        valuep->integer = (int64_t)(SIGN##int##NBITS##_t)ENDIAN_STR##NBITS##toh(*(uint##NBITS##_t *)buffer); \
     } while (0)
 
 #define READ_BRANCH_2(NBITS, ENDIAN, ENDIAN_STR)        \
@@ -325,8 +325,8 @@ binary_integer_read_generic(
         }                                               \
         break
 
-    read_value->type = EXPR_VALUE_TYPE_INTEGER;
-    switch (span_size) {
+    valuep->type = EXPR_VALUE_TYPE_INTEGER;
+    switch (buffer_size) {
         READ_BRANCH_1(8);
         READ_BRANCH_1(16);
         READ_BRANCH_1(32);
@@ -335,7 +335,7 @@ binary_integer_read_generic(
         return node_error(
             BITPUNCH_NOT_IMPLEMENTED, filter, bst,
             "size %"PRIi64" not supported by integer filter",
-            span_size);
+            buffer_size);
     }
     return BITPUNCH_OK;
 }
@@ -346,7 +346,7 @@ binary_integer_filter_instance_build(struct ast_node_hdl *filter)
     struct filter_instance *f_instance;
 
     f_instance = new_safe(struct filter_instance);
-    f_instance->read_func = binary_integer_read_generic;
+    f_instance->b_item.read_value_from_buffer = binary_integer_read_generic;
     return f_instance;
 }
 

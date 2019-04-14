@@ -121,3 +121,26 @@ expr_value_as_bytes(const char *buf, int64_t len)
     ev.bytes.from_box = NULL;
     return ev;
 }
+
+static inline expr_value_t
+expr_value_as_data(struct bitpunch_data_source *ds)
+{
+    expr_value_t ev;
+
+    ev.type = EXPR_VALUE_TYPE_DATA;
+    ev.data.ds = ds;
+    return ev;
+}
+
+static inline expr_value_t
+expr_value_as_data_range(struct bitpunch_data_source *ds,
+                         int64_t start_offset, int64_t end_offset)
+{
+    expr_value_t ev;
+
+    ev.type = EXPR_VALUE_TYPE_DATA;
+    ev.data.ds = ds;
+    ev.data_range.start_offset = start_offset;
+    ev.data_range.end_offset = end_offset;
+    return ev;
+}

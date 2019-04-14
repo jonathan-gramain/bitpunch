@@ -35,7 +35,6 @@
 #include <assert.h>
 #include <string.h>
 
-#include "api/data_source_internal.h"
 #include "core/filter.h"
 #include "filters/bytes.h"
 
@@ -66,7 +65,7 @@ file_get_data_source(
     }
     memcpy(file_path, path_value.string.str, path_value.string.len);
     file_path[path_value.string.len] = '\0';
-    ret = data_source_create_from_file_path_internal(ds_outp, file_path, FALSE);
+    ret = bitpunch_data_source_create_from_file_path(ds_outp, file_path);
     expr_value_destroy(path_value);
     if (-1 == ret) {
         return BITPUNCH_DATA_ERROR;
@@ -80,8 +79,7 @@ file_filter_instance_build(struct ast_node_hdl *filter)
     struct filter_instance *f_instance;
 
     f_instance = new_safe(struct filter_instance);
-    f_instance->get_data_source_func = file_get_data_source;
-    f_instance->read_func = bytes__read;
+    f_instance->b_item.get_data_source = file_get_data_source;
     return f_instance;
 }
 

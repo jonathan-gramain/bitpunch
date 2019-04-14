@@ -34,12 +34,4 @@
 
 #include "core/filter.h"
 
-bitpunch_status_t
-bytes__read(
-    struct ast_node_hdl *filter,
-    struct box *scope,
-    expr_value_t *read_value,
-    const char *data, size_t span_size,
-    struct browse_state *bst);
-
 #endif

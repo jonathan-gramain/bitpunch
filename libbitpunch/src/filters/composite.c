@@ -81,6 +81,7 @@ compile_type_composite(struct ast_node_hdl *item,
     if (contains_last_attr) {
         item->flags |= ASTFLAG_CONTAINS_LAST_ATTR;
     }
+    item->ndat->u.item.flags |= ITEMFLAG_FILTER_MAPS_OBJECT;
     return 0;
 }
 

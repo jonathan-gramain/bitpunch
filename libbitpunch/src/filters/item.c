@@ -117,8 +117,8 @@ box_compute_used_size__as_max_span(struct box *box,
 }
 
 bitpunch_status_t
-box_compute_span_size__from_item_size(struct box *box,
-                                      struct browse_state *bst)
+box_compute_span_size__from_compute_item_size(
+    struct box *box, struct browse_state *bst)
 {
     struct item_backend *b_item;
     bitpunch_status_t bt_ret;
@@ -133,6 +133,32 @@ box_compute_span_size__from_item_size(struct box *box,
     bt_ret = b_item->compute_item_size(
         box->filter, box,
         box->start_offset_max_span, box->end_offset_max_span,
+        &span_size, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    return box_set_size(box, span_size, BOX_SIZE_SPAN, bst);
+}
+
+bitpunch_status_t
+box_compute_span_size__from_compute_item_size_from_buffer(
+    struct box *box, struct browse_state *bst)
+{
+    struct item_backend *b_item;
+    bitpunch_status_t bt_ret;
+    const char *item_data;
+    int64_t span_size;
+
+    DBG_BOX_DUMP(box);
+    b_item = &box->filter->ndat->u.rexpr_filter.f_instance->b_item;
+    bt_ret = box_compute_max_span_size(box, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    item_data = box->ds_in->ds_data + box->start_offset_max_span;
+    bt_ret = b_item->compute_item_size_from_buffer(
+        box->filter, box,
+        item_data, box->end_offset_max_span - box->start_offset_max_span,
         &span_size, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;

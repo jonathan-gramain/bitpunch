@@ -45,7 +45,6 @@
 #include "core/browse_internal.h"
 #include "core/expr_internal.h"
 #include "core/debug.h"
-#include "api/data_source_internal.h"
 
 //FIXME remove once filters become isolated
 #include "filters/composite.h"
@@ -958,7 +957,7 @@ box_construct(struct box *o_box,
                 }
             }
         }
-        if (NULL != f_instance->get_data_source_func) {
+        if (NULL != f_instance->b_item.get_data_source) {
             o_box->flags |= BOX_DATA_SOURCE;
         }
         break ;
@@ -1105,24 +1104,29 @@ static bitpunch_status_t
 box_apply_local_filter__data_filter(struct box *box, struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    int64_t unfiltered_size;
+    int64_t start_offset;
+    int64_t end_offset;
     expr_value_t filtered_value;
     const char *filtered_data;
     int64_t filtered_size;
 
     if (0 != (box->flags & BOX_RALIGN)) {
-        bt_ret = box_get_span_size(box, &unfiltered_size, bst);
+        bt_ret = box_compute_offset_internal(box, BOX_START_OFFSET_SPAN,
+                                             &start_offset, bst);
+        end_offset = box->end_offset_span;
     } else {
-        bt_ret = box_get_max_span_size(box, &unfiltered_size, bst);
+        start_offset = box->start_offset_span;
+        bt_ret = box_compute_offset_internal(box, BOX_END_OFFSET_MAX_SPAN,
+                                             &end_offset, bst);
     }
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    assert(-1 != box->start_offset_span);
-    bt_ret = filter_instance_read_value(
-        box->filter, box,
-        box->start_offset_span, unfiltered_size,
-        &filtered_value, bst);
+    assert(-1 != start_offset);
+    assert(-1 != end_offset);
+    bt_ret = filter_instance_read_value(box->filter, box,
+                                        start_offset, end_offset,
+                                        &filtered_value, bst);
     if (BITPUNCH_OK != bt_ret) {
         return box_error(bt_ret, box, box->filter, bst,
                          "error reading value through filter");
@@ -1142,6 +1146,26 @@ box_apply_local_filter__data_filter(struct box *box, struct browse_state *bst)
         filtered_data = filtered_value.bytes.buf;
         filtered_size = filtered_value.bytes.len;
         break ;
+    case EXPR_VALUE_TYPE_DATA:
+        if (filtered_value.data.ds == box->ds_in) {
+            box_setup_overlay(box);
+        } else {
+            box->flags |= BOX_DATA_SOURCE;
+            box->ds_out = filtered_value.data.ds;
+        }
+        box->start_offset_used = 0;
+        box->end_offset_used = (int64_t)box->ds_out->ds_data_length;
+        return BITPUNCH_OK;
+    case EXPR_VALUE_TYPE_DATA_RANGE:
+        if (filtered_value.data.ds == box->ds_in) {
+            box_setup_overlay(box);
+        } else {
+            box->flags |= BOX_DATA_SOURCE;
+            box->ds_out = filtered_value.data.ds;
+        }
+        box->start_offset_used = filtered_value.data_range.start_offset;
+        box->end_offset_used = filtered_value.data_range.end_offset;
+        return BITPUNCH_OK;
     default:
         assert(0);
     }
@@ -1152,7 +1176,7 @@ box_apply_local_filter__data_filter(struct box *box, struct browse_state *bst)
         box->end_offset_used =
             (filtered_data + filtered_size) - box->ds_out->ds_data;
     } else {
-        (void) data_source_create_from_memory_internal(
+        bitpunch_data_source_create_from_memory(
             &box->ds_out, filtered_data, filtered_size, TRUE);
         box->flags |= BOX_DATA_SOURCE;
         box->start_offset_used = 0;
@@ -1206,7 +1230,7 @@ box_apply_local_filter(struct box *box, struct browse_state *bst)
         return BITPUNCH_OK;
     }
     f_instance = box->filter->ndat->u.rexpr_filter.f_instance;
-    if (NULL != f_instance->get_data_source_func) {
+    if (NULL != f_instance->b_item.get_data_source) {
         return box_apply_local_filter__get_data_source(box, bst);
     }
     return box_apply_local_filter__data_filter(box, bst);
@@ -1278,7 +1302,7 @@ box_free(struct box *box)
         }
     }
     if (0 != (box->flags & BOX_DATA_SOURCE)) {
-        (void)data_source_release_internal(
+        (void)bitpunch_data_source_release(
             (struct bitpunch_data_source *)box->ds_out);
     }
     free(box);
@@ -2061,7 +2085,7 @@ box_get_n_items_internal(struct box *box, int64_t *n_itemsp,
     return bt_ret;
 }
 
-static bitpunch_status_t
+bitpunch_status_t
 box_compute_size_internal(struct box *box,
                           enum box_offset_type off_type,
                           int64_t *sizep,
@@ -2116,7 +2140,7 @@ box_compute_size_internal(struct box *box,
     return bt_ret;
 }
 
-static bitpunch_status_t
+bitpunch_status_t
 box_compute_offset_internal(struct box *box,
                             enum box_offset_type off_type,
                             int64_t *offsetp,
@@ -2125,7 +2149,7 @@ box_compute_offset_internal(struct box *box,
     bitpunch_status_t bt_ret;
     int64_t offset;
 
-    bt_ret = box_apply_filter_internal(box, bst);
+    bt_ret = box_apply_parent_filter_internal(box, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -2167,21 +2191,31 @@ box_read_value_internal(struct box *box,
                         struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    struct item_backend *b_item = NULL;
 
     bt_ret = box_apply_filter_internal(box, bst);
     if (BITPUNCH_OK == bt_ret) {
         bt_ret = box_compute_used_size(box, bst);
     }
     if (BITPUNCH_OK == bt_ret) {
+        // if box filter is a data filter, getting the value is reading
+        // the bytes from the filter output.
+        if (0 != (box->flags & BOX_DATA_SOURCE)) {
+            if (NULL != valuep) {
+                memset(valuep, 0, sizeof(*valuep));
+                valuep->type = EXPR_VALUE_TYPE_BYTES;
+                valuep->bytes.buf =
+                    box->ds_out->ds_data + box->start_offset_used;
+                valuep->bytes.len =
+                    box->end_offset_used - box->start_offset_used;
+            }
+            return BITPUNCH_OK;
+        }
         // FIXME we should pass a data source object from which to
         // read from, in addition to the lexical scope box
-        b_item = &box->filter->ndat->u.rexpr_filter.f_instance->b_item;
-        bt_ret = b_item->read_value(
-            box->filter, box,
-            box->start_offset_used,
-            box->end_offset_used - box->start_offset_used,
-            valuep, bst);
+        bt_ret = filter_instance_read_value(box->filter, box,
+                                            box->start_offset_used,
+                                            box->end_offset_used,
+                                            valuep, bst);
     }
     if (BITPUNCH_OK == bt_ret && NULL != valuep) {
         expr_value_attach_box(valuep, box);
@@ -3412,6 +3446,7 @@ tracker_compute_item_size_internal(struct tracker *tk,
     bitpunch_status_t bt_ret;
     int64_t max_span_offset;
     struct filter_instance *f_instance;
+    const char *item_data;
 
     bt_ret = tracker_compute_item_filter_internal(tk, bst);
     if (BITPUNCH_OK != bt_ret) {
@@ -3442,6 +3477,17 @@ tracker_compute_item_size_internal(struct tracker *tk,
         }
     }
     f_instance = tk->dpath.item->ndat->u.rexpr_filter.f_instance;
+    if (NULL != f_instance->b_item.compute_item_size_from_buffer) {
+        item_data = tk->box->ds_in->ds_data + tk->item_offset;
+        bt_ret = f_instance->b_item.compute_item_size_from_buffer(
+            tk->dpath.item, tk->box,
+            item_data, max_span_offset - tk->item_offset,
+            item_sizep, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            goto err;
+        }
+        return BITPUNCH_OK;
+    }
     if (NULL != f_instance->b_item.compute_item_size) {
         bt_ret = f_instance->b_item.compute_item_size(
             tk->dpath.item, tk->box,
@@ -3720,7 +3766,6 @@ tracker_read_item_value_direct_internal(struct tracker *tk,
                                         expr_value_t *valuep,
                                         struct browse_state *bst)
 {
-    struct filter_instance *f_instance;
     bitpunch_status_t bt_ret;
     int64_t item_offset;
     int64_t item_size;
@@ -3743,14 +3788,10 @@ tracker_read_item_value_direct_internal(struct tracker *tk,
             tk, bst, "when evaluating filter type");
         return bt_ret;
     }
-    f_instance = filter_type->ndat->u.rexpr_filter.f_instance;
-    if (NULL == f_instance->b_item.read_value) {
-        return bitpunch_error(
-            BITPUNCH_NOT_IMPLEMENTED, tk, filter_type, bst,
-            "filter does not implement read_value() item backend function");
-    }
-    bt_ret = f_instance->b_item.read_value(
-        filter_type, tk->box, item_offset, item_size, valuep, bst);
+    bt_ret = filter_instance_read_value(filter_type, tk->box,
+                                        item_offset,
+                                        item_offset + item_size,
+                                        valuep, bst);
     if (BITPUNCH_OK != bt_ret) {
         bitpunch_error_add_tracker_context(tk, bst, "when reading item value");
         return bt_ret;
@@ -4238,30 +4279,6 @@ box_compute__error(struct box *box,
     // TODO more precise error
     return box_error(BITPUNCH_DATA_ERROR, box, box->filter, bst,
                      "invalid filter operation requested");
-}
-
-
-bitpunch_status_t
-filter_read_value__operator_filter(struct ast_node_hdl *filter,
-                                   struct box *scope,
-                                   int64_t item_offset,
-                                   int64_t item_size,
-                                   expr_value_t *valuep,
-                                   struct browse_state *bst)
-{
-    bitpunch_status_t bt_ret;
-    struct ast_node_hdl *filter_expr;
-    struct ast_node_hdl *filter_type;
-
-    filter_expr = filter->ndat->u.rexpr_op_filter.filter_expr;
-    bt_ret = expr_evaluate_filter_type_internal(
-        filter_expr, scope, FILTER_KIND_FILTER,
-        &filter_type, bst);
-    if (BITPUNCH_OK != bt_ret) {
-        return bt_ret;
-    }
-    return filter_type->ndat->u.rexpr_filter.f_instance->b_item.read_value(
-        filter_type, scope, item_offset, item_size, valuep, bst);
 }
 
 

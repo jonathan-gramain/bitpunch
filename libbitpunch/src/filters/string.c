@@ -40,13 +40,13 @@ static bitpunch_status_t
 string_read_no_boundary(
     struct ast_node_hdl *filter,
     struct box *scope,
-    expr_value_t *read_value,
-    const char *data, size_t span_size,
+    const char *buffer, size_t buffer_size,
+    expr_value_t *valuep,
     struct browse_state *bst)
 {
-    read_value->type = EXPR_VALUE_TYPE_STRING;
-    read_value->string.str = (char *)data;
-    read_value->string.len = span_size;
+    valuep->type = EXPR_VALUE_TYPE_STRING;
+    valuep->string.str = (char *)buffer;
+    valuep->string.len = buffer_size;
     return BITPUNCH_OK;
 }
 
@@ -62,7 +62,7 @@ string_build_no_boundary(void)
     struct filter_instance *f_instance;
 
     f_instance = new_safe(struct filter_instance);
-    f_instance->read_func = string_read_no_boundary;
+    f_instance->b_item.read_value_from_buffer = string_read_no_boundary;
     return f_instance;
 }
 
@@ -71,23 +71,20 @@ static bitpunch_status_t
 compute_item_size__string__single_char_constant_boundary(
     struct ast_node_hdl *filter,
     struct box *scope,
-    int64_t item_offset,
-    int64_t max_span_offset,
+    const char *buffer, size_t buffer_size,
     int64_t *item_sizep,
     struct browse_state *bst)
 {
     struct string_single_char_constant_boundary *f_instance;
-    const char *data;
     const char *end;
 
     f_instance = (struct string_single_char_constant_boundary *)
         filter->ndat->u.rexpr_filter.f_instance;
-    data = scope->ds_in->ds_data + item_offset;
-    end = memchr(data, f_instance->boundary, max_span_offset - item_offset);
+    end = memchr(buffer, f_instance->boundary, buffer_size);
     if (NULL != end) {
-        *item_sizep = end - data + 1;
+        *item_sizep = end - buffer + 1;
     } else {
-        *item_sizep = max_span_offset - item_offset;
+        *item_sizep = buffer_size;
     }
     return BITPUNCH_OK;
 }
@@ -96,21 +93,21 @@ static bitpunch_status_t
 string_read_single_char_constant_boundary(
     struct ast_node_hdl *filter,
     struct box *scope,
-    expr_value_t *read_value,
-    const char *data, size_t span_size,
+    const char *buffer, size_t buffer_size,
+    expr_value_t *valuep,
     struct browse_state *bst)
 {
     struct string_single_char_constant_boundary *f_instance;
 
     f_instance = (struct string_single_char_constant_boundary *)
         filter->ndat->u.rexpr_filter.f_instance;
-    read_value->type = EXPR_VALUE_TYPE_STRING;
-    read_value->string.str = (char *)data;
-    if (span_size >= 1
-        && (data[span_size - 1] == f_instance->boundary)) {
-        read_value->string.len = span_size - 1;
+    valuep->type = EXPR_VALUE_TYPE_STRING;
+    valuep->string.str = (char *)buffer;
+    if (buffer_size >= 1
+        && (buffer[buffer_size - 1] == f_instance->boundary)) {
+        valuep->string.len = buffer_size - 1;
     } else {
-        read_value->string.len = span_size;
+        valuep->string.len = buffer_size;
     }
     return BITPUNCH_OK;
 }
@@ -122,34 +119,33 @@ string_build_single_char_constant_boundary(char boundary)
                     
     f_instance = new_safe(struct string_single_char_constant_boundary);
     f_instance->boundary = boundary;
-    f_instance->p.b_item.compute_item_size =
+    f_instance->p.b_item.compute_item_size_from_buffer =
         compute_item_size__string__single_char_constant_boundary;
-    f_instance->p.read_func = string_read_single_char_constant_boundary;
+    f_instance->p.b_item.read_value_from_buffer =
+        string_read_single_char_constant_boundary;
     return (struct filter_instance *)f_instance;
 }
 
 
 static bitpunch_status_t
-compute_item_size__string__generic(struct ast_node_hdl *filter,
-                                   struct box *scope,
-                                   int64_t item_offset,
-                                   int64_t max_span_offset,
-                                   int64_t *item_sizep,
-                                   struct browse_state *bst)
+compute_item_size__string__generic(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    const char *buffer, size_t buffer_size,
+    int64_t *item_sizep,
+    struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
     expr_value_t attr_value;
-    const char *data;
     const char *end;
 
     bt_ret = filter_evaluate_attribute_internal(
         filter, scope, "@boundary", 0u, NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK == bt_ret) {
-        data = scope->ds_in->ds_data + item_offset;
-        end = memmem(data, max_span_offset - item_offset,
+        end = memmem(buffer, buffer_size,
                      attr_value.string.str, attr_value.string.len);
         if (NULL != end) {
-            *item_sizep = end - data + attr_value.string.len;
+            *item_sizep = end - buffer + attr_value.string.len;
             expr_value_destroy(attr_value);
             return BITPUNCH_OK;
         }
@@ -157,7 +153,7 @@ compute_item_size__string__generic(struct ast_node_hdl *filter,
     } else if (BITPUNCH_NO_ITEM != bt_ret) {
         return bt_ret;
     }
-    *item_sizep = max_span_offset - item_offset;
+    *item_sizep = buffer_size;
     return BITPUNCH_OK;
 }
 
@@ -165,8 +161,8 @@ static bitpunch_status_t
 string_read_generic(
     struct ast_node_hdl *filter,
     struct box *scope,
-    expr_value_t *read_value,
-    const char *data, size_t span_size,
+    const char *buffer, size_t buffer_size,
+    expr_value_t *valuep,
     struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
@@ -177,12 +173,12 @@ string_read_generic(
         filter, scope, "@boundary", 0u, NULL, &attr_value, NULL, bst);
     if (BITPUNCH_OK == bt_ret) {
         boundary = attr_value.string;
-        read_value->type = EXPR_VALUE_TYPE_STRING;
-        read_value->string.str = (char *)data;
-        if (span_size >= boundary.len
-            && 0 == memcmp(data + span_size - boundary.len,
+        valuep->type = EXPR_VALUE_TYPE_STRING;
+        valuep->string.str = (char *)buffer;
+        if (buffer_size >= boundary.len
+            && 0 == memcmp(buffer + buffer_size - boundary.len,
                            boundary.str, boundary.len)) {
-            read_value->string.len = span_size - boundary.len;
+            valuep->string.len = buffer_size - boundary.len;
             expr_value_destroy(attr_value);
             return BITPUNCH_OK;
         }
@@ -190,7 +186,7 @@ string_read_generic(
     } else if (BITPUNCH_NO_ITEM != bt_ret) {
         return bt_ret;
     }
-    read_value->string.len = span_size;
+    valuep->string.len = buffer_size;
     return BITPUNCH_OK;
 }
 
@@ -198,10 +194,11 @@ static struct filter_instance *
 string_build_generic(void)
 {
     struct filter_instance *f_instance;
-                    
+
     f_instance = new_safe(struct filter_instance);
-    f_instance->b_item.compute_item_size = compute_item_size__string__generic;
-    f_instance->read_func = string_read_generic;
+    f_instance->b_item.compute_item_size_from_buffer =
+        compute_item_size__string__generic;
+    f_instance->b_item.read_value_from_buffer = string_read_generic;
     return f_instance;
 }
 

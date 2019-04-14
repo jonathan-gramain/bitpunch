@@ -41,17 +41,18 @@
 #define UNCOMPRESSED_BUFFER_MAX_SIZE (1024 * 1024 * 1024)
 
 static bitpunch_status_t
-snappy_read(struct ast_node_hdl *filter,
-            struct box *scope,
-            expr_value_t *read_value,
-            const char *data, size_t span_size,
-            struct browse_state *bst)
+snappy_read(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    const char *buffer, size_t buffer_size,
+    expr_value_t *valuep,
+    struct browse_state *bst)
 {
     snappy_status snappy_ret;
     size_t uncompressed_length;
-    char *uncompressed;
+    struct bitpunch_data_source *ds;
 
-    snappy_ret = snappy_uncompressed_length(data, span_size,
+    snappy_ret = snappy_uncompressed_length(buffer, buffer_size,
                                             &uncompressed_length);
     if (SNAPPY_OK != snappy_ret) {
         return node_error(BITPUNCH_DATA_ERROR, filter, bst,
@@ -64,17 +65,15 @@ snappy_read(struct ast_node_hdl *filter,
                           "(%zu bytes, max %d)",
                           uncompressed_length, UNCOMPRESSED_BUFFER_MAX_SIZE);
     }
-    uncompressed = malloc_safe(uncompressed_length);
-    snappy_ret = snappy_uncompress(data, span_size,
-                                   uncompressed, &uncompressed_length);
+    bitpunch_buffer_new(&ds, uncompressed_length);
+    snappy_ret = snappy_uncompress(buffer, buffer_size,
+                                   (char *)ds->ds_data, &ds->ds_data_length);
     if (SNAPPY_OK != snappy_ret) {
         return node_error(BITPUNCH_DATA_ERROR, filter, bst,
                           "error from snappy_uncompress() -> %d",
                           snappy_ret);
     }
-    read_value->type = EXPR_VALUE_TYPE_BYTES;
-    read_value->bytes.buf = uncompressed;
-    read_value->bytes.len = uncompressed_length;
+    *valuep = expr_value_as_data(ds);
     return BITPUNCH_OK;
 }
 
@@ -84,7 +83,7 @@ snappy_filter_instance_build(struct ast_node_hdl *filter)
     struct filter_instance *f_instance;
 
     f_instance = new_safe(struct filter_instance);
-    f_instance->read_func = snappy_read;
+    f_instance->b_item.read_value_from_buffer = snappy_read;
     return f_instance;
 }
 

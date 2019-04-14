@@ -1818,7 +1818,8 @@ compile_rexpr_filter_span_size(struct ast_node_hdl *expr,
         expr->ndat->u.item.flags |= (ITEMFLAG_IS_SPAN_SIZE_VARIABLE |
                                      ITEMFLAG_IS_USED_SIZE_VARIABLE);
     }
-    if (NULL == f_instance->b_item.compute_item_size) {
+    if (NULL == f_instance->b_item.compute_item_size
+        && NULL == f_instance->b_item.compute_item_size_from_buffer) {
         expr->ndat->u.item.flags |= (ITEMFLAG_USES_SLACK |
                                      ITEMFLAG_SPREADS_SLACK |
                                      ITEMFLAG_FILLS_SLACK);
@@ -2404,7 +2405,6 @@ operator_filter_filter_instance_build(struct ast_node_hdl *item)
     b_item = &filter->b_item;
     memset(b_item, 0, sizeof (*b_item));
 
-    b_item->read_value = filter_read_value__operator_filter;
     return filter;
 }
 
@@ -3371,27 +3371,19 @@ ast_node_is_rexpr_filter(const struct ast_node_hdl *node)
 int
 ast_node_filter_maps_list(const struct ast_node_hdl *node)
 {
-    const struct filter_class *filter_cls;
-
     if (!ast_node_is_rexpr_filter(node)) {
         return FALSE;
     }
-    filter_cls = node->ndat->u.rexpr_filter.filter_cls;
-    return NULL != filter_cls &&
-        0 != (filter_cls->flags & FILTER_CLASS_MAPS_LIST);
+    return 0 != (node->ndat->u.item.flags & ITEMFLAG_FILTER_MAPS_LIST);
 }
 
 int
 ast_node_filter_maps_object(const struct ast_node_hdl *node)
 {
-    const struct filter_class *filter_cls;
-
     if (!ast_node_is_rexpr_filter(node)) {
         return FALSE;
     }
-    filter_cls = node->ndat->u.rexpr_filter.filter_cls;
-    return NULL != filter_cls &&
-        0 != (filter_cls->flags & FILTER_CLASS_MAPS_OBJECT);
+    return 0 != (node->ndat->u.item.flags & ITEMFLAG_FILTER_MAPS_OBJECT);
 }
 
 struct ast_node_hdl *

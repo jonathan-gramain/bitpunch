@@ -41,25 +41,17 @@
 #include "filters/integer.h"
 
 static bitpunch_status_t
-compute_item_size__varint(struct ast_node_hdl *filter,
-                          struct box *scope,
-                          int64_t item_offset,
-                          int64_t max_span_offset,
-                          int64_t *item_sizep,
-                          struct browse_state *bst)
+compute_item_size__varint(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    const char *buffer, size_t buffer_size,
+    int64_t *item_sizep,
+    struct browse_state *bst)
 {
-    const char *data;
-    bitpunch_status_t bt_ret;
-    expr_value_t attr_value;
     size_t bytepos;
 
-    data = scope->ds_in->ds_data + item_offset;
-    bt_ret = filter_evaluate_attribute_internal(
-        filter, scope, "@endian", 0u, NULL, &attr_value, NULL, bst);
-    if (BITPUNCH_OK == bt_ret) {
-    }
-    for (bytepos = 0; bytepos < max_span_offset - item_offset; ++bytepos) {
-        if (!(data[bytepos] & 0x80)) {
+    for (bytepos = 0; bytepos < buffer_size; ++bytepos) {
+        if (!(buffer[bytepos] & 0x80)) {
             *item_sizep = bytepos + 1;
             return BITPUNCH_OK;
         }
@@ -71,23 +63,23 @@ compute_item_size__varint(struct ast_node_hdl *filter,
 
 static bitpunch_status_t
 varint_read__little_endian(
-    const char *data, size_t span_size, int64_t *valuep)
+    const char *buffer, size_t buffer_size, int64_t *valuep)
 {
-    const unsigned char *udata = (const unsigned char *)data;
+    const unsigned char *ubuffer = (const unsigned char *)buffer;
     size_t bytepos;
     size_t cur_shift;
     uint64_t rawvalue;
 
     rawvalue = 0;
     cur_shift = 0;
-    for (bytepos = 0; bytepos < span_size; ++bytepos) {
-        rawvalue |= ((uint64_t)udata[bytepos] & 0x7f) << cur_shift;
-        if (!(udata[bytepos] & 0x80)) {
+    for (bytepos = 0; bytepos < buffer_size; ++bytepos) {
+        rawvalue |= ((uint64_t)ubuffer[bytepos] & 0x7f) << cur_shift;
+        if (!(ubuffer[bytepos] & 0x80)) {
             break ;
         }
         cur_shift += 7;
     }
-    if (bytepos == span_size) {
+    if (bytepos == buffer_size) {
         // invalid varint
         // FIXME add context
         return BITPUNCH_DATA_ERROR;
@@ -100,21 +92,21 @@ varint_read__little_endian(
 
 static bitpunch_status_t
 varint_read__big_endian(
-    const char *data, size_t span_size, int64_t *valuep)
+    const char *buffer, size_t buffer_size, int64_t *valuep)
 {
-    const unsigned char *udata = (const unsigned char *)data;
+    const unsigned char *ubuffer = (const unsigned char *)buffer;
     size_t bytepos;
     uint64_t rawvalue;
 
     rawvalue = 0;
-    for (bytepos = 0; bytepos < span_size; ++bytepos) {
+    for (bytepos = 0; bytepos < buffer_size; ++bytepos) {
         rawvalue <<= 7;
-        rawvalue |= ((uint64_t)udata[bytepos] & 0x7f);
-        if (!(udata[bytepos] & 0x80)) {
+        rawvalue |= ((uint64_t)ubuffer[bytepos] & 0x7f);
+        if (!(ubuffer[bytepos] & 0x80)) {
             break ;
         }
     }
-    if (bytepos == span_size) {
+    if (bytepos == buffer_size) {
         // invalid varint
         // FIXME add context
         return BITPUNCH_DATA_ERROR;
@@ -129,8 +121,8 @@ static bitpunch_status_t
 varint_read(
     struct ast_node_hdl *filter,
     struct box *scope,
-    expr_value_t *read_value,
-    const char *data, size_t span_size,
+    const char *buffer, size_t buffer_size,
+    expr_value_t *valuep,
     struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
@@ -145,13 +137,13 @@ varint_read(
         return bt_ret;
     }
     if (ENDIAN_BIG == endian) {
-        bt_ret = varint_read__big_endian(data, span_size, &value);
+        bt_ret = varint_read__big_endian(buffer, buffer_size, &value);
     } else {
-        bt_ret = varint_read__little_endian(data, span_size, &value);
+        bt_ret = varint_read__little_endian(buffer, buffer_size, &value);
     }
     if (BITPUNCH_OK == bt_ret) {
-        read_value->type = EXPR_VALUE_TYPE_INTEGER;
-        read_value->integer = value;
+        valuep->type = EXPR_VALUE_TYPE_INTEGER;
+        valuep->integer = value;
     }
     return bt_ret;
 }
@@ -162,8 +154,9 @@ varint_filter_instance_build(struct ast_node_hdl *filter)
     struct filter_instance *f_instance;
 
     f_instance = new_safe(struct filter_instance);
-    f_instance->b_item.compute_item_size = compute_item_size__varint;
-    f_instance->read_func = varint_read;
+    f_instance->b_item.compute_item_size_from_buffer =
+        compute_item_size__varint;
+    f_instance->b_item.read_value_from_buffer = varint_read;
     return f_instance;
 }
 
@@ -190,14 +183,14 @@ filter_class_declare_varint(void)
 
 struct varint_testcase {
     enum endian endian;
-    const char *data;
-    size_t span_size;
+    const char *buffer;
+    size_t buffer_size;
     int64_t expected_value;
 };
 
 START_TEST(test_filter_varint)
 {
-#define TCASE_STR(STR) .data = STR, .span_size = sizeof (STR) - 1
+#define TCASE_STR(STR) .buffer = STR, .buffer_size = sizeof (STR) - 1
 
     struct varint_testcase testcases[] = {
         {
@@ -267,10 +260,10 @@ START_TEST(test_filter_varint)
         tc = &testcases[i];
         if (ENDIAN_LITTLE == tc->endian) {
             bt_ret = varint_read__little_endian(
-                tc->data, tc->span_size, &value);
+                tc->buffer, tc->buffer_size, &value);
         } else {
             bt_ret = varint_read__big_endian(
-                tc->data, tc->span_size, &value);
+                tc->buffer, tc->buffer_size, &value);
         }
         ck_assert_int_eq(bt_ret, BITPUNCH_OK);
         ck_assert_int_eq(value, tc->expected_value);

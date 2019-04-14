@@ -61,23 +61,30 @@ bitpunch_schema_free(struct ast_node_hdl *schema);
 
 int
 bitpunch_data_source_create_from_file_path(
-    struct ast_node_hdl **dsp, const char *path);
+    struct bitpunch_data_source **dsp, const char *path);
 
 void
 bitpunch_data_source_notify_file_change(const char *path);
 
 int
 bitpunch_data_source_create_from_file_descriptor(
-    struct ast_node_hdl **dsp, int fd);
+    struct bitpunch_data_source **dsp, int fd);
 
-int
+void
 bitpunch_data_source_create_from_memory(
-    struct ast_node_hdl **dsp,
+    struct bitpunch_data_source **dsp,
     const char *data, size_t data_size, int manage_buffer);
 
-int
-bitpunch_data_source_release(struct ast_node_hdl *ds);
+void
+bitpunch_buffer_new(
+    struct bitpunch_data_source **dsp,
+    size_t buffer_size);
 
+int
+bitpunch_data_source_release(struct bitpunch_data_source *ds);
+
+struct ast_node_hdl *
+bitpunch_data_source_to_filter(struct bitpunch_data_source *ds);
 
 struct bitpunch_board *
 bitpunch_board_new(void);

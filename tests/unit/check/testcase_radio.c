@@ -100,7 +100,6 @@ static void testcase_radio_setup(void)
     char filepath[128];
     struct radio_source_info *info;
     struct ast_node_hdl *bp_schema;
-    struct ast_node_hdl *ds_node;
     struct bitpunch_data_source *ds;
     int c;
     const char *codename;
@@ -113,11 +112,10 @@ static void testcase_radio_setup(void)
 
         snprintf(filepath, sizeof (filepath), "tests/common/radio/radio_%s.bin",
                  radio_sources[i]);
-        ret = bitpunch_data_source_create_from_file_path(&ds_node, filepath);
+        ret = bitpunch_data_source_create_from_file_path(&ds, filepath);
         assert(0 == ret);
-        bitpunch_board_add_let_expression(info->board, "data", ds_node);
-        bt_ret = filter_instance_get_data_source(ds_node, NULL, &ds, NULL);
-        assert(BITPUNCH_OK == bt_ret);
+        bitpunch_board_add_let_expression(
+            info->board, "data", bitpunch_data_source_to_filter(ds));
 
         snprintf(filepath, sizeof (filepath),
                  "tests/common/radio/radio_%s.bp", radio_sources[i]);

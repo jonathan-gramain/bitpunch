@@ -84,6 +84,8 @@ compile_type_array(struct ast_node_hdl *filter,
     // if an array of unfiltered bytes, it's a byte array
     if (AST_NODE_TYPE_BYTE == array->item_type->ndat->type) {
         filter->ndat->type = AST_NODE_TYPE_BYTE_ARRAY;
+    } else {
+        filter->ndat->u.item.flags |= ITEMFLAG_FILTER_MAPS_LIST;
     }
     return 0;
 }
@@ -1249,13 +1251,11 @@ compile_node_backends__item__array(struct ast_node_hdl *item)
     b_item = &array->filter.b_item;
     b_item->create_filter_state = array_create_filter_state_with_cache;
     b_item->destroy_filter_state = array_destroy_filter_state_with_cache;
-    if (NULL == b_item->compute_item_size) {
-        if (NULL != array->item_count
-            && 0 == (item_type->ndat->u.item.flags
-                     & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
-            b_item->compute_item_size =
-                compute_item_size__array_const_item_size;
-        }
+    if (NULL != array->item_count
+        && 0 == (item_type->ndat->u.item.flags
+                 & ITEMFLAG_IS_SPAN_SIZE_VARIABLE)) {
+        b_item->compute_item_size =
+            compute_item_size__array_const_item_size;
     }
 }
 

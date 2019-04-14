@@ -137,7 +137,7 @@ struct bitpunch_data_source_backend {
 struct bitpunch_data_source {
     enum bitpunch_data_source_flag flags;
     struct bitpunch_data_source_backend backend;
-    const char        *ds_data;
+    char              *ds_data;
     size_t            ds_data_length;
 };
 
