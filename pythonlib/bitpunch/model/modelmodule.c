@@ -2297,28 +2297,28 @@ DataItem_bf_getbuffer(DataItemObject *exporter,
     const char *buf;
     struct bitpunch_error *bp_err = NULL;
 
-    if (NULL == exporter->filtered_box){
-        bt_ret = expr_dpath_get_filtered_data(
-            exporter->dpath,
-            &filtered_data_source, &data_offset, &data_size,
-            &exporter->filtered_box, &bp_err);
-        if (BITPUNCH_OK != bt_ret) {
-            PyObject *errobj;
+    if (NULL != exporter->filtered_box) {
+        box_delete(exporter->filtered_box);
+        exporter->filtered_box = NULL;
+    }
+    bt_ret = expr_dpath_get_filtered_data(
+        exporter->dpath,
+        &filtered_data_source, &data_offset, &data_size,
+        &exporter->filtered_box, &bp_err);
+    if (BITPUNCH_OK != bt_ret) {
+        PyObject *errobj;
 
-            if (NULL != bp_err) {
-                errobj = bitpunch_error_get_info_as_PyObject(bp_err);
-            } else {
-                Py_INCREF(Py_None);
-                errobj = Py_None;
-            }
-            PyErr_SetObject(PyExc_BufferError, errobj);
-            Py_DECREF(errobj);
-            bitpunch_error_destroy(bp_err);
-            view->obj = NULL;
-            return -1;
+        if (NULL != bp_err) {
+            errobj = bitpunch_error_get_info_as_PyObject(bp_err);
+        } else {
+            Py_INCREF(Py_None);
+            errobj = Py_None;
         }
-    } else {
-        filtered_data_source = exporter->filtered_box->ds_out;
+        PyErr_SetObject(PyExc_BufferError, errobj);
+        Py_DECREF(errobj);
+        bitpunch_error_destroy(bp_err);
+        view->obj = NULL;
+        return -1;
     }
     buf = filtered_data_source->ds_data + data_offset;
     return PyBuffer_FillInfo(view, (PyObject *)exporter,
