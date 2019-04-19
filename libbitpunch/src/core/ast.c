@@ -132,20 +132,17 @@ int
 bitpunch_compile_schema(struct ast_node_hdl *schema)
 {
     if (-1 == resolve_identifiers(schema, NULL,
-                                  RESOLVE_EXPECT_TYPE |
-                                  RESOLVE_EXPECT_FILTER,
+                                  RESOLVE_EXPECT_TYPE,
                                   RESOLVE_TYPE_IDENTIFIERS)) {
         return -1;
     }
     if (-1 == resolve_identifiers(schema, NULL,
-                                  RESOLVE_EXPECT_TYPE |
-                                  RESOLVE_EXPECT_FILTER,
+                                  RESOLVE_EXPECT_TYPE,
                                   RESOLVE_EXPRESSION_IDENTIFIERS)) {
         return -1;
     }
     if (-1 == compile_ast_node_all(schema,
-                                   RESOLVE_EXPECT_TYPE |
-                                   RESOLVE_EXPECT_FILTER)) {
+                                   RESOLVE_EXPECT_TYPE)) {
         return -1;
     }
     return 0;
@@ -615,15 +612,15 @@ resolve_identifiers_identifier(
     enum resolve_identifiers_tag resolve_tags)
 {
     if (0 != (resolve_tags & RESOLVE_TYPE_IDENTIFIERS)) {
-        if (0 != (expect_mask & RESOLVE_EXPECT_TYPE)
-            && 0 == resolve_identifiers_identifier_as_type(
-                node, visible_refs)) {
-            return 0;
-        }
-        if (0 != (expect_mask & RESOLVE_EXPECT_FILTER)
-            && 0 == resolve_identifiers_identifier_as_filter(
-                node, visible_refs)) {
-            return 0;
+        if (0 != (expect_mask & RESOLVE_EXPECT_TYPE)) {
+            if (0 == resolve_identifiers_identifier_as_type(
+                    node, visible_refs)) {
+                return 0;
+            }
+            if (0 == resolve_identifiers_identifier_as_filter(
+                    node, visible_refs)) {
+                return 0;
+            }
         }
     }
     if (0 != (resolve_tags & RESOLVE_EXPRESSION_IDENTIFIERS)) {
@@ -667,8 +664,7 @@ resolve_identifiers_field(
     enum resolve_identifiers_tag resolve_tags)
 {
     return resolve_identifiers(field->filter, visible_refs,
-                               RESOLVE_EXPECT_TYPE |
-                               RESOLVE_EXPECT_FILTER, resolve_tags);
+                               RESOLVE_EXPECT_TYPE, resolve_tags);
 }
 
 static int
@@ -700,7 +696,6 @@ resolve_identifiers_in_stmt_lists(
         if (NULL != named_expr->expr
             && -1 == resolve_identifiers(named_expr->expr, visible_refs,
                                          RESOLVE_EXPECT_TYPE |
-                                         RESOLVE_EXPECT_FILTER |
                                          RESOLVE_EXPECT_EXPRESSION,
                                          resolve_tags)) {
             return -1;
@@ -716,7 +711,6 @@ resolve_identifiers_in_stmt_lists(
                       stmt_lists->attribute_list, list) {
         if (-1 == resolve_identifiers(named_expr->expr, visible_refs,
                                       RESOLVE_EXPECT_TYPE |
-                                      RESOLVE_EXPECT_FILTER |
                                       RESOLVE_EXPECT_EXPRESSION,
                                       resolve_tags)) {
             return -1;
@@ -896,14 +890,12 @@ resolve_identifiers_operator_filter(
     if (-1 == resolve_identifiers(
             node->ndat->u.op.operands[0], visible_refs,
             expect_mask & (RESOLVE_EXPECT_TYPE |
-                           RESOLVE_EXPECT_FILTER |
                            RESOLVE_EXPECT_DPATH_EXPRESSION),
             resolve_tags)) {
         return -1;
     }
     if (-1 == resolve_identifiers(node->ndat->u.op.operands[1], visible_refs,
-                                  RESOLVE_EXPECT_TYPE |
-                                  RESOLVE_EXPECT_FILTER,
+                                  RESOLVE_EXPECT_TYPE,
                                   resolve_tags)) {
         return -1;
     }
@@ -1426,7 +1418,6 @@ compile_expr_tags(struct ast_node_hdl *node,
                         (is_dependency ? tags : 0u),
                         (is_dependency ? 0u : tags),
                         RESOLVE_EXPECT_TYPE |
-                        RESOLVE_EXPECT_FILTER |
                         RESOLVE_EXPECT_EXPRESSION);
 }
 
@@ -1560,7 +1551,7 @@ compile_field_cb(struct compile_ctx *ctx,
     field = container_of(_node, struct field, dr_node);
 
     if (-1 == compile_node(field->filter, ctx,
-                           tags, 0u, RESOLVE_EXPECT_FILTER)) {
+                           tags, 0u, RESOLVE_EXPECT_TYPE)) {
         return 0u;
     }
     // XXX support named expr polymorphism
@@ -1640,7 +1631,6 @@ compile_attributes(const struct statement_list *attribute_list,
     STATEMENT_FOREACH(named_expr, attr, attribute_list, list) {
         compile_node(attr->expr, ctx, tags_pre, tags_post,
                      RESOLVE_EXPECT_TYPE |
-                     RESOLVE_EXPECT_FILTER |
                      RESOLVE_EXPECT_EXPRESSION);
     }
     if (!compile_continue(ctx)) {
@@ -1678,7 +1668,6 @@ compile_named_exprs(const struct statement_list *named_expr_list,
         compile_node(named_expr->expr, ctx,
                      tags_pre, tags_post,
                      RESOLVE_EXPECT_TYPE |
-                     RESOLVE_EXPECT_FILTER |
                      RESOLVE_EXPECT_EXPRESSION);
     }
     if (!compile_continue(ctx)) {
@@ -2070,12 +2059,10 @@ compile_expr_operator_filter(
     compile_node(target, ctx,
                  COMPILE_TAG_NODE_TYPE, 0u,
                  RESOLVE_EXPECT_TYPE |
-                 RESOLVE_EXPECT_FILTER |
                  RESOLVE_EXPECT_DPATH_EXPRESSION);
     compile_node(filter, ctx,
                  COMPILE_TAG_NODE_TYPE, 0u,
-                 RESOLVE_EXPECT_TYPE |
-                 RESOLVE_EXPECT_FILTER);
+                 RESOLVE_EXPECT_TYPE);
     if (!compile_continue(ctx)) {
         return -1;
     }
@@ -2272,8 +2259,7 @@ compile_expr_operator_subscript(
                 anchor_item->ndat->u.rexpr_filter.f_instance;
             if (-1 == compile_node(array->item_type,
                                    ctx, COMPILE_TAG_NODE_TYPE, 0u,
-                                   RESOLVE_EXPECT_TYPE |
-                                   RESOLVE_EXPECT_FILTER)) {
+                                   RESOLVE_EXPECT_TYPE)) {
                 return -1;
             }
             value_type_mask = expr_value_type_mask_from_node(array->item_type);
@@ -2428,10 +2414,9 @@ compile_rexpr_op_filter(struct ast_node_hdl *filter,
     filter_expr = filter->ndat->u.rexpr_op_filter.filter_expr;
     compile_node(target, ctx, tags, 0u,
                  RESOLVE_EXPECT_TYPE |
-                 RESOLVE_EXPECT_FILTER |
                  RESOLVE_EXPECT_DPATH_EXPRESSION);
     compile_node(filter_expr, ctx, tags, 0u,
-                 RESOLVE_EXPECT_FILTER);
+                 RESOLVE_EXPECT_TYPE);
     if (!compile_continue(ctx)) {
         return -1;
     }
@@ -2714,7 +2699,6 @@ compile_rexpr_named_expr(
     target = named_expr->expr;
     if (-1 == compile_node(target, ctx, tags, 0u,
                            RESOLVE_EXPECT_TYPE |
-                           RESOLVE_EXPECT_FILTER |
                            RESOLVE_EXPECT_EXPRESSION)) {
         return -1;
     }
@@ -2802,8 +2786,7 @@ compile_rexpr_polymorphic(
             named_expr = (struct named_expr *)stmt_spec->nstmt;
             compile_node(named_expr->expr, ctx, COMPILE_TAG_NODE_TYPE, 0u,
                          RESOLVE_EXPECT_TYPE |
-                         RESOLVE_EXPECT_EXPRESSION |
-                         RESOLVE_EXPECT_FILTER);
+                         RESOLVE_EXPECT_EXPRESSION);
             break ;
         case STATEMENT_TYPE_FIELD:
             field = (struct field *)stmt_spec->nstmt;
@@ -2841,7 +2824,7 @@ compile_rexpr_field(
     field = (struct field *)expr->ndat->u.rexpr_field.field;
 
     if (-1 == compile_node(field->filter, ctx, tags, 0u,
-                           RESOLVE_EXPECT_FILTER)) {
+                           RESOLVE_EXPECT_TYPE)) {
         return -1;
     }
     if (0 != (tags & COMPILE_TAG_NODE_TYPE)) {

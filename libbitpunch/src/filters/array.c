@@ -77,8 +77,7 @@ compile_type_array(struct ast_node_hdl *filter,
 {
     if (-1 == compile_node(array->item_type, ctx,
                            COMPILE_TAG_NODE_TYPE, 0u,
-                           RESOLVE_EXPECT_TYPE |
-                           RESOLVE_EXPECT_FILTER)) {
+                           RESOLVE_EXPECT_TYPE)) {
         return -1;
     }
     // if an array of unfiltered bytes, it's a byte array
@@ -127,8 +126,7 @@ compile_span_size_array(struct ast_node_hdl *item,
         if (-1 == compile_node(item_type, ctx,
                                COMPILE_TAG_NODE_TYPE |
                                COMPILE_TAG_NODE_SPAN_SIZE, 0u,
-                               RESOLVE_EXPECT_TYPE |
-                               RESOLVE_EXPECT_FILTER)) {
+                               RESOLVE_EXPECT_TYPE)) {
             return -1;
         }
         assert(SPAN_SIZE_UNDEF != item_type->ndat->u.item.min_span_size);
@@ -144,8 +142,7 @@ compile_span_size_array(struct ast_node_hdl *item,
     } else {
         if (-1 == compile_node(item_type, ctx,
                                COMPILE_TAG_NODE_TYPE, 0u,
-                               RESOLVE_EXPECT_TYPE |
-                               RESOLVE_EXPECT_FILTER)) {
+                               RESOLVE_EXPECT_TYPE)) {
             return -1;
         }
         // schedule compilation of item size without depending on it,
@@ -153,8 +150,7 @@ compile_span_size_array(struct ast_node_hdl *item,
         // arrays
         if (-1 == compile_node(item_type, ctx,
                                0u, COMPILE_TAG_NODE_SPAN_SIZE,
-                               RESOLVE_EXPECT_TYPE |
-                               RESOLVE_EXPECT_FILTER)) {
+                               RESOLVE_EXPECT_TYPE)) {
             return -1;
         }
         min_span_size = 0;
@@ -1381,8 +1377,7 @@ compile_node_backends_array(struct ast_node_hdl *item,
                            COMPILE_TAG_NODE_TYPE |
                            COMPILE_TAG_NODE_SPAN_SIZE,
                            COMPILE_TAG_BROWSE_BACKENDS,
-                           RESOLVE_EXPECT_TYPE |
-                           RESOLVE_EXPECT_FILTER)) {
+                           RESOLVE_EXPECT_TYPE)) {
         return -1;
     }
     switch (item->ndat->type) {
