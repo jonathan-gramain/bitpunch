@@ -1024,7 +1024,6 @@ tracker_goto_next_key_match__array(struct tracker *tk,
         if (BITPUNCH_OK != bt_ret) {
             bitpunch_error_add_tracker_context(
                 tk, bst, "when evaluating item key expression");
-            expr_value_destroy(item_key);
             return bt_ret;
         }
         if (tk->cur.u.array.index == cache->last_cached_index + 1) {
