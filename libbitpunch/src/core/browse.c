@@ -1290,11 +1290,17 @@ box_free(struct box *box)
     /* destroy internal state */
     if (NULL != item) {
         switch (item->ndat->type) {
+        case AST_NODE_TYPE_ARRAY_SLICE:
+        case AST_NODE_TYPE_BYTE_SLICE:
         case AST_NODE_TYPE_REXPR_FILTER:
         case AST_NODE_TYPE_ARRAY:
+        case AST_NODE_TYPE_BYTE:
+        case AST_NODE_TYPE_BYTE_ARRAY:
             f_instance = item->ndat->u.rexpr_filter.f_instance;
             if (NULL != f_instance->b_item.destroy_filter_state) {
                 f_instance->b_item.destroy_filter_state(box->filter_state);
+            } else {
+                array_destroy_generic_filter_state(box->filter_state);
             }
             break ;
         default:
