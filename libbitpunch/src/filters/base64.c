@@ -154,11 +154,11 @@ base64_filter_instance_build(struct ast_node_hdl *filter)
 }
 
 void
-filter_class_declare_base64(void)
+builtin_filter_declare_base64(void)
 {
     int ret;
 
-    ret = filter_class_declare("base64",
+    ret = builtin_filter_declare("base64",
                                EXPR_VALUE_TYPE_BYTES,
                                base64_filter_instance_build, NULL,
                                0u,

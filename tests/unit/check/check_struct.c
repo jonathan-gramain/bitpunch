@@ -94,7 +94,7 @@ static const struct test_tracker_expect_box check_struct_valid1_expect[] = {
     { "ms1.field2_byte", 4, 1,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "field2_byte", .len = 11 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = { .buf = "\x02", .len = 1 } } },
 
     { "ms1.field3_u32", 5, 4,
@@ -118,7 +118,7 @@ static const struct test_tracker_expect_box check_struct_valid1_expect[] = {
     { "ms2.field2_byte", 13, 1,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "field2_byte", .len = 11 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = { .buf = "\x05", .len = 1 } } },
 
     { "ms2.field3_u32", 14, 4,
@@ -142,7 +142,7 @@ static const struct test_tracker_expect_box check_struct_valid1_expect[] = {
     { "mu3.field2_byte", 18, 1,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "field2_byte", .len = 11 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = { .buf = "\x07", .len = 1 } } },
 
     { "mu3.field3_u16", 18, 2,
@@ -196,7 +196,7 @@ check_struct_invalid_truncated1_expect[] = {
     { "ms1.field2_byte", 4, 1,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "field2_byte", .len = 11 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = { .buf = "\x02", .len = 1 } } },
 
     { "ms1.field3_u32", 5, 4,
@@ -220,7 +220,7 @@ check_struct_invalid_truncated1_expect[] = {
     { "ms2.field2_byte", 13, 1,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "field2_byte", .len = 11 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = { .buf = "\x05", .len = 1 } } },
 
     { "ms2.field3_u32", 14, 4,
@@ -246,7 +246,7 @@ check_struct_invalid_truncated1_expect[] = {
     { "mu3.field2_byte", 18, 1,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "field2_byte", .len = 11 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = { .buf = "\x07", .len = 1 } },
       .read_item_ret = BITPUNCH_OUT_OF_BOUNDS_ERROR },
 
@@ -334,7 +334,7 @@ static const struct test_tracker_expect_box check_vstruct_valid1_expect[] = {
     { "ms1.field2_bytes", 4, 1,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "field2_bytes", .len = 12 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = { .buf = "\x02", .len = 1 } } },
 
     { "ms1.field3_u32", 5, 4,
@@ -358,7 +358,7 @@ static const struct test_tracker_expect_box check_vstruct_valid1_expect[] = {
     { "ms2.field2_bytes", 13, 4,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "field2_bytes", .len = 12 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = { .buf = "\x05\x06\x07\x08", .len = 4 } } },
 
     { "ms2.field3_u32", 17, 4,
@@ -382,7 +382,7 @@ static const struct test_tracker_expect_box check_vstruct_valid1_expect[] = {
     { "mu3.field2_bytes", 21, 10,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "field2_bytes", .len = 12 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = {
                 .buf = "\x0A\x00\x00\x00\x00\x00\x00\x00\x00\x00",
                 .len = 10 } } },

@@ -231,11 +231,11 @@ formatted_integer_filter_instance_build(struct ast_node_hdl *filter)
 }
 
 void
-filter_class_declare_formatted_integer(void)
+builtin_filter_declare_formatted_integer(void)
 {
     int ret;
 
-    ret = filter_class_declare("formatted_integer",
+    ret = builtin_filter_declare("formatted_integer",
                                EXPR_VALUE_TYPE_INTEGER,
                                formatted_integer_filter_instance_build, NULL,
                                0u,
@@ -263,7 +263,7 @@ formatted_integer_read_test(expr_value_t *resultp,
     struct ast_node_hdl *filter;
     bitpunch_status_t bt_ret;
 
-    filter_cls = filter_class_lookup("formatted_integer");
+    filter_cls = builtin_filter_lookup("formatted_integer");
     assert(NULL != filter_cls);
     filter = ast_node_hdl_new();
     filter_instance_build(filter, filter_cls,

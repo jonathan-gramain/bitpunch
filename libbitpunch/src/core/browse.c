@@ -1128,8 +1128,7 @@ box_apply_local_filter__data_filter(struct box *box, struct browse_state *bst)
                                         start_offset, end_offset,
                                         &filtered_value, bst);
     if (BITPUNCH_OK != bt_ret) {
-        return box_error(bt_ret, box, box->filter, bst,
-                         "error reading value through filter");
+        return bt_ret;
     }
     if (!expr_value_type_mask_contains_dpath(filtered_value.type)) {
         // dynamic evaluation did not yield a dpath type
@@ -1149,8 +1148,10 @@ box_apply_local_filter__data_filter(struct box *box, struct browse_state *bst)
     case EXPR_VALUE_TYPE_DATA:
         if (filtered_value.data.ds == box->ds_in) {
             box_setup_overlay(box);
+            expr_value_destroy(filtered_value);
         } else {
             box->flags |= BOX_DATA_SOURCE;
+            // steal data source from value
             box->ds_out = filtered_value.data.ds;
         }
         box->start_offset_used = 0;
@@ -1159,8 +1160,10 @@ box_apply_local_filter__data_filter(struct box *box, struct browse_state *bst)
     case EXPR_VALUE_TYPE_DATA_RANGE:
         if (filtered_value.data.ds == box->ds_in) {
             box_setup_overlay(box);
+            expr_value_destroy(filtered_value);
         } else {
             box->flags |= BOX_DATA_SOURCE;
+            // steal data source from value
             box->ds_out = filtered_value.data.ds;
         }
         box->start_offset_used = filtered_value.data_range.start_offset;
@@ -2207,12 +2210,10 @@ box_read_value_internal(struct box *box,
         // the bytes from the filter output.
         if (0 != (box->flags & BOX_DATA_SOURCE)) {
             if (NULL != valuep) {
-                memset(valuep, 0, sizeof(*valuep));
-                valuep->type = EXPR_VALUE_TYPE_BYTES;
-                valuep->bytes.buf =
-                    box->ds_out->ds_data + box->start_offset_used;
-                valuep->bytes.len =
-                    box->end_offset_used - box->start_offset_used;
+                *valuep = expr_value_as_data_range(
+                    box->ds_out,
+                    box->start_offset_used, box->end_offset_used);
+                bitpunch_data_source_acquire(box->ds_out);
             }
             return BITPUNCH_OK;
         }
@@ -3997,6 +3998,23 @@ bitpunch_error_dump_full(struct bitpunch_error *bp_err, FILE *out)
         prev_ctx_box = ctx_info->box;
         prev_ctx_node = ctx_info->node;
     }
+}
+
+void
+bitpunch_error_attach_user_arg(struct bitpunch_error *bp_err, void *user_arg)
+{
+    assert(NULL == bp_err->user_arg);
+    bp_err->user_arg = user_arg;
+}
+
+void *
+bitpunch_error_fetch_user_arg(struct bitpunch_error *bp_err)
+{
+    void *user_arg;
+
+    user_arg = bp_err->user_arg;
+    bp_err->user_arg = NULL;
+    return user_arg;
 }
 
 bitpunch_status_t

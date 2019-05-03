@@ -48,7 +48,7 @@ int tracker_debug_mode = 0;
 int
 bitpunch_init(void)
 {
-    filter_class_declare_std();
+    builtin_filter_declare_std();
     data_source_global_init();
     compile_global_nodes();
     return 0;

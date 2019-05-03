@@ -192,6 +192,7 @@ bitpunch_data_source_create_from_file_path(
     fs = lookup_cached_file_source(path);
     if (NULL == fs) {
         fs = new_safe(struct bitpunch_file_source);
+        fs->ds.use_count = 1;
         fs->ds.backend.close = data_source_close_file_path;
         if (-1 == open_file_source_from_file_path(fs, path)) {
             free(fs);
@@ -199,6 +200,8 @@ bitpunch_data_source_create_from_file_path(
         }
         fs->path = strdup_safe(path);
         add_file_source_to_cache(fs);
+    } else {
+        ++fs->ds.use_count;
     }
     *dsp = (struct bitpunch_data_source *)fs;
     return 0;
@@ -211,7 +214,7 @@ bitpunch_data_source_notify_file_change(const char *path)
 }
 
 static int
-data_source_close_file_descriptor(struct bitpunch_data_source *ds)
+data_source_close_from_file_descriptor(struct bitpunch_data_source *ds)
 {
     struct bitpunch_file_source *fs;
 
@@ -229,7 +232,8 @@ bitpunch_data_source_create_from_file_descriptor(
     assert(NULL != dsp);
 
     fs = new_safe(struct bitpunch_file_source);
-    fs->ds.backend.close = data_source_close_file_descriptor;
+    fs->ds.use_count = 1;
+    fs->ds.backend.close = data_source_close_from_file_descriptor;
     fs->ds.flags = BITPUNCH_DATA_SOURCE_EXTERNAL;
 
     if (-1 == open_file_source_from_fd(fs, fd)) {
@@ -258,6 +262,7 @@ bitpunch_buffer_new(
     struct bitpunch_data_source *ds;
 
     ds = new_safe(struct bitpunch_data_source);
+    ds->use_count = 1;
     ds->backend.close = data_source_close_managed_memory;
     ds->ds_data = malloc_safe(buffer_size);
     ds->ds_data_length = buffer_size;
@@ -272,6 +277,7 @@ bitpunch_data_source_create_from_memory(
     struct bitpunch_data_source *ds;
 
     ds = new_safe(struct bitpunch_data_source);
+    ds->use_count = 1;
     if (manage_buffer) {
         ds->backend.close = data_source_close_managed_memory;
     } else {
@@ -306,17 +312,27 @@ data_source_free(struct bitpunch_data_source *ds)
     return ret;
 }
 
+void
+bitpunch_data_source_acquire(struct bitpunch_data_source *ds)
+{
+    ++ds->use_count;
+}
+
 int
 bitpunch_data_source_release(struct bitpunch_data_source *ds)
 {
     if (NULL == ds) {
         return 0;
     }
-    if (0 == (ds->flags & (BITPUNCH_DATA_SOURCE_CACHED |
-                           BITPUNCH_DATA_SOURCE_EXTERNAL))) {
-        return data_source_free(ds);
+    assert(ds->use_count > 0);
+    --ds->use_count;
+    if (0 == ds->use_count) {
+        if (0 == (ds->flags & (BITPUNCH_DATA_SOURCE_CACHED |
+                               BITPUNCH_DATA_SOURCE_EXTERNAL))) {
+            return data_source_free(ds);
+        }
+        // we could implement cleanup for less-used cache entries here
     }
-    // we could implement cleanup for less-used cache entries here
     return 0;
 }
 

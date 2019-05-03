@@ -39,6 +39,28 @@
 extern int tracker_debug_mode;
 #endif
 
+enum filter_attr_flag {
+    FILTER_ATTR_MANDATORY = (1u<<0),
+};
+
+enum filter_class_flag {
+    /** set when the filter maps to a list type */
+    FILTER_CLASS_MAPS_LIST = (1u<<0),
+    /** set when the filter maps to an object type */
+    FILTER_CLASS_MAPS_OBJECT = (1u<<1),
+};
+
+typedef struct filter_instance *
+(*filter_instance_build_func_t)(
+    struct ast_node_hdl *filter);
+
+typedef int
+(*filter_instance_compile_func_t)(
+    struct ast_node_hdl *filter,
+    struct filter_instance *f_instance,
+    dep_resolver_tagset_t tags,
+    struct compile_ctx *ctx);
+
 int
 bitpunch_init(void);
 void
@@ -80,11 +102,31 @@ bitpunch_buffer_new(
     struct bitpunch_data_source **dsp,
     size_t buffer_size);
 
+void
+bitpunch_data_source_acquire(struct bitpunch_data_source *ds);
+
 int
 bitpunch_data_source_release(struct bitpunch_data_source *ds);
 
 struct ast_node_hdl *
 bitpunch_data_source_to_filter(struct bitpunch_data_source *ds);
+
+int
+bitpunch_external_create_function(
+    struct ast_node_hdl **nodep,
+    extern_func_fn_t extern_func_fn,
+    void *user_arg);
+
+int
+bitpunch_external_create_filter(
+    struct ast_node_hdl **nodep,
+    enum expr_value_type value_type_mask,
+    filter_instance_build_func_t filter_instance_build_func,
+    filter_instance_compile_func_t filter_instance_compile_func,
+    enum filter_class_flag flags,
+    void *user_arg,
+    int n_attrs,
+    ... /* attrs: (name, type, flags) tuples */);
 
 struct bitpunch_board *
 bitpunch_board_new(void);
@@ -118,6 +160,16 @@ bitpunch_board_add_expr(
     struct bitpunch_board *board,
     const char *name,
     const char *expr);
+
+struct ast_node_hdl *
+bitpunch_board_get_item(
+    struct bitpunch_board *board,
+    const char *name);
+
+struct ast_node_hdl *
+bitpunch_board_get_external_item(
+    struct bitpunch_board *board,
+    const char *name);
 
 bitpunch_status_t
 bitpunch_eval_expr(

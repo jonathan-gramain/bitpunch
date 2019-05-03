@@ -149,6 +149,10 @@ compile_stmt_lists(const struct block_stmt_list *stmt_lists,
                    dep_resolver_tagset_t tags,
                    struct compile_ctx *ctx);
 
+int
+compile_rexpr_filter(struct ast_node_hdl *expr,
+                     dep_resolver_tagset_t tags,
+                     struct compile_ctx *ctx);
 
 struct ast_node_hdl *
 ast_node_new_rexpr_native(struct expr_value value);

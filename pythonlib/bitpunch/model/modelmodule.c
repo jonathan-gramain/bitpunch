@@ -53,7 +53,7 @@ struct ScopeIterObject;
 struct TrackerObject;
 
 static int
-expr_value_from_PyObject(PyObject *py_expr,
+expr_value_from_PyObject(PyObject *py_expr, int create_data_source,
                          expr_value_t *exprp);
 static PyObject *
 expr_value_and_dpath_to_PyObject(struct BoardObject *dtree,
@@ -313,13 +313,28 @@ bitpunch_error_get_info_as_PyObject(struct bitpunch_error *err)
     return NULL;
 }
 
+struct python_saved_error {
+    PyObject *err_type;
+    PyObject *err_value;
+    PyObject *err_traceback;
+};
+
 static void
 set_bitpunch_error(struct bitpunch_error *err,
                   bitpunch_status_t ret)
 {
+    struct python_saved_error *saved_err;
     PyObject *errobj;
 
     if (NULL != err) {
+        saved_err = (struct python_saved_error *)
+            bitpunch_error_fetch_user_arg(err);
+        if (NULL != saved_err) {
+            PyErr_Restore(saved_err->err_type, saved_err->err_value,
+                          saved_err->err_traceback);
+            free(saved_err);
+            return ;
+        }
         errobj = bitpunch_error_get_info_as_PyObject(err);
     } else {
         Py_INCREF(Py_None);
@@ -372,6 +387,40 @@ box_to_deep_PyDict(struct BoardObject *dtree, struct box *box);
 
 static PyObject *
 box_to_deep_PyList(struct BoardObject *dtree, struct box *box);
+
+
+struct python_data_source {
+    struct bitpunch_data_source ds; /* inherits */
+    PyObject *data_obj;
+};
+
+static int
+python_data_source_close(struct bitpunch_data_source *ds)
+{
+    struct python_data_source *py_ds = (struct python_data_source *)ds;
+    Py_DECREF(py_ds->data_obj);
+    return 0;
+}
+
+static struct bitpunch_data_source *
+python_data_source_new_from_memory(
+    PyObject *data_obj,
+    const char *data, Py_ssize_t data_len)
+{
+    struct python_data_source *py_ds;
+
+    assert(NULL != dsp);
+
+    py_ds = new_safe(struct python_data_source);
+    py_ds->ds.use_count = 1;
+    py_ds->ds.backend.close = python_data_source_close;
+    py_ds->ds.ds_data = (char *)data;
+    py_ds->ds.ds_data_length = data_len;
+    py_ds->data_obj = data_obj;
+    Py_INCREF(data_obj);
+    return (struct bitpunch_data_source *)py_ds;
+}
+
 
 
 /*
@@ -1066,18 +1115,15 @@ Board_add_data_source(BoardObject *self, PyObject *args, PyObject *kwds)
         /* load the provided text contents */
         ret = PyString_AsStringAndSize(data, &contents, &length);
         assert(-1 != ret);
-        bitpunch_data_source_create_from_memory(
-            &data_source, contents, length, FALSE);
+        data_source = python_data_source_new_from_memory(
+            data, contents, length);
         ret = 0;
     } else if (PyByteArray_Check(data)) {
-        char *contents;
-        Py_ssize_t length;
-
         /* load the provided text contents */
-        contents = PyByteArray_AS_STRING(data);
-        length = PyByteArray_GET_SIZE(data);
-        bitpunch_data_source_create_from_memory(
-            &data_source, contents, length, FALSE);
+        data_source = python_data_source_new_from_memory(
+            data,
+            PyByteArray_AS_STRING(data),
+            PyByteArray_GET_SIZE(data));
         ret = 0;
     } else if (PyFile_Check(data)) {
         FILE *file;
@@ -1099,6 +1145,215 @@ Board_add_data_source(BoardObject *self, PyObject *args, PyObject *kwds)
     bitpunch_board_add_let_expression(
         self->board, name, bitpunch_data_source_to_filter(data_source));
 
+    Py_INCREF((PyObject *)self);
+    return (PyObject *)self;
+}
+
+struct python_filter_instance {
+    struct filter_instance filter; /* inherits */
+    PyObject *py_filter;
+};
+
+static bitpunch_status_t
+python_filter_read(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    const char *buffer, size_t buffer_size,
+    expr_value_t *valuep,
+    struct browse_state *bst)
+{
+    struct python_filter_instance *f_instance;
+    PyObject *method_name;
+    PyObject *eval_result;
+    Py_buffer input_buffer;
+    PyObject *input_memview;
+    int ret;
+
+    if (-1 == PyBuffer_FillInfo(&input_buffer, NULL,
+                                (void *)buffer, buffer_size,
+                                TRUE /* read-only */, PyBUF_FULL_RO)) {
+        return BITPUNCH_ERROR;
+    }
+    f_instance = (struct python_filter_instance *)
+        filter->ndat->u.rexpr_filter.f_instance;
+    method_name = PyString_FromString("read");
+    /* input_buffer gets stolen */
+    input_memview = PyMemoryView_FromBuffer(&input_buffer);
+
+    eval_result = PyObject_CallMethodObjArgs(
+        (PyObject *)f_instance->py_filter, method_name, input_memview, NULL);
+    Py_DECREF(method_name);
+    Py_DECREF(input_memview);
+    if (NULL == eval_result) {
+        struct python_saved_error *saved_err;
+        bitpunch_status_t bt_ret;
+
+        saved_err = new_safe(struct python_saved_error);
+        PyErr_Fetch(&saved_err->err_type, &saved_err->err_value,
+                    &saved_err->err_traceback);
+        bt_ret = node_error(BITPUNCH_DATA_ERROR, NULL, bst, NULL);
+        bitpunch_error_attach_user_arg(bst->last_error, saved_err);
+        return bt_ret;
+    }
+    ret = expr_value_from_PyObject(eval_result, TRUE, valuep);
+    Py_DECREF(eval_result);
+    if (0 != ret) {
+        return node_error(
+            BITPUNCH_INVALID_PARAM, NULL, bst,
+            "unsupported data type returned by external function");
+    }
+    return BITPUNCH_OK;
+}
+
+static struct filter_instance *
+python_filter_instance_build(
+    struct ast_node_hdl *filter)
+{
+    const struct filter_class *filter_cls;
+    PyTypeObject *filter_type;
+    PyObject *filter_obj;
+    struct python_filter_instance *f_instance;
+    PyObject *method_name;
+    PyObject *res_obj;
+
+    filter_cls = filter->ndat->u.rexpr_filter.filter_cls;
+    filter_type = (PyTypeObject *)filter_cls->user_arg;
+    // call the type object
+    filter_obj = PyObject_CallObject((PyObject *)filter_type, NULL);
+    if (NULL == filter_obj) {
+        // TODO handle error with PyErr_Fetch()
+        return NULL;
+    }
+    method_name = PyString_FromString("__init__");
+    res_obj = PyObject_CallMethodObjArgs(
+        (PyObject *)filter_obj, method_name, NULL);
+    Py_DECREF(method_name);
+    if (NULL == res_obj) {
+        Py_DECREF(filter_obj);
+        return NULL;
+    }
+    Py_DECREF(res_obj);
+    f_instance = new_safe(struct python_filter_instance);
+    f_instance->filter.b_item.read_value_from_buffer = python_filter_read;
+    f_instance->py_filter = filter_obj;
+    return (struct filter_instance *)f_instance;
+}
+
+static int
+declare_python_filter_class(
+    BoardObject *self, const char *filter_name, PyTypeObject *filter_type)
+{
+    struct ast_node_hdl *filter_hdl;
+    int ret;
+
+    ret = bitpunch_external_create_filter(
+        &filter_hdl,
+        EXPR_VALUE_TYPE_ANY,
+        python_filter_instance_build,
+        NULL,
+        0u, (void *)filter_type, 0);
+    if (-1 == ret) {
+        PyErr_SetString(PyExc_ValueError,
+                        "error creating external filter class");
+        return -1;
+    }
+    bitpunch_board_add_let_expression(self->board, filter_name, filter_hdl);
+    return 0;
+}
+
+static PyObject *
+Board_register_filter(BoardObject *self, PyObject *args, PyObject *kwds)
+{
+    static char *kwlist[] = { "name", "filter", NULL };
+    const char *name;
+    PyObject *filter = NULL;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "sO", kwlist,
+                                     &name, &filter)) {
+        return NULL;
+    }
+    if (!PyType_Check(filter)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "The filter argument must be a class type");
+        return NULL;
+    }
+    if (-1 == declare_python_filter_class(self, name, (PyTypeObject *)filter)) {
+        return NULL;
+    }
+    Py_INCREF((PyObject *)self);
+    return (PyObject *)self;
+}
+
+static bitpunch_status_t
+extern_func_as_python_function(
+    void *user_arg,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst)
+{
+    PyObject *arg_obj;
+    PyObject *eval_result;
+    int ret;
+
+    arg_obj = (PyObject *)user_arg;
+    eval_result = PyObject_CallFunctionObjArgs(arg_obj, NULL);
+    if (NULL == eval_result) {
+        struct python_saved_error *saved_err;
+        bitpunch_status_t bt_ret;
+
+        saved_err = new_safe(struct python_saved_error);
+        PyErr_Fetch(&saved_err->err_type, &saved_err->err_value,
+                    &saved_err->err_traceback);
+        bt_ret = node_error(BITPUNCH_DATA_ERROR, NULL, bst, NULL);
+        bitpunch_error_attach_user_arg(bst->last_error, saved_err);
+        return bt_ret;
+    }
+    ret = expr_value_from_PyObject(eval_result, TRUE, valuep);
+    Py_DECREF(eval_result);
+    if (0 != ret) {
+        // TODO log data type
+        return node_error(
+            BITPUNCH_INVALID_PARAM, NULL, bst,
+            "unsupported data type returned by external function");
+    }
+    *dpathp = expr_dpath_none();
+    return BITPUNCH_OK;
+}
+
+static int
+declare_python_function(
+    BoardObject *self, const char *function_name, PyObject *func_obj)
+{
+    struct ast_node_hdl *func_hdl;
+    int ret;
+
+    ret = bitpunch_external_create_function(
+        &func_hdl, extern_func_as_python_function, func_obj);
+    if (-1 == ret) {
+        PyErr_SetString(PyExc_OSError, "Error creating external function");
+        return -1;
+    }
+    bitpunch_board_add_let_expression(self->board, function_name, func_hdl);
+    return 0;
+}
+
+static PyObject *
+Board_register_function(BoardObject *self, PyObject *args, PyObject *kwds)
+{
+    static char *kwlist[] = { "name", "function", NULL };
+    const char *name;
+    PyObject *function = NULL;
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "sO", kwlist,
+                                     &name, &function)) {
+        return NULL;
+    }
+    if (!PyCallable_Check(function)) {
+        PyErr_SetString(PyExc_TypeError, "Argument must be a callable");
+        return NULL;
+    }
+    if (-1 == declare_python_function(self, name, (PyObject *)function)) {
+        return NULL;
+    }
     Py_INCREF((PyObject *)self);
     return (PyObject *)self;
 }
@@ -1193,6 +1448,16 @@ static PyMethodDef Board_methods[] = {
       METH_VARARGS | METH_KEYWORDS,
       "add a data source to the board from a string, buffer, "
       "file object or path"
+    },
+    { "register_filter", (PyCFunction)Board_register_filter,
+      METH_VARARGS | METH_KEYWORDS,
+      // TODO add details of the class contract
+      "add a filter implementation to the board from a python class"
+    },
+    { "register_function", (PyCFunction)Board_register_function,
+      METH_VARARGS | METH_KEYWORDS,
+      // TODO add details of the function contract
+      "add a function implementation to the board from a python callable"
     },
     { "add_expr", (PyCFunction)Board_add_expr,
       METH_VARARGS,
@@ -3031,7 +3296,7 @@ tk_goto_item_by_key(struct tracker *tk, PyObject *index,
         index_value = index;
         twin_index = 0;
     }
-    if (-1 == expr_value_from_PyObject(index_value, &key)) {
+    if (-1 == expr_value_from_PyObject(index_value, FALSE, &key)) {
         return -1;
     }
     if (box_contains_indexed_items(tk->box)) {
@@ -3760,7 +4025,7 @@ DataItem_iter(DataItemObject *self)
 
 
 static int
-expr_value_from_PyObject(PyObject *py_expr,
+expr_value_from_PyObject(PyObject *py_expr, int create_data_source,
                          expr_value_t *exprp)
 {
     if (PyInt_Check(py_expr)) {
@@ -3772,10 +4037,23 @@ expr_value_from_PyObject(PyObject *py_expr,
         Py_ssize_t length;
 
         PyString_AsStringAndSize(py_expr, &str, &length);
-        *exprp = expr_value_as_string_len(str, length);
+        if (create_data_source) {
+            *exprp = expr_value_as_data(
+                python_data_source_new_from_memory(py_expr, str, length));
+        } else {
+            *exprp = expr_value_as_string_len(str, length);
+        }
     } else if (PyByteArray_Check(py_expr)) {
-        *exprp = expr_value_as_bytes(PyByteArray_AS_STRING(py_expr),
-                                     PyByteArray_GET_SIZE(py_expr));
+        if (create_data_source) {
+            *exprp = expr_value_as_data(
+                python_data_source_new_from_memory(
+                    py_expr,
+                    PyByteArray_AS_STRING(py_expr),
+                    PyByteArray_GET_SIZE(py_expr)));
+        } else {
+            *exprp = expr_value_as_bytes(PyByteArray_AS_STRING(py_expr),
+                                         PyByteArray_GET_SIZE(py_expr));
+        }
     } else {
         PyErr_Format(PyExc_TypeError,
                      "unsupported expression type '%s'",
@@ -3792,6 +4070,7 @@ static PyObject *
 expr_value_to_native_PyObject_nodestroy(BoardObject *dtree,
                                         expr_value_t value_eval)
 {
+    // TODO cleanup data and data_range support
     switch (value_eval.type) {
     case EXPR_VALUE_TYPE_INTEGER:
         return Py_BuildValue("l", value_eval.integer);
@@ -3803,6 +4082,15 @@ expr_value_to_native_PyObject_nodestroy(BoardObject *dtree,
     case EXPR_VALUE_TYPE_BYTES:
         return PyString_FromStringAndSize(value_eval.bytes.buf,
                                           (Py_ssize_t)value_eval.bytes.len);
+    case EXPR_VALUE_TYPE_DATA:
+        return PyString_FromStringAndSize(
+            value_eval.data.ds->ds_data,
+            (Py_ssize_t)value_eval.data.ds->ds_data_length);
+    case EXPR_VALUE_TYPE_DATA_RANGE:
+        return PyString_FromStringAndSize(
+            value_eval.data.ds->ds_data + value_eval.data_range.start_offset,
+            (Py_ssize_t)(value_eval.data_range.end_offset -
+                         value_eval.data_range.start_offset));
     default:
         return PyErr_Format(PyExc_ValueError,
                             "unsupported expression type '%d'",

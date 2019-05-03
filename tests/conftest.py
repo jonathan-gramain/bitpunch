@@ -45,6 +45,7 @@ def make_testcase(param):
             print e.args[0]['description']
         raise
     param['data'] = data
+    param['board'] = board
 
     if 'BITPUNCH_TEST_ENABLE_CLI' in os.environ:
         cli = CLI()

@@ -44,42 +44,82 @@
 #include "filters/byte.h"
 #include "filters/array.h"
 
-#define MAX_FILTER_COUNT           256
+#define MAX_BUILTIN_FILTER_COUNT           256
 
-struct filter_class filter_class_table[MAX_FILTER_COUNT];
-int                 filter_class_count = 0;
+struct filter_class builtin_filter_class_table[MAX_BUILTIN_FILTER_COUNT];
+int                 builtin_filter_class_count = 0;
 
-#define MAX_FILTER_ATTR_DEF_COUNT 1024
-
-struct filter_attr_def filter_attr_def_table[MAX_FILTER_ATTR_DEF_COUNT];
-int                    filter_attr_def_count = 0;
 
 static struct filter_class *
-filter_class_new(void)
+builtin_filter_class_new(void)
 {
-    if (filter_class_count == MAX_FILTER_COUNT) {
+    if (builtin_filter_class_count == MAX_BUILTIN_FILTER_COUNT) {
         semantic_error(SEMANTIC_LOGLEVEL_ERROR, NULL,
-                       "Too many filters (max %d)\n",
-                         MAX_FILTER_COUNT);
+                       "Too many builtin filters (max %d)\n",
+                         MAX_BUILTIN_FILTER_COUNT);
         return NULL;
     }
-    return &filter_class_table[filter_class_count++];
+    return &builtin_filter_class_table[builtin_filter_class_count++];
+}
+
+struct filter_class *
+filter_class_new(void *user_arg)
+{
+    struct filter_class *filter_cls;
+
+    filter_cls = new_safe(struct filter_class);
+    filter_cls->user_arg = user_arg;
+    return filter_cls;
+}
+
+void
+filter_class_free(struct filter_class *filter_cls)
+{
+    free(filter_cls);
 }
 
 static struct filter_attr_def *
 filter_attr_def_new(void)
 {
-    if (filter_attr_def_count == MAX_FILTER_ATTR_DEF_COUNT) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, NULL,
-                       "Global filter attribute definition limit reached "
-                       "(max %d)\n", MAX_FILTER_ATTR_DEF_COUNT);
-        return NULL;
+    return new_safe(struct filter_attr_def);
+}
+
+
+int
+filter_class_construct_internal(
+    struct filter_class *filter_cls,
+    const char *name,
+    enum expr_value_type value_type_mask,
+    filter_instance_build_func_t filter_instance_build_func,
+    filter_instance_compile_func_t filter_instance_compile_func,
+    enum filter_class_flag flags,
+    int n_attrs,
+    va_list ap)
+{
+    int i;
+    struct filter_attr_def *attr_def;
+
+    assert(NULL != filter_instance_build_func);
+
+    filter_cls->name = name;
+    filter_cls->value_type_mask = value_type_mask;
+    filter_cls->filter_instance_build_func = filter_instance_build_func;
+    filter_cls->filter_instance_compile_func = filter_instance_compile_func;
+    filter_cls->flags = flags;
+    filter_cls->n_attrs = n_attrs;
+    STAILQ_INIT(&filter_cls->attr_list);
+    for (i = 0; i < n_attrs; ++i) {
+        attr_def = filter_attr_def_new();
+        attr_def->name = va_arg(ap, const char *);
+        attr_def->value_type_mask = va_arg(ap, enum ast_node_type);
+        attr_def->flags = va_arg(ap, enum filter_attr_flag);
+        STAILQ_INSERT_TAIL(&filter_cls->attr_list, attr_def, list);
     }
-    return &filter_attr_def_table[filter_attr_def_count++];
+    return 0;
 }
 
 int
-filter_class_declare(
+builtin_filter_declare(
     const char *name,
     enum expr_value_type value_type_mask,
     filter_instance_build_func_t filter_instance_build_func,
@@ -90,90 +130,70 @@ filter_class_declare(
 {
     struct filter_class *filter_cls;
     va_list ap;
-    int i;
-    struct filter_attr_def *attr_def;
+    int ret;
 
-    assert(NULL != filter_instance_build_func);
-
-    filter_cls = filter_class_lookup(name);
-    if (NULL != filter_cls) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, NULL,
-                       "duplicate filter '%s'\n", name);
-        return -1;
-    }
-    filter_cls = filter_class_new();
+    filter_cls = builtin_filter_class_new();
     if (NULL == filter_cls) {
         return -1;
     }
-    filter_cls->name = name;
-    filter_cls->value_type_mask = value_type_mask;
-    filter_cls->filter_instance_build_func = filter_instance_build_func;
-    filter_cls->filter_instance_compile_func = filter_instance_compile_func;
-    filter_cls->flags = flags;
-    filter_cls->n_attrs = n_attrs;
-    STAILQ_INIT(&filter_cls->attr_list);
     va_start(ap, n_attrs);
-    for (i = 0; i < n_attrs; ++i) {
-        attr_def = filter_attr_def_new();
-        if (NULL == attr_def) {
-            return -1;
-        }
-        attr_def->name = va_arg(ap, const char *);
-        attr_def->value_type_mask = va_arg(ap, enum ast_node_type);
-        attr_def->flags = va_arg(ap, enum filter_attr_flag);
-        STAILQ_INSERT_TAIL(&filter_cls->attr_list, attr_def, list);
-    }
+    ret = filter_class_construct_internal(
+        filter_cls,
+        name, value_type_mask,
+        filter_instance_build_func,
+        filter_instance_compile_func,
+        flags, n_attrs, ap);
     va_end(ap);
-    return 0;
+    return ret;
 }
 
 struct filter_class *
-filter_class_lookup(const char *name)
+builtin_filter_lookup(const char *name)
 {
     int i;
 
-    for (i = 0; i < filter_class_count; ++i) {
-        if (0 == strcmp(filter_class_table[i].name, name)) {
-            return &filter_class_table[i];
+    for (i = 0; i < builtin_filter_class_count; ++i) {
+        if (0 == strcmp(builtin_filter_class_table[i].name, name)) {
+            return &builtin_filter_class_table[i];
         }
     }
     return NULL;
 }
 
-void filter_class_declare_data_source(void);
-void filter_class_declare_file(void);
+void builtin_filter_declare_data_source(void);
+void builtin_filter_declare_file(void);
 
-void filter_class_declare_byte(void);
-void filter_class_declare_struct(void);
-void filter_class_declare_union(void);
-void filter_class_declare_array(void);
-void filter_class_declare_binary_integer(void);
-void filter_class_declare_bytes(void);
-void filter_class_declare_string(void);
-void filter_class_declare_varint(void);
-void filter_class_declare_base64(void);
-void filter_class_declare_deflate(void);
-void filter_class_declare_snappy(void);
-void filter_class_declare_formatted_integer(void);
+void builtin_filter_declare_byte(void);
+void builtin_filter_declare_struct(void);
+void builtin_filter_declare_union(void);
+void builtin_filter_declare_array(void);
+void builtin_filter_declare_binary_integer(void);
+void builtin_filter_declare_bytes(void);
+void builtin_filter_declare_string(void);
+void builtin_filter_declare_varint(void);
+void builtin_filter_declare_base64(void);
+void builtin_filter_declare_deflate(void);
+void builtin_filter_declare_snappy(void);
+void builtin_filter_declare_formatted_integer(void);
 
 void
-filter_class_declare_std(void)
+builtin_filter_declare_std(void)
 {
-    filter_class_declare_data_source();
-    filter_class_declare_file();
+    builtin_filter_declare_data_source();
+    builtin_filter_declare_file();
 
-    filter_class_declare_byte();
-    filter_class_declare_struct();
-    filter_class_declare_union();
-    filter_class_declare_array();
-    filter_class_declare_binary_integer();
-    filter_class_declare_bytes();
-    filter_class_declare_string();
-    filter_class_declare_varint();
-    filter_class_declare_base64();
-    filter_class_declare_deflate();
-    filter_class_declare_snappy();
-    filter_class_declare_formatted_integer();
+    builtin_filter_declare_byte();
+    builtin_filter_declare_struct();
+    builtin_filter_declare_union();
+    builtin_filter_declare_array();
+    builtin_filter_declare_binary_integer();
+    builtin_filter_declare_bytes();
+    builtin_filter_declare_string();
+    builtin_filter_declare_varint();
+    builtin_filter_declare_base64();
+    builtin_filter_declare_deflate();
+    builtin_filter_declare_snappy();
+    builtin_filter_declare_formatted_integer();
 }
 
 struct filter_def *
@@ -237,7 +257,7 @@ filter_instance_build_shared(struct ast_node_hdl *node,
 {
     const struct filter_class *filter_cls;
 
-    filter_cls = filter_class_lookup(filter_name);
+    filter_cls = builtin_filter_lookup(filter_name);
     assert(NULL != filter_cls);
     if (-1 == filter_instance_build(node, filter_cls,
                                     filter_def_create_empty(filter_name))) {
@@ -300,9 +320,9 @@ filter_instance_read_value(struct ast_node_hdl *filter,
             bt_ret = f_instance->b_item.read_value_from_buffer(
                 filter, scope, item_data, span_size, &value, bst);
         } else {
-            value.type = EXPR_VALUE_TYPE_BYTES;
-            value.bytes.buf = item_data;
-            value.bytes.len = span_size;
+            value = expr_value_as_data_range(
+                scope->ds_in, item_start_offset, item_end_offset);
+            bitpunch_data_source_acquire(scope->ds_in);
         }
     }
     if (BITPUNCH_OK == bt_ret) {
@@ -313,7 +333,7 @@ filter_instance_read_value(struct ast_node_hdl *filter,
         }
     } else {
         bitpunch_error_add_node_context(
-            filter, bst, "when computing item size");
+            filter, bst, "when reading filtered value");
     }
     return bt_ret;
 }
@@ -339,8 +359,16 @@ bitpunch_status_t
 box_compute_used_size__from_apply_filter(struct box *box,
                                          struct browse_state *bst)
 {
+    bitpunch_status_t bt_ret;
+
     DBG_BOX_DUMP(box);
-    return box_apply_filter_internal(box, bst);
+    bt_ret = box_apply_filter_internal(box, bst);
+    // check if applied filter did not yield data as a result
+    if (BITPUNCH_OK == bt_ret &&
+        (-1 == box->start_offset_used || -1 == box->end_offset_used)) {
+        return box_compute_used_size__as_span(box, bst);
+    }
+    return bt_ret;
 }
 
 static bitpunch_status_t

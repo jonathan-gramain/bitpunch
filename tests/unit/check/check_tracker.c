@@ -453,28 +453,39 @@ check_tracker_item(struct tracker *tk,
 }
 
 void
-check_expr_value_match(const expr_value_t *value1,
-                       const expr_value_t *value2)
+check_expr_value_match(const expr_value_t *read_value,
+                       const expr_value_t *expected_value)
 {
-    switch (value1->type) {
+    switch (read_value->type) {
     case EXPR_VALUE_TYPE_INTEGER:
-        ck_assert_int_eq(value1->integer, value2->integer);
+        ck_assert_int_eq(read_value->integer, expected_value->integer);
         break ;
     case EXPR_VALUE_TYPE_BOOLEAN:
-        ck_assert_int_eq(value1->boolean, value2->boolean);
+        ck_assert_int_eq(read_value->boolean, expected_value->boolean);
         break ;
     case EXPR_VALUE_TYPE_STRING:
-        ck_assert_int_eq(value1->string.len, value2->string.len);
-        ck_assert(0 == memcmp(value1->string.str,
-                              value2->string.str,
-                              value1->string.len));
+        ck_assert_int_eq(read_value->string.len, expected_value->string.len);
+        ck_assert(0 == memcmp(read_value->string.str,
+                              expected_value->string.str,
+                              read_value->string.len));
+        break ;
+    case EXPR_VALUE_TYPE_DATA:
+        ck_assert_int_eq(read_value->data.ds->ds_data_length,
+                         expected_value->bytes.len);
+        ck_assert(0 == memcmp(read_value->data.ds->ds_data,
+                              expected_value->bytes.buf,
+                              expected_value->bytes.len));
+        break ;
+    case EXPR_VALUE_TYPE_DATA_RANGE:
+        ck_assert_int_eq(read_value->data_range.end_offset -
+                         read_value->data_range.start_offset,
+                         expected_value->bytes.len);
+        ck_assert(0 == memcmp(read_value->data.ds->ds_data +
+                              read_value->data_range.start_offset,
+                              expected_value->bytes.buf,
+                              expected_value->bytes.len));
         break ;
     case EXPR_VALUE_TYPE_BYTES:
-        ck_assert_int_eq(value1->bytes.len, value2->bytes.len);
-        ck_assert(0 == memcmp(value1->bytes.buf,
-                              value2->bytes.buf,
-                              value1->bytes.len));
-        break ;
     default:
         assert(0);
     }

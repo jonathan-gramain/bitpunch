@@ -458,6 +458,12 @@ void
 bitpunch_error_dump_full(struct bitpunch_error *bp_err, FILE *out);
 
 void
+bitpunch_error_attach_user_arg(struct bitpunch_error *bp_err, void *user_arg);
+
+void *
+bitpunch_error_fetch_user_arg(struct bitpunch_error *bp_err);
+
+void
 bitpunch_error_destroy(struct bitpunch_error *bp_err);
 
 

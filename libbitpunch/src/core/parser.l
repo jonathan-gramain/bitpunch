@@ -103,6 +103,7 @@ if         { return KW_IF; }
 else       { return KW_ELSE; }
 self       { return KW_SELF; }
 let        { return KW_LET; }
+extern     { return KW_EXTERN; }
 
 true        {
     yylval_param->boolean = 1;

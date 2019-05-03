@@ -117,11 +117,11 @@ deflate_filter_instance_build(struct ast_node_hdl *filter)
 }
 
 void
-filter_class_declare_deflate(void)
+builtin_filter_declare_deflate(void)
 {
     int ret;
 
-    ret = filter_class_declare("deflate",
+    ret = builtin_filter_declare("deflate",
                                EXPR_VALUE_TYPE_BYTES,
                                deflate_filter_instance_build, NULL,
                                0u,

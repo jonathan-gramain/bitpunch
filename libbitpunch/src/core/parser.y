@@ -127,6 +127,13 @@
         expr_lookup_evaluator(enum ast_node_type op_type,
                               enum expr_value_type opd_types[]);
 
+    typedef bitpunch_status_t
+        (*extern_func_fn_t)(
+            void *user_arg,
+            expr_value_t *valuep,
+            expr_dpath_t *dpathp,
+            struct browse_state *bst);
+
     extern const int SPAN_SIZE_UNDEF;
 
     enum ast_node_flag {
@@ -135,6 +142,8 @@
         ASTFLAG_REVERSE_COND                = (1<<2),
         ASTFLAG_CONTAINS_LAST_ATTR          = (1<<3),
         ASTFLAG_DUMPING                     = (1<<4),
+        /** item defined by the user */
+        ASTFLAG_EXTERNAL                    = (1<<5),
     };
 
     enum ast_node_data_flag {
@@ -201,6 +210,9 @@
             AST_NODE_TYPE_ARRAY_SLICE,
             AST_NODE_TYPE_BYTE_SLICE,
             AST_NODE_TYPE_CONDITIONAL,
+            AST_NODE_TYPE_EXTERN_NAME,
+            AST_NODE_TYPE_EXTERN_FUNC,
+            AST_NODE_TYPE_EXTERN_FILTER,
             AST_NODE_TYPE_OP_EQ,
             AST_NODE_TYPE_OP_NE,
             AST_NODE_TYPE_OP_GT,
@@ -271,6 +283,7 @@
             AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE,
             AST_NODE_TYPE_REXPR_OP_FCALL,
             AST_NODE_TYPE_REXPR_SELF,
+            AST_NODE_TYPE_REXPR_EXTERN_FUNC,
         } type;
         enum ast_node_data_flag flags;
         union {
@@ -290,6 +303,16 @@
                 struct ast_node_hdl *cond_expr;
                 struct ast_node_hdl *outer_cond;
             } conditional;
+            struct extern_name {
+                char *name;
+            } extern_name;
+            struct extern_func {
+                extern_func_fn_t extern_func_fn;
+                void *user_arg;
+            } extern_func;
+            struct extern_filter {
+                struct filter_class *filter_cls;
+            } extern_filter;
             struct op {
                 struct ast_node_hdl *operands[2];
             } op;
@@ -384,6 +407,10 @@
                 int n_func_params;
                 struct statement_list *func_params;
             } rexpr_op_fcall;
+            struct rexpr_extern_func {
+                struct rexpr rexpr; /* inherits */
+                struct extern_func extern_func;
+            } rexpr_extern_func;
         } u;
     };
 
@@ -620,7 +647,7 @@
 %token <integer> INTEGER
 %token <literal> LITERAL
 %token <boolean> KW_TRUE KW_FALSE
-%token KW_IF KW_ELSE KW_SELF KW_LET KW_ENV
+%token KW_IF KW_ELSE KW_SELF KW_LET KW_EXTERN
 
 %token <ast_node_type> '|' '^' '&' '>' '<' '+' '-' '*' '/' '%' '!' '~' '.' ':'
 %token <ast_node_type> TOK_LOR "||"
@@ -654,7 +681,7 @@
 %type <ast_node_hdl> schema g_integer g_boolean g_identifier g_self g_literal scope_block filter_block expr opt_expr twin_index opt_twin_index
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
 %type <statement_list> func_params func_param_nonempty_list
-%type <named_expr> let_stmt attribute_stmt func_param
+%type <named_expr> attribute_stmt let_stmt extern_stmt func_param
 %type <subscript_index> key_expr opt_key_expr
 %locations
 
@@ -1018,6 +1045,12 @@ block_stmt_list:
                           (struct statement *)$let_stmt, list);
     }
 
+  | block_stmt_list extern_stmt {
+        $$ = $1;
+        TAILQ_INSERT_TAIL($$.named_expr_list,
+                          (struct statement *)$extern_stmt, list);
+    }
+
   | block_stmt_list if_block {
       /* join 'if' node children to block stmt lists */
       if (-1 == merge_block_stmt_list(&$$, &$if_block)) {
@@ -1045,6 +1078,15 @@ let_stmt:
         $$->nstmt.stmt.loc = @$;
         $$->nstmt.name = $IDENTIFIER;
         $$->expr = $expr;
+    }
+
+extern_stmt:
+    KW_EXTERN IDENTIFIER ';' {
+        $$ = new_safe(struct named_expr);
+        $$->nstmt.stmt.loc = @$;
+        $$->nstmt.name = $IDENTIFIER;
+        $$->expr = ast_node_hdl_create(AST_NODE_TYPE_EXTERN_NAME, &@$);
+        $$->expr->ndat->u.extern_name.name = strdup_safe($IDENTIFIER);
     }
 
 %%
@@ -1165,6 +1207,10 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_ARRAY_SLICE: return "slice";
     case AST_NODE_TYPE_BYTE_SLICE: return "byte slice";
     case AST_NODE_TYPE_CONDITIONAL: return "conditional";
+    case AST_NODE_TYPE_EXTERN_NAME: return "extern name";
+    case AST_NODE_TYPE_EXTERN_FUNC:
+    case AST_NODE_TYPE_REXPR_EXTERN_FUNC: return "extern func";
+    case AST_NODE_TYPE_EXTERN_FILTER: return "extern filter";
     case AST_NODE_TYPE_REXPR_NATIVE: return "native type";
     case AST_NODE_TYPE_OP_FCALL:
     case AST_NODE_TYPE_REXPR_OP_FCALL: return "function call";

@@ -88,11 +88,11 @@ snappy_filter_instance_build(struct ast_node_hdl *filter)
 }
 
 void
-filter_class_declare_snappy(void)
+builtin_filter_declare_snappy(void)
 {
     int ret;
 
-    ret = filter_class_declare("snappy",
+    ret = builtin_filter_declare("snappy",
                                EXPR_VALUE_TYPE_BYTES,
                                snappy_filter_instance_build, NULL,
                                0u,

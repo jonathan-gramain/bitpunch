@@ -84,11 +84,11 @@ file_filter_instance_build(struct ast_node_hdl *filter)
 }
 
 void
-filter_class_declare_file(void)
+builtin_filter_declare_file(void)
 {
     int ret;
 
-    ret = filter_class_declare("file",
+    ret = builtin_filter_declare("file",
                                EXPR_VALUE_TYPE_BYTES,
                                file_filter_instance_build, NULL,
                                0u,

@@ -1417,11 +1417,11 @@ array_filter_instance_compile(struct ast_node_hdl *filter,
 }
 
 void
-filter_class_declare_array(void)
+builtin_filter_declare_array(void)
 {
     int ret;
 
-    ret = filter_class_declare("array",
+    ret = builtin_filter_declare("array",
                                EXPR_VALUE_TYPE_UNSET,
                                array_filter_instance_build,
                                array_filter_instance_compile,

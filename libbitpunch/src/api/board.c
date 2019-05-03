@@ -147,6 +147,41 @@ bitpunch_board_add_expr(
     return BITPUNCH_OK;
 }
 
+struct ast_node_hdl *
+bitpunch_board_get_item(
+    struct bitpunch_board *board,
+    const char *name)
+{
+    struct block_stmt_list *lists;
+    struct named_expr *named_expr;
+
+    lists = &board->ast_root->ndat->u.scope_def.block_stmt_list;
+    STATEMENT_FOREACH(named_expr, named_expr, lists->named_expr_list, list) {
+        if (0 == strcmp(name, named_expr->nstmt.name)) {
+            return named_expr->expr;
+        }
+    }
+    return NULL;
+}
+
+struct ast_node_hdl *
+bitpunch_board_get_external_item(
+    struct bitpunch_board *board,
+    const char *name)
+{
+    struct block_stmt_list *lists;
+    struct named_expr *named_expr;
+
+    lists = &board->ast_root->ndat->u.scope_def.block_stmt_list;
+    STATEMENT_FOREACH(named_expr, named_expr, lists->named_expr_list, list) {
+        if (0 != (ASTFLAG_EXTERNAL & named_expr->expr->flags)
+            && 0 == strcmp(name, named_expr->nstmt.name)) {
+            return named_expr->expr;
+        }
+    }
+    return NULL;
+}
+
 bitpunch_status_t
 bitpunch_eval_expr(
     struct bitpunch_board *board,

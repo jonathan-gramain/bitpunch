@@ -111,7 +111,7 @@ static const struct test_tracker_expect_box check_cond_valid1_expect[] = {
     { "ifs[0].contents", 8, 5,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "contents", .len = 8 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = { .buf = "\x01\x02\x03\x04\x05", .len = 5 } } },
 
     { "ifs[1]", 13, 24,

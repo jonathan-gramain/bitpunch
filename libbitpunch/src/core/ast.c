@@ -586,13 +586,13 @@ resolve_identifiers_identifier_as_expression(
 }
 
 static int
-resolve_identifiers_identifier_as_filter(
+resolve_identifiers_identifier_as_builtin_filter(
     struct ast_node_hdl *node,
     const struct list_of_visible_refs *visible_refs)
 {
     const struct filter_class *filter_cls;
 
-    filter_cls = filter_class_lookup(node->ndat->u.identifier);
+    filter_cls = builtin_filter_lookup(node->ndat->u.identifier);
     if (NULL != filter_cls) {
         if (-1 == filter_instance_build(
                 node, filter_cls,
@@ -617,7 +617,7 @@ resolve_identifiers_identifier(
                     node, visible_refs)) {
                 return 0;
             }
-            if (0 == resolve_identifiers_identifier_as_filter(
+            if (0 == resolve_identifiers_identifier_as_builtin_filter(
                     node, visible_refs)) {
                 return 0;
             }
@@ -1444,6 +1444,9 @@ compile_dpath(struct dpath_node *node,
 int
 compile_continue(struct compile_ctx *ctx)
 {
+    if (NULL == ctx) {
+        return TRUE;
+    }
     return DEP_RESOLVER_OK == dep_resolver_get_status(ctx->dep_resolver);
 }
 
@@ -1779,8 +1782,9 @@ compile_filter_def(
     const char *filter_type;
     struct filter_class *filter_cls;
 
+    // FIXME need to lookup external filter here
     filter_type = filter->ndat->u.filter_def.filter_type;
-    filter_cls = filter_class_lookup(filter_type);
+    filter_cls = builtin_filter_lookup(filter_type);
     if (NULL == filter_cls) {
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
@@ -1816,7 +1820,7 @@ compile_rexpr_filter_span_size(struct ast_node_hdl *expr,
     return 0;
 }
 
-static int
+int
 compile_rexpr_filter(struct ast_node_hdl *expr,
                      dep_resolver_tagset_t tags,
                      struct compile_ctx *ctx)
@@ -1838,7 +1842,7 @@ compile_rexpr_filter(struct ast_node_hdl *expr,
             expr, expr->ndat->u.rexpr_filter.f_instance, tags, ctx);
     } else {
         if (0 != (tags & COMPILE_TAG_NODE_SPAN_SIZE)) {
-            return compile_rexpr_filter_span_size(expr, ctx);
+            compile_rexpr_filter_span_size(expr, ctx);
         }
         if (0 != (tags & COMPILE_TAG_BROWSE_BACKENDS)) {
             compile_node_backends__filter_generic(expr);
@@ -2677,6 +2681,26 @@ compile_conditional(
 }
 
 static int
+compile_extern_func(
+    struct ast_node_hdl *extern_func,
+    dep_resolver_tagset_t tags,
+    struct compile_ctx *ctx)
+{
+    struct ast_node_data *resolved_type;
+
+    if (0 != (tags & COMPILE_TAG_NODE_TYPE)) {
+        resolved_type = new_safe(struct ast_node_data);
+        resolved_type->type = AST_NODE_TYPE_REXPR_EXTERN_FUNC;
+        resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
+        resolved_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
+        resolved_type->u.rexpr_extern_func.extern_func =
+            extern_func->ndat->u.extern_func;
+        extern_func->ndat = resolved_type;
+    }
+    return 0;
+}
+
+static int
 compile_rexpr_named_expr(
     struct ast_node_hdl *expr,
     dep_resolver_tagset_t tags,
@@ -2685,6 +2709,7 @@ compile_rexpr_named_expr(
     struct ast_node_hdl *anchor_expr;
     struct named_expr *named_expr;
     struct ast_node_hdl *target;
+    struct filter_class *filter_cls;
 
     anchor_expr = expr->ndat->u.rexpr_member_common.anchor_expr;
     if (NULL != anchor_expr
@@ -2702,11 +2727,23 @@ compile_rexpr_named_expr(
                            RESOLVE_EXPECT_EXPRESSION)) {
         return -1;
     }
-    if (0 != (tags & COMPILE_TAG_NODE_TYPE)) {
-        expr->ndat->u.rexpr.value_type_mask =
-            expr_value_type_mask_from_node(target);
-        expr->ndat->u.rexpr.dpath_type_mask =
-            expr_dpath_type_mask_from_node(target);
+    switch (target->ndat->type) {
+    case AST_NODE_TYPE_EXTERN_FILTER:
+        filter_cls = target->ndat->u.extern_filter.filter_cls;
+        if (-1 == filter_instance_build(
+                expr, filter_cls,
+                filter_def_create_empty(named_expr->nstmt.name))) {
+            return -1;
+        }
+        break ;
+    default:
+        if (0 != (tags & COMPILE_TAG_NODE_TYPE)) {
+            expr->ndat->u.rexpr.value_type_mask =
+                expr_value_type_mask_from_node(target);
+            expr->ndat->u.rexpr.dpath_type_mask =
+                expr_dpath_type_mask_from_node(target);
+        }
+        break ;
     }
     return 0;
 }
@@ -3002,6 +3039,8 @@ compile_node_type_int(struct ast_node_hdl *node,
         return compile_rexpr_filter(node, tags, ctx);
     case AST_NODE_TYPE_CONDITIONAL:
         return compile_conditional(node, tags, ctx);
+    case AST_NODE_TYPE_EXTERN_FUNC:
+        return compile_extern_func(node, tags, ctx);
     case AST_NODE_TYPE_OP_UPLUS:
     case AST_NODE_TYPE_OP_UMINUS:
     case AST_NODE_TYPE_OP_LNOT:
@@ -4110,6 +4149,22 @@ fdump_ast_recur(const struct ast_node_hdl *node, int depth,
                             visible_refs, out);
         }
         break ;
+    case AST_NODE_TYPE_EXTERN_NAME:
+        fprintf(out, "\n%*s\\_ %s: \"%s\"\n",
+                (depth + 1) * INDENT_N_SPACES, "",
+                ast_node_type_str(node->ndat->type),
+                node->ndat->u.extern_name.name);
+        break ;
+    case AST_NODE_TYPE_EXTERN_FUNC:
+        fprintf(out, "\n%*s\\_ %s\"\n",
+                (depth + 1) * INDENT_N_SPACES, "",
+                ast_node_type_str(node->ndat->type));
+        break ;
+    case AST_NODE_TYPE_EXTERN_FILTER:
+        fprintf(out, "\n%*s\\_ %s\"\n",
+                (depth + 1) * INDENT_N_SPACES, "",
+                ast_node_type_str(node->ndat->type));
+        break ;
     case AST_NODE_TYPE_OP_EQ:
     case AST_NODE_TYPE_OP_NE:
     case AST_NODE_TYPE_OP_GT:
@@ -4384,6 +4439,11 @@ fdump_ast_recur(const struct ast_node_hdl *node, int depth,
         dump_ast_rexpr_member(node, depth, visible_refs, out);
         fprintf(out, "\n");
         break ;
+    case AST_NODE_TYPE_REXPR_EXTERN_FUNC:
+        fprintf(out, "\n%*s\\_ %s\"\n",
+                (depth + 1) * INDENT_N_SPACES, "",
+                ast_node_type_str(node->ndat->type));
+        break ;
     case AST_NODE_TYPE_EXPR_SELF:
     case AST_NODE_TYPE_NONE:
         fprintf(out, "\n");
@@ -4410,6 +4470,10 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_EXPR_SELF:
     case AST_NODE_TYPE_REXPR_NATIVE:
     case AST_NODE_TYPE_REXPR_SELF:
+    case AST_NODE_TYPE_EXTERN_NAME:
+    case AST_NODE_TYPE_EXTERN_FUNC:
+    case AST_NODE_TYPE_EXTERN_FILTER:
+    case AST_NODE_TYPE_REXPR_EXTERN_FUNC:
         /* leaf */
         fprintf(out, "%*s|- (%s) ", depth * INDENT_N_SPACES, "",
                 ast_node_type_str(node->ndat->type));

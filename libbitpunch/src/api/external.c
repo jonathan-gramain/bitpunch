@@ -29,31 +29,65 @@
  * DAMAGE.
  */
 
-#define _DEFAULT_SOURCE
-#define _GNU_SOURCE
-#include <string.h>
-#include <assert.h>
+/**
+ * @file
+ * @brief bitpunch external plugin API
+ */
+
+#include <stdarg.h>
 
 #include "core/filter.h"
+#include "api/bitpunch_api.h"
 
-static struct filter_instance *
-bytes_filter_instance_build(struct ast_node_hdl *filter)
+int
+bitpunch_external_create_function(
+    struct ast_node_hdl **nodep,
+    extern_func_fn_t extern_func_fn,
+    void *user_arg)
 {
-    struct filter_instance *f_instance;
+    struct ast_node_hdl *func_hdl;
 
-    f_instance = new_safe(struct filter_instance);
-    return f_instance;
+    func_hdl = ast_node_hdl_create(AST_NODE_TYPE_EXTERN_FUNC, NULL);
+    func_hdl->ndat->u.extern_func.extern_func_fn = extern_func_fn;
+    func_hdl->ndat->u.extern_func.user_arg = user_arg;
+    func_hdl->flags |= ASTFLAG_EXTERNAL;
+    *nodep = func_hdl;
+    return 0;
 }
 
-void
-builtin_filter_declare_bytes(void)
+int
+bitpunch_external_create_filter(
+    struct ast_node_hdl **nodep,
+    enum expr_value_type value_type_mask,
+    filter_instance_build_func_t filter_instance_build_func,
+    filter_instance_compile_func_t filter_instance_compile_func,
+    enum filter_class_flag flags,
+    void *user_arg,
+    int n_attrs,
+    ... /* attrs: (name, type, flags) tuples */)
 {
+    struct filter_class *filter_cls;
+    struct ast_node_hdl *filter_hdl;
+    va_list ap;
     int ret;
 
-    ret = builtin_filter_declare("bytes",
-                               EXPR_VALUE_TYPE_BYTES,
-                               bytes_filter_instance_build, NULL,
-                               0u,
-                               0);
-    assert(0 == ret);
+    filter_cls = filter_class_new(user_arg);
+    if (NULL == filter_cls) {
+        return -1;
+    }
+    va_start(ap, n_attrs);
+    ret = filter_class_construct_internal(
+        filter_cls, NULL, value_type_mask,
+        filter_instance_build_func,
+        filter_instance_compile_func,
+        flags, n_attrs, ap);
+    va_end(ap);
+    if (-1 == ret) {
+        return -1;
+    }
+    filter_hdl = ast_node_hdl_create(AST_NODE_TYPE_EXTERN_FILTER, NULL);
+    filter_hdl->flags |= ASTFLAG_EXTERNAL;
+    filter_hdl->ndat->u.extern_filter.filter_cls = filter_cls;
+    *nodep = filter_hdl;
+    return 0;
 }

@@ -138,7 +138,7 @@ expr_value_as_data_range(struct bitpunch_data_source *ds,
 {
     expr_value_t ev;
 
-    ev.type = EXPR_VALUE_TYPE_DATA;
+    ev.type = EXPR_VALUE_TYPE_DATA_RANGE;
     ev.data.ds = ds;
     ev.data_range.start_offset = start_offset;
     ev.data_range.end_offset = end_offset;

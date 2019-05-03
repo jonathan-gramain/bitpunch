@@ -239,12 +239,12 @@ string_filter_instance_build(struct ast_node_hdl *filter)
 }
 
 void
-filter_class_declare_string(void)
+builtin_filter_declare_string(void)
 {
     int ret;
 
     //TODO add regex boundary support
-    ret = filter_class_declare("string",
+    ret = builtin_filter_declare("string",
                                EXPR_VALUE_TYPE_STRING,
                                string_filter_instance_build, NULL,
                                0u,

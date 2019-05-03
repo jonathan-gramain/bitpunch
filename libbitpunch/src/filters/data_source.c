@@ -52,7 +52,7 @@ bitpunch_data_source_to_filter(struct bitpunch_data_source *ds)
     int ret;
     struct filter_instance_data_source *f_instance;
 
-    filter_cls = filter_class_lookup("__data_source__");
+    filter_cls = builtin_filter_lookup("__data_source__");
     assert(NULL != filter_cls);
 
     node = ast_node_hdl_new();
@@ -79,6 +79,7 @@ data_source_get_data_source(
     f_instance = (struct filter_instance_data_source *)
         filter->ndat->u.rexpr_filter.f_instance;
     *ds_outp = f_instance->data_source;
+    bitpunch_data_source_acquire(f_instance->data_source);
     return BITPUNCH_OK;
 }
 
@@ -93,11 +94,11 @@ data_source_filter_instance_build(struct ast_node_hdl *filter)
 }
 
 void
-filter_class_declare_data_source(void)
+builtin_filter_declare_data_source(void)
 {
     int ret;
 
-    ret = filter_class_declare("__data_source__",
+    ret = builtin_filter_declare("__data_source__",
                                EXPR_VALUE_TYPE_BYTES,
                                data_source_filter_instance_build, NULL,
                                0u,

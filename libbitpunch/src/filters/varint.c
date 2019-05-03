@@ -161,11 +161,11 @@ varint_filter_instance_build(struct ast_node_hdl *filter)
 }
 
 void
-filter_class_declare_varint(void)
+builtin_filter_declare_varint(void)
 {
     int ret;
 
-    ret = filter_class_declare("varint",
+    ret = builtin_filter_declare("varint",
                                EXPR_VALUE_TYPE_INTEGER,
                                varint_filter_instance_build, NULL,
                                0u,

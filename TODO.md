@@ -328,3 +328,7 @@ correctly (b_filter is empty)
 
 - implement both endians in compute_item_size__varint() function and
   add tests for it
+
+- BUG: "self" expression should not be compiled in resolve phase
+
+- TODO builtin_filter_declare() should return a bitpunch_status_t

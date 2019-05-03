@@ -118,11 +118,11 @@ byte_filter_instance_compile(struct ast_node_hdl *filter,
 }
 
 void
-filter_class_declare_byte(void)
+builtin_filter_declare_byte(void)
 {
     int ret;
 
-    ret = filter_class_declare("byte",
+    ret = builtin_filter_declare("byte",
                                EXPR_VALUE_TYPE_BYTES,
                                byte_filter_instance_build,
                                byte_filter_instance_compile,

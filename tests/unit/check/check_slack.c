@@ -74,7 +74,7 @@ static const struct test_tracker_expect_box check_slack_valid1_expect[] = {
     { "hdr.magic", 0, 5,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "magic", .len = 5 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = { .buf = "magic", .len = 5 } } },
 
     { "slack_array", 5, 20,
@@ -157,13 +157,13 @@ static const struct test_tracker_expect_box check_slack_byte_array_valid1_expect
     { "hdr.magic", 0, 5,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "magic", .len = 5 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = { .buf = "magic", .len = 5 } } },
 
     { "padding", 5, 7,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "padding", .len = 7 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = { .buf = "padding", .len = 7 } } },
 
     { "ftr", 12, 3,
@@ -175,7 +175,7 @@ static const struct test_tracker_expect_box check_slack_byte_array_valid1_expect
     { "ftr.bye", 12, 3,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "bye", .len = 3 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = { .buf = "bye", .len = 3 } } },
 };
 
@@ -221,7 +221,7 @@ static const struct test_tracker_expect_box check_slack_trailing_field_valid1_ex
     { "hdr.magic", 0, 5,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "magic", .len = 5 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = { .buf = "magic", .len = 5 } } },
 
     { "slack_array", 5, 20,
@@ -263,7 +263,7 @@ static const struct test_tracker_expect_box check_slack_trailing_field_valid1_ex
     { "trailer", 25, 7,
       .key_type = EXPR_VALUE_TYPE_STRING,
       .key = { .string = { .str = "trailer", .len = 7 } },
-      .value_type = EXPR_VALUE_TYPE_BYTES,
+      .value_type = EXPR_VALUE_TYPE_DATA_RANGE,
       .value = { .bytes = { .buf = "trailer", .len = 7 } } },
 };
 

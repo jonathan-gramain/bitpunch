@@ -353,11 +353,11 @@ binary_integer_filter_instance_build(struct ast_node_hdl *filter)
 #endif // optimized code
 
 void
-filter_class_declare_binary_integer(void)
+builtin_filter_declare_binary_integer(void)
 {
     int ret;
 
-    ret = filter_class_declare("integer",
+    ret = builtin_filter_declare("integer",
                                EXPR_VALUE_TYPE_INTEGER,
                                binary_integer_filter_instance_build, NULL,
                                0u,

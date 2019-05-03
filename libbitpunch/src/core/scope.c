@@ -628,8 +628,12 @@ scope_import_all_named_exprs_from_scope(
     lists = &from_scope->block_stmt_list;
     STATEMENT_FOREACH(named_expr, named_expr,
                       lists->named_expr_list, list) {
-        scope_add_named_expr(
-            scope_def, named_expr->nstmt.name, named_expr->expr);
+        // do not import "extern" declarations as they are placeholders
+        // for external items
+        if (AST_NODE_TYPE_EXTERN_NAME != named_expr->expr->ndat->type) {
+            scope_add_named_expr(
+                scope_def, named_expr->nstmt.name, named_expr->expr);
+        }
     }
 }
 

@@ -98,6 +98,11 @@ struct bitpunch_error {
     struct bitpunch_error_context_info contexts[BITPUNCH_ERROR_MAX_CONTEXTS];
 
     bitpunch_error_info_t *error_info; /**< error-specific additional info */
+
+    /** argument that may be attached when user code raises a bitpunch
+     * error from inside an API call. It can be retrieved from the
+     * error object later. */
+    void *user_arg;
 };
 
 enum parser_type {
@@ -139,6 +144,7 @@ struct bitpunch_data_source {
     struct bitpunch_data_source_backend backend;
     char              *ds_data;
     size_t            ds_data_length;
+    int               use_count;
 };
 
 struct bitpunch_file_source {

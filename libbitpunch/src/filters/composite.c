@@ -599,11 +599,11 @@ composite_filter_instance_compile(struct ast_node_hdl *filter,
 }
 
 void
-filter_class_declare_struct(void)
+builtin_filter_declare_struct(void)
 {
     int ret;
 
-    ret = filter_class_declare("struct",
+    ret = builtin_filter_declare("struct",
                                EXPR_VALUE_TYPE_UNSET,
                                struct_filter_instance_build,
                                composite_filter_instance_compile,
@@ -619,11 +619,11 @@ filter_class_declare_struct(void)
 }
 
 void
-filter_class_declare_union(void)
+builtin_filter_declare_union(void)
 {
     int ret;
 
-    ret = filter_class_declare("union",
+    ret = builtin_filter_declare("union",
                                EXPR_VALUE_TYPE_UNSET,
                                union_filter_instance_build,
                                composite_filter_instance_compile,
