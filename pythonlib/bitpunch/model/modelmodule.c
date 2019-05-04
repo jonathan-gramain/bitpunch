@@ -994,11 +994,15 @@ load_spec_internal(PyObject *spec_arg, const char *path)
     struct ast_node_hdl *spec_node = NULL;
 
     if (NULL == spec_arg && NULL == path) {
-        PyErr_SetString(PyExc_TypeError, "arguments error");
+        PyErr_SetString(
+            PyExc_TypeError,
+            "usage error: no spec specified");
         return NULL;
     }
     if (NULL != spec_arg && NULL != path) {
-        PyErr_SetString(PyExc_TypeError, "arguments error");
+        PyErr_SetString(
+            PyExc_TypeError,
+            "usage error: 'spec' and 'path' arguments cannot both be set");
         return NULL;
     }
 
@@ -1099,11 +1103,15 @@ Board_add_data_source(BoardObject *self, PyObject *args, PyObject *kwds)
         return NULL;
     }
     if (NULL == data && NULL == path) {
-        PyErr_SetString(PyExc_TypeError, "Board.add_data_source() usage error");
+        PyErr_SetString(
+            PyExc_TypeError,
+            "usage error: no data source specified");
         return NULL;
     }
     if (NULL != data && NULL != path) {
-        PyErr_SetString(PyExc_TypeError, "Board.add_data_source() usage error");
+        PyErr_SetString(
+            PyExc_TypeError,
+            "usage error: 'data' and 'path' attributes cannot both be set");
         return NULL;
     }
     if (NULL != path) {
@@ -1134,8 +1142,9 @@ Board_add_data_source(BoardObject *self, PyObject *args, PyObject *kwds)
         ret = bitpunch_data_source_create_from_file_descriptor(
             &data_source, fileno(file));
     } else {
-        PyErr_SetString(PyExc_TypeError,
-                        "The first argument must be a string or a file object");
+        PyErr_SetString(
+            PyExc_TypeError,
+            "The first argument must be a string or a file object");
         return NULL;
     }
     if (-1 == ret) {
