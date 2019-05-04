@@ -32,20 +32,10 @@ let Box = struct {
         atom: Atom;
     };
 
-    if (hdr.atom == "free" ||
-        hdr.atom == "skip") {
-        free_space: [] byte;
-    }
     if (hdr.atom == "ftyp") {
         major_brand: Atom;
         major_brand_version: u32;
         compatible_brands: [] Atom;
-    }
-    if (hdr.atom == "uuid") {
-        uuid_bytes: [] byte;
-    }
-    if (hdr.atom == "mdat") {
-        media_data: [] byte;
     }
     if (hdr.atom == "mvhd") {
         version: u8;
@@ -240,8 +230,18 @@ let Box = struct {
         packet_size: u16;
         sample_rate: u16;
     }
-    boxes: [] Box;
-    trailer: [] byte;
+    if (hdr.atom == 'moov' ||
+        hdr.atom == 'trak' ||
+        hdr.atom == 'edts' ||
+        hdr.atom == 'mdia' ||
+        hdr.atom == 'minf' ||
+        hdr.atom == 'dinf' ||
+        hdr.atom == 'stbl') {
+        boxes: [] Box;
+        trailer: [] byte;
+    } else {
+        data: [] byte;
+    }
 
     @span: hdr.size;
     @key: hdr.atom;
