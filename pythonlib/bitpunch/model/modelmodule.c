@@ -1266,7 +1266,7 @@ declare_python_filter_class(
                         "error creating external filter class");
         return -1;
     }
-    bitpunch_board_add_let_expression(self->board, filter_name, filter_hdl);
+    bitpunch_board_add_external_def(self->board, filter_name, filter_hdl);
     return 0;
 }
 
@@ -1345,7 +1345,7 @@ declare_python_function(
         PyErr_SetString(PyExc_OSError, "Error creating external function");
         return -1;
     }
-    bitpunch_board_add_let_expression(self->board, function_name, func_hdl);
+    bitpunch_board_add_external_def(self->board, function_name, func_hdl);
     return 0;
 }
 

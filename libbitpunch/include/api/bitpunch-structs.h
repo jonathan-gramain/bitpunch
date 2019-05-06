@@ -159,6 +159,7 @@ struct bitpunch_board {
     /** root node of the board, of type AST_NODE_TYPE_SCOPE_DEF */
     struct ast_node_hdl *ast_root;
     struct ast_node_hdl *used_spec;
+    struct statement_list *extern_defs;
 };
 
 enum bitpunch_eval_flag {

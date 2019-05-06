@@ -53,6 +53,8 @@ bitpunch_board_new(void)
 
     board = new_safe(struct bitpunch_board);
     board->ast_root = ast_node_hdl_create_scope(NULL);
+    board->extern_defs = new_safe(struct statement_list);
+    TAILQ_INIT(board->extern_defs);
     return board;
 }
 
@@ -104,6 +106,30 @@ bitpunch_board_remove_by_name(
     const char *name)
 {
     return board_remove_named_exprs_with_name(board, name);
+}
+
+static void
+board_add_external_def(
+    struct bitpunch_board *board,
+    const char *name,
+    struct ast_node_hdl *external_def)
+{
+    struct named_expr *external_item;
+
+    external_item = new_safe(struct named_expr);
+    external_item->nstmt.name = strdup_safe(name);
+    external_item->expr = external_def;
+    TAILQ_INSERT_TAIL(board->extern_defs,
+                      (struct statement *)external_item, list);
+}
+
+void
+bitpunch_board_add_external_def(
+    struct bitpunch_board *board,
+    const char *name,
+    struct ast_node_hdl *external_def)
+{
+    board_add_external_def(board, name, external_def);
 }
 
 void
@@ -169,13 +195,10 @@ bitpunch_board_get_external_item(
     struct bitpunch_board *board,
     const char *name)
 {
-    struct block_stmt_list *lists;
     struct named_expr *named_expr;
 
-    lists = &board->ast_root->ndat->u.scope_def.block_stmt_list;
-    STATEMENT_FOREACH(named_expr, named_expr, lists->named_expr_list, list) {
-        if (0 != (ASTFLAG_EXTERNAL & named_expr->expr->flags)
-            && 0 == strcmp(name, named_expr->nstmt.name)) {
+    STATEMENT_FOREACH(named_expr, named_expr, board->extern_defs, list) {
+        if (0 == strcmp(name, named_expr->nstmt.name)) {
             return named_expr->expr;
         }
     }

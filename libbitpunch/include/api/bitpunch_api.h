@@ -147,6 +147,12 @@ bitpunch_board_remove_by_name(
     const char *name);
 
 void
+bitpunch_board_add_external_def(
+    struct bitpunch_board *board,
+    const char *name,
+    struct ast_node_hdl *external_def);
+
+void
 bitpunch_board_use_spec(
     struct bitpunch_board *board,
     struct ast_node_hdl *spec);

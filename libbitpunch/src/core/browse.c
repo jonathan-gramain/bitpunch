@@ -211,10 +211,20 @@ bitpunch_status_t
 browse_state_set_environment(struct browse_state *bst,
                              struct bitpunch_board *board)
 {
+    struct named_expr *extern_def;
+
     bst->board = board;
-    if (NULL != board
-        && -1 == bitpunch_compile_schema(board->ast_root)) {
-        return BITPUNCH_INVALID_PARAM;
+    if (NULL != board) {
+        // compile schema root
+        if (-1 == bitpunch_compile_schema(board->ast_root)) {
+            return BITPUNCH_INVALID_PARAM;
+        }
+        // compile external definitions
+        STATEMENT_FOREACH(named_expr, extern_def, board->extern_defs, list) {
+            if (-1 == bitpunch_resolve_expr(extern_def->expr, bst->scope)) {
+                return -1;
+            }
+        }
     }
     return BITPUNCH_OK;
 }
