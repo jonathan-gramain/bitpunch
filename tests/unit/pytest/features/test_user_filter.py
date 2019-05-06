@@ -14,7 +14,6 @@ class Godify(object):
         }
 
     def read(self, input_data):
-        print 'filter called with input: {0}'.format(repr(bytearray(input_data)))
         words = str(bytearray(input_data)).split(' ')
         return ' '.join(map(self._godify_word, words))
 
@@ -93,7 +92,6 @@ def test_user_filter_extern(params_user_filter_extern):
 
     board.register_filter('godify', Godify)
 
-    print model.make_python_object(dtree.eval_expr('contents'))
     assert model.make_python_object(
         dtree.eval_expr('contents')) == \
         ["Do as she wants",
@@ -109,7 +107,6 @@ def test_user_filter_extern_use_spec():
     board.register_filter('godify', Godify)
 
     dtree = board.eval_expr('data <> Schema')
-    print model.make_python_object(dtree.eval_expr('contents'))
     assert model.make_python_object(
         dtree.eval_expr('contents')) == \
         ["Do as she wants",

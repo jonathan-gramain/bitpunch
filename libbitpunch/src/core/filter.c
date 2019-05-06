@@ -200,6 +200,7 @@ filter_class_construct_extern_internal(
             attr_def->value_type_mask = attr_value_type_mask;
             attr_def->flags = 0u;
             STAILQ_INSERT_TAIL(&filter_cls->attr_list, attr_def, list);
+            ++filter_cls->n_attrs;
         }
     }
     if (EXPR_VALUE_TYPE_UNSET == value_type_mask) {

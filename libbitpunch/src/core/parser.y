@@ -283,6 +283,7 @@
             AST_NODE_TYPE_REXPR_OP_SUBSCRIPT_SLICE,
             AST_NODE_TYPE_REXPR_OP_FCALL,
             AST_NODE_TYPE_REXPR_SELF,
+            AST_NODE_TYPE_REXPR_EXTERN_DECL,
             AST_NODE_TYPE_REXPR_EXTERN_FUNC,
         } type;
         enum ast_node_data_flag flags;
@@ -408,6 +409,10 @@
                 int n_func_params;
                 struct statement_list *func_params;
             } rexpr_op_fcall;
+            struct rexpr_extern_decl {
+                struct rexpr rexpr; /* inherits */
+                struct extern_decl extern_decl;
+            } rexpr_extern_decl;
             struct rexpr_extern_func {
                 struct rexpr rexpr; /* inherits */
                 struct extern_func extern_func;
@@ -1208,7 +1213,8 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_ARRAY_SLICE: return "slice";
     case AST_NODE_TYPE_BYTE_SLICE: return "byte slice";
     case AST_NODE_TYPE_CONDITIONAL: return "conditional";
-    case AST_NODE_TYPE_EXTERN_DECL: return "extern name";
+    case AST_NODE_TYPE_EXTERN_DECL:
+    case AST_NODE_TYPE_REXPR_EXTERN_DECL: return "extern declaration";
     case AST_NODE_TYPE_EXTERN_FUNC:
     case AST_NODE_TYPE_REXPR_EXTERN_FUNC: return "extern func";
     case AST_NODE_TYPE_EXTERN_FILTER: return "extern filter";

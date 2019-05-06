@@ -50,6 +50,7 @@ extern get_answer_to_universe {
 // now because of strict type matching for operators
 
 let the_answer = get_answer_to_universe;
+let twice_the_answer = get_answer_to_universe * 2;
 
 let Schema = struct {
     contents: [] byte;
@@ -78,6 +79,7 @@ def test_user_function_extern(params_user_function_extern):
     board.register_function('get_answer_to_universe', get_answer_to_universe)
 
     assert board.eval_expr('Spec.the_answer') == 42
+    assert board.eval_expr('Spec.twice_the_answer') == 84
 
 
 def test_user_function_extern_use_spec():
@@ -86,3 +88,4 @@ def test_user_function_extern_use_spec():
     board.register_function('get_answer_to_universe', get_answer_to_universe)
 
     assert board.eval_expr('the_answer') == 42
+    assert board.eval_expr('twice_the_answer') == 84
