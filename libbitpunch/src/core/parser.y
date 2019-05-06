@@ -210,7 +210,7 @@
             AST_NODE_TYPE_ARRAY_SLICE,
             AST_NODE_TYPE_BYTE_SLICE,
             AST_NODE_TYPE_CONDITIONAL,
-            AST_NODE_TYPE_EXTERN_NAME,
+            AST_NODE_TYPE_EXTERN_DECL,
             AST_NODE_TYPE_EXTERN_FUNC,
             AST_NODE_TYPE_EXTERN_FILTER,
             AST_NODE_TYPE_OP_EQ,
@@ -304,9 +304,9 @@
                 struct ast_node_hdl *cond_expr;
                 struct ast_node_hdl *outer_cond;
             } conditional;
-            struct extern_name {
+            struct extern_decl {
                 char *name;
-            } extern_name;
+            } extern_decl;
             struct extern_func {
                 extern_func_fn_t extern_func_fn;
                 void *user_arg;
@@ -1086,8 +1086,8 @@ extern_stmt:
         $$ = new_safe(struct named_expr);
         $$->nstmt.stmt.loc = @$;
         $$->nstmt.name = $IDENTIFIER;
-        $$->expr = ast_node_hdl_create(AST_NODE_TYPE_EXTERN_NAME, &@$);
-        $$->expr->ndat->u.extern_name.name = strdup_safe($IDENTIFIER);
+        $$->expr = ast_node_hdl_create(AST_NODE_TYPE_EXTERN_DECL, &@$);
+        $$->expr->ndat->u.extern_decl.name = strdup_safe($IDENTIFIER);
     }
 
 %%
@@ -1208,7 +1208,7 @@ ast_node_type_str(enum ast_node_type type)
     case AST_NODE_TYPE_ARRAY_SLICE: return "slice";
     case AST_NODE_TYPE_BYTE_SLICE: return "byte slice";
     case AST_NODE_TYPE_CONDITIONAL: return "conditional";
-    case AST_NODE_TYPE_EXTERN_NAME: return "extern name";
+    case AST_NODE_TYPE_EXTERN_DECL: return "extern name";
     case AST_NODE_TYPE_EXTERN_FUNC:
     case AST_NODE_TYPE_REXPR_EXTERN_FUNC: return "extern func";
     case AST_NODE_TYPE_EXTERN_FILTER: return "extern filter";

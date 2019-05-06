@@ -4156,11 +4156,11 @@ fdump_ast_recur(const struct ast_node_hdl *node, int depth,
                             visible_refs, out);
         }
         break ;
-    case AST_NODE_TYPE_EXTERN_NAME:
+    case AST_NODE_TYPE_EXTERN_DECL:
         fprintf(out, "\n%*s\\_ %s: \"%s\"\n",
                 (depth + 1) * INDENT_N_SPACES, "",
                 ast_node_type_str(node->ndat->type),
-                node->ndat->u.extern_name.name);
+                node->ndat->u.extern_decl.name);
         break ;
     case AST_NODE_TYPE_EXTERN_FUNC:
         fprintf(out, "\n%*s\\_ %s\"\n",
@@ -4477,7 +4477,7 @@ dump_ast_type(const struct ast_node_hdl *node, int depth,
     case AST_NODE_TYPE_EXPR_SELF:
     case AST_NODE_TYPE_REXPR_NATIVE:
     case AST_NODE_TYPE_REXPR_SELF:
-    case AST_NODE_TYPE_EXTERN_NAME:
+    case AST_NODE_TYPE_EXTERN_DECL:
     case AST_NODE_TYPE_EXTERN_FUNC:
     case AST_NODE_TYPE_EXTERN_FILTER:
     case AST_NODE_TYPE_REXPR_EXTERN_FUNC:

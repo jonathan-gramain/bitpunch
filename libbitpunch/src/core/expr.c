@@ -1667,14 +1667,14 @@ expr_compile_named_expr_internal(
 
     named_expr = expr->ndat->u.rexpr_named_expr.named_expr;
     target = named_expr->expr;
-    if (AST_NODE_TYPE_EXTERN_NAME == target->ndat->type) {
+    if (AST_NODE_TYPE_EXTERN_DECL == target->ndat->type) {
         extern_item = bitpunch_board_get_external_item(
-            bst->board, target->ndat->u.extern_name.name);
+            bst->board, target->ndat->u.extern_decl.name);
         if (NULL == extern_item) {
             return node_error(
                 BITPUNCH_NOT_IMPLEMENTED, target, bst,
                 "extern name '%s' not bound to an external reference",
-                target->ndat->u.extern_name.name);
+                target->ndat->u.extern_decl.name);
         }
         target = extern_item;
     }
@@ -2374,7 +2374,7 @@ expr_evaluate_ancestor(
 }
 
 static bitpunch_status_t
-expr_evaluate_extern_name(
+expr_evaluate_extern_decl(
     struct ast_node_hdl *expr,
     enum expr_evaluate_flag flags,
     expr_value_t *valuep, expr_dpath_t *dpathp,
@@ -2383,7 +2383,7 @@ expr_evaluate_extern_name(
     struct ast_node_hdl *extern_item;
 
     extern_item = bitpunch_board_get_external_item(
-        bst->board, expr->ndat->u.extern_name.name);
+        bst->board, expr->ndat->u.extern_decl.name);
     if (NULL == extern_item) {
         return BITPUNCH_NO_ITEM;
     }
@@ -2513,8 +2513,8 @@ expr_evaluate_internal(
     case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
         bt_ret = expr_evaluate_ancestor(expr, flags, valuep, dpathp, bst);
         break ;
-    case AST_NODE_TYPE_EXTERN_NAME:
-        bt_ret = expr_evaluate_extern_name(expr, flags, valuep, dpathp, bst);
+    case AST_NODE_TYPE_EXTERN_DECL:
+        bt_ret = expr_evaluate_extern_decl(expr, flags, valuep, dpathp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_EXTERN_FUNC:
         bt_ret = expr_evaluate_extern_func(expr, flags, valuep, dpathp, bst);
@@ -2736,7 +2736,7 @@ expr_transform_dpath_filter(
 }
 
 static bitpunch_status_t
-expr_transform_dpath_extern_name(
+expr_transform_dpath_extern_decl(
     struct ast_node_hdl *expr,
     struct dpath_transform *transformp,
     struct browse_state *bst)
@@ -2744,11 +2744,11 @@ expr_transform_dpath_extern_name(
     struct ast_node_hdl *extern_item;
 
     extern_item = bitpunch_board_get_external_item(
-        bst->board, expr->ndat->u.extern_name.name);
+        bst->board, expr->ndat->u.extern_decl.name);
     if (NULL == extern_item) {
         return node_error(BITPUNCH_NOT_IMPLEMENTED, expr, bst,
                           "extern name '%s' not bound to an external reference",
-                          expr->ndat->u.extern_name.name);
+                          expr->ndat->u.extern_decl.name);
     }
     return expr_transform_dpath_internal(extern_item, NULL, transformp, bst);
 }
@@ -2780,8 +2780,8 @@ expr_transform_dpath_internal(
     case AST_NODE_TYPE_BYTE_ARRAY:
         bt_ret = expr_transform_dpath_filter(expr, transformp, bst);
         break ;
-    case AST_NODE_TYPE_EXTERN_NAME:
-        bt_ret = expr_transform_dpath_extern_name(expr, transformp, bst);
+    case AST_NODE_TYPE_EXTERN_DECL:
+        bt_ret = expr_transform_dpath_extern_decl(expr, transformp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_SELF:
     case AST_NODE_TYPE_REXPR_FIELD:
