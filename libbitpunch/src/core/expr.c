@@ -1669,12 +1669,12 @@ expr_compile_named_expr_internal(
     target = named_expr->expr;
     if (AST_NODE_TYPE_EXTERN_DECL == target->ndat->type) {
         extern_item = bitpunch_board_get_external_item(
-            bst->board, target->ndat->u.extern_decl.name);
+            bst->board, named_expr->nstmt.name);
         if (NULL == extern_item) {
             return node_error(
                 BITPUNCH_NOT_IMPLEMENTED, target, bst,
                 "extern name '%s' not bound to an external reference",
-                target->ndat->u.extern_decl.name);
+                named_expr->nstmt.name);
         }
         target = extern_item;
     }
@@ -2380,10 +2380,12 @@ expr_evaluate_extern_decl(
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
+    struct ast_node_hdl *filter_spec;
     struct ast_node_hdl *extern_item;
 
+    filter_spec = expr->ndat->u.extern_decl.filter_spec;
     extern_item = bitpunch_board_get_external_item(
-        bst->board, expr->ndat->u.extern_decl.name);
+        bst->board, filter_spec->ndat->u.filter_def.filter_type);
     if (NULL == extern_item) {
         return BITPUNCH_NO_ITEM;
     }
@@ -2741,14 +2743,16 @@ expr_transform_dpath_extern_decl(
     struct dpath_transform *transformp,
     struct browse_state *bst)
 {
+    struct ast_node_hdl *filter_spec;
     struct ast_node_hdl *extern_item;
 
+    filter_spec = expr->ndat->u.extern_decl.filter_spec;
     extern_item = bitpunch_board_get_external_item(
-        bst->board, expr->ndat->u.extern_decl.name);
+        bst->board, filter_spec->ndat->u.filter_def.filter_type);
     if (NULL == extern_item) {
         return node_error(BITPUNCH_NOT_IMPLEMENTED, expr, bst,
                           "extern name '%s' not bound to an external reference",
-                          expr->ndat->u.extern_decl.name);
+                          filter_spec->ndat->u.filter_def.filter_type);
     }
     return expr_transform_dpath_internal(extern_item, NULL, transformp, bst);
 }

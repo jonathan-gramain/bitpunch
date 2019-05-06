@@ -144,33 +144,49 @@ expr_value_type_from_spec(struct ast_node_hdl *spec)
     }
     semantic_error(SEMANTIC_LOGLEVEL_ERROR, &spec->loc,
                    "invalid attribute type '%.*s'",
-                   attr_value_type.string.len, attr_value_type.string.str);
+                   (int)attr_value_type.string.len, attr_value_type.string.str);
     return EXPR_VALUE_TYPE_UNSET;
 }
 
-int
-filter_class_construct_from_spec_internal(
-    struct filter_class *filter_cls,
-    struct ast_node_hdl *filter_spec,
-    filter_instance_build_func_t filter_instance_build_func,
-    filter_instance_compile_func_t filter_instance_compile_func)
+static struct filter_instance *
+filter_instance_build_extern(
+    struct ast_node_hdl *filter)
 {
-    int i;
+    // TODO
+    return NULL;
+}
+
+static int
+filter_instance_compile_extern(
+    struct ast_node_hdl *filter,
+    struct filter_instance *f_instance,
+    dep_resolver_tagset_t tags,
+    struct compile_ctx *ctx)
+{
+    // TODO
+    return 0;
+}
+
+int
+filter_class_construct_extern_internal(
+    struct filter_class *filter_cls,
+    struct ast_node_hdl *filter_spec)
+{
+    const struct block_stmt_list *stmt_lists;
     struct named_expr *attr;
     struct filter_attr_def *attr_def;
     enum expr_value_type value_type_mask;
     enum expr_value_type attr_value_type_mask;
 
-    assert(NULL != filter_instance_build_func);
-
     filter_cls->name = filter_spec->ndat->u.filter_def.filter_type;
-    filter_cls->filter_instance_build_func = filter_instance_build_func;
-    filter_cls->filter_instance_compile_func = filter_instance_compile_func;
+    filter_cls->filter_instance_build_func = filter_instance_build_extern;
+    filter_cls->filter_instance_compile_func = filter_instance_compile_extern;
     filter_cls->flags = 0u;
     filter_cls->n_attrs = 0;
 
     value_type_mask = EXPR_VALUE_TYPE_UNSET;
     STAILQ_INIT(&filter_cls->attr_list);
+    stmt_lists = &filter_spec->ndat->u.scope_def.block_stmt_list;
     STATEMENT_FOREACH(named_expr, attr, stmt_lists->attribute_list, list) {
         attr_value_type_mask = expr_value_type_from_spec(attr->expr);
         if (EXPR_VALUE_TYPE_UNSET == attr_value_type_mask) {
@@ -187,7 +203,7 @@ filter_class_construct_from_spec_internal(
         }
     }
     if (EXPR_VALUE_TYPE_UNSET == value_type_mask) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &spec->loc,
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter_spec->loc,
                        "missing attribute spec '@out'");
         return -1;
     }

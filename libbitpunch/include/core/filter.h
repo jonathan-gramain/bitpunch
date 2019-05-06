@@ -109,6 +109,11 @@ filter_class_construct_internal(
     va_list ap);
 
 int
+filter_class_construct_extern_internal(
+    struct filter_class *filter_cls,
+    struct ast_node_hdl *filter_spec);
+
+int
 filter_instance_build(struct ast_node_hdl *node,
                       const struct filter_class *filter_cls,
                       struct filter_def *filter_def);
