@@ -2712,7 +2712,7 @@ compile_extern_func(
     if (0 != (tags & COMPILE_TAG_NODE_TYPE)) {
         resolved_type = new_safe(struct ast_node_data);
         resolved_type->type = AST_NODE_TYPE_REXPR_EXTERN_FUNC;
-        resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_UNSET;
+        resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_ANY;
         resolved_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
         resolved_type->u.rexpr_extern_func.extern_func =
             extern_func->ndat->u.extern_func;
@@ -3413,6 +3413,8 @@ ast_node_is_rexpr(const struct ast_node_hdl *node)
     case AST_NODE_TYPE_ARRAY:
     case AST_NODE_TYPE_BYTE_ARRAY:
     case AST_NODE_TYPE_REXPR_FILTER:
+    case AST_NODE_TYPE_REXPR_EXTERN_DECL:
+    case AST_NODE_TYPE_REXPR_EXTERN_FUNC:
         return TRUE;
     default:
         return FALSE;

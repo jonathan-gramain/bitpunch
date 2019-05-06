@@ -1316,15 +1316,19 @@ extern_func_as_python_function(
         bitpunch_error_attach_user_arg(bst->last_error, saved_err);
         return bt_ret;
     }
-    ret = expr_value_from_PyObject(eval_result, TRUE, valuep);
-    Py_DECREF(eval_result);
-    if (0 != ret) {
-        // TODO log data type
-        return node_error(
-            BITPUNCH_INVALID_PARAM, NULL, bst,
-            "unsupported data type returned by external function");
+    if (NULL != valuep) {
+        ret = expr_value_from_PyObject(eval_result, TRUE, valuep);
+        Py_DECREF(eval_result);
+        if (0 != ret) {
+            // TODO log data type
+            return node_error(
+                BITPUNCH_INVALID_PARAM, NULL, bst,
+                "unsupported data type returned by external function");
+        }
     }
-    *dpathp = expr_dpath_none();
+    if (NULL != dpathp) {
+        *dpathp = expr_dpath_none();
+    }
     return BITPUNCH_OK;
 }
 

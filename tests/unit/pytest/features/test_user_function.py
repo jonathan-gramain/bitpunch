@@ -46,9 +46,6 @@ extern get_answer_to_universe {
     @out: 'integer';
 };
 
-// TODO: use operators on external function returned value, not working
-// now because of strict type matching for operators
-
 let the_answer = get_answer_to_universe;
 let twice_the_answer = get_answer_to_universe * 2;
 

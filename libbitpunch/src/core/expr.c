@@ -2383,7 +2383,7 @@ expr_evaluate_extern_decl(
     struct ast_node_hdl *filter_spec;
     struct ast_node_hdl *extern_item;
 
-    filter_spec = expr->ndat->u.extern_decl.filter_spec;
+    filter_spec = expr->ndat->u.rexpr_extern_decl.extern_decl.filter_spec;
     extern_item = bitpunch_board_get_external_item(
         bst->board, filter_spec->ndat->u.filter_def.filter_type);
     if (NULL == extern_item) {
@@ -2515,7 +2515,7 @@ expr_evaluate_internal(
     case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
         bt_ret = expr_evaluate_ancestor(expr, flags, valuep, dpathp, bst);
         break ;
-    case AST_NODE_TYPE_EXTERN_DECL:
+    case AST_NODE_TYPE_REXPR_EXTERN_DECL:
         bt_ret = expr_evaluate_extern_decl(expr, flags, valuep, dpathp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_EXTERN_FUNC:
