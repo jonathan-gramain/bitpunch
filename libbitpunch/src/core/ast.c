@@ -3037,6 +3037,50 @@ compile_rexpr_member(
 }
 
 static int
+compile_extern_decl(
+    struct ast_node_hdl *extern_decl,
+    dep_resolver_tagset_t tags,
+    struct compile_ctx *ctx,
+    enum resolve_expect_mask expect_mask)
+{
+    struct ast_node_hdl *filter_spec;
+    const struct block_stmt_list *stmt_lists;
+    struct filter_class *filter_cls;
+
+    filter_spec = extern_decl->ndat->u.extern_decl.filter_spec;
+    stmt_lists = &filter_spec->ndat->u.scope_def.block_stmt_list;
+    if (-1 == compile_attributes(stmt_lists->attribute_list, tags, 0u, ctx)) {
+        return -1;
+    }
+    if (0 != (COMPILE_TAG_NODE_TYPE & tags)) {
+        filter_cls = filter_class_new(user_arg);
+        if (NULL == filter_cls) {
+            return -1;
+        }
+        ret = filter_class_construct_from_decl_internal(
+            filter_cls, filter_spec);
+        if (-1 == ret) {
+            return -1;
+        }
+    }
+    return 0;
+    filter_type = filter->ndat->u.filter_def.filter_type;
+    filter_cls = builtin_filter_lookup(filter_type);
+    if (NULL == filter_cls) {
+        semantic_error(
+            SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
+            "no filter named '%s' exists",
+            filter_type);
+        return -1;
+    }
+    if (-1 == compile_filter_def_validate_attributes(filter, filter_cls, ctx)) {
+        return -1;
+    }
+    return filter_instance_build(filter, filter_cls,
+                                 &filter->ndat->u.filter_def);
+}
+
+static int
 compile_node_type_int(struct ast_node_hdl *node,
                       dep_resolver_tagset_t tags,
                       struct compile_ctx *ctx,

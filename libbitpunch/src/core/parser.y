@@ -305,7 +305,7 @@
                 struct ast_node_hdl *outer_cond;
             } conditional;
             struct extern_decl {
-                char *name;
+                struct ast_node_hdl *filter_spec;
             } extern_decl;
             struct extern_func {
                 extern_func_fn_t extern_func_fn;
@@ -1082,12 +1082,12 @@ let_stmt:
     }
 
 extern_stmt:
-    KW_EXTERN IDENTIFIER ';' {
+    KW_EXTERN filter_block ';' {
         $$ = new_safe(struct named_expr);
         $$->nstmt.stmt.loc = @$;
-        $$->nstmt.name = $IDENTIFIER;
+        $$->nstmt.name = strdup($filter_block->ndat->u.filter_def.filter_type);
         $$->expr = ast_node_hdl_create(AST_NODE_TYPE_EXTERN_DECL, &@$);
-        $$->expr->ndat->u.extern_decl.name = strdup_safe($IDENTIFIER);
+        $$->expr->ndat->u.extern_decl.filter_spec = $filter_block;
     }
 
 %%

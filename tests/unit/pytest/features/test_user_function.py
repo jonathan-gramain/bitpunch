@@ -42,7 +42,9 @@ def test_user_function_in_expr(params_user_function_in_expr):
 spec_file_user_function_extern = """
 
 // declare external function
-extern get_answer_to_universe;
+extern get_answer_to_universe {
+    @out: 'integer';
+};
 
 // TODO: use operators on external function returned value, not working
 // now because of strict type matching for operators

@@ -58,7 +58,10 @@ def test_user_filter_in_expr(params_user_filter_in_expr):
 spec_file_user_filter_extern = """
 
 // declare external filter
-extern godify;
+extern godify {
+    @in: 'bytes';
+    @out: 'bytes';
+};
 
 let GodifiedSentence = string { @boundary: '\\n'; } <> godify;
 

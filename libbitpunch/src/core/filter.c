@@ -118,6 +118,83 @@ filter_class_construct_internal(
     return 0;
 }
 
+static enum expr_value_type
+expr_value_type_from_spec(struct ast_node_hdl *spec)
+{
+    expr_value_t attr_value_type;
+
+    if (spec->ndat->type != AST_NODE_TYPE_REXPR_NATIVE
+        || spec->ndat->u.rexpr_native.value.type != EXPR_VALUE_TYPE_STRING) {
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &spec->loc,
+                       "attribute spec should be a native string type");
+        return EXPR_VALUE_TYPE_UNSET;
+    }
+    attr_value_type = spec->ndat->u.rexpr_native.value;
+    if (0 == expr_value_cmp_string(
+            attr_value_type, expr_value_as_string("bytes"))) {
+        return EXPR_VALUE_TYPE_BYTES;
+    }
+    if (0 == expr_value_cmp_string(
+            attr_value_type, expr_value_as_string("integer"))) {
+        return EXPR_VALUE_TYPE_INTEGER;
+    }
+    if (0 == expr_value_cmp_string(
+            attr_value_type, expr_value_as_string("string"))) {
+        return EXPR_VALUE_TYPE_STRING;
+    }
+    semantic_error(SEMANTIC_LOGLEVEL_ERROR, &spec->loc,
+                   "invalid attribute type '%.*s'",
+                   attr_value_type.string.len, attr_value_type.string.str);
+    return EXPR_VALUE_TYPE_UNSET;
+}
+
+int
+filter_class_construct_from_spec_internal(
+    struct filter_class *filter_cls,
+    struct ast_node_hdl *filter_spec,
+    filter_instance_build_func_t filter_instance_build_func,
+    filter_instance_compile_func_t filter_instance_compile_func)
+{
+    int i;
+    struct named_expr *attr;
+    struct filter_attr_def *attr_def;
+    enum expr_value_type value_type_mask;
+    enum expr_value_type attr_value_type_mask;
+
+    assert(NULL != filter_instance_build_func);
+
+    filter_cls->name = filter_spec->ndat->u.filter_def.filter_type;
+    filter_cls->filter_instance_build_func = filter_instance_build_func;
+    filter_cls->filter_instance_compile_func = filter_instance_compile_func;
+    filter_cls->flags = 0u;
+    filter_cls->n_attrs = 0;
+
+    value_type_mask = EXPR_VALUE_TYPE_UNSET;
+    STAILQ_INIT(&filter_cls->attr_list);
+    STATEMENT_FOREACH(named_expr, attr, stmt_lists->attribute_list, list) {
+        attr_value_type_mask = expr_value_type_from_spec(attr->expr);
+        if (EXPR_VALUE_TYPE_UNSET == attr_value_type_mask) {
+            return -1;
+        }
+        if (0 == strcmp(attr->nstmt.name, "@out")) {
+            value_type_mask = attr_value_type_mask;
+        } else {
+            attr_def = filter_attr_def_new();
+            attr_def->name = attr->nstmt.name;
+            attr_def->value_type_mask = attr_value_type_mask;
+            attr_def->flags = 0u;
+            STAILQ_INSERT_TAIL(&filter_cls->attr_list, attr_def, list);
+        }
+    }
+    if (EXPR_VALUE_TYPE_UNSET == value_type_mask) {
+        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &spec->loc,
+                       "missing attribute spec '@out'");
+        return -1;
+    }
+    filter_cls->value_type_mask = value_type_mask;
+    return 0;
+}
+
 int
 builtin_filter_declare(
     const char *name,
