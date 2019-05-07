@@ -412,7 +412,7 @@
             } rexpr_op_fcall;
             struct rexpr_extern_decl {
                 struct rexpr rexpr; /* inherits */
-                struct extern_decl extern_decl;
+                struct filter_class *filter_cls;
             } rexpr_extern_decl;
             struct rexpr_extern_func {
                 struct rexpr rexpr; /* inherits */

@@ -2380,12 +2380,12 @@ expr_evaluate_extern_decl(
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
-    struct ast_node_hdl *filter_spec;
+    struct filter_class *filter_cls;
     struct ast_node_hdl *extern_item;
 
-    filter_spec = expr->ndat->u.rexpr_extern_decl.extern_decl.filter_spec;
+    filter_cls = expr->ndat->u.rexpr_extern_decl.filter_cls;
     extern_item = bitpunch_board_get_external_item(
-        bst->board, filter_spec->ndat->u.filter_def.filter_type);
+        bst->board, filter_cls->name);
     if (NULL == extern_item) {
         return BITPUNCH_NO_ITEM;
     }

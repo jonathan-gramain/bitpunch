@@ -3080,6 +3080,7 @@ compile_extern_decl(
     const struct block_stmt_list *stmt_lists;
     struct filter_class *filter_cls;
     int ret;
+    struct ast_node_data *resolved_type;
 
     filter_spec = extern_decl->ndat->u.extern_decl.filter_spec;
     stmt_lists = &filter_spec->ndat->u.scope_def.block_stmt_list;
@@ -3096,11 +3097,21 @@ compile_extern_decl(
         if (-1 == ret) {
             return -1;
         }
-        if (-1 == filter_instance_build(
-                extern_decl, filter_cls,
-                filter_def_create_empty("extern"))) {
-            return -1;
+        // TODO merge this code with filter_instance_build()
+        resolved_type = new_safe(struct ast_node_data);
+        resolved_type->type = AST_NODE_TYPE_REXPR_EXTERN_DECL;
+        resolved_type->u.rexpr.value_type_mask = filter_cls->value_type_mask;
+        resolved_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
+        if (0 != (filter_cls->value_type_mask & (EXPR_VALUE_TYPE_INTEGER |
+                                                 EXPR_VALUE_TYPE_BOOLEAN))) {
+            resolved_type->u.rexpr.dpath_type_mask |= EXPR_DPATH_TYPE_NONE;
         }
+        if (0 != (filter_cls->value_type_mask & (EXPR_VALUE_TYPE_BYTES |
+                                                 EXPR_VALUE_TYPE_STRING))) {
+            resolved_type->u.rexpr.dpath_type_mask |= EXPR_DPATH_TYPE_CONTAINER;
+        }
+        resolved_type->u.rexpr_extern_decl.filter_cls = filter_cls;
+        extern_decl->ndat = resolved_type;
     }
     return 0;
 }
@@ -4241,8 +4252,6 @@ fdump_ast_recur(const struct ast_node_hdl *node, int depth,
         fprintf(out, "\n%*s\\_ %s\n",
                 (depth + 1) * INDENT_N_SPACES, "",
                 ast_node_type_str(node->ndat->type));
-        fdump_ast_recur(node->ndat->u.rexpr_extern_decl.extern_decl.filter_spec,
-                        depth + 2, visible_refs, out);
         break ;
     case AST_NODE_TYPE_EXTERN_FUNC:
     case AST_NODE_TYPE_REXPR_EXTERN_FUNC:

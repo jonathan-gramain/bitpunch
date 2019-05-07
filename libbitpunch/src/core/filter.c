@@ -152,8 +152,7 @@ static struct filter_instance *
 filter_instance_build_extern(
     struct ast_node_hdl *filter)
 {
-    // TODO
-    return NULL;
+    return new_safe(struct filter_instance);
 }
 
 static int
