@@ -298,6 +298,7 @@
             struct filter_def {
                 struct scope_def scope_def; /* inherits */
                 const char *filter_type;
+                struct filter_class *filter_cls; /* set after resolve */
             } filter_def;
             struct conditional {
                 struct ast_node_hdl *cond_expr;

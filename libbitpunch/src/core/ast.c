@@ -590,15 +590,18 @@ resolve_identifiers_identifier_as_builtin_filter(
     struct ast_node_hdl *node,
     const struct list_of_visible_refs *visible_refs)
 {
-    const struct filter_class *filter_cls;
+    struct filter_class *filter_cls;
+    struct ast_node_data *resolved_type;
 
     filter_cls = builtin_filter_lookup(node->ndat->u.identifier);
     if (NULL != filter_cls) {
-        if (-1 == filter_instance_build(
-                node, filter_cls,
-                filter_def_create_empty(node->ndat->u.identifier))) {
-            return -1;
-        }
+        resolved_type = new_safe(struct ast_node_data);
+        resolved_type->type = AST_NODE_TYPE_FILTER_DEF;
+        resolved_type->u.filter_def.filter_type = node->ndat->u.identifier;
+        init_block_stmt_list(
+            &resolved_type->u.filter_def.scope_def.block_stmt_list);
+        resolved_type->u.filter_def.filter_cls = filter_cls;
+        node->ndat = resolved_type;
         return 0;
     }
     return -1;
@@ -736,6 +739,32 @@ resolve_identifiers_scope_def(struct ast_node_hdl *scope_def,
 
     return resolve_identifiers_in_stmt_lists(stmt_lists, &inner_refs,
                                              resolve_tags);
+}
+
+static int
+resolve_identifiers_filter_def(struct ast_node_hdl *filter_def,
+                               const struct list_of_visible_refs *visible_refs,
+                               enum resolve_expect_mask expect_mask,
+                               enum resolve_identifiers_tag resolve_tags)
+{
+    const char *filter_type;
+    struct filter_class *filter_cls;
+
+    if (-1 == resolve_identifiers_scope_def(
+            filter_def, visible_refs, expect_mask, resolve_tags)) {
+        return -1;
+    }
+    filter_type = filter_def->ndat->u.filter_def.filter_type;
+    filter_cls = builtin_filter_lookup(filter_type);
+    if (NULL == filter_cls) {
+        semantic_error(
+            SEMANTIC_LOGLEVEL_ERROR, &filter_def->loc,
+            "no filter named '%s' exists",
+            filter_type);
+        return -1;
+    }
+    filter_def->ndat->u.filter_def.filter_cls = filter_cls;
+    return 0;
 }
 
 static int
@@ -1009,9 +1038,11 @@ resolve_identifiers_internal(struct ast_node_hdl *node,
         return resolve_identifiers_identifier(node, visible_refs,
                                               expect_mask, resolve_tags);
     case AST_NODE_TYPE_SCOPE_DEF:
-    case AST_NODE_TYPE_FILTER_DEF:
         return resolve_identifiers_scope_def(node, visible_refs,
                                              expect_mask, resolve_tags);
+    case AST_NODE_TYPE_FILTER_DEF:
+        return resolve_identifiers_filter_def(node, visible_refs,
+                                              expect_mask, resolve_tags);
     case AST_NODE_TYPE_CONDITIONAL:
         return resolve_identifiers_conditional(node, visible_refs,
                                                expect_mask, resolve_tags);
@@ -1779,19 +1810,9 @@ compile_filter_def(
     struct compile_ctx *ctx,
     enum resolve_expect_mask expect_mask)
 {
-    const char *filter_type;
     struct filter_class *filter_cls;
 
-    // FIXME need to lookup external filter here
-    filter_type = filter->ndat->u.filter_def.filter_type;
-    filter_cls = builtin_filter_lookup(filter_type);
-    if (NULL == filter_cls) {
-        semantic_error(
-            SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
-            "no filter named '%s' exists",
-            filter_type);
-        return -1;
-    }
+    filter_cls = filter->ndat->u.filter_def.filter_cls;
     if (-1 == compile_filter_def_validate_attributes(filter, filter_cls, ctx)) {
         return -1;
     }
