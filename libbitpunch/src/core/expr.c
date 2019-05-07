@@ -1667,7 +1667,7 @@ expr_compile_named_expr_internal(
 
     named_expr = expr->ndat->u.rexpr_named_expr.named_expr;
     target = named_expr->expr;
-    if (AST_NODE_TYPE_EXTERN_DECL == target->ndat->type) {
+    if (AST_NODE_TYPE_REXPR_EXTERN_DECL == target->ndat->type) {
         extern_item = bitpunch_board_get_external_item(
             bst->board, named_expr->nstmt.name);
         if (NULL == extern_item) {
