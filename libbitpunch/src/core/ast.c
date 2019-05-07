@@ -748,6 +748,10 @@ resolve_identifiers_filter_def(struct ast_node_hdl *filter_def,
                                enum resolve_identifiers_tag resolve_tags)
 {
     const char *filter_type;
+    struct named_statement_spec *visible_statements;
+    int n_visible_statements;
+    struct named_statement_spec *stmt_spec;
+    struct ast_node_hdl *ref_filter;
     struct filter_class *filter_cls;
 
     if (-1 == resolve_identifiers_scope_def(
@@ -755,13 +759,43 @@ resolve_identifiers_filter_def(struct ast_node_hdl *filter_def,
         return -1;
     }
     filter_type = filter_def->ndat->u.filter_def.filter_type;
-    filter_cls = builtin_filter_lookup(filter_type);
-    if (NULL == filter_cls) {
+    n_visible_statements = lookup_all_visible_statements(
+        STATEMENT_TYPE_NAMED_EXPR, filter_type, visible_refs,
+        &visible_statements);
+    if (-1 == n_visible_statements) {
+        return -1;
+    }
+    if (n_visible_statements > 1) {
         semantic_error(
             SEMANTIC_LOGLEVEL_ERROR, &filter_def->loc,
-            "no filter named '%s' exists",
-            filter_type);
+            "filter name \"%s\" must refer to only one named expression "
+            "(%d found in scope)",
+            filter_type, n_visible_statements);
+        free(visible_statements);
         return -1;
+    }
+    if (n_visible_statements == 1) {
+        stmt_spec = &visible_statements[0];
+        ref_filter = ((struct named_expr *)stmt_spec->nstmt)->expr;
+        if (AST_NODE_TYPE_EXTERN_DECL != ref_filter->ndat->type) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &filter_def->loc,
+                "filter \"%s\" references a named expression that is not "
+                "an external filter",
+                filter_type);
+            free(visible_statements);
+            return -1;
+        }
+        filter_cls = ref_filter->ndat->u.extern_decl.filter_cls;
+    } else {
+        filter_cls = builtin_filter_lookup(filter_type);
+        if (NULL == filter_cls) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &filter_def->loc,
+                "no filter named '%s' exists",
+                filter_type);
+            return -1;
+        }
     }
     filter_def->ndat->u.filter_def.filter_cls = filter_cls;
     return 0;
@@ -3046,7 +3080,6 @@ compile_extern_decl(
     const struct block_stmt_list *stmt_lists;
     struct filter_class *filter_cls;
     int ret;
-    struct ast_node_data *resolved_type;
 
     filter_spec = extern_decl->ndat->u.extern_decl.filter_spec;
     stmt_lists = &filter_spec->ndat->u.scope_def.block_stmt_list;
@@ -3059,19 +3092,11 @@ compile_extern_decl(
         if (NULL == filter_cls) {
             return -1;
         }
-        ret = filter_class_construct_extern_internal(
-            filter_cls, filter_spec);
+        ret = filter_class_construct_extern_internal(filter_cls, filter_spec);
         if (-1 == ret) {
             return -1;
         }
-        resolved_type = new_safe(struct ast_node_data);
-        resolved_type->type = AST_NODE_TYPE_REXPR_EXTERN_DECL;
-        resolved_type->u.rexpr.value_type_mask =
-            filter_cls->value_type_mask;
-        resolved_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
-        resolved_type->u.rexpr_extern_decl.extern_decl =
-            extern_decl->ndat->u.extern_decl;
-        extern_decl->ndat = resolved_type;
+        extern_decl->ndat->u.extern_decl.filter_cls = filter_cls;
     }
     return 0;
 }

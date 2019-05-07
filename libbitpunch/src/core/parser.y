@@ -307,6 +307,7 @@
             } conditional;
             struct extern_decl {
                 struct ast_node_hdl *filter_spec;
+                struct filter_class *filter_cls; /* set after resolve */
             } extern_decl;
             struct extern_func {
                 extern_func_fn_t extern_func_fn;
