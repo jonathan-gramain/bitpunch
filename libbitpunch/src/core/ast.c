@@ -3096,7 +3096,11 @@ compile_extern_decl(
         if (-1 == ret) {
             return -1;
         }
-        extern_decl->ndat->u.extern_decl.filter_cls = filter_cls;
+        if (-1 == filter_instance_build(
+                extern_decl, filter_cls,
+                filter_def_create_empty("extern"))) {
+            return -1;
+        }
     }
     return 0;
 }
