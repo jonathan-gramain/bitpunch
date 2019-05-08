@@ -35,13 +35,15 @@
 static inline struct scope_def *
 filter_get_scope_def(struct ast_node_hdl *filter)
 {
-  return (struct scope_def *)filter->ndat->u.rexpr_filter.filter_def;
+    assert(ast_node_is_filter(filter));
+    return (struct scope_def *)filter->ndat->u.rexpr_filter.filter_def;
 }
 
 static inline const struct scope_def *
 filter_get_const_scope_def(const struct ast_node_hdl *filter)
 {
-  return (const struct scope_def *)filter->ndat->u.rexpr_filter.filter_def;
+    assert(ast_node_is_filter(filter));
+    return (const struct scope_def *)filter->ndat->u.rexpr_filter.filter_def;
 }
 
 static inline struct statement_iterator
@@ -50,7 +52,7 @@ filter_iter_statements(
     enum statement_type stmt_mask, const char *identifier)
 {
   return scope_iter_statements(
-      filter_get_scope_def(filter), scope, stmt_mask, identifier);
+      ast_node_get_scope_def(filter), scope, stmt_mask, identifier);
 }
 
 static inline struct statement_iterator
@@ -59,7 +61,7 @@ filter_iter_statements_from(
     const struct statement *stmt, const char *identifier)
 {
   return scope_iter_statements_from(
-      filter_get_scope_def(filter), scope, stmt, identifier);
+      ast_node_get_scope_def(filter), scope, stmt, identifier);
 }
 
 static inline struct statement_iterator
@@ -68,7 +70,7 @@ filter_riter_statements(
     enum statement_type stmt_mask, const char *identifier)
 {
   return scope_riter_statements(
-      filter_get_scope_def(filter), scope, stmt_mask, identifier);
+      ast_node_get_scope_def(filter), scope, stmt_mask, identifier);
 }
 
 static inline struct statement_iterator
@@ -77,7 +79,7 @@ filter_riter_statements_from(
     const struct statement *stmt, const char *identifier)
 {
   return scope_riter_statements_from(
-      filter_get_scope_def(filter), scope, stmt, identifier);
+      ast_node_get_scope_def(filter), scope, stmt, identifier);
 }
 
 static inline bitpunch_status_t
@@ -89,7 +91,7 @@ filter_lookup_statement_internal(
     struct browse_state *bst)
 {
   return scope_lookup_statement_internal(
-      filter_get_scope_def(filter), scope, stmt_mask, identifier,
+      ast_node_get_scope_def(filter), scope, stmt_mask, identifier,
       stmt_typep, stmtp, scopep, bst);
 }
 
@@ -101,7 +103,7 @@ filter_get_n_statements_internal(
     struct browse_state *bst)
 {
   return scope_get_n_statements_internal(
-      filter_get_scope_def(filter), scope, stmt_mask, identifier,
+      ast_node_get_scope_def(filter), scope, stmt_mask, identifier,
       stmt_countp, bst);
 }
 
@@ -116,7 +118,7 @@ filter_evaluate_identifier_internal(
     struct browse_state *bst)
 {
   return scope_evaluate_identifier_internal(
-      filter_get_scope_def(filter), scope, stmt_mask, identifier, flags,
+      ast_node_get_scope_def(filter), scope, stmt_mask, identifier, flags,
       stmt_typep, stmtp, scopep, valuep, dpathp, bst);
 }
 
@@ -130,7 +132,7 @@ filter_evaluate_attribute_internal(
     struct browse_state *bst)
 {
   return scope_evaluate_attribute_internal(
-      filter_get_scope_def(filter), scope, attr_name, flags,
+      ast_node_get_scope_def(filter), scope, attr_name, flags,
       attrp, valuep, dpathp, bst);
 }
 
@@ -143,7 +145,7 @@ filter_evaluate_identifier(
     struct bitpunch_error **errp)
 {
   return scope_evaluate_identifier(
-      filter_get_scope_def(filter), scope, stmt_mask, identifier, flags,
+      ast_node_get_scope_def(filter), scope, stmt_mask, identifier, flags,
       valuep, dpathp, errp);
 }
 
@@ -153,7 +155,7 @@ filter_attach_native_attribute(
     const char *attr_name, expr_value_t value)
 {
   return scope_attach_native_attribute(
-      filter_get_scope_def(filter), attr_name, value);
+      ast_node_get_scope_def(filter), attr_name, value);
 }
 
 static inline struct ast_node_hdl *
@@ -162,7 +164,7 @@ filter_get_first_declared_named_expr(
     const char *name)
 {
   return scope_get_first_declared_named_expr(
-      filter_get_const_scope_def(filter), name);
+      ast_node_get_const_scope_def(filter), name);
 }
 
 static inline struct ast_node_hdl *
@@ -171,5 +173,5 @@ filter_get_first_declared_attribute(
     const char *attr_name)
 {
   return scope_get_first_declared_attribute(
-      filter_get_const_scope_def(filter), attr_name);
+      ast_node_get_const_scope_def(filter), attr_name);
 }

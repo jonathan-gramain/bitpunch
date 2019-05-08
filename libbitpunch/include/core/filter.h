@@ -33,6 +33,7 @@
 #define __FILTER_H__
 
 #include <stddef.h>
+#include <assert.h>
 
 #include "utils/queue.h"
 #include "core/parser.h"

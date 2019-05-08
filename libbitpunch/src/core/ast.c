@@ -463,24 +463,24 @@ identifier_is_visible_in_block_stmt_lists(
 }
 
 int
-filter_exists_in_scoped_filter(
-    struct ast_node_hdl *scoped_filter,
+filter_exists_in_scope(
+    struct ast_node_hdl *scope_node,
     struct ast_node_hdl *lookup_filter)
 {
-    struct filter_def *filter_def;
+    struct scope_def *scope_def;
 
-    if (scoped_filter->ndat == lookup_filter->ndat) {
+    if (scope_node->ndat == lookup_filter->ndat) {
         return TRUE;
     }
-    filter_def = scoped_filter->ndat->u.rexpr_filter.filter_def;
-    if (NULL == filter_def) {
+    scope_def = ast_node_get_scope_def(scope_node);
+    if (NULL == scope_def) {
         return FALSE;
     }
     // -1 means that there was more names to lookup than the maximum
     // requested (0), so at least one.
     return -1 == lookup_visible_statements_in_lists_internal(
         STATEMENT_TYPE_FIELD,
-        NULL, lookup_filter, &filter_def->scope_def.block_stmt_list, FALSE,
+        NULL, lookup_filter, &scope_def->block_stmt_list, FALSE,
         NULL, NULL);
 }
 

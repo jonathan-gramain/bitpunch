@@ -96,8 +96,8 @@ identifier_is_visible_in_block_stmt_lists(
     const struct block_stmt_list *stmt_lists);
 
 int
-filter_exists_in_scoped_filter(
-    struct ast_node_hdl *scoped_filter,
+filter_exists_in_scope(
+    struct ast_node_hdl *scope_node,
     struct ast_node_hdl *lookup_filter);
 
 int
