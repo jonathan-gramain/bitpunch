@@ -3080,7 +3080,6 @@ compile_extern_decl(
     const struct block_stmt_list *stmt_lists;
     struct filter_class *filter_cls;
     int ret;
-    struct ast_node_data *resolved_type;
 
     filter_spec = extern_decl->ndat->u.extern_decl.filter_spec;
     stmt_lists = &filter_spec->ndat->u.scope_def.block_stmt_list;
@@ -3097,21 +3096,7 @@ compile_extern_decl(
         if (-1 == ret) {
             return -1;
         }
-        // TODO merge this code with filter_instance_build()
-        resolved_type = new_safe(struct ast_node_data);
-        resolved_type->type = AST_NODE_TYPE_REXPR_EXTERN_DECL;
-        resolved_type->u.rexpr.value_type_mask = filter_cls->value_type_mask;
-        resolved_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
-        if (0 != (filter_cls->value_type_mask & (EXPR_VALUE_TYPE_INTEGER |
-                                                 EXPR_VALUE_TYPE_BOOLEAN))) {
-            resolved_type->u.rexpr.dpath_type_mask |= EXPR_DPATH_TYPE_NONE;
-        }
-        if (0 != (filter_cls->value_type_mask & (EXPR_VALUE_TYPE_BYTES |
-                                                 EXPR_VALUE_TYPE_STRING))) {
-            resolved_type->u.rexpr.dpath_type_mask |= EXPR_DPATH_TYPE_CONTAINER;
-        }
-        resolved_type->u.rexpr_extern_decl.filter_cls = filter_cls;
-        extern_decl->ndat = resolved_type;
+        extern_decl->ndat->u.extern_decl.filter_cls = filter_cls;
     }
     return 0;
 }

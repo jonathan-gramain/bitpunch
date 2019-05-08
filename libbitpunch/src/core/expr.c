@@ -2323,26 +2323,6 @@ expr_evaluate_ancestor(
 }
 
 static bitpunch_status_t
-expr_evaluate_extern_decl(
-    struct ast_node_hdl *expr,
-    enum expr_evaluate_flag flags,
-    expr_value_t *valuep, expr_dpath_t *dpathp,
-    struct browse_state *bst)
-{
-    struct filter_class *filter_cls;
-    struct ast_node_hdl *extern_item;
-
-    filter_cls = expr->ndat->u.rexpr_extern_decl.filter_cls;
-    extern_item = bitpunch_board_get_external_item(
-        bst->board, filter_cls->name);
-    if (NULL == extern_item) {
-        return BITPUNCH_NO_ITEM;
-    }
-    return expr_evaluate_internal(extern_item, NULL, flags,
-                                  valuep, dpathp, bst);
-}
-
-static bitpunch_status_t
 expr_evaluate_extern_func(
     struct ast_node_hdl *expr,
     enum expr_evaluate_flag flags,
@@ -2463,9 +2443,6 @@ expr_evaluate_internal(
         break ;
     case AST_NODE_TYPE_REXPR_OP_ANCESTOR:
         bt_ret = expr_evaluate_ancestor(expr, flags, valuep, dpathp, bst);
-        break ;
-    case AST_NODE_TYPE_REXPR_EXTERN_DECL:
-        bt_ret = expr_evaluate_extern_decl(expr, flags, valuep, dpathp, bst);
         break ;
     case AST_NODE_TYPE_REXPR_EXTERN_FUNC:
         bt_ret = expr_evaluate_extern_func(expr, flags, valuep, dpathp, bst);
