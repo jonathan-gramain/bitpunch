@@ -319,6 +319,9 @@
             struct extern_decl {
                 struct ast_node_hdl *filter_spec;
                 struct filter_class *filter_cls; /* set after resolve */
+                /** list of instances bound to this external filter */
+                SLIST_HEAD(filter_instance_list,
+                           filter_instance_extern) instance_list;
             } extern_decl;
             struct extern_func {
                 extern_func_fn_t extern_func_fn;
@@ -1103,6 +1106,7 @@ extern_stmt:
         $$->nstmt.name = strdup($filter_block->ndat->u.filter_def.filter_type);
         $$->expr = ast_node_hdl_create(AST_NODE_TYPE_EXTERN_DECL, &@$);
         $$->expr->ndat->u.extern_decl.filter_spec = $filter_block;
+        SLIST_INIT(&$$->expr->ndat->u.extern_decl.instance_list);
     }
 
 %%

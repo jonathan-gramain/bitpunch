@@ -52,6 +52,8 @@ int                 builtin_filter_class_count = 0;
 
 struct filter_instance_extern {
     struct filter_instance f_instance; /* inherits */
+    /** inclusive list of all instances bound to the same external filter */
+    SLIST_ENTRY(filter_instance_extern) instance_list_entry;
 };
 
 static struct filter_class *
@@ -152,57 +154,41 @@ expr_value_type_from_spec(struct ast_node_hdl *spec)
     return EXPR_VALUE_TYPE_UNSET;
 }
 
-static bitpunch_status_t read_value_from_buffer__extern(
-    struct ast_node_hdl *filter,
-    struct box *scope,
-    const char *buffer, size_t buffer_size,
-    expr_value_t *valuep,
-    struct browse_state *bst)
-{
-    *valuep = expr_value_as_integer(4200);
-    return BITPUNCH_OK;
-}
-
 static struct filter_instance *
 filter_instance_build_extern(
     struct ast_node_hdl *filter)
 {
+    const struct filter_class *filter_cls;
+    struct ast_node_hdl *extern_decl;
     struct filter_instance_extern *f_extern;
-    struct filter_instance *f_instance;
+
+    filter_cls = filter->ndat->u.rexpr_filter.filter_cls;
+    extern_decl = (struct ast_node_hdl *)filter_cls->user_arg;
 
     f_extern = new_safe(struct filter_instance_extern);
-    f_instance = &f_extern->f_instance;
-    f_instance->b_item.read_value_from_buffer =
-        read_value_from_buffer__extern;
-    return f_instance;
-}
-
-static int
-filter_instance_compile_extern(
-    struct ast_node_hdl *filter,
-    struct filter_instance *f_instance,
-    dep_resolver_tagset_t tags,
-    struct compile_ctx *ctx)
-{
-    return 0;
+    SLIST_INSERT_HEAD(&extern_decl->ndat->u.extern_decl.instance_list,
+                      f_extern, instance_list_entry);
+    return &f_extern->f_instance;
 }
 
 int
 filter_class_construct_extern_internal(
     struct filter_class *filter_cls,
-    struct ast_node_hdl *filter_spec)
+    struct ast_node_hdl *extern_decl)
 {
+    struct ast_node_hdl *filter_spec;
     const struct block_stmt_list *stmt_lists;
     struct named_expr *attr;
     struct filter_attr_def *attr_def;
     enum expr_value_type value_type_mask;
     enum expr_value_type attr_value_type_mask;
 
+    filter_spec = extern_decl->ndat->u.extern_decl.filter_spec;
     filter_cls->name = filter_spec->ndat->u.filter_def.filter_type;
     filter_cls->filter_instance_build_func = filter_instance_build_extern;
-    filter_cls->filter_instance_compile_func = filter_instance_compile_extern;
     filter_cls->flags = 0u;
     filter_cls->n_attrs = 0;
+    filter_cls->user_arg = (void *)extern_decl;
 
     value_type_mask = EXPR_VALUE_TYPE_UNSET;
     STAILQ_INIT(&filter_cls->attr_list);

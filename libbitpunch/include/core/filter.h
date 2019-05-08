@@ -111,7 +111,7 @@ filter_class_construct_internal(
 int
 filter_class_construct_extern_internal(
     struct filter_class *filter_cls,
-    struct ast_node_hdl *filter_spec);
+    struct ast_node_hdl *extern_decl);
 
 int
 filter_instance_build(struct ast_node_hdl *node,

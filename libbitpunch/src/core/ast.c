@@ -3100,7 +3100,7 @@ compile_extern_decl(
         if (NULL == filter_cls) {
             return -1;
         }
-        ret = filter_class_construct_extern_internal(filter_cls, filter_spec);
+        ret = filter_class_construct_extern_internal(filter_cls, extern_decl);
         if (-1 == ret) {
             return -1;
         }
