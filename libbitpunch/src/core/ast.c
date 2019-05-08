@@ -2783,8 +2783,8 @@ compile_rexpr_named_expr(
         return -1;
     }
     switch (target->ndat->type) {
-    case AST_NODE_TYPE_EXTERN_FILTER:
-        filter_cls = target->ndat->u.extern_filter.filter_cls;
+    case AST_NODE_TYPE_EXTERN_DECL:
+        filter_cls = target->ndat->u.extern_decl.filter_cls;
         if (-1 == filter_instance_build(
                 expr, filter_cls,
                 filter_def_create_empty(named_expr->nstmt.name))) {
@@ -2834,6 +2834,14 @@ compile_rexpr_polymorphic_type(
             break ;
         default:
             assert(0);
+        }
+        if (AST_NODE_TYPE_EXTERN_DECL == target_expr->ndat->type) {
+            semantic_error(
+                SEMANTIC_LOGLEVEL_ERROR, &expr->loc,
+                "polymorphic identifier '%s' is not allowed to reference "
+                "external filters",
+                expr->ndat->u.rexpr_polymorphic.identifier);
+            return -1;
         }
         assert(ast_node_is_rexpr(target_expr));
         // possible value and dpath types add up for each polymorphic target
