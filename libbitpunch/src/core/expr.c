@@ -1655,50 +1655,6 @@ expr_evaluate_dpath_anchor_common(struct ast_node_hdl *expr,
 }
 
 static bitpunch_status_t
-expr_compile_named_expr_internal(
-    struct ast_node_hdl *expr,
-    struct browse_state *bst)
-{
-    const struct named_expr *named_expr;
-    struct ast_node_hdl *target;
-    struct ast_node_hdl *extern_item;
-    int ret;
-    struct filter_class *filter_cls;
-
-    named_expr = expr->ndat->u.rexpr_named_expr.named_expr;
-    target = named_expr->expr;
-    if (AST_NODE_TYPE_REXPR_EXTERN_DECL == target->ndat->type) {
-        extern_item = bitpunch_board_get_external_item(
-            bst->board, named_expr->nstmt.name);
-        if (NULL == extern_item) {
-            return node_error(
-                BITPUNCH_NOT_IMPLEMENTED, target, bst,
-                "extern name '%s' not bound to an external reference",
-                named_expr->nstmt.name);
-        }
-        target = extern_item;
-    }
-    if (AST_NODE_TYPE_EXTERN_FILTER == target->ndat->type) {
-        filter_cls = target->ndat->u.extern_filter.filter_cls;
-        ret = filter_instance_build(
-            expr, filter_cls, filter_def_create_empty(named_expr->nstmt.name));
-        if (-1 == ret) {
-            return node_error(
-                BITPUNCH_ERROR, expr, bst,
-                "error during external filter build");
-        }
-        ret = compile_rexpr_filter(expr, (COMPILE_TAG_NODE_SPAN_SIZE |
-                                          COMPILE_TAG_BROWSE_BACKENDS), NULL);
-        if (-1 == ret) {
-            return node_error(
-                BITPUNCH_ERROR, expr, bst,
-                "error during external filter compile");
-        }
-    }
-    return BITPUNCH_OK;
-}
-
-static bitpunch_status_t
 expr_evaluate_named_expr_internal(
     struct ast_node_hdl *expr,
     const struct named_expr **named_exprp,
@@ -2059,15 +2015,8 @@ expr_evaluate_named_expr(
     struct box *member_scope;
     const struct named_expr *named_expr;
 
-    bt_ret = expr_compile_named_expr_internal(expr, bst);
-    if (BITPUNCH_OK == bt_ret) {
-        if (AST_NODE_TYPE_REXPR_NAMED_EXPR != expr->ndat->type) {
-            return expr_evaluate_internal(
-                expr, NULL, flags, valuep, dpathp, bst);
-        }
-        bt_ret = expr_evaluate_named_expr_internal(
-            expr, &named_expr, &member_scope, bst);
-    }
+    bt_ret = expr_evaluate_named_expr_internal(
+        expr, &named_expr, &member_scope, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -2588,14 +2537,8 @@ expr_transform_dpath_named_expr(
     struct box *member_scope;
     const struct named_expr *named_expr;
 
-    bt_ret = expr_compile_named_expr_internal(expr, bst);
-    if (BITPUNCH_OK == bt_ret) {
-        if (AST_NODE_TYPE_REXPR_NAMED_EXPR != expr->ndat->type) {
-            return expr_transform_dpath_internal(expr, NULL, transformp, bst);
-        }
-        bt_ret = expr_evaluate_named_expr_internal(
-            expr, &named_expr, &member_scope, bst);
-    }
+    bt_ret = expr_evaluate_named_expr_internal(
+        expr, &named_expr, &member_scope, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
@@ -2814,15 +2757,8 @@ expr_evaluate_filter_type_named_expr(
     struct box *member_scope;
     const struct named_expr *named_expr;
 
-    bt_ret = expr_compile_named_expr_internal(filter, bst);
-    if (BITPUNCH_OK == bt_ret) {
-        if (AST_NODE_TYPE_REXPR_NAMED_EXPR != filter->ndat->type) {
-            return expr_evaluate_filter_type_internal(
-                filter, NULL, kind, filter_typep, bst);
-        }
-        bt_ret = expr_evaluate_named_expr_internal(
-            filter, &named_expr, &member_scope, bst);
-    }
+    bt_ret = expr_evaluate_named_expr_internal(
+        filter, &named_expr, &member_scope, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
