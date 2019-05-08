@@ -50,17 +50,6 @@ enum filter_class_flag {
     FILTER_CLASS_MAPS_OBJECT = (1u<<1),
 };
 
-typedef struct filter_instance *
-(*filter_instance_build_func_t)(
-    struct ast_node_hdl *filter);
-
-typedef int
-(*filter_instance_compile_func_t)(
-    struct ast_node_hdl *filter,
-    struct filter_instance *f_instance,
-    dep_resolver_tagset_t tags,
-    struct compile_ctx *ctx);
-
 int
 bitpunch_init(void);
 void
@@ -120,13 +109,9 @@ bitpunch_external_create_function(
 int
 bitpunch_external_create_filter(
     struct ast_node_hdl **nodep,
-    enum expr_value_type value_type_mask,
-    filter_instance_build_func_t filter_instance_build_func,
-    filter_instance_compile_func_t filter_instance_compile_func,
-    enum filter_class_flag flags,
-    void *user_arg,
-    int n_attrs,
-    ... /* attrs: (name, type, flags) tuples */);
+    filter_instance_build_func_t build_func,
+    filter_instance_compile_func_t compile_func,
+    void *user_arg);
 
 struct bitpunch_board *
 bitpunch_board_new(void);

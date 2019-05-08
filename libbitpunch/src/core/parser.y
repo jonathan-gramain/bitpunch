@@ -127,6 +127,17 @@
         expr_lookup_evaluator(enum ast_node_type op_type,
                               enum expr_value_type opd_types[]);
 
+    typedef struct filter_instance *
+        (*filter_instance_build_func_t)(
+            struct ast_node_hdl *filter);
+
+    typedef int
+        (*filter_instance_compile_func_t)(
+            struct ast_node_hdl *filter,
+            struct filter_instance *f_instance,
+            dep_resolver_tagset_t tags,
+            struct compile_ctx *ctx);
+
     typedef bitpunch_status_t
         (*extern_func_fn_t)(
             void *user_arg,
@@ -314,7 +325,9 @@
                 void *user_arg;
             } extern_func;
             struct extern_filter {
-                struct filter_class *filter_cls;
+                filter_instance_build_func_t build_func;
+                filter_instance_compile_func_t compile_func;
+                void *user_arg;
             } extern_filter;
             struct op {
                 struct ast_node_hdl *operands[2];

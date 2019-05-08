@@ -58,36 +58,17 @@ bitpunch_external_create_function(
 int
 bitpunch_external_create_filter(
     struct ast_node_hdl **nodep,
-    enum expr_value_type value_type_mask,
-    filter_instance_build_func_t filter_instance_build_func,
-    filter_instance_compile_func_t filter_instance_compile_func,
-    enum filter_class_flag flags,
-    void *user_arg,
-    int n_attrs,
-    ... /* attrs: (name, type, flags) tuples */)
+    filter_instance_build_func_t build_func,
+    filter_instance_compile_func_t compile_func,
+    void *user_arg)
 {
-    struct filter_class *filter_cls;
     struct ast_node_hdl *filter_hdl;
-    va_list ap;
-    int ret;
 
-    filter_cls = filter_class_new(user_arg);
-    if (NULL == filter_cls) {
-        return -1;
-    }
-    va_start(ap, n_attrs);
-    ret = filter_class_construct_internal(
-        filter_cls, NULL, value_type_mask,
-        filter_instance_build_func,
-        filter_instance_compile_func,
-        flags, n_attrs, ap);
-    va_end(ap);
-    if (-1 == ret) {
-        return -1;
-    }
     filter_hdl = ast_node_hdl_create(AST_NODE_TYPE_EXTERN_FILTER, NULL);
     filter_hdl->flags |= ASTFLAG_EXTERNAL;
-    filter_hdl->ndat->u.extern_filter.filter_cls = filter_cls;
+    filter_hdl->ndat->u.extern_filter.build_func = build_func;
+    filter_hdl->ndat->u.extern_filter.compile_func = compile_func;
+    filter_hdl->ndat->u.extern_filter.user_arg = user_arg;
     *nodep = filter_hdl;
     return 0;
 }

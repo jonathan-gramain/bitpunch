@@ -1257,10 +1257,9 @@ declare_python_filter_class(
 
     ret = bitpunch_external_create_filter(
         &filter_hdl,
-        EXPR_VALUE_TYPE_ANY,
         python_filter_instance_build,
         NULL,
-        0u, (void *)filter_type, 0);
+        (void *)filter_type);
     if (-1 == ret) {
         PyErr_SetString(PyExc_ValueError,
                         "error creating external filter class");

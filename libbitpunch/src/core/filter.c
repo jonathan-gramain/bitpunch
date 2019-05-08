@@ -50,6 +50,10 @@ struct filter_class builtin_filter_class_table[MAX_BUILTIN_FILTER_COUNT];
 int                 builtin_filter_class_count = 0;
 
 
+struct filter_instance_extern {
+    struct filter_instance f_instance; /* inherits */
+};
+
 static struct filter_class *
 builtin_filter_class_new(void)
 {
@@ -148,11 +152,29 @@ expr_value_type_from_spec(struct ast_node_hdl *spec)
     return EXPR_VALUE_TYPE_UNSET;
 }
 
+static bitpunch_status_t read_value_from_buffer__extern(
+    struct ast_node_hdl *filter,
+    struct box *scope,
+    const char *buffer, size_t buffer_size,
+    expr_value_t *valuep,
+    struct browse_state *bst)
+{
+    *valuep = expr_value_as_integer(4200);
+    return BITPUNCH_OK;
+}
+
 static struct filter_instance *
 filter_instance_build_extern(
     struct ast_node_hdl *filter)
 {
-    return new_safe(struct filter_instance);
+    struct filter_instance_extern *f_extern;
+    struct filter_instance *f_instance;
+
+    f_extern = new_safe(struct filter_instance_extern);
+    f_instance = &f_extern->f_instance;
+    f_instance->b_item.read_value_from_buffer =
+        read_value_from_buffer__extern;
+    return f_instance;
 }
 
 static int
@@ -162,7 +184,6 @@ filter_instance_compile_extern(
     dep_resolver_tagset_t tags,
     struct compile_ctx *ctx)
 {
-    // TODO
     return 0;
 }
 
