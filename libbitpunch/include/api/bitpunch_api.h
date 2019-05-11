@@ -48,6 +48,8 @@ enum filter_class_flag {
     FILTER_CLASS_MAPS_LIST = (1u<<0),
     /** set when the filter maps to an object type */
     FILTER_CLASS_MAPS_OBJECT = (1u<<1),
+    /** set when the filter allows arbitrary attribute names */
+    FILTER_CLASS_UNRESTRICTED_ATTRIBUTE_NAMES = (1u<<2),
 };
 
 int

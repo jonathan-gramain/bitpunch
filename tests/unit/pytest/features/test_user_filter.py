@@ -56,8 +56,7 @@ def test_user_filter_in_expr(params_user_filter_in_expr):
 
 spec_file_user_filter_extern = """
 
-// declare external filter
-extern godify {
+let godify = extern {
     @in: 'bytes';
     @out: 'bytes';
 };

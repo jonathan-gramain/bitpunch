@@ -666,7 +666,7 @@
 %token <integer> INTEGER
 %token <literal> LITERAL
 %token <boolean> KW_TRUE KW_FALSE
-%token KW_IF KW_ELSE KW_SELF KW_LET KW_EXTERN
+%token KW_IF KW_ELSE KW_SELF KW_LET
 
 %token <ast_node_type> '|' '^' '&' '>' '<' '+' '-' '*' '/' '%' '!' '~' '.' ':'
 %token <ast_node_type> TOK_LOR "||"
@@ -700,7 +700,7 @@
 %type <ast_node_hdl> schema g_integer g_boolean g_identifier g_self g_literal scope_block filter_block expr opt_expr twin_index opt_twin_index
 %type <block_stmt_list> block_stmt_list if_block else_block opt_else_block
 %type <statement_list> func_params func_param_nonempty_list
-%type <named_expr> attribute_stmt let_stmt extern_stmt func_param
+%type <named_expr> attribute_stmt let_stmt func_param
 %type <subscript_index> key_expr opt_key_expr
 %locations
 
@@ -1064,12 +1064,6 @@ block_stmt_list:
                           (struct statement *)$let_stmt, list);
     }
 
-  | block_stmt_list extern_stmt {
-        $$ = $1;
-        TAILQ_INSERT_TAIL($$.named_expr_list,
-                          (struct statement *)$extern_stmt, list);
-    }
-
   | block_stmt_list if_block {
       /* join 'if' node children to block stmt lists */
       if (-1 == merge_block_stmt_list(&$$, &$if_block)) {
@@ -1097,16 +1091,6 @@ let_stmt:
         $$->nstmt.stmt.loc = @$;
         $$->nstmt.name = $IDENTIFIER;
         $$->expr = $expr;
-    }
-
-extern_stmt:
-    KW_EXTERN filter_block ';' {
-        $$ = new_safe(struct named_expr);
-        $$->nstmt.stmt.loc = @$;
-        $$->nstmt.name = strdup($filter_block->ndat->u.filter_def.filter_type);
-        $$->expr = ast_node_hdl_create(AST_NODE_TYPE_EXTERN_DECL, &@$);
-        $$->expr->ndat->u.extern_decl.filter_spec = $filter_block;
-        SLIST_INIT(&$$->expr->ndat->u.extern_decl.instance_list);
     }
 
 %%

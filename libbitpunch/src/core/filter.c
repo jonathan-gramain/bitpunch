@@ -262,6 +262,7 @@ builtin_filter_lookup(const char *name)
 
 void builtin_filter_declare_data_source(void);
 void builtin_filter_declare_file(void);
+void builtin_filter_declare_extern(void);
 
 void builtin_filter_declare_byte(void);
 void builtin_filter_declare_struct(void);
@@ -281,6 +282,7 @@ builtin_filter_declare_std(void)
 {
     builtin_filter_declare_data_source();
     builtin_filter_declare_file();
+    builtin_filter_declare_extern();
 
     builtin_filter_declare_byte();
     builtin_filter_declare_struct();
