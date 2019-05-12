@@ -1862,36 +1862,42 @@ compile_filter_def(
     struct filter_class *generated_filter_cls;
     struct ast_node_hdl *ancestor_filter;
 
-    filter_cls = filter->ndat->u.filter_def.filter_cls;
-    if (NULL == filter_cls) {
-        ancestor_filter = filter->ndat->u.filter_def.ancestor_filter;
-        assert(NULL != ancestor_filter);
-        if (-1 == compile_node(
-                ancestor_filter, ctx, COMPILE_TAG_NODE_TYPE, 0u,
-                RESOLVE_EXPECT_TYPE)) {
+    if (0 != (tags & COMPILE_TAG_NODE_TYPE)) {
+        filter_cls = filter->ndat->u.filter_def.filter_cls;
+        if (NULL == filter_cls) {
+            ancestor_filter = filter->ndat->u.filter_def.ancestor_filter;
+            assert(NULL != ancestor_filter);
+            if (-1 == compile_node(
+                    ancestor_filter, ctx, COMPILE_TAG_NODE_TYPE, 0u,
+                    RESOLVE_EXPECT_TYPE)) {
+                return -1;
+            }
+            if (AST_NODE_TYPE_FILTER_DEF == ancestor_filter->ndat->type) {
+                filter_cls = ancestor_filter->ndat->u.filter_def.filter_cls;
+            } else {
+                assert(AST_NODE_TYPE_REXPR_FILTER ==
+                       ancestor_filter->ndat->type);
+                filter_cls = ancestor_filter->ndat
+                    ->u.rexpr_filter.filter_def->filter_cls;
+            }
+        }
+        if (-1 == compile_filter_def_validate_attributes(
+                filter, filter_cls, ctx)) {
             return -1;
         }
-        if (AST_NODE_TYPE_FILTER_DEF == ancestor_filter->ndat->type) {
-            filter_cls = ancestor_filter->ndat->u.filter_def.filter_cls;
-        } else {
-            assert(AST_NODE_TYPE_REXPR_FILTER == ancestor_filter->ndat->type);
-            filter_cls =
-                ancestor_filter->ndat->u.rexpr_filter.filter_def->filter_cls;
+        if (NULL != filter_cls->filter_class_generate_func) {
+            generated_filter_cls =
+                filter_cls->filter_class_generate_func(filter);
+            if (NULL == generated_filter_cls) {
+                return -1;
+            }
+            filter->ndat->u.filter_def.filter_cls = generated_filter_cls;
+            return 0;
         }
+        return filter_instance_build(filter, filter_cls,
+                                     &filter->ndat->u.filter_def);
     }
-    if (-1 == compile_filter_def_validate_attributes(filter, filter_cls, ctx)) {
-        return -1;
-    }
-    if (NULL != filter_cls->filter_class_generate_func) {
-        generated_filter_cls = filter_cls->filter_class_generate_func(filter);
-        if (NULL == generated_filter_cls) {
-            return -1;
-        }
-        filter->ndat->u.filter_def.filter_cls = generated_filter_cls;
-        return 0;
-    }
-    return filter_instance_build(filter, filter_cls,
-                                 &filter->ndat->u.filter_def);
+    return 0;
 }
 
 static int

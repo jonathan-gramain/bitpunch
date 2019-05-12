@@ -275,11 +275,13 @@ filter_instance_build(struct ast_node_hdl *node,
 
     node->ndat = ndat;
 
-    f_instance = filter_cls->filter_instance_build_func(node);
-    if (NULL == f_instance) {
-        return -1;
+    if (NULL != filter_cls->filter_instance_build_func) {
+        f_instance = filter_cls->filter_instance_build_func(node);
+        if (NULL == f_instance) {
+            return -1;
+        }
+        ndat->u.rexpr_filter.f_instance = f_instance;
     }
-    ndat->u.rexpr_filter.f_instance = f_instance;
     // FIXME merge filter item with node item
     //ndat->u.item = f_instance->item;
     return 0;
