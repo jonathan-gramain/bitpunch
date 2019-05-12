@@ -106,12 +106,11 @@ filter_class_construct_internal(
     int i;
     struct filter_attr_def *attr_def;
 
-    assert(NULL != filter_instance_build_func);
-
     filter_cls->name = name;
     filter_cls->value_type_mask = value_type_mask;
     filter_cls->filter_instance_build_func = filter_instance_build_func;
     filter_cls->filter_instance_compile_func = filter_instance_compile_func;
+    filter_cls->filter_class_generate_func = filter_class_generate_func;
     filter_cls->flags = flags;
     filter_cls->n_attrs = n_attrs;
     STAILQ_INIT(&filter_cls->attr_list);

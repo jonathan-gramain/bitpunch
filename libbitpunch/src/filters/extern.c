@@ -87,7 +87,7 @@ extern_filter_class_generate(struct ast_node_hdl *filter)
 
     value_type_mask = EXPR_VALUE_TYPE_UNSET;
     STAILQ_INIT(&filter_cls->attr_list);
-    stmt_lists = &filter_get_scope_def(filter)->block_stmt_list;
+    stmt_lists = &filter->ndat->u.scope_def.block_stmt_list;
     STATEMENT_FOREACH(named_expr, attr, stmt_lists->attribute_list, list) {
         attr_value_type_mask = expr_value_type_from_spec(attr->expr);
         if (EXPR_VALUE_TYPE_UNSET == attr_value_type_mask) {
