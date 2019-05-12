@@ -98,6 +98,7 @@ filter_class_construct_internal(
     enum expr_value_type value_type_mask,
     filter_instance_build_func_t filter_instance_build_func,
     filter_instance_compile_func_t filter_instance_compile_func,
+    filter_class_generate_func_t filter_class_generate_func,
     enum filter_class_flag flags,
     int n_attrs,
     va_list ap)
@@ -148,7 +149,33 @@ builtin_filter_declare(
         name, value_type_mask,
         filter_instance_build_func,
         filter_instance_compile_func,
+        NULL,
         flags, n_attrs, ap);
+    va_end(ap);
+    return ret;
+}
+
+int
+builtin_filter_declare_generator(
+    const char *name,
+    filter_class_generate_func_t filter_class_generate_func,
+    int n_attrs,
+    ... /* attrs: (name, type, flags) tuples */)
+{
+    struct filter_class *filter_cls;
+    va_list ap;
+    int ret;
+
+    filter_cls = builtin_filter_class_new();
+    if (NULL == filter_cls) {
+        return -1;
+    }
+    va_start(ap, n_attrs);
+    ret = filter_class_construct_internal(
+        filter_cls,
+        name, EXPR_VALUE_TYPE_UNSET,
+        NULL, NULL, filter_class_generate_func,
+        0u, n_attrs, ap);
     va_end(ap);
     return ret;
 }

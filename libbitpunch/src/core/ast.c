@@ -522,9 +522,7 @@ resolve_identifier_as_scoped_statement(
             case STATEMENT_TYPE_NAMED_EXPR:
             case STATEMENT_TYPE_ATTRIBUTE:
                 ref_expr = ((struct named_expr *)stmt_spec->nstmt)->expr;
-                if (AST_NODE_TYPE_FILTER_DEF == ref_expr->ndat->type
-                    && 0 == strcmp(ref_expr->ndat->u.filter_def.filter_type,
-                                   "extern")) {
+                if (AST_NODE_TYPE_FILTER_DEF == ref_expr->ndat->type) {
                     resolved_type = new_safe(struct ast_node_data);
                     resolved_type->type = AST_NODE_TYPE_FILTER_DEF;
                     resolved_type->u.filter_def.filter_type =
@@ -533,6 +531,7 @@ resolve_identifier_as_scoped_statement(
                         &resolved_type->u.filter_def.scope_def.block_stmt_list);
                     resolved_type->u.filter_def.filter_cls =
                         ref_expr->ndat->u.filter_def.filter_cls;
+                    resolved_type->u.filter_def.ancestor_filter = ref_expr;
                 } else {
                     resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
                     resolved_type->u.rexpr_named_expr.named_expr =
@@ -766,7 +765,7 @@ resolve_identifiers_filter_def(struct ast_node_hdl *filter_def,
     struct named_statement_spec *visible_statements;
     int n_visible_statements;
     struct named_statement_spec *stmt_spec;
-    struct ast_node_hdl *ref_filter;
+    struct ast_node_hdl *ancestor_filter;
     struct filter_class *filter_cls;
 
     if (-1 == resolve_identifiers_scope_def(
@@ -791,20 +790,19 @@ resolve_identifiers_filter_def(struct ast_node_hdl *filter_def,
     }
     if (n_visible_statements == 1) {
         stmt_spec = &visible_statements[0];
-        ref_filter = ((struct named_expr *)stmt_spec->nstmt)->expr;
-        if (AST_NODE_TYPE_FILTER_DEF != ref_filter->ndat->type
-            || 0 != strcmp(ref_filter->ndat->u.filter_def.filter_type,
-                           "extern")) {
+        ancestor_filter = ((struct named_expr *)stmt_spec->nstmt)->expr;
+        if (AST_NODE_TYPE_FILTER_DEF != ancestor_filter->ndat->type) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &filter_def->loc,
                 "filter \"%s\" references a named expression that is not "
-                "an external filter",
+                "a filter",
                 filter_type);
             free(visible_statements);
             return -1;
         }
-        filter_cls = ref_filter->ndat->u.filter_def.filter_cls;
+        filter_cls = ancestor_filter->ndat->u.filter_def.filter_cls;
     } else {
+        ancestor_filter = NULL;
         filter_cls = builtin_filter_lookup(filter_type);
         if (NULL == filter_cls) {
             semantic_error(
@@ -815,6 +813,7 @@ resolve_identifiers_filter_def(struct ast_node_hdl *filter_def,
         }
     }
     filter_def->ndat->u.filter_def.filter_cls = filter_cls;
+    filter_def->ndat->u.filter_def.ancestor_filter = ancestor_filter;
     return 0;
 }
 
@@ -1862,10 +1861,18 @@ compile_filter_def(
     enum resolve_expect_mask expect_mask)
 {
     struct filter_class *filter_cls;
+    struct filter_class *generated_filter_cls;
 
     filter_cls = filter->ndat->u.filter_def.filter_cls;
     if (-1 == compile_filter_def_validate_attributes(filter, filter_cls, ctx)) {
         return -1;
+    }
+    if (NULL != filter_cls->filter_class_generate_func) {
+        generated_filter_cls = filter_cls->filter_class_generate_func(filter);
+        if (NULL == generated_filter_cls) {
+            return -1;
+        }
+        filter_cls = generated_filter_cls;
     }
     return filter_instance_build(filter, filter_cls,
                                  &filter->ndat->u.filter_def);
@@ -2781,7 +2788,6 @@ compile_rexpr_named_expr(
     struct ast_node_hdl *anchor_expr;
     struct named_expr *named_expr;
     struct ast_node_hdl *target;
-    struct filter_class *filter_cls;
 
     anchor_expr = expr->ndat->u.rexpr_member_common.anchor_expr;
     if (NULL != anchor_expr
@@ -2799,23 +2805,11 @@ compile_rexpr_named_expr(
                            RESOLVE_EXPECT_EXPRESSION)) {
         return -1;
     }
-    switch (target->ndat->type) {
-    case AST_NODE_TYPE_EXTERN_DECL:
-        filter_cls = target->ndat->u.extern_decl.filter_cls;
-        if (-1 == filter_instance_build(
-                expr, filter_cls,
-                filter_def_create_empty(named_expr->nstmt.name))) {
-            return -1;
-        }
-        break ;
-    default:
-        if (0 != (tags & COMPILE_TAG_NODE_TYPE)) {
-            expr->ndat->u.rexpr.value_type_mask =
-                expr_value_type_mask_from_node(target);
-            expr->ndat->u.rexpr.dpath_type_mask =
-                expr_dpath_type_mask_from_node(target);
-        }
-        break ;
+    if (0 != (tags & COMPILE_TAG_NODE_TYPE)) {
+        expr->ndat->u.rexpr.value_type_mask =
+            expr_value_type_mask_from_node(target);
+        expr->ndat->u.rexpr.dpath_type_mask =
+            expr_dpath_type_mask_from_node(target);
     }
     return 0;
 }

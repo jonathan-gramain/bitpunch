@@ -66,8 +66,8 @@ expr_value_type_from_spec(struct ast_node_hdl *spec)
     return EXPR_VALUE_TYPE_UNSET;
 }
 
-static struct filter_instance *
-extern_filter_instance_build(struct ast_node_hdl *filter)
+static struct filter_class *
+extern_filter_class_generate(struct ast_node_hdl *filter)
 {
     struct filter_class *filter_cls;
     const struct block_stmt_list *stmt_lists;
@@ -75,7 +75,6 @@ extern_filter_instance_build(struct ast_node_hdl *filter)
     struct filter_attr_def *attr_def;
     enum expr_value_type value_type_mask;
     enum expr_value_type attr_value_type_mask;
-    struct filter_instance *f_instance;
 
     filter_cls = filter_class_new(NULL);
     if (NULL == filter_cls) {
@@ -111,8 +110,7 @@ extern_filter_instance_build(struct ast_node_hdl *filter)
         return NULL;
     }
     filter_cls->value_type_mask = value_type_mask;
-    f_instance = new_safe(struct filter_instance);
-    return f_instance;
+    return filter_cls;
 }
 
 void
@@ -120,10 +118,10 @@ builtin_filter_declare_extern(void)
 {
     int ret;
 
-    ret = builtin_filter_declare("extern",
-                                 EXPR_VALUE_TYPE_ANY,
-                                 extern_filter_instance_build, NULL,
-                                 0u, 1,
-                                 "@*", EXPR_VALUE_TYPE_STRING, 0u);
+    ret = builtin_filter_declare_generator(
+        "extern",
+        extern_filter_class_generate,
+        1,
+        "@*", EXPR_VALUE_TYPE_STRING, 0u);
     assert(0 == ret);
 }

@@ -62,6 +62,7 @@ struct filter_class {
     enum expr_value_type value_type_mask;
     filter_instance_build_func_t filter_instance_build_func;
     filter_instance_compile_func_t filter_instance_compile_func;
+    filter_class_generate_func_t filter_class_generate_func;
     enum filter_class_flag flags;
     int n_attrs;
     STAILQ_HEAD(filter_attr_list, filter_attr_def) attr_list;
@@ -76,6 +77,13 @@ builtin_filter_declare(
     filter_instance_build_func_t filter_instance_build_func,
     filter_instance_compile_func_t filter_instance_compile_func,
     enum filter_class_flag flags,
+    int n_attrs,
+    ... /* attrs: (name, type, flags) tuples */);
+
+int
+builtin_filter_declare_generator(
+    const char *name,
+    filter_class_generate_func_t filter_class_generate_func,
     int n_attrs,
     ... /* attrs: (name, type, flags) tuples */);
 
@@ -107,6 +115,7 @@ filter_class_construct_internal(
     enum expr_value_type value_type_mask,
     filter_instance_build_func_t filter_instance_build_func,
     filter_instance_compile_func_t filter_instance_compile_func,
+    filter_class_generate_func_t filter_class_generate_func,
     enum filter_class_flag flags,
     int n_attrs,
     va_list ap);

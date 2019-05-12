@@ -138,6 +138,10 @@
             dep_resolver_tagset_t tags,
             struct compile_ctx *ctx);
 
+    typedef struct filter_class *
+        (*filter_class_generate_func_t)(
+            struct ast_node_hdl *filter);
+
     typedef bitpunch_status_t
         (*extern_func_fn_t)(
             void *user_arg,
@@ -310,7 +314,8 @@
             struct filter_def {
                 struct scope_def scope_def; /* inherits */
                 const char *filter_type;
-                struct filter_class *filter_cls; /* set after resolve */
+                struct ast_node_hdl *ancestor_filter; /* set during resolve */
+                struct filter_class *filter_cls; /* set during resolve */
             } filter_def;
             struct conditional {
                 struct ast_node_hdl *cond_expr;
