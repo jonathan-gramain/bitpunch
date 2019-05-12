@@ -1799,7 +1799,7 @@ compile_filter_def_validate_attributes(struct ast_node_hdl *filter,
                 "attribute \"%s\" passed to filter \"%s\" has "
                 "an incompatible value-type '%s', acceptable "
                 "value-types are '%s'",
-                attr_def->name, filter_cls->name,
+                attr->nstmt.name, filter_cls->name,
                 expr_value_type_str(
                     attr->expr->ndat->u.rexpr.value_type_mask),
                 expr_value_type_str(attr_def->value_type_mask));
@@ -3079,37 +3079,6 @@ compile_rexpr_member(
 }
 
 static int
-compile_extern_decl(
-    struct ast_node_hdl *extern_decl,
-    dep_resolver_tagset_t tags,
-    struct compile_ctx *ctx)
-{
-    struct ast_node_hdl *filter_spec;
-    const struct block_stmt_list *stmt_lists;
-    struct filter_class *filter_cls;
-    int ret;
-
-    filter_spec = extern_decl->ndat->u.extern_decl.filter_spec;
-    stmt_lists = &filter_spec->ndat->u.scope_def.block_stmt_list;
-    if (-1 == compile_attributes(stmt_lists->attribute_list, tags, 0u, ctx)) {
-        return -1;
-    }
-
-    if (0 != (tags & COMPILE_TAG_NODE_TYPE)) {
-        filter_cls = filter_class_new(NULL);
-        if (NULL == filter_cls) {
-            return -1;
-        }
-        ret = filter_class_construct_extern_internal(filter_cls, extern_decl);
-        if (-1 == ret) {
-            return -1;
-        }
-        extern_decl->ndat->u.extern_decl.filter_cls = filter_cls;
-    }
-    return 0;
-}
-
-static int
 compile_node_type_int(struct ast_node_hdl *node,
                       dep_resolver_tagset_t tags,
                       struct compile_ctx *ctx,
@@ -3133,8 +3102,6 @@ compile_node_type_int(struct ast_node_hdl *node,
         return compile_rexpr_filter(node, tags, ctx);
     case AST_NODE_TYPE_CONDITIONAL:
         return compile_conditional(node, tags, ctx);
-    case AST_NODE_TYPE_EXTERN_DECL:
-        return compile_extern_decl(node, tags, ctx);
     case AST_NODE_TYPE_EXTERN_FUNC:
         return compile_extern_func(node, tags, ctx);
     case AST_NODE_TYPE_OP_UPLUS:

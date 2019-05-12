@@ -84,7 +84,7 @@ filter_class_free(struct filter_class *filter_cls)
     free(filter_cls);
 }
 
-static struct filter_attr_def *
+struct filter_attr_def *
 filter_attr_def_new(void)
 {
     return new_safe(struct filter_attr_def);
@@ -121,100 +121,6 @@ filter_class_construct_internal(
         attr_def->flags = va_arg(ap, enum filter_attr_flag);
         STAILQ_INSERT_TAIL(&filter_cls->attr_list, attr_def, list);
     }
-    return 0;
-}
-
-static enum expr_value_type
-expr_value_type_from_spec(struct ast_node_hdl *spec)
-{
-    expr_value_t attr_value_type;
-
-    if (spec->ndat->type != AST_NODE_TYPE_REXPR_NATIVE
-        || spec->ndat->u.rexpr_native.value.type != EXPR_VALUE_TYPE_STRING) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &spec->loc,
-                       "attribute spec should be a native string type");
-        return EXPR_VALUE_TYPE_UNSET;
-    }
-    attr_value_type = spec->ndat->u.rexpr_native.value;
-    if (0 == expr_value_cmp_string(
-            attr_value_type, expr_value_as_string("bytes"))) {
-        return EXPR_VALUE_TYPE_BYTES;
-    }
-    if (0 == expr_value_cmp_string(
-            attr_value_type, expr_value_as_string("integer"))) {
-        return EXPR_VALUE_TYPE_INTEGER;
-    }
-    if (0 == expr_value_cmp_string(
-            attr_value_type, expr_value_as_string("string"))) {
-        return EXPR_VALUE_TYPE_STRING;
-    }
-    semantic_error(SEMANTIC_LOGLEVEL_ERROR, &spec->loc,
-                   "invalid attribute type '%.*s'",
-                   (int)attr_value_type.string.len, attr_value_type.string.str);
-    return EXPR_VALUE_TYPE_UNSET;
-}
-
-static struct filter_instance *
-filter_instance_build_extern(
-    struct ast_node_hdl *filter)
-{
-    const struct filter_class *filter_cls;
-    struct ast_node_hdl *extern_decl;
-    struct filter_instance_extern *f_extern;
-
-    filter_cls = filter->ndat->u.rexpr_filter.filter_cls;
-    extern_decl = (struct ast_node_hdl *)filter_cls->user_arg;
-
-    f_extern = new_safe(struct filter_instance_extern);
-    SLIST_INSERT_HEAD(&extern_decl->ndat->u.extern_decl.instance_list,
-                      f_extern, instance_list_entry);
-    return &f_extern->f_instance;
-}
-
-int
-filter_class_construct_extern_internal(
-    struct filter_class *filter_cls,
-    struct ast_node_hdl *extern_decl)
-{
-    struct ast_node_hdl *filter_spec;
-    const struct block_stmt_list *stmt_lists;
-    struct named_expr *attr;
-    struct filter_attr_def *attr_def;
-    enum expr_value_type value_type_mask;
-    enum expr_value_type attr_value_type_mask;
-
-    filter_spec = extern_decl->ndat->u.extern_decl.filter_spec;
-    filter_cls->name = filter_spec->ndat->u.filter_def.filter_type;
-    filter_cls->filter_instance_build_func = filter_instance_build_extern;
-    filter_cls->flags = 0u;
-    filter_cls->n_attrs = 0;
-    filter_cls->user_arg = (void *)extern_decl;
-
-    value_type_mask = EXPR_VALUE_TYPE_UNSET;
-    STAILQ_INIT(&filter_cls->attr_list);
-    stmt_lists = &filter_spec->ndat->u.scope_def.block_stmt_list;
-    STATEMENT_FOREACH(named_expr, attr, stmt_lists->attribute_list, list) {
-        attr_value_type_mask = expr_value_type_from_spec(attr->expr);
-        if (EXPR_VALUE_TYPE_UNSET == attr_value_type_mask) {
-            return -1;
-        }
-        if (0 == strcmp(attr->nstmt.name, "@out")) {
-            value_type_mask = attr_value_type_mask;
-        } else {
-            attr_def = filter_attr_def_new();
-            attr_def->name = attr->nstmt.name;
-            attr_def->value_type_mask = attr_value_type_mask;
-            attr_def->flags = 0u;
-            STAILQ_INSERT_TAIL(&filter_cls->attr_list, attr_def, list);
-            ++filter_cls->n_attrs;
-        }
-    }
-    if (EXPR_VALUE_TYPE_UNSET == value_type_mask) {
-        semantic_error(SEMANTIC_LOGLEVEL_ERROR, &filter_spec->loc,
-                       "missing attribute spec '@out'");
-        return -1;
-    }
-    filter_cls->value_type_mask = value_type_mask;
     return 0;
 }
 
@@ -375,7 +281,8 @@ filter_class_get_attr(const struct filter_class *filter_cls,
     struct filter_attr_def *attr_def;
 
     STAILQ_FOREACH(attr_def, &filter_cls->attr_list, list) {
-        if (0 == strcmp(attr_def->name, attr_name)) {
+        if (0 == strcmp(attr_def->name, attr_name) ||
+            0 == strcmp(attr_def->name, "@*")) {
             return attr_def;
         }
     }

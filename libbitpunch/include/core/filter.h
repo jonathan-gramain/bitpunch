@@ -90,6 +90,9 @@ filter_class_new(void *user_arg);
 void
 filter_class_free(struct filter_class *filter_cls);
 
+struct filter_attr_def *
+filter_attr_def_new(void);
+
 const struct filter_attr_def *
 filter_class_get_attr(const struct filter_class *filter_cls,
                       const char *attr_name);
@@ -107,11 +110,6 @@ filter_class_construct_internal(
     enum filter_class_flag flags,
     int n_attrs,
     va_list ap);
-
-int
-filter_class_construct_extern_internal(
-    struct filter_class *filter_cls,
-    struct ast_node_hdl *extern_decl);
 
 int
 filter_instance_build(struct ast_node_hdl *node,
