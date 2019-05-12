@@ -3195,30 +3195,16 @@ compile_node_once(struct ast_node_hdl *node,
                   enum resolve_expect_mask expect_mask)
 {
     dep_resolver_tagset_t resolved_tags = 0;
+    dep_resolver_tagset_t cur_tag;
 
-    if (0 != (tags & (COMPILE_TAG_NODE_TYPE |
-                      COMPILE_TAG_NODE_SPAN_SIZE |
-                      COMPILE_TAG_BROWSE_BACKENDS))) {
-        if (-1 == compile_node_type_int(node, COMPILE_TAG_NODE_TYPE, ctx,
-                                        expect_mask)) {
-            return resolved_tags;
+    for (cur_tag = 1u; cur_tag <= COMPILE_TAG_LAST; cur_tag <<= 1) {
+        if (0 != (tags & cur_tag)) {
+            if (-1 == compile_node_type_int(node, cur_tag, ctx,
+                                            expect_mask)) {
+                return resolved_tags;
+            }
+            resolved_tags |= cur_tag;
         }
-        resolved_tags |= COMPILE_TAG_NODE_TYPE;
-    }
-    if (0 != (tags & (COMPILE_TAG_NODE_SPAN_SIZE |
-                      COMPILE_TAG_BROWSE_BACKENDS))) {
-        if (-1 == compile_node_type_int(node, COMPILE_TAG_NODE_SPAN_SIZE, ctx,
-                                        expect_mask)) {
-            return resolved_tags;
-        }
-        resolved_tags |= COMPILE_TAG_NODE_SPAN_SIZE;
-    }
-    if (0 != (tags & (COMPILE_TAG_BROWSE_BACKENDS))) {
-        if (-1 == compile_node_type_int(node, COMPILE_TAG_BROWSE_BACKENDS,
-                                        ctx, expect_mask)) {
-            return resolved_tags;
-        }
-        resolved_tags |= COMPILE_TAG_BROWSE_BACKENDS;
     }
     return resolved_tags;
 }
