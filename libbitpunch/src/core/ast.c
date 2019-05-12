@@ -503,6 +503,7 @@ resolve_identifier_as_scoped_statement(
     struct named_statement_spec *visible_statements;
     int n_visible_statements;
     struct named_statement_spec *stmt_spec;
+    struct ast_node_hdl *ref_expr;
     struct ast_node_data *resolved_type;
 
     n_visible_statements = lookup_all_visible_statements(
@@ -520,9 +521,23 @@ resolve_identifier_as_scoped_statement(
             switch (stmt_spec->stmt_type) {
             case STATEMENT_TYPE_NAMED_EXPR:
             case STATEMENT_TYPE_ATTRIBUTE:
-                resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
-                resolved_type->u.rexpr_named_expr.named_expr =
-                    (struct named_expr *)stmt_spec->nstmt;
+                ref_expr = ((struct named_expr *)stmt_spec->nstmt)->expr;
+                if (AST_NODE_TYPE_FILTER_DEF == ref_expr->ndat->type
+                    && 0 == strcmp(ref_expr->ndat->u.filter_def.filter_type,
+                                   "extern")) {
+                    resolved_type = new_safe(struct ast_node_data);
+                    resolved_type->type = AST_NODE_TYPE_FILTER_DEF;
+                    resolved_type->u.filter_def.filter_type =
+                        node->ndat->u.identifier;
+                    init_block_stmt_list(
+                        &resolved_type->u.filter_def.scope_def.block_stmt_list);
+                    resolved_type->u.filter_def.filter_cls =
+                        ref_expr->ndat->u.filter_def.filter_cls;
+                } else {
+                    resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
+                    resolved_type->u.rexpr_named_expr.named_expr =
+                        (struct named_expr *)stmt_spec->nstmt;
+                }
                 break ;
             case STATEMENT_TYPE_FIELD:
                 resolved_type->type = AST_NODE_TYPE_REXPR_FIELD;
@@ -777,7 +792,9 @@ resolve_identifiers_filter_def(struct ast_node_hdl *filter_def,
     if (n_visible_statements == 1) {
         stmt_spec = &visible_statements[0];
         ref_filter = ((struct named_expr *)stmt_spec->nstmt)->expr;
-        if (AST_NODE_TYPE_EXTERN_DECL != ref_filter->ndat->type) {
+        if (AST_NODE_TYPE_FILTER_DEF != ref_filter->ndat->type
+            || 0 != strcmp(ref_filter->ndat->u.filter_def.filter_type,
+                           "extern")) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &filter_def->loc,
                 "filter \"%s\" references a named expression that is not "
@@ -786,7 +803,7 @@ resolve_identifiers_filter_def(struct ast_node_hdl *filter_def,
             free(visible_statements);
             return -1;
         }
-        filter_cls = ref_filter->ndat->u.extern_decl.filter_cls;
+        filter_cls = ref_filter->ndat->u.filter_def.filter_cls;
     } else {
         filter_cls = builtin_filter_lookup(filter_type);
         if (NULL == filter_cls) {
