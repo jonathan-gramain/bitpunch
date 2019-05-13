@@ -1872,14 +1872,8 @@ compile_filter_def(
                     RESOLVE_EXPECT_TYPE)) {
                 return -1;
             }
-            if (AST_NODE_TYPE_FILTER_DEF == ancestor_filter->ndat->type) {
-                filter_cls = ancestor_filter->ndat->u.filter_def.filter_cls;
-            } else {
-                assert(AST_NODE_TYPE_REXPR_FILTER ==
-                       ancestor_filter->ndat->type);
-                filter_cls = ancestor_filter->ndat
-                    ->u.rexpr_filter.filter_def->filter_cls;
-            }
+            assert(AST_NODE_TYPE_FILTER_DEF == ancestor_filter->ndat->type);
+            filter_cls = ancestor_filter->ndat->u.filter_def.filter_cls;
         }
         if (-1 == compile_filter_def_validate_attributes(
                 filter, filter_cls, ctx)) {
@@ -1891,6 +1885,7 @@ compile_filter_def(
             if (NULL == generated_filter_cls) {
                 return -1;
             }
+            // replace generator class by generated
             filter->ndat->u.filter_def.filter_cls = generated_filter_cls;
             return 0;
         }

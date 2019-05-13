@@ -80,7 +80,6 @@ extern_filter_class_generate(struct ast_node_hdl *filter)
     if (NULL == filter_cls) {
         return NULL;
     }
-    //filter_cls->filter_instance_build_func = filter_instance_build_extern;
     filter_cls->flags = 0u;
     filter_cls->n_attrs = 0;
     filter_cls->user_arg = (void *)filter;
