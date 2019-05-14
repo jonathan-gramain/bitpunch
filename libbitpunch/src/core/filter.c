@@ -249,6 +249,8 @@ filter_instance_build(struct ast_node_hdl *node,
     struct ast_node_data *ndat;
     struct filter_instance *f_instance;
 
+    assert(NULL != filter_cls->filter_instance_build_func);
+
     ndat = new_safe(struct ast_node_data);
     // template flag may be removed when compiling OP_FILTER
     ndat->flags |= ASTFLAG_DATA_TEMPLATE;
@@ -275,13 +277,11 @@ filter_instance_build(struct ast_node_hdl *node,
 
     node->ndat = ndat;
 
-    if (NULL != filter_cls->filter_instance_build_func) {
-        f_instance = filter_cls->filter_instance_build_func(node);
-        if (NULL == f_instance) {
-            return -1;
-        }
-        ndat->u.rexpr_filter.f_instance = f_instance;
+    f_instance = filter_cls->filter_instance_build_func(node);
+    if (NULL == f_instance) {
+        return -1;
     }
+    ndat->u.rexpr_filter.f_instance = f_instance;
     // FIXME merge filter item with node item
     //ndat->u.item = f_instance->item;
     return 0;

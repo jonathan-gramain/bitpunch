@@ -66,6 +66,17 @@ expr_value_type_from_spec(struct ast_node_hdl *spec)
     return EXPR_VALUE_TYPE_UNSET;
 }
 
+static struct filter_instance *
+extern_filter_instance_build(struct ast_node_hdl *filter)
+{
+    struct filter_instance *f_instance;
+
+    // TODO add instance to list of instances backed by external
+    // filters, to populate when the external filter is registered
+    f_instance = new_safe(struct filter_instance);
+    return f_instance;
+}
+
 static struct filter_class *
 extern_filter_class_generate(struct ast_node_hdl *filter)
 {
@@ -83,6 +94,7 @@ extern_filter_class_generate(struct ast_node_hdl *filter)
     filter_cls->flags = 0u;
     filter_cls->n_attrs = 0;
     filter_cls->user_arg = (void *)filter;
+    filter_cls->filter_instance_build_func = extern_filter_instance_build;
 
     value_type_mask = EXPR_VALUE_TYPE_UNSET;
     STAILQ_INIT(&filter_cls->attr_list);

@@ -529,7 +529,7 @@ resolve_identifier_as_scoped_statement(
                         node->ndat->u.identifier;
                     init_block_stmt_list(
                         &resolved_type->u.filter_def.scope_def.block_stmt_list);
-                    resolved_type->u.filter_def.ancestor_filter = ref_expr;
+                    resolved_type->u.filter_def.base_filter = ref_expr;
                 } else {
                     resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
                     resolved_type->u.rexpr_named_expr.named_expr =
@@ -763,7 +763,7 @@ resolve_identifiers_filter_def(struct ast_node_hdl *filter_def,
     struct named_statement_spec *visible_statements;
     int n_visible_statements;
     struct named_statement_spec *stmt_spec;
-    struct ast_node_hdl *ancestor_filter;
+    struct ast_node_hdl *base_filter;
     struct filter_class *filter_cls;
 
     if (-1 == resolve_identifiers_scope_def(
@@ -788,8 +788,8 @@ resolve_identifiers_filter_def(struct ast_node_hdl *filter_def,
     }
     if (n_visible_statements == 1) {
         stmt_spec = &visible_statements[0];
-        ancestor_filter = ((struct named_expr *)stmt_spec->nstmt)->expr;
-        if (AST_NODE_TYPE_FILTER_DEF != ancestor_filter->ndat->type) {
+        base_filter = ((struct named_expr *)stmt_spec->nstmt)->expr;
+        if (AST_NODE_TYPE_FILTER_DEF != base_filter->ndat->type) {
             semantic_error(
                 SEMANTIC_LOGLEVEL_ERROR, &filter_def->loc,
                 "filter \"%s\" references a named expression that is not "
@@ -800,7 +800,7 @@ resolve_identifiers_filter_def(struct ast_node_hdl *filter_def,
         }
         filter_cls = NULL;
     } else {
-        ancestor_filter = NULL;
+        base_filter = NULL;
         filter_cls = builtin_filter_lookup(filter_type);
         if (NULL == filter_cls) {
             semantic_error(
@@ -811,7 +811,7 @@ resolve_identifiers_filter_def(struct ast_node_hdl *filter_def,
         }
     }
     filter_def->ndat->u.filter_def.filter_cls = filter_cls;
-    filter_def->ndat->u.filter_def.ancestor_filter = ancestor_filter;
+    filter_def->ndat->u.filter_def.base_filter = base_filter;
     return 0;
 }
 
@@ -1860,20 +1860,20 @@ compile_filter_def(
 {
     struct filter_class *filter_cls;
     struct filter_class *generated_filter_cls;
-    struct ast_node_hdl *ancestor_filter;
+    struct ast_node_hdl *base_filter;
 
     if (0 != (tags & COMPILE_TAG_NODE_TYPE)) {
         filter_cls = filter->ndat->u.filter_def.filter_cls;
+        base_filter = filter->ndat->u.filter_def.base_filter;
         if (NULL == filter_cls) {
-            ancestor_filter = filter->ndat->u.filter_def.ancestor_filter;
-            assert(NULL != ancestor_filter);
+            assert(NULL != base_filter);
             if (-1 == compile_node(
-                    ancestor_filter, ctx, COMPILE_TAG_NODE_TYPE, 0u,
+                    base_filter, ctx, COMPILE_TAG_NODE_TYPE, 0u,
                     RESOLVE_EXPECT_TYPE)) {
                 return -1;
             }
-            assert(AST_NODE_TYPE_FILTER_DEF == ancestor_filter->ndat->type);
-            filter_cls = ancestor_filter->ndat->u.filter_def.filter_cls;
+            assert(AST_NODE_TYPE_FILTER_DEF == base_filter->ndat->type);
+            filter_cls = base_filter->ndat->u.filter_def.filter_cls;
         }
         if (-1 == compile_filter_def_validate_attributes(
                 filter, filter_cls, ctx)) {

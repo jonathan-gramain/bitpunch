@@ -314,7 +314,7 @@
             struct filter_def {
                 struct scope_def scope_def; /* inherits */
                 const char *filter_type;
-                struct ast_node_hdl *ancestor_filter; /* set during resolve */
+                struct ast_node_hdl *base_filter; /* set during resolve */
                 struct filter_class *filter_cls; /* set during resolve */
             } filter_def;
             struct conditional {
