@@ -204,7 +204,7 @@
     struct named_statement_spec {
         enum statement_type stmt_type;
         struct named_statement *nstmt;
-        const struct ast_node_hdl *anchor_filter;
+        const struct ast_node_hdl *anchor_scope;
         int anonymous_member;
     };
 

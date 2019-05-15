@@ -247,7 +247,7 @@ append_named_statement_spec(
     statement_spec = &(*visible_statementsp)[*visible_statements_indexp];
     statement_spec->stmt_type = stmt_type;
     statement_spec->nstmt = nstmt;
-    statement_spec->anchor_filter = anchor_filter;
+    statement_spec->anchor_scope = anchor_filter;
     statement_spec->anonymous_member = anonymous_member;
     ++(*visible_statements_indexp);
     return 0;
@@ -416,7 +416,7 @@ lookup_all_visible_statements(
             return -1;
         }
         while (last_visible_statements_index < visible_statements_index) {
-            visible_statements[last_visible_statements_index].anchor_filter =
+            visible_statements[last_visible_statements_index].anchor_scope =
                 refs_level->cur_filter;
             ++last_visible_statements_index;
         }
@@ -517,7 +517,7 @@ resolve_identifier_as_scoped_statement(
         if (1 == n_visible_statements) {
             stmt_spec = &visible_statements[0];
             resolved_type->u.rexpr_member_common.anchor_filter =
-                (struct ast_node_hdl *)stmt_spec->anchor_filter;
+                (struct ast_node_hdl *)stmt_spec->anchor_scope;
             switch (stmt_spec->stmt_type) {
             case STATEMENT_TYPE_NAMED_EXPR:
             case STATEMENT_TYPE_ATTRIBUTE:
@@ -1012,12 +1012,20 @@ resolve_identifiers_extern_filter(
     const char *filter_name;
     struct named_statement_spec *visible_statements;
     int n_visible_statements;
+    //struct named_statement_spec *stmt_spec;
 
     filter_name = expr->ndat->u.extern_filter.filter_name;
     n_visible_statements = lookup_all_visible_statements(
         STATEMENT_TYPE_NAMED_EXPR, filter_name, visible_refs,
         &visible_statements);
-    printf("%d\n", n_visible_statements);
+    if (0 == n_visible_statements) {
+        semantic_error(
+            SEMANTIC_LOGLEVEL_WARNING, &expr->loc,
+            "external filter '%s' does not match any 'extern' expression",
+            filter_name);
+        return 0;
+    }
+    //stmt_spec = &visible_statements[0];
     return 0;
 }
 
