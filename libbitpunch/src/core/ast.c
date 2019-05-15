@@ -462,6 +462,34 @@ identifier_is_visible_in_block_stmt_lists(
         NULL, NULL);
 }
 
+static int
+identifier_is_visible_in_filter(
+    enum statement_type stmt_mask,
+    const char *identifier,
+    struct ast_node_hdl *filter)
+{
+    struct scope_def *scope_def;
+    struct filter_def *filter_def;
+
+    scope_def = ast_node_get_scope_def(filter);
+    assert(NULL != scope_def);
+    if (identifier_is_visible_in_block_stmt_lists(
+            stmt_mask, identifier, &scope_def->block_stmt_list)) {
+        return TRUE;
+    }
+    if (ast_node_is_filter(filter)) {
+        filter_def = filter->ndat->u.rexpr_filter.filter_def;
+    } else {
+        assert(AST_NODE_TYPE_FILTER_DEF == filter->ndat->type);
+        filter_def = &filter->ndat->u.filter_def;
+    }
+    if (NULL != filter_def->base_filter) {
+        return identifier_is_visible_in_filter(
+            stmt_mask, identifier, filter_def->base_filter);
+    }
+    return FALSE;
+}
+
 int
 filter_exists_in_scope(
     struct ast_node_hdl *scope_node,
@@ -528,7 +556,7 @@ resolve_identifier_as_scoped_statement(
                     resolved_type->u.filter_def.filter_type =
                         node->ndat->u.identifier;
                     init_block_stmt_list(
-                        &resolved_type->u.filter_def.scope_def.block_stmt_list);
+                        &resolved_type->u.scope_def.block_stmt_list);
                     resolved_type->u.filter_def.base_filter = ref_expr;
                 } else {
                     resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
@@ -1854,9 +1882,9 @@ compile_filter_def_validate_attributes(struct ast_node_hdl *filter,
     }
     STAILQ_FOREACH(attr_def, &filter_cls->attr_list, list) {
         if (0 != (FILTER_ATTR_MANDATORY & attr_def->flags)) {
-            if (!identifier_is_visible_in_block_stmt_lists(
+            if (!identifier_is_visible_in_filter(
                     STATEMENT_TYPE_ATTRIBUTE, attr_def->name,
-                    stmt_lists)) {
+                    filter)) {
                 semantic_error(
                     SEMANTIC_LOGLEVEL_ERROR, &filter->loc,
                     "missing mandatory attribute \"%s\"",
@@ -1903,8 +1931,8 @@ compile_filter_def(
                     RESOLVE_EXPECT_TYPE)) {
                 return -1;
             }
-            assert(AST_NODE_TYPE_FILTER_DEF == base_filter->ndat->type);
-            filter_cls = base_filter->ndat->u.filter_def.filter_cls;
+            filter_cls = ast_node_get_filter_class(base_filter);
+            assert(NULL != filter_cls);
         }
         if (-1 == compile_filter_def_validate_attributes(
                 filter, filter_cls, ctx)) {
@@ -3888,6 +3916,19 @@ ast_node_is_generator_filter(const struct ast_node_hdl *node)
     return (AST_NODE_TYPE_FILTER_DEF == node->ndat->type
             && NULL != node->ndat->u.filter_def
             .filter_cls->filter_class_generate_func);
+}
+
+struct filter_class *
+ast_node_get_filter_class(struct ast_node_hdl *node)
+{
+    if (ast_node_is_filter(node)) {
+        // const-cast
+        return (struct filter_class *)node->ndat->u.rexpr_filter.filter_cls;
+    }
+    if (AST_NODE_TYPE_FILTER_DEF == node->ndat->type) {
+        return node->ndat->u.filter_def.filter_cls;
+    }
+    return NULL;
 }
 
 static struct ast_node_hdl *
