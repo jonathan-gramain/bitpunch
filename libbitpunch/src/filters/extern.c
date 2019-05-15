@@ -137,7 +137,7 @@ extern_filter_class_generate(struct ast_node_hdl *filter)
 
 
 int
-extern_filter_bind_to_external(
+extern_def_bind_to_external(
     struct ast_node_hdl *filter,
     struct ast_node_hdl *external)
 {
@@ -168,8 +168,31 @@ extern_filter_bind_to_external(
             return -1;
         }
     }
+    external->ndat->u.extern_filter.extern_def = filter;
     return 0;
+}
 
+int
+extern_def_compile(
+    struct ast_node_hdl *extern_def,
+    dep_resolver_tagset_t tags,
+    struct compile_ctx *ctx)
+{
+    struct filter_class_extern *extern_cls;
+    struct ast_node_hdl **derivedp;
+    struct ast_node_hdl *derived;
+
+    extern_cls = (struct filter_class_extern *)
+        extern_def->ndat->u.filter_def.filter_cls;
+    ARRAY_FOREACH(&extern_cls->instances, derivedp) {
+        derived = *derivedp;
+        (void)compile_node(derived, ctx, tags, 0u,
+                           RESOLVE_EXPECT_TYPE);
+    }
+    if (!compile_continue(ctx)) {
+        return -1;
+    }
+    return 0;
 }
 
 void

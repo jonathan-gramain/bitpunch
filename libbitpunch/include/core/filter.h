@@ -142,10 +142,15 @@ filter_instance_get_data_source(
 
 
 int
-extern_filter_bind_to_external(
+extern_def_bind_to_external(
     struct ast_node_hdl *filter,
     struct ast_node_hdl *external);
 
+int
+extern_def_compile(
+    struct ast_node_hdl *extern_def,
+    dep_resolver_tagset_t tags,
+    struct compile_ctx *ctx);
 
 void
 compile_node_backends__filter_generic(struct ast_node_hdl *filter);

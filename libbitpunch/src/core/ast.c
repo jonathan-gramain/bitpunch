@@ -1026,7 +1026,7 @@ resolve_identifiers_extern_filter(
         return 0;
     }
     extern_decl = ((struct named_expr *)visible_statements[0].nstmt)->expr;
-    return extern_filter_bind_to_external(extern_decl, expr);
+    return extern_def_bind_to_external(extern_decl, expr);
 }
 
 
@@ -2827,24 +2827,20 @@ compile_extern_func(
     return 0;
 }
 
-static int
+int
 compile_extern_filter(
-    struct ast_node_hdl *extern_func,
+    struct ast_node_hdl *extern_filter,
     dep_resolver_tagset_t tags,
     struct compile_ctx *ctx)
 {
-    struct ast_node_data *resolved_type;
+    struct ast_node_hdl *extern_def;
 
-    if (0 != (tags & COMPILE_TAG_NODE_TYPE)) {
-        resolved_type = new_safe(struct ast_node_data);
-        resolved_type->type = AST_NODE_TYPE_REXPR_EXTERN_FUNC;
-        resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_ANY;
-        resolved_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
-        resolved_type->u.rexpr_extern_func.extern_func =
-            extern_func->ndat->u.extern_func;
-        extern_func->ndat = resolved_type;
+    extern_def = extern_filter->ndat->u.extern_filter.extern_def;
+    if (NULL == extern_def) {
+        // external filter not bound to a definition
+        return 0;
     }
-    return 0;
+    return extern_def_compile(extern_def, tags, ctx);
 }
 
 static int

@@ -337,6 +337,7 @@
                 filter_instance_build_func_t build_func;
                 filter_instance_compile_func_t compile_func;
                 void *user_arg;
+                struct ast_node_hdl *extern_def;
             } extern_filter;
             struct op {
                 struct ast_node_hdl *operands[2];
