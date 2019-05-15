@@ -1012,7 +1012,7 @@ resolve_identifiers_extern_filter(
     const char *filter_name;
     struct named_statement_spec *visible_statements;
     int n_visible_statements;
-    //struct named_statement_spec *stmt_spec;
+    struct ast_node_hdl *extern_decl;
 
     filter_name = expr->ndat->u.extern_filter.filter_name;
     n_visible_statements = lookup_all_visible_statements(
@@ -1025,8 +1025,8 @@ resolve_identifiers_extern_filter(
             filter_name);
         return 0;
     }
-    //stmt_spec = &visible_statements[0];
-    return 0;
+    extern_decl = ((struct named_expr *)visible_statements[0].nstmt)->expr;
+    return extern_filter_bind_to_external(extern_decl, expr);
 }
 
 
@@ -2828,6 +2828,26 @@ compile_extern_func(
 }
 
 static int
+compile_extern_filter(
+    struct ast_node_hdl *extern_func,
+    dep_resolver_tagset_t tags,
+    struct compile_ctx *ctx)
+{
+    struct ast_node_data *resolved_type;
+
+    if (0 != (tags & COMPILE_TAG_NODE_TYPE)) {
+        resolved_type = new_safe(struct ast_node_data);
+        resolved_type->type = AST_NODE_TYPE_REXPR_EXTERN_FUNC;
+        resolved_type->u.rexpr.value_type_mask = EXPR_VALUE_TYPE_ANY;
+        resolved_type->u.rexpr.dpath_type_mask = EXPR_DPATH_TYPE_UNSET;
+        resolved_type->u.rexpr_extern_func.extern_func =
+            extern_func->ndat->u.extern_func;
+        extern_func->ndat = resolved_type;
+    }
+    return 0;
+}
+
+static int
 compile_rexpr_named_expr(
     struct ast_node_hdl *expr,
     dep_resolver_tagset_t tags,
@@ -3163,6 +3183,8 @@ compile_node_type_int(struct ast_node_hdl *node,
         return compile_conditional(node, tags, ctx);
     case AST_NODE_TYPE_EXTERN_FUNC:
         return compile_extern_func(node, tags, ctx);
+    case AST_NODE_TYPE_EXTERN_FILTER:
+        return compile_extern_filter(node, tags, ctx);
     case AST_NODE_TYPE_OP_UPLUS:
     case AST_NODE_TYPE_OP_UMINUS:
     case AST_NODE_TYPE_OP_LNOT:

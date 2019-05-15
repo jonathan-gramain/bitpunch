@@ -135,6 +135,43 @@ extern_filter_class_generate(struct ast_node_hdl *filter)
     return &extern_cls->p;
 }
 
+
+int
+extern_filter_bind_to_external(
+    struct ast_node_hdl *filter,
+    struct ast_node_hdl *external)
+{
+    struct filter_class_extern *extern_cls;
+    struct ast_node_hdl **derivedp;
+    struct ast_node_hdl *derived;
+
+    assert(AST_NODE_TYPE_FILTER_DEF == filter->ndat->type);
+    assert(AST_NODE_TYPE_EXTERN_FILTER == external->ndat->type);
+    extern_cls = (struct filter_class_extern *)
+        filter->ndat->u.filter_def.filter_cls;
+
+    // replace original build/compile functions by external ones
+    extern_cls->p.filter_instance_build_func =
+        external->ndat->u.extern_filter.build_func;
+    extern_cls->p.filter_instance_compile_func =
+        external->ndat->u.extern_filter.compile_func;
+    extern_cls->p.user_arg = external->ndat->u.extern_filter.user_arg;
+
+    // rebuild all instances with the new build function
+    ARRAY_FOREACH(&extern_cls->instances, derivedp) {
+        derived = *derivedp;
+        assert(AST_NODE_TYPE_REXPR_FILTER == derived->ndat->type);
+        dep_resolver_node_init(&derived->dr_node);
+        if (-1 == filter_instance_build(
+                derived, &extern_cls->p,
+                derived->ndat->u.rexpr_filter.filter_def)) {
+            return -1;
+        }
+    }
+    return 0;
+
+}
+
 void
 builtin_filter_declare_extern(void)
 {

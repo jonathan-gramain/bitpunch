@@ -141,6 +141,12 @@ filter_instance_get_data_source(
     struct bitpunch_data_source **ds_outp, struct browse_state *bst);
 
 
+int
+extern_filter_bind_to_external(
+    struct ast_node_hdl *filter,
+    struct ast_node_hdl *external);
+
+
 void
 compile_node_backends__filter_generic(struct ast_node_hdl *filter);
 void
