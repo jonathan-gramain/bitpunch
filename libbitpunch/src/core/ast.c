@@ -1002,6 +1002,25 @@ resolve_identifiers_expr_self(
     return 0;
 }
 
+static int
+resolve_identifiers_extern_filter(
+    struct ast_node_hdl *expr,
+    const struct list_of_visible_refs *visible_refs,
+    enum resolve_expect_mask expect_mask,
+    enum resolve_identifiers_tag resolve_tags)
+{
+    const char *filter_name;
+    struct named_statement_spec *visible_statements;
+    int n_visible_statements;
+
+    filter_name = expr->ndat->u.extern_filter.filter_name;
+    n_visible_statements = lookup_all_visible_statements(
+        STATEMENT_TYPE_NAMED_EXPR, filter_name, visible_refs,
+        &visible_statements);
+    printf("%d\n", n_visible_statements);
+    return 0;
+}
+
 
 static enum expr_value_type
 expr_value_type_mask_from_node(const struct ast_node_hdl *node)
@@ -1151,7 +1170,8 @@ resolve_identifiers_internal(struct ast_node_hdl *node,
         return resolve_identifiers_expr_self(node, visible_refs,
                                              expect_mask, resolve_tags);
     case AST_NODE_TYPE_EXTERN_FILTER:
-        printf("YOUPI\n");
+        return resolve_identifiers_extern_filter(node, visible_refs,
+                                                 expect_mask, resolve_tags);
         return 0;
     default:
         /* nothing to resolve */

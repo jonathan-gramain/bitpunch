@@ -58,6 +58,7 @@ bitpunch_external_create_function(
 int
 bitpunch_external_create_filter(
     struct ast_node_hdl **nodep,
+    const char *filter_name,
     filter_instance_build_func_t build_func,
     filter_instance_compile_func_t compile_func,
     void *user_arg)
@@ -66,6 +67,7 @@ bitpunch_external_create_filter(
 
     filter_hdl = ast_node_hdl_create(AST_NODE_TYPE_EXTERN_FILTER, NULL);
     filter_hdl->flags |= ASTFLAG_EXTERNAL;
+    filter_hdl->ndat->u.extern_filter.filter_name = strdup_safe(filter_name);
     filter_hdl->ndat->u.extern_filter.build_func = build_func;
     filter_hdl->ndat->u.extern_filter.compile_func = compile_func;
     filter_hdl->ndat->u.extern_filter.user_arg = user_arg;

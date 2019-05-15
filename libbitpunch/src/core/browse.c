@@ -1076,13 +1076,14 @@ box_new_root_box(struct ast_node_hdl *schema,
                  struct bitpunch_board *board)
 {
     struct browse_state bst;
-    bitpunch_status_t bt_ret;
+    //bitpunch_status_t bt_ret;
 
     browse_state_init(&bst);
-    bt_ret = browse_state_set_environment(&bst, board);
-    if (BITPUNCH_OK != bt_ret) {
-        return NULL;
-    }
+    bst.board = board;
+    //bt_ret = browse_state_set_environment(&bst, board);
+    //if (BITPUNCH_OK != bt_ret) {
+    //    return NULL;
+    //}
     return box_new_root_box_internal(schema, &bst);
 }
 

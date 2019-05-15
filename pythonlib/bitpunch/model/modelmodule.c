@@ -1257,6 +1257,7 @@ declare_python_filter_class(
 
     ret = bitpunch_external_create_filter(
         &filter_hdl,
+        filter_name,
         python_filter_instance_build,
         NULL,
         (void *)filter_type);

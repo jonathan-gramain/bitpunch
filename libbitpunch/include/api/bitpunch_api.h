@@ -109,6 +109,7 @@ bitpunch_external_create_function(
 int
 bitpunch_external_create_filter(
     struct ast_node_hdl **nodep,
+    const char *filter_name,
     filter_instance_build_func_t build_func,
     filter_instance_compile_func_t compile_func,
     void *user_arg);
