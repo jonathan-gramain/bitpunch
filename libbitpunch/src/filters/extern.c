@@ -36,6 +36,11 @@
 
 #include "core/filter.h"
 
+struct filter_class_extern {
+    struct filter_class p; /* inherits */
+    ARRAY_HEAD(extern_filter_instances, struct ast_node_hdl *) instances;
+};
+
 static enum expr_value_type
 expr_value_type_from_spec(struct ast_node_hdl *spec)
 {
@@ -69,10 +74,14 @@ expr_value_type_from_spec(struct ast_node_hdl *spec)
 static struct filter_instance *
 extern_filter_instance_build(struct ast_node_hdl *filter)
 {
+    struct filter_class_extern *extern_cls;
     struct filter_instance *f_instance;
 
-    // TODO add instance to list of instances backed by external
-    // filters, to populate when the external filter is registered
+    assert(AST_NODE_TYPE_REXPR_FILTER == filter->ndat->type);
+    extern_cls = (struct filter_class_extern *)
+        filter->ndat->u.rexpr_filter.filter_cls;
+    ARRAY_PUSH(&extern_cls->instances, filter);
+
     f_instance = new_safe(struct filter_instance);
     return f_instance;
 }
@@ -80,24 +89,23 @@ extern_filter_instance_build(struct ast_node_hdl *filter)
 static struct filter_class *
 extern_filter_class_generate(struct ast_node_hdl *filter)
 {
-    struct filter_class *filter_cls;
+    struct filter_class_extern *extern_cls;
     const struct block_stmt_list *stmt_lists;
     struct named_expr *attr;
     struct filter_attr_def *attr_def;
     enum expr_value_type value_type_mask;
     enum expr_value_type attr_value_type_mask;
 
-    filter_cls = filter_class_new(NULL);
-    if (NULL == filter_cls) {
+    extern_cls = new_safe(struct filter_class_extern);
+    if (NULL == extern_cls) {
         return NULL;
     }
-    filter_cls->flags = 0u;
-    filter_cls->n_attrs = 0;
-    filter_cls->user_arg = (void *)filter;
-    filter_cls->filter_instance_build_func = extern_filter_instance_build;
+    extern_cls->p.flags = 0u;
+    extern_cls->p.n_attrs = 0;
+    extern_cls->p.filter_instance_build_func = extern_filter_instance_build;
 
     value_type_mask = EXPR_VALUE_TYPE_UNSET;
-    STAILQ_INIT(&filter_cls->attr_list);
+    STAILQ_INIT(&extern_cls->p.attr_list);
     stmt_lists = &filter->ndat->u.scope_def.block_stmt_list;
     STATEMENT_FOREACH(named_expr, attr, stmt_lists->attribute_list, list) {
         attr_value_type_mask = expr_value_type_from_spec(attr->expr);
@@ -111,8 +119,8 @@ extern_filter_class_generate(struct ast_node_hdl *filter)
             attr_def->name = attr->nstmt.name;
             attr_def->value_type_mask = attr_value_type_mask;
             attr_def->flags = 0u;
-            STAILQ_INSERT_TAIL(&filter_cls->attr_list, attr_def, list);
-            ++filter_cls->n_attrs;
+            STAILQ_INSERT_TAIL(&extern_cls->p.attr_list, attr_def, list);
+            ++extern_cls->p.n_attrs;
         }
     }
     if (EXPR_VALUE_TYPE_UNSET == value_type_mask) {
@@ -120,8 +128,11 @@ extern_filter_class_generate(struct ast_node_hdl *filter)
                        "missing attribute spec '@out'");
         return NULL;
     }
-    filter_cls->value_type_mask = value_type_mask;
-    return filter_cls;
+    extern_cls->p.value_type_mask = value_type_mask;
+
+    ARRAY_INIT(&extern_cls->instances, 0);
+
+    return &extern_cls->p;
 }
 
 void

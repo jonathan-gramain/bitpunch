@@ -1150,6 +1150,9 @@ resolve_identifiers_internal(struct ast_node_hdl *node,
     case AST_NODE_TYPE_EXPR_SELF:
         return resolve_identifiers_expr_self(node, visible_refs,
                                              expect_mask, resolve_tags);
+    case AST_NODE_TYPE_EXTERN_FILTER:
+        printf("YOUPI\n");
+        return 0;
     default:
         /* nothing to resolve */
         return 0;
