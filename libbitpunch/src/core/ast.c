@@ -78,9 +78,6 @@ resolve_identifiers(struct ast_node_hdl *node,
                     const struct list_of_visible_refs *visible_refs,
                     enum resolve_expect_mask expect_mask,
                     enum resolve_identifiers_tag resolve_tags);
-static int
-compile_ast_node_all(struct ast_node_hdl *ast_root,
-                     enum resolve_expect_mask expect_mask);
 static dep_resolver_tagset_t
 dep_resolver_cb(struct dep_resolver *dr,
                 struct dep_resolver_node *_node,
@@ -1316,9 +1313,9 @@ resolve_expr_internal(struct ast_node_hdl *expr,
                                                 RESOLVE_ALL_IDENTIFIERS)) {
         return -1;
     }
-    if (-1 == compile_ast_node_all(expr, RESOLVE_EXPECT_EXPRESSION)) {
-        return -1;
-    }
+    /* if (-1 == compile_ast_node_all(expr, RESOLVE_EXPECT_EXPRESSION)) { */
+    /*     return -1; */
+    /* } */
     return 0;
 }
 
@@ -1633,7 +1630,7 @@ process_compile_res(dep_resolver_status_t ret, struct compile_ctx *ctx)
     }
 }
 
-static int
+int
 compile_ast_node_all(struct ast_node_hdl *ast_root,
                      enum resolve_expect_mask expect_mask)
 {

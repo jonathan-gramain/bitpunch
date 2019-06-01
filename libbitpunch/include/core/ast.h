@@ -91,6 +91,10 @@ int
 bitpunch_resolve_expr(struct ast_node_hdl *expr, struct box *scope);
 
 int
+compile_ast_node_all(struct ast_node_hdl *ast_root,
+                     enum resolve_expect_mask expect_mask);
+
+int
 identifier_is_visible_in_block_stmt_lists(
     enum statement_type stmt_mask,
     const char *identifier,

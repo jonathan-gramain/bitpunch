@@ -2938,6 +2938,9 @@ tracker_goto_abs_dpath_internal(struct tracker *tk, const char *dpath_expr,
         /* TODO free expr_node */
         return bitpunch_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
+    if (-1 == compile_ast_node_all(expr_node, RESOLVE_EXPECT_EXPRESSION)) {
+        return bitpunch_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
+    }
     if (expr_node->ndat->u.rexpr.dpath_type_mask == EXPR_DPATH_TYPE_NONE) {
         return bitpunch_error(BITPUNCH_INVALID_PARAM, tk, NULL, bst, NULL);
     }
