@@ -170,22 +170,22 @@ filter_get_scope_def(struct ast_node_hdl *filter);
 static inline const struct scope_def *
 filter_get_const_scope_def(const struct ast_node_hdl *filter);
 
-struct statement_iterator
+struct scope_iterator
 filter_iter_statements(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier);
 
-struct statement_iterator
+struct scope_iterator
 filter_iter_statements_from(
     struct ast_node_hdl *filter, struct box *scope,
     const struct statement *stmt, const char *identifier);
 
-struct statement_iterator
+struct scope_iterator
 filter_riter_statements(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier);
 
-struct statement_iterator
+struct scope_iterator
 filter_riter_statements_from(
     struct ast_node_hdl *filter, struct box *scope,
     const struct statement *stmt, const char *identifier);

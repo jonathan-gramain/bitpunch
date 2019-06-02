@@ -2663,7 +2663,7 @@ tracker_goto_field_int_recur(struct tracker *tk,
 {
     struct tracker *xtk;
     bitpunch_status_t bt_ret;
-    struct statement_iterator stit;
+    struct scope_iterator stit;
     const struct statement *stmt;
 
     DBG_TRACKER_DUMP(tk);
@@ -2756,7 +2756,7 @@ bitpunch_status_t
 tracker_goto_first_field_internal(struct tracker *tk, int flat,
                                   struct browse_state *bst)
 {
-    struct statement_iterator stit;
+    struct scope_iterator stit;
     const struct statement *stmt;
     bitpunch_status_t bt_ret;
 
@@ -2809,7 +2809,7 @@ bitpunch_status_t
 tracker_goto_next_field_internal(struct tracker *tk, int flat,
                                  struct browse_state *bst)
 {
-    struct statement_iterator stit;
+    struct scope_iterator stit;
     const struct statement *stmt;
     bitpunch_status_t bt_ret;
     int reversed;

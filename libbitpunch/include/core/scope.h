@@ -34,45 +34,45 @@
 
 /* generic statement API */
 
-enum statement_iterator_flag {
+enum scope_iterator_flag {
     STATEMENT_ITERATOR_FLAG_REVERSE = (1<<0),
 };
-struct statement_iterator {
+struct scope_iterator {
     /** attribute name to iterate, or NULL for all statements */
     const char *identifier;
     struct box *scope;
     enum statement_type stmt_mask;
     enum statement_type stmt_remaining;
-    enum statement_iterator_flag it_flags;
+    enum scope_iterator_flag it_flags;
     const struct block_stmt_list *stmt_lists;
     const struct statement *next_stmt;
 };
 
-typedef struct statement_iterator tstatement_iterator;
+typedef struct scope_iterator tscope_iterator;
 
-struct statement_iterator
+struct scope_iterator
 scope_iter_statements(
     struct scope_def *scope_def, struct box *scope,
     enum statement_type stmt_mask, const char *identifier);
 
-struct statement_iterator
+struct scope_iterator
 scope_iter_statements_from(
     struct scope_def *scope_def, struct box *scope,
     const struct statement *stmt, const char *identifier);
 
-struct statement_iterator
+struct scope_iterator
 scope_riter_statements(
     struct scope_def *scope_def, struct box *scope,
     enum statement_type stmt_mask, const char *identifier);
 
-struct statement_iterator
+struct scope_iterator
 scope_riter_statements_from(
     struct scope_def *scope_def, struct box *scope,
     const struct statement *stmt, const char *identifier);
 
 bitpunch_status_t
 scope_iter_statements_next_internal(
-    struct statement_iterator *it,
+    struct scope_iterator *it,
     enum statement_type *stmt_typep, const struct statement **stmtp,
     struct browse_state *bst);
 
@@ -120,7 +120,7 @@ scope_evaluate_identifier(
 
 bitpunch_status_t
 scope_iter_statements_next(
-    struct statement_iterator *it,
+    struct scope_iterator *it,
     enum statement_type *stmt_typep, const struct statement **stmtp,
     struct bitpunch_error **errp);
 

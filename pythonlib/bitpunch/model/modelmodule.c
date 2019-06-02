@@ -2668,7 +2668,7 @@ box_get_attributes_dict(struct box *box)
     bitpunch_status_t bt_ret;
     PyObject *py_key;
     expr_value_t key_value;
-    tstatement_iterator attr_iter;
+    tscope_iterator attr_iter;
     const struct named_expr *named_expr;
     struct bitpunch_error *bp_err = NULL;
 
@@ -3142,7 +3142,7 @@ typedef struct TrackerObject {
     struct tracker *tk;
     TrackerIterType iter_mode;
     TrackerIterType current_iter_mode;
-    tstatement_iterator attr_iter;
+    tscope_iterator attr_iter;
 } TrackerObject;
 
 

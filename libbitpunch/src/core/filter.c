@@ -393,7 +393,7 @@ filter_instance_get_data_source(
  * scope API
  */
 
-struct statement_iterator
+struct scope_iterator
 filter_iter_statements(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier)
@@ -402,7 +402,7 @@ filter_iter_statements(
       ast_node_get_scope_def(filter), scope, stmt_mask, identifier);
 }
 
-struct statement_iterator
+struct scope_iterator
 filter_iter_statements_from(
     struct ast_node_hdl *filter, struct box *scope,
     const struct statement *stmt, const char *identifier)
@@ -411,7 +411,7 @@ filter_iter_statements_from(
       ast_node_get_scope_def(filter), scope, stmt, identifier);
 }
 
-struct statement_iterator
+struct scope_iterator
 filter_riter_statements(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier)
@@ -420,7 +420,7 @@ filter_riter_statements(
       ast_node_get_scope_def(filter), scope, stmt_mask, identifier);
 }
 
-struct statement_iterator
+struct scope_iterator
 filter_riter_statements_from(
     struct ast_node_hdl *filter, struct box *scope,
     const struct statement *stmt, const char *identifier)

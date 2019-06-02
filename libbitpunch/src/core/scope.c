@@ -47,7 +47,7 @@
 
 static const struct statement *
 scope_iter_statements_advance_internal(
-    struct statement_iterator *it,
+    struct scope_iterator *it,
     const struct statement *stmt)
 {
     const struct statement *next_stmt;
@@ -69,7 +69,7 @@ scope_iter_statements_advance_internal(
 
 static const struct statement *
 scope_iter_statements_find_first_internal(
-    struct statement_iterator *it,
+    struct scope_iterator *it,
     const struct statement *stmt)
 {
     if (NULL == stmt
@@ -83,7 +83,7 @@ scope_iter_statements_find_first_internal(
 }
 
 static void
-scope_iter_start_list_internal(struct statement_iterator *it)
+scope_iter_start_list_internal(struct scope_iterator *it)
 {
     if (0 != (it->stmt_remaining & STATEMENT_TYPE_NAMED_EXPR)) {
         it->next_stmt = scope_iter_statements_find_first_internal(
@@ -106,7 +106,7 @@ scope_iter_start_list_internal(struct statement_iterator *it)
 }
 
 static void
-scope_riter_start_list_internal(struct statement_iterator *it)
+scope_riter_start_list_internal(struct scope_iterator *it)
 {
     if (0 != (it->stmt_remaining & STATEMENT_TYPE_NAMED_EXPR)) {
         it->next_stmt = scope_iter_statements_find_first_internal(
@@ -129,7 +129,7 @@ scope_riter_start_list_internal(struct statement_iterator *it)
 }
 
 static enum statement_type
-scope_iter_get_current_statement_type(struct statement_iterator *it)
+scope_iter_get_current_statement_type(struct scope_iterator *it)
 {
     enum statement_type stmt_done_or_in_progress;
 
@@ -149,14 +149,12 @@ scope_iter_get_current_statement_type(struct statement_iterator *it)
     return 0u;
 }
 
-// TODO: all iteration functions should include iteration on base filters
-
-struct statement_iterator
+struct scope_iterator
 scope_iter_statements(
     struct scope_def *scope_def, struct box *scope,
     enum statement_type stmt_mask, const char *identifier)
 {
-    struct statement_iterator it;
+    struct scope_iterator it;
 
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
@@ -170,12 +168,12 @@ scope_iter_statements(
     return it;
 }
 
-struct statement_iterator
+struct scope_iterator
 scope_iter_statements_from(
     struct scope_def *scope_def, struct box *scope,
     const struct statement *stmt, const char *identifier)
 {
-    struct statement_iterator it;
+    struct scope_iterator it;
 
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
@@ -184,12 +182,12 @@ scope_iter_statements_from(
     return it;
 }
 
-struct statement_iterator
+struct scope_iterator
 scope_riter_statements(
     struct scope_def *scope_def, struct box *scope,
     enum statement_type stmt_mask, const char *identifier)
 {
-    struct statement_iterator it;
+    struct scope_iterator it;
 
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
@@ -204,12 +202,12 @@ scope_riter_statements(
     return it;
 }
 
-struct statement_iterator
+struct scope_iterator
 scope_riter_statements_from(
     struct scope_def *scope_def, struct box *scope,
     const struct statement *stmt, const char *identifier)
 {
-    struct statement_iterator it;
+    struct scope_iterator it;
 
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
@@ -221,7 +219,7 @@ scope_riter_statements_from(
 
 bitpunch_status_t
 scope_iter_statements_next_internal(
-    struct statement_iterator *it,
+    struct scope_iterator *it,
     enum statement_type *stmt_typep, const struct statement **stmtp,
     struct browse_state *bst)
 {
@@ -350,7 +348,7 @@ scope_get_first_statement_internal(
     enum statement_type *stmt_typep, const struct statement **stmtp,
     struct browse_state *bst)
 {
-    struct statement_iterator it;
+    struct scope_iterator it;
 
     it = scope_iter_statements(scope_def, scope, stmt_mask, identifier);
     return scope_iter_statements_next_internal(&it, stmt_typep, stmtp, bst);
@@ -425,7 +423,7 @@ scope_get_n_statements_internal(
     struct browse_state *bst)
 {
     bitpunch_status_t bt_ret;
-    struct statement_iterator it;
+    struct scope_iterator it;
     int64_t stmt_count;
 
     it = scope_iter_statements(scope_def, scope, stmt_mask, identifier);
@@ -518,7 +516,7 @@ scope_evaluate_identifier(
 
 bitpunch_status_t
 scope_iter_statements_next(
-    struct statement_iterator *it,
+    struct scope_iterator *it,
     enum statement_type *stmt_typep, const struct statement **stmtp,
     struct bitpunch_error **errp)
 {
