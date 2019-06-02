@@ -388,6 +388,163 @@ filter_instance_get_data_source(
     return f_instance->b_item.get_data_source(filter, scope, ds_outp, bst);
 }
 
+
+/*
+ * scope API
+ */
+
+struct statement_iterator
+filter_iter_statements(
+    struct ast_node_hdl *filter, struct box *scope,
+    enum statement_type stmt_mask, const char *identifier)
+{
+  return scope_iter_statements(
+      ast_node_get_scope_def(filter), scope, stmt_mask, identifier);
+}
+
+struct statement_iterator
+filter_iter_statements_from(
+    struct ast_node_hdl *filter, struct box *scope,
+    const struct statement *stmt, const char *identifier)
+{
+  return scope_iter_statements_from(
+      ast_node_get_scope_def(filter), scope, stmt, identifier);
+}
+
+struct statement_iterator
+filter_riter_statements(
+    struct ast_node_hdl *filter, struct box *scope,
+    enum statement_type stmt_mask, const char *identifier)
+{
+  return scope_riter_statements(
+      ast_node_get_scope_def(filter), scope, stmt_mask, identifier);
+}
+
+struct statement_iterator
+filter_riter_statements_from(
+    struct ast_node_hdl *filter, struct box *scope,
+    const struct statement *stmt, const char *identifier)
+{
+  return scope_riter_statements_from(
+      ast_node_get_scope_def(filter), scope, stmt, identifier);
+}
+
+bitpunch_status_t
+filter_lookup_statement_internal(
+    struct ast_node_hdl *filter, struct box *scope,
+    enum statement_type stmt_mask, const char *identifier,
+    enum statement_type *stmt_typep, const struct named_statement **stmtp,
+    struct box **scopep,
+    struct browse_state *bst)
+{
+  return scope_lookup_statement_internal(
+      ast_node_get_scope_def(filter), scope, stmt_mask, identifier,
+      stmt_typep, stmtp, scopep, bst);
+}
+
+bitpunch_status_t
+filter_get_n_statements_internal(
+    struct ast_node_hdl *filter, struct box *scope,
+    enum statement_type stmt_mask, const char *identifier,
+    int64_t *stmt_countp,
+    struct browse_state *bst)
+{
+    bitpunch_status_t bt_ret;
+    struct ast_node_hdl *base_filter;
+    int64_t scope_count;
+    int64_t base_filter_count;
+
+    bt_ret = scope_get_n_statements_internal(
+        ast_node_get_scope_def(filter), scope, stmt_mask, identifier,
+        &scope_count, bst);
+    if (BITPUNCH_OK != bt_ret) {
+        return bt_ret;
+    }
+    base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
+    if (NULL != base_filter) {
+        bt_ret = filter_get_n_statements_internal(
+            base_filter, scope, stmt_mask, identifier, &base_filter_count, bst);
+        if (BITPUNCH_OK != bt_ret) {
+            return bt_ret;
+        }
+        *stmt_countp = scope_count + base_filter_count;
+    } else {
+        *stmt_countp = scope_count;
+    }
+    return BITPUNCH_OK;
+}
+
+bitpunch_status_t
+filter_evaluate_identifier_internal(
+    struct ast_node_hdl *filter, struct box *scope,
+    enum statement_type stmt_mask, const char *identifier,
+    enum expr_evaluate_flag flags,
+    enum statement_type *stmt_typep, const struct named_statement **stmtp,
+    struct box **scopep,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst)
+{
+  return scope_evaluate_identifier_internal(
+      ast_node_get_scope_def(filter), scope, stmt_mask, identifier, flags,
+      stmt_typep, stmtp, scopep, valuep, dpathp, bst);
+}
+
+bitpunch_status_t
+filter_evaluate_attribute_internal(
+    struct ast_node_hdl *filter, struct box *scope,
+    const char *attr_name,
+    enum expr_evaluate_flag flags,
+    const struct named_expr **attrp,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct browse_state *bst)
+{
+  return scope_evaluate_attribute_internal(
+      ast_node_get_scope_def(filter), scope, attr_name, flags,
+      attrp, valuep, dpathp, bst);
+}
+
+bitpunch_status_t
+filter_evaluate_identifier(
+    struct ast_node_hdl *filter, struct box *scope,
+    enum statement_type stmt_mask, const char *identifier,
+    enum expr_evaluate_flag flags,
+    expr_value_t *valuep, expr_dpath_t *dpathp,
+    struct bitpunch_error **errp)
+{
+  return scope_evaluate_identifier(
+      ast_node_get_scope_def(filter), scope, stmt_mask, identifier, flags,
+      valuep, dpathp, errp);
+}
+
+void
+filter_attach_native_attribute(
+    struct ast_node_hdl *filter,
+    const char *attr_name, expr_value_t value)
+{
+  return scope_attach_native_attribute(
+      ast_node_get_scope_def(filter), attr_name, value);
+}
+
+struct ast_node_hdl *
+filter_get_first_declared_named_expr(
+    const struct ast_node_hdl *filter,
+    const char *name)
+{
+  return scope_get_first_declared_named_expr(
+      ast_node_get_const_scope_def(filter), name);
+}
+
+struct ast_node_hdl *
+filter_get_first_declared_attribute(
+    const struct ast_node_hdl *filter,
+    const char *attr_name)
+{
+  return scope_get_first_declared_attribute(
+      ast_node_get_const_scope_def(filter), attr_name);
+}
+
+
+
 /*
  * tracking backends
  */

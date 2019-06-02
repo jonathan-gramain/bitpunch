@@ -170,27 +170,27 @@ filter_get_scope_def(struct ast_node_hdl *filter);
 static inline const struct scope_def *
 filter_get_const_scope_def(const struct ast_node_hdl *filter);
 
-static inline struct statement_iterator
+struct statement_iterator
 filter_iter_statements(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier);
 
-static inline struct statement_iterator
+struct statement_iterator
 filter_iter_statements_from(
     struct ast_node_hdl *filter, struct box *scope,
     const struct statement *stmt, const char *identifier);
 
-static inline struct statement_iterator
+struct statement_iterator
 filter_riter_statements(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier);
 
-static inline struct statement_iterator
+struct statement_iterator
 filter_riter_statements_from(
     struct ast_node_hdl *filter, struct box *scope,
     const struct statement *stmt, const char *identifier);
 
-static inline bitpunch_status_t
+bitpunch_status_t
 filter_lookup_statement_internal(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier,
@@ -198,14 +198,14 @@ filter_lookup_statement_internal(
     struct box **scopep,
     struct browse_state *bst);
 
-static inline bitpunch_status_t
+bitpunch_status_t
 filter_get_n_statements_internal(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier,
     int64_t *stmt_countp,
     struct browse_state *bst);
 
-static inline bitpunch_status_t
+bitpunch_status_t
 filter_evaluate_identifier_internal(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier,
@@ -215,7 +215,7 @@ filter_evaluate_identifier_internal(
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst);
 
-static inline bitpunch_status_t
+bitpunch_status_t
 filter_evaluate_attribute_internal(
     struct ast_node_hdl *filter, struct box *scope,
     const char *attr_name,
@@ -224,7 +224,7 @@ filter_evaluate_attribute_internal(
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst);
 
-static inline bitpunch_status_t
+bitpunch_status_t
 filter_evaluate_identifier(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier,
@@ -232,17 +232,17 @@ filter_evaluate_identifier(
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct bitpunch_error **errp);
 
-static inline void
+void
 filter_attach_native_attribute(
     struct ast_node_hdl *filter,
     const char *attr_name, expr_value_t value);
 
-static inline struct ast_node_hdl *
+struct ast_node_hdl *
 filter_get_first_declared_named_expr(
     const struct ast_node_hdl *filter,
     const char *name);
 
-static inline struct ast_node_hdl *
+struct ast_node_hdl *
 filter_get_first_declared_attribute(
     const struct ast_node_hdl *filter,
     const char *attr_name);
