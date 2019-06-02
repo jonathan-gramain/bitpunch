@@ -35,7 +35,7 @@
 /* generic statement API */
 
 enum scope_iterator_flag {
-    STATEMENT_ITERATOR_FLAG_REVERSE = (1<<0),
+    SCOPE_ITERATOR_FLAG_REVERSE = (1<<0),
 };
 struct scope_iterator {
     /** attribute name to iterate, or NULL for all statements */

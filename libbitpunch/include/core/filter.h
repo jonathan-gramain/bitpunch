@@ -160,10 +160,6 @@ void
 compile_node_backends__tracker__filter(struct ast_node_hdl *item);
 
 
-/*
- * scope API
- */
-
 static inline struct scope_def *
 filter_get_scope_def(struct ast_node_hdl *filter);
 

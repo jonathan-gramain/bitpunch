@@ -54,7 +54,7 @@ scope_iter_statements_advance_internal(
 
     next_stmt = stmt;
     do {
-        if ((it->it_flags & STATEMENT_ITERATOR_FLAG_REVERSE)) {
+        if ((it->it_flags & SCOPE_ITERATOR_FLAG_REVERSE)) {
             next_stmt = TAILQ_PREV(next_stmt, statement_list, list);
         } else {
             next_stmt = TAILQ_NEXT(next_stmt, list);
@@ -191,7 +191,7 @@ scope_riter_statements(
 
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
-    it.it_flags = STATEMENT_ITERATOR_FLAG_REVERSE;
+    it.it_flags = SCOPE_ITERATOR_FLAG_REVERSE;
     it.stmt_mask = stmt_mask;
     if (NULL != scope_def) {
         it.scope = scope;
@@ -212,7 +212,7 @@ scope_riter_statements_from(
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
     it.scope = scope;
-    it.it_flags = STATEMENT_ITERATOR_FLAG_REVERSE;
+    it.it_flags = SCOPE_ITERATOR_FLAG_REVERSE;
     it.next_stmt = scope_iter_statements_advance_internal(&it, stmt);
     return it;
 }
@@ -251,7 +251,7 @@ scope_iter_statements_next_internal(
         stmt = scope_iter_statements_advance_internal(it, stmt);
     }
     if (0 != it->stmt_remaining) {
-        if (0 != (it->it_flags & STATEMENT_ITERATOR_FLAG_REVERSE)) {
+        if (0 != (it->it_flags & SCOPE_ITERATOR_FLAG_REVERSE)) {
             scope_riter_start_list_internal(it);
         } else {
             scope_iter_start_list_internal(it);
