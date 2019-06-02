@@ -437,9 +437,20 @@ filter_lookup_statement_internal(
     struct box **scopep,
     struct browse_state *bst)
 {
-  return scope_lookup_statement_internal(
-      ast_node_get_scope_def(filter), scope, stmt_mask, identifier,
-      stmt_typep, stmtp, scopep, bst);
+    bitpunch_status_t bt_ret;
+    struct ast_node_hdl *base_filter;
+
+    assert(ast_node_is_filter(filter));
+    base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
+    bt_ret = scope_lookup_statement_internal(
+        ast_node_get_scope_def(filter), scope, stmt_mask, identifier,
+        stmt_typep, stmtp, scopep, bst);
+    if (BITPUNCH_NO_ITEM != bt_ret || NULL == base_filter) {
+        return bt_ret;
+    }
+    return filter_lookup_statement_internal(
+        base_filter, scope, stmt_mask, identifier,
+        stmt_typep, stmtp, scopep, bst);
 }
 
 bitpunch_status_t
@@ -454,7 +465,7 @@ filter_get_n_statements_internal(
     int64_t scope_count;
     int64_t base_filter_count;
 
-    assert(ast_node_is_rexpr_filter(filter));
+    assert(ast_node_is_filter(filter));
     base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
     bt_ret = scope_get_n_statements_internal(
         ast_node_get_scope_def(filter), scope, stmt_mask, identifier,
@@ -488,7 +499,7 @@ filter_evaluate_identifier_internal(
     bitpunch_status_t bt_ret;
     struct ast_node_hdl *base_filter;
 
-    assert(ast_node_is_rexpr_filter(filter));
+    assert(ast_node_is_filter(filter));
     base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
     bt_ret = scope_evaluate_identifier_internal(
         ast_node_get_scope_def(filter), scope, stmt_mask, identifier, flags,
@@ -551,7 +562,7 @@ filter_get_first_declared_named_expr(
     struct ast_node_hdl *base_filter;
     struct ast_node_hdl *named_expr;
 
-    assert(ast_node_is_rexpr_filter(filter));
+    assert(ast_node_is_filter(filter));
     base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
     named_expr = scope_get_first_declared_named_expr(
         ast_node_get_const_scope_def(filter), name);
@@ -569,7 +580,7 @@ filter_get_first_declared_attribute(
     struct ast_node_hdl *base_filter;
     struct ast_node_hdl *named_expr;
 
-    assert(ast_node_is_rexpr_filter(filter));
+    assert(ast_node_is_filter(filter));
     base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
     named_expr = scope_get_first_declared_attribute(
         ast_node_get_const_scope_def(filter), attr_name);

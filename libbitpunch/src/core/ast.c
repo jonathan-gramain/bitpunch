@@ -3915,6 +3915,18 @@ ast_node_is_generator_filter(const struct ast_node_hdl *node)
             .filter_cls->filter_class_generate_func);
 }
 
+const struct filter_def *
+ast_node_get_const_filter_def(const struct ast_node_hdl *node)
+{
+    if (ast_node_is_filter(node)) {
+        return node->ndat->u.rexpr_filter.filter_def;
+    }
+    if (AST_NODE_TYPE_FILTER_DEF == node->ndat->type) {
+        return &node->ndat->u.filter_def;
+    }
+    return NULL;
+}
+
 struct filter_class *
 ast_node_get_filter_class(struct ast_node_hdl *node)
 {
@@ -4764,6 +4776,8 @@ dump_filter_recur(const struct ast_node_hdl *filter,
                   struct list_of_visible_refs *outer_refs,
                   FILE *out)
 {
+    const struct filter_def *filter_def;
+
     if (NULL == filter) {
         return ;
     }
@@ -4771,6 +4785,12 @@ dump_filter_recur(const struct ast_node_hdl *filter,
         filter,
         &ast_node_get_const_scope_def(filter)->block_stmt_list,
         depth, outer_refs, out);
+    filter_def = ast_node_get_const_filter_def(filter);
+    if (NULL != filter_def->base_filter) {
+        fprintf(out, "%*s\\_ base filter:\n",
+                depth * INDENT_N_SPACES, "");
+        dump_filter_recur(filter_def->base_filter, depth + 1, outer_refs, out);
+    }
 }
 
 static void

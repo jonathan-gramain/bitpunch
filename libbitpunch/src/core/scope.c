@@ -149,6 +149,8 @@ scope_iter_get_current_statement_type(struct statement_iterator *it)
     return 0u;
 }
 
+// TODO: all iteration functions should include iteration on base filters
+
 struct statement_iterator
 scope_iter_statements(
     struct scope_def *scope_def, struct box *scope,

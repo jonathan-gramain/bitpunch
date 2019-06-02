@@ -204,6 +204,8 @@ int
 ast_node_is_filter(const struct ast_node_hdl *node);
 int
 ast_node_is_generator_filter(const struct ast_node_hdl *node);
+const struct filter_def *
+ast_node_get_const_filter_def(const struct ast_node_hdl *node);
 struct filter_class *
 ast_node_get_filter_class(struct ast_node_hdl *node);
 struct ast_node_hdl *
