@@ -454,13 +454,14 @@ filter_get_n_statements_internal(
     int64_t scope_count;
     int64_t base_filter_count;
 
+    assert(ast_node_is_rexpr_filter(filter));
+    base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
     bt_ret = scope_get_n_statements_internal(
         ast_node_get_scope_def(filter), scope, stmt_mask, identifier,
         &scope_count, bst);
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
     if (NULL != base_filter) {
         bt_ret = filter_get_n_statements_internal(
             base_filter, scope, stmt_mask, identifier, &base_filter_count, bst);
@@ -484,9 +485,20 @@ filter_evaluate_identifier_internal(
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
-  return scope_evaluate_identifier_internal(
-      ast_node_get_scope_def(filter), scope, stmt_mask, identifier, flags,
-      stmt_typep, stmtp, scopep, valuep, dpathp, bst);
+    bitpunch_status_t bt_ret;
+    struct ast_node_hdl *base_filter;
+
+    assert(ast_node_is_rexpr_filter(filter));
+    base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
+    bt_ret = scope_evaluate_identifier_internal(
+        ast_node_get_scope_def(filter), scope, stmt_mask, identifier, flags,
+        stmt_typep, stmtp, scopep, valuep, dpathp, bst);
+    if (BITPUNCH_NO_ITEM != bt_ret || NULL == base_filter) {
+        return bt_ret;
+    }
+    return filter_evaluate_identifier_internal(
+        base_filter, scope, stmt_mask, identifier, flags,
+        stmt_typep, stmtp, scopep, valuep, dpathp, bst);
 }
 
 bitpunch_status_t
@@ -498,9 +510,10 @@ filter_evaluate_attribute_internal(
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct browse_state *bst)
 {
-  return scope_evaluate_attribute_internal(
-      ast_node_get_scope_def(filter), scope, attr_name, flags,
-      attrp, valuep, dpathp, bst);
+    return filter_evaluate_identifier_internal(
+        filter, scope, STATEMENT_TYPE_ATTRIBUTE, attr_name, flags,
+        NULL, (const struct named_statement **)attrp, NULL,
+        valuep, dpathp, bst);
 }
 
 bitpunch_status_t
@@ -511,9 +524,14 @@ filter_evaluate_identifier(
     expr_value_t *valuep, expr_dpath_t *dpathp,
     struct bitpunch_error **errp)
 {
-  return scope_evaluate_identifier(
-      ast_node_get_scope_def(filter), scope, stmt_mask, identifier, flags,
-      valuep, dpathp, errp);
+    struct browse_state bst;
+
+    browse_state_init_scope(&bst, scope);
+    return transmit_error(
+        filter_evaluate_identifier_internal(
+            filter, scope, stmt_mask, identifier, flags,
+            NULL, NULL, NULL, valuep, dpathp, &bst),
+        &bst, errp);
 }
 
 void
@@ -530,8 +548,17 @@ filter_get_first_declared_named_expr(
     const struct ast_node_hdl *filter,
     const char *name)
 {
-  return scope_get_first_declared_named_expr(
-      ast_node_get_const_scope_def(filter), name);
+    struct ast_node_hdl *base_filter;
+    struct ast_node_hdl *named_expr;
+
+    assert(ast_node_is_rexpr_filter(filter));
+    base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
+    named_expr = scope_get_first_declared_named_expr(
+        ast_node_get_const_scope_def(filter), name);
+    if (NULL != named_expr || NULL == base_filter) {
+        return named_expr;
+    }
+    return filter_get_first_declared_named_expr(base_filter, name);
 }
 
 struct ast_node_hdl *
@@ -539,8 +566,17 @@ filter_get_first_declared_attribute(
     const struct ast_node_hdl *filter,
     const char *attr_name)
 {
-  return scope_get_first_declared_attribute(
-      ast_node_get_const_scope_def(filter), attr_name);
+    struct ast_node_hdl *base_filter;
+    struct ast_node_hdl *named_expr;
+
+    assert(ast_node_is_rexpr_filter(filter));
+    base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
+    named_expr = scope_get_first_declared_attribute(
+        ast_node_get_const_scope_def(filter), attr_name);
+    if (NULL != named_expr || NULL == base_filter) {
+        return named_expr;
+    }
+    return filter_get_first_declared_attribute(base_filter, attr_name);
 }
 
 
