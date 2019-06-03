@@ -411,7 +411,8 @@ filter_iter_statements(
         fit.cur_base_filter = base_filter;
     }
     fit.scit = scope_iter_statements(
-        ast_node_get_scope_def(base_filter), scope, stmt_mask, identifier);
+        ast_node_get_scope_def(fit.cur_base_filter),
+        scope, stmt_mask, identifier);
     return fit;
 }
 
@@ -497,8 +498,56 @@ filter_iter_statements_next_internal(
     enum statement_type *stmt_typep, const struct statement **stmtp,
     struct browse_state *bst)
 {
-    return scope_iter_statements_next_internal(
-        &fit->scit, stmt_typep, stmtp, bst);
+    bitpunch_status_t bt_ret;
+    struct ast_node_hdl *cur_filter;
+    struct ast_node_hdl *base_filter;
+
+    while (TRUE) {
+        bt_ret = scope_iter_statements_next_internal(
+            &fit->scit, stmt_typep, stmtp, bst);
+        if (BITPUNCH_NO_ITEM != bt_ret) {
+            return bt_ret;
+        }
+        if (0 != (fit->scit.it_flags & SCOPE_ITERATOR_FLAG_REVERSE)) {
+            fit->cur_base_filter =
+                fit->cur_base_filter->ndat->u.rexpr_filter.filter_def->base_filter;
+            if (NULL == fit->cur_base_filter) {
+                return BITPUNCH_NO_ITEM;
+            }
+        } else {
+            if (fit->filter == fit->cur_base_filter) {
+                return BITPUNCH_NO_ITEM;
+            }
+            cur_filter = fit->filter;
+            while (TRUE) {
+                base_filter =
+                    cur_filter->ndat->u.rexpr_filter.filter_def->base_filter;
+                if (base_filter == fit->cur_base_filter) {
+                    fit->cur_base_filter = cur_filter;
+                    break ;
+                }
+                cur_filter = base_filter;
+            }
+        }
+        fit->scit = scope_iter_statements(
+            ast_node_get_scope_def(fit->cur_base_filter),
+            fit->scit.scope, fit->scit.stmt_mask, fit->scit.identifier);
+    }
+    return BITPUNCH_OK;
+}
+
+bitpunch_status_t
+filter_iter_statements_next(
+    struct filter_iterator *fit,
+    enum statement_type *stmt_typep, const struct statement **stmtp,
+    struct bitpunch_error **errp)
+{
+    struct browse_state bst;
+
+    browse_state_init_scope(&bst, fit->scit.scope);
+    return transmit_error(
+        filter_iter_statements_next_internal(fit, stmt_typep, stmtp, &bst),
+        &bst, errp);
 }
 
 bitpunch_status_t

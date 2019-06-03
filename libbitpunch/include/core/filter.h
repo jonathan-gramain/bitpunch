@@ -203,6 +203,12 @@ filter_iter_statements_next_internal(
     struct browse_state *bst);
 
 bitpunch_status_t
+filter_iter_statements_next(
+    struct filter_iterator *fit,
+    enum statement_type *stmt_typep, const struct statement **stmtp,
+    struct bitpunch_error **errp);
+
+bitpunch_status_t
 filter_lookup_statement_internal(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier,

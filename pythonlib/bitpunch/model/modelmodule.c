@@ -2668,7 +2668,7 @@ box_get_attributes_dict(struct box *box)
     bitpunch_status_t bt_ret;
     PyObject *py_key;
     expr_value_t key_value;
-    tscope_iterator attr_iter;
+    tfilter_iterator attr_iter;
     const struct named_expr *named_expr;
     struct bitpunch_error *bp_err = NULL;
 
@@ -2706,7 +2706,7 @@ box_get_attributes_dict(struct box *box)
     attr_iter = filter_iter_statements(box->filter, box,
                                        STATEMENT_TYPE_NAMED_EXPR |
                                        STATEMENT_TYPE_ATTRIBUTE, NULL);
-    bt_ret = scope_iter_statements_next(
+    bt_ret = filter_iter_statements_next(
         &attr_iter, NULL, (const struct statement **)&named_expr, NULL);
     while (BITPUNCH_OK == bt_ret) {
         py_key = PyString_FromString(named_expr->nstmt.name);
@@ -2714,7 +2714,7 @@ box_get_attributes_dict(struct box *box)
             PyDict_SetItem(dict, py_key, Py_None);
             Py_DECREF(py_key);
         }
-        bt_ret = scope_iter_statements_next(
+        bt_ret = filter_iter_statements_next(
             &attr_iter, NULL, (const struct statement **)&named_expr, NULL);
     }
     return dict;
@@ -3142,7 +3142,7 @@ typedef struct TrackerObject {
     struct tracker *tk;
     TrackerIterType iter_mode;
     TrackerIterType current_iter_mode;
-    tscope_iterator attr_iter;
+    tfilter_iterator attr_iter;
 } TrackerObject;
 
 
@@ -3912,7 +3912,7 @@ Tracker_iternext(TrackerObject *self)
         const struct named_expr *named_expr;
         struct bitpunch_error *bp_err = NULL;
 
-        bt_ret = scope_iter_statements_next(
+        bt_ret = filter_iter_statements_next(
             &self->attr_iter, NULL,
             (const struct statement **)&named_expr, &bp_err);
         if (BITPUNCH_NO_ITEM == bt_ret) {

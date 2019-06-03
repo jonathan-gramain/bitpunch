@@ -54,7 +54,7 @@ scope_iter_statements_advance_internal(
 
     next_stmt = stmt;
     do {
-        if ((it->it_flags & SCOPE_ITERATOR_FLAG_REVERSE)) {
+        if (0 != (it->it_flags & SCOPE_ITERATOR_FLAG_REVERSE)) {
             next_stmt = TAILQ_PREV(next_stmt, statement_list, list);
         } else {
             next_stmt = TAILQ_NEXT(next_stmt, list);
