@@ -124,6 +124,11 @@ scope_iter_statements_next(
     enum statement_type *stmt_typep, const struct statement **stmtp,
     struct bitpunch_error **errp);
 
+int
+scope_contains_statement(
+    const struct scope_def *scope_def,
+    enum statement_type stmt_mask, const struct statement *stmt);
+
 void
 scope_attach_native_attribute(
     struct scope_def *scope_def,

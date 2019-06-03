@@ -389,44 +389,116 @@ filter_instance_get_data_source(
 }
 
 
-/*
- * scope API
- */
-
-struct scope_iterator
+struct filter_iterator
 filter_iter_statements(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier)
 {
-  return scope_iter_statements(
-      ast_node_get_scope_def(filter), scope, stmt_mask, identifier);
+    struct ast_node_hdl *base_filter;
+    struct filter_iterator fit;
+
+    assert(ast_node_is_filter(filter));
+    fit.filter = filter;
+    // start with the top-level base filter
+    fit.cur_base_filter = filter;
+    while (TRUE) {
+        base_filter =
+            fit.cur_base_filter->ndat->u.rexpr_filter.filter_def->base_filter;
+        if (NULL == base_filter) {
+            break ;
+        }
+        assert(ast_node_is_filter(base_filter));
+        fit.cur_base_filter = base_filter;
+    }
+    fit.scit = scope_iter_statements(
+        ast_node_get_scope_def(base_filter), scope, stmt_mask, identifier);
+    return fit;
 }
 
-struct scope_iterator
+struct filter_iterator
 filter_iter_statements_from(
     struct ast_node_hdl *filter, struct box *scope,
-    const struct statement *stmt, const char *identifier)
+    enum statement_type stmt_mask, const struct statement *stmt,
+    const char *identifier)
 {
-  return scope_iter_statements_from(
-      ast_node_get_scope_def(filter), scope, stmt, identifier);
+    struct ast_node_hdl *base_filter;
+    struct filter_iterator fit;
+
+    assert(ast_node_is_filter(filter));
+    fit.filter = filter;
+    // find the base filter containing stmt
+    fit.cur_base_filter = filter;
+    while (TRUE) {
+        if (scope_contains_statement(
+                ast_node_get_const_scope_def(fit.cur_base_filter),
+                stmt_mask, stmt)) {
+            break ;
+        }
+        base_filter =
+            fit.cur_base_filter->ndat->u.rexpr_filter.filter_def->base_filter;
+        assert(NULL != base_filter);
+        assert(ast_node_is_filter(base_filter));
+        fit.cur_base_filter = base_filter;
+    }
+    fit.scit = scope_iter_statements_from(
+        ast_node_get_scope_def(fit.cur_base_filter), scope, stmt, identifier);
+    return fit;
 }
 
-struct scope_iterator
+struct filter_iterator
 filter_riter_statements(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier)
 {
-  return scope_riter_statements(
-      ast_node_get_scope_def(filter), scope, stmt_mask, identifier);
+    struct filter_iterator fit;
+
+    assert(ast_node_is_filter(filter));
+    fit.filter = filter;
+    // start with the leaf filter
+    fit.cur_base_filter = filter;
+    fit.scit = scope_riter_statements(
+        ast_node_get_scope_def(filter), scope, stmt_mask, identifier);
+    return fit;
 }
 
-struct scope_iterator
+struct filter_iterator
 filter_riter_statements_from(
     struct ast_node_hdl *filter, struct box *scope,
-    const struct statement *stmt, const char *identifier)
+    enum statement_type stmt_mask, const struct statement *stmt,
+    const char *identifier)
 {
-  return scope_riter_statements_from(
-      ast_node_get_scope_def(filter), scope, stmt, identifier);
+    struct ast_node_hdl *base_filter;
+    struct filter_iterator fit;
+
+    assert(ast_node_is_filter(filter));
+    fit.filter = filter;
+    // find the base filter containing stmt
+    fit.cur_base_filter = filter;
+    while (TRUE) {
+        if (scope_contains_statement(
+                ast_node_get_const_scope_def(fit.cur_base_filter),
+                stmt_mask, stmt)) {
+            break ;
+        }
+        base_filter =
+            fit.cur_base_filter->ndat->u.rexpr_filter.filter_def->base_filter;
+        assert(NULL != base_filter);
+        assert(ast_node_is_filter(base_filter));
+        fit.cur_base_filter = base_filter;
+    }
+    fit.scit = scope_riter_statements_from(
+        ast_node_get_scope_def(fit.cur_base_filter), scope, stmt, identifier);
+    return fit;
+}
+
+bitpunch_status_t
+filter_iter_statements_next_internal(
+    struct filter_iterator *fit,
+    enum statement_type *stmt_typep, const struct statement **stmtp,
+    struct browse_state *bst)
+{
+    return scope_iter_statements_next_internal(
+        &fit->scit, stmt_typep, stmtp, bst);
 }
 
 bitpunch_status_t

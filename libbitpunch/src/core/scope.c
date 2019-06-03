@@ -528,6 +528,44 @@ scope_iter_statements_next(
         &bst, errp);
 }
 
+static int
+statement_list_contains_statement(
+    const struct statement_list *stmt_list,
+    const struct statement *stmt)
+{
+    struct statement *cur_stmt;
+
+    TAILQ_FOREACH(cur_stmt, stmt_list, list) {
+        if (stmt == cur_stmt) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+int
+scope_contains_statement(
+    const struct scope_def *scope_def,
+    enum statement_type stmt_mask, const struct statement *stmt)
+{
+    if (0 != (stmt_mask & STATEMENT_TYPE_NAMED_EXPR)
+        && statement_list_contains_statement(
+            scope_def->block_stmt_list.named_expr_list, stmt)) {
+        return TRUE;
+    }
+    if (0 != (stmt_mask & STATEMENT_TYPE_FIELD)
+        && statement_list_contains_statement(
+            scope_def->block_stmt_list.field_list, stmt)) {
+        return TRUE;
+    }
+    if (0 != (stmt_mask & STATEMENT_TYPE_ATTRIBUTE)
+        && statement_list_contains_statement(
+            scope_def->block_stmt_list.attribute_list, stmt)) {
+        return TRUE;
+    }
+    return FALSE;
+}
+
 /**
  * @brief attach a native value as an attribute to the scope
  *

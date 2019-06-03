@@ -160,31 +160,47 @@ void
 compile_node_backends__tracker__filter(struct ast_node_hdl *item);
 
 
+struct filter_iterator {
+    struct ast_node_hdl *filter;
+    struct ast_node_hdl *cur_base_filter;
+    struct scope_iterator scit;
+};
+
+typedef struct filter_iterator tfilter_iterator;
+
 static inline struct scope_def *
 filter_get_scope_def(struct ast_node_hdl *filter);
 
 static inline const struct scope_def *
 filter_get_const_scope_def(const struct ast_node_hdl *filter);
 
-struct scope_iterator
+struct filter_iterator
 filter_iter_statements(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier);
 
-struct scope_iterator
+struct filter_iterator
 filter_iter_statements_from(
     struct ast_node_hdl *filter, struct box *scope,
-    const struct statement *stmt, const char *identifier);
+    enum statement_type stmt_mask, const struct statement *stmt,
+    const char *identifier);
 
-struct scope_iterator
+struct filter_iterator
 filter_riter_statements(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier);
 
-struct scope_iterator
+struct filter_iterator
 filter_riter_statements_from(
     struct ast_node_hdl *filter, struct box *scope,
-    const struct statement *stmt, const char *identifier);
+    enum statement_type stmt_mask, const struct statement *stmt,
+    const char *identifier);
+
+bitpunch_status_t
+filter_iter_statements_next_internal(
+    struct filter_iterator *it,
+    enum statement_type *stmt_typep, const struct statement **stmtp,
+    struct browse_state *bst);
 
 bitpunch_status_t
 filter_lookup_statement_internal(

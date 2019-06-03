@@ -2663,7 +2663,7 @@ tracker_goto_field_int_recur(struct tracker *tk,
 {
     struct tracker *xtk;
     bitpunch_status_t bt_ret;
-    struct scope_iterator stit;
+    struct filter_iterator fit;
     const struct statement *stmt;
 
     DBG_TRACKER_DUMP(tk);
@@ -2683,13 +2683,13 @@ tracker_goto_field_int_recur(struct tracker *tk,
             return bt_ret;
         }
         if (0 != (tk->flags & TRACKER_REVERSED)) {
-            stit = filter_riter_statements(
+            fit = filter_riter_statements(
                 xtk->box->filter, xtk->box, STATEMENT_TYPE_FIELD, NULL);
         } else {
-            stit = filter_iter_statements(
+            fit = filter_iter_statements(
                 xtk->box->filter, xtk->box, STATEMENT_TYPE_FIELD, NULL);
         }
-        bt_ret = scope_iter_statements_next_internal(&stit, NULL, &stmt, bst);
+        bt_ret = filter_iter_statements_next_internal(&fit, NULL, &stmt, bst);
         if (BITPUNCH_OK != bt_ret) {
             tracker_delete(xtk);
             return bt_ret;
@@ -2756,7 +2756,7 @@ bitpunch_status_t
 tracker_goto_first_field_internal(struct tracker *tk, int flat,
                                   struct browse_state *bst)
 {
-    struct scope_iterator stit;
+    struct filter_iterator fit;
     const struct statement *stmt;
     bitpunch_status_t bt_ret;
 
@@ -2782,13 +2782,13 @@ tracker_goto_first_field_internal(struct tracker *tk, int flat,
         }
     }
     if (0 != (tk->flags & TRACKER_REVERSED)) {
-        stit = filter_riter_statements(
+        fit = filter_riter_statements(
             tk->box->filter, tk->box, STATEMENT_TYPE_FIELD, NULL);
     } else {
-        stit = filter_iter_statements(
+        fit = filter_iter_statements(
             tk->box->filter, tk->box, STATEMENT_TYPE_FIELD, NULL);
     }
-    bt_ret = scope_iter_statements_next_internal(&stit, NULL, &stmt, bst);
+    bt_ret = filter_iter_statements_next_internal(&fit, NULL, &stmt, bst);
     if (BITPUNCH_OK != bt_ret) {
         if (BITPUNCH_NO_ITEM == bt_ret) {
             bt_ret = tracker_set_end(tk, bst);
@@ -2809,7 +2809,7 @@ bitpunch_status_t
 tracker_goto_next_field_internal(struct tracker *tk, int flat,
                                  struct browse_state *bst)
 {
-    struct scope_iterator stit;
+    struct filter_iterator fit;
     const struct statement *stmt;
     bitpunch_status_t bt_ret;
     int reversed;
@@ -2834,15 +2834,15 @@ tracker_goto_next_field_internal(struct tracker *tk, int flat,
         }
         tracker_reset_item_cache(tk);
         if (reversed) {
-            stit = filter_riter_statements_from(
-                tk->box->filter, tk->box,
+            fit = filter_riter_statements_from(
+                tk->box->filter, tk->box, STATEMENT_TYPE_FIELD,
                 (const struct statement *)tk->cur.u.field, NULL);
         } else {
-            stit = filter_iter_statements_from(
-                tk->box->filter, tk->box,
+            fit = filter_iter_statements_from(
+                tk->box->filter, tk->box, STATEMENT_TYPE_FIELD,
                 (const struct statement *)tk->cur.u.field, NULL);
         }
-        bt_ret = scope_iter_statements_next_internal(&stit, NULL, &stmt, bst);
+        bt_ret = filter_iter_statements_next_internal(&fit, NULL, &stmt, bst);
         if (BITPUNCH_NO_ITEM != bt_ret) {
             break ;
         }
