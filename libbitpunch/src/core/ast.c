@@ -458,11 +458,16 @@ lookup_visible_statements_in_filter(
     struct ast_node_hdl *base_filter;
     int ret;
 
-    assert(ast_node_is_filter(filter));
     visible_statements = NULL;
     visible_statements_index = 0;
 
-    scope_def = &filter->ndat->u.rexpr_filter.filter_def->scope_def;
+    if (ast_node_is_filter(filter)) {
+        scope_def = &filter->ndat->u.rexpr_filter.filter_def->scope_def;
+    } else {
+        assert(AST_NODE_TYPE_SCOPE_DEF == filter->ndat->type ||
+               AST_NODE_TYPE_FILTER_DEF == filter->ndat->type);
+        scope_def = &filter->ndat->u.scope_def;
+    }
     ret = lookup_visible_statements_in_lists_internal(
         stmt_mask, lookup_identifier, NULL, &scope_def->block_stmt_list, FALSE,
         &visible_statements, &visible_statements_index);
@@ -470,16 +475,19 @@ lookup_visible_statements_in_filter(
         free(visible_statements);
         return -1;
     }
-    base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
-    if (NULL != base_filter) {
-        scope_def = &base_filter->ndat->u.rexpr_filter.filter_def->scope_def;
-        ret = lookup_visible_statements_in_lists_internal(
-            stmt_mask, lookup_identifier, NULL,
-            &scope_def->block_stmt_list, FALSE,
-            &visible_statements, &visible_statements_index);
-        if (-1 == ret) {
-            free(visible_statements);
-            return -1;
+    if (ast_node_is_filter(filter)) {
+        base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
+        if (NULL != base_filter) {
+            scope_def =
+                &base_filter->ndat->u.rexpr_filter.filter_def->scope_def;
+            ret = lookup_visible_statements_in_lists_internal(
+                stmt_mask, lookup_identifier, NULL,
+                &scope_def->block_stmt_list, FALSE,
+                &visible_statements, &visible_statements_index);
+            if (-1 == ret) {
+                free(visible_statements);
+                return -1;
+            }
         }
     }
     *visible_statementsp = visible_statements;
