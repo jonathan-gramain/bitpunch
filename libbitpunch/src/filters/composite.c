@@ -150,6 +150,8 @@ compile_span_size_composite(struct ast_node_hdl *item,
     if (!compile_continue(ctx)) {
         return -1;
     }
+    min_span_expr = NULL;
+    max_span_expr = NULL;
     user_min_span_size = 0;
     fit = filter_iter_declared_statements(item, STATEMENT_TYPE_ATTRIBUTE, NULL);
     bt_ret = filter_iter_statements_next_internal(

@@ -422,7 +422,7 @@ lookup_all_visible_statements(
     return visible_statements_index;
 }
 
-static int
+static __attribute__((unused)) int
 lookup_visible_statements_in_lists(
     enum statement_type stmt_mask,
     const char *identifier,
@@ -441,6 +441,46 @@ lookup_visible_statements_in_lists(
     if (-1 == ret) {
         free(visible_statements);
         return -1;
+    }
+    *visible_statementsp = visible_statements;
+    return visible_statements_index;
+}
+
+static int
+lookup_visible_statements_in_filter(
+    enum statement_type stmt_mask, const char *lookup_identifier,
+    const struct ast_node_hdl *filter,
+    struct named_statement_spec **visible_statementsp)
+{
+    const struct scope_def *scope_def;
+    struct named_statement_spec *visible_statements;
+    int visible_statements_index;
+    struct ast_node_hdl *base_filter;
+    int ret;
+
+    assert(ast_node_is_filter(filter));
+    visible_statements = NULL;
+    visible_statements_index = 0;
+
+    scope_def = &filter->ndat->u.rexpr_filter.filter_def->scope_def;
+    ret = lookup_visible_statements_in_lists_internal(
+        stmt_mask, lookup_identifier, NULL, &scope_def->block_stmt_list, FALSE,
+        &visible_statements, &visible_statements_index);
+    if (-1 == ret) {
+        free(visible_statements);
+        return -1;
+    }
+    base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
+    if (NULL != base_filter) {
+        scope_def = &base_filter->ndat->u.rexpr_filter.filter_def->scope_def;
+        ret = lookup_visible_statements_in_lists_internal(
+            stmt_mask, lookup_identifier, NULL,
+            &scope_def->block_stmt_list, FALSE,
+            &visible_statements, &visible_statements_index);
+        if (-1 == ret) {
+            free(visible_statements);
+            return -1;
+        }
     }
     *visible_statementsp = visible_statements;
     return visible_statements_index;
@@ -468,6 +508,7 @@ identifier_is_visible_in_filter(
     struct scope_def *scope_def;
     struct filter_def *filter_def;
 
+    // XXX fix for inheritance
     scope_def = ast_node_get_scope_def(filter);
     assert(NULL != scope_def);
     if (identifier_is_visible_in_block_stmt_lists(
@@ -3092,10 +3133,8 @@ compile_rexpr_member(
         } else {
             lookup_mask = STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD;
         }
-        n_visible_statements = lookup_visible_statements_in_lists(
-            lookup_mask,
-            member->ndat->u.identifier,
-            &ast_node_get_scope_def(anchor_filter)->block_stmt_list,
+        n_visible_statements = lookup_visible_statements_in_filter(
+            lookup_mask, member->ndat->u.identifier, anchor_filter,
             &visible_statements);
         if (-1 == n_visible_statements) {
             return -1;
