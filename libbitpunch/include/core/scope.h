@@ -36,6 +36,7 @@
 
 enum scope_iterator_flag {
     SCOPE_ITERATOR_FLAG_REVERSE = (1<<0),
+    SCOPE_ITERATOR_FLAG_IN_CONTEXT = (1<<1),
 };
 struct scope_iterator {
     /** attribute name to iterate, or NULL for all statements */
@@ -51,24 +52,29 @@ struct scope_iterator {
 typedef struct scope_iterator tscope_iterator;
 
 struct scope_iterator
-scope_iter_statements(
+scope_iter_statements_in_context(
     struct scope_def *scope_def, struct box *scope,
     enum statement_type stmt_mask, const char *identifier);
 
 struct scope_iterator
-scope_iter_statements_from(
+scope_iter_statements_in_context_from(
     struct scope_def *scope_def, struct box *scope,
     const struct statement *stmt, const char *identifier);
 
 struct scope_iterator
-scope_riter_statements(
+scope_riter_statements_in_context(
     struct scope_def *scope_def, struct box *scope,
     enum statement_type stmt_mask, const char *identifier);
 
 struct scope_iterator
-scope_riter_statements_from(
+scope_riter_statements_in_context_from(
     struct scope_def *scope_def, struct box *scope,
     const struct statement *stmt, const char *identifier);
+
+struct scope_iterator
+scope_iter_declared_statements(
+    struct scope_def *scope_def,
+    enum statement_type stmt_mask, const char *identifier);
 
 bitpunch_status_t
 scope_iter_statements_next_internal(

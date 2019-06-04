@@ -91,6 +91,7 @@ compile_span_size_composite(struct ast_node_hdl *item,
                             struct compile_ctx *ctx)
 {
     struct scope_def *scope_def;
+    struct ast_node_hdl *base_filter;
     struct named_expr *attr;
     struct ast_node_hdl *min_span_expr;
     struct ast_node_hdl *max_span_expr;
@@ -134,14 +135,20 @@ compile_span_size_composite(struct ast_node_hdl *item,
     child_conditionally_fills_slack = FALSE;
 
     scope_def = filter_get_scope_def(item);
+    base_filter = item->ndat->u.rexpr_filter.filter_def->base_filter;
     field_list = scope_def->block_stmt_list.field_list;
-    if (-1 == compile_fields(field_list,
-                             COMPILE_TAG_NODE_TYPE |
-                             COMPILE_TAG_NODE_SPAN_SIZE, 0u, ctx)) {
+    if (NULL != base_filter) {
+        compile_node(base_filter, ctx,
+                     COMPILE_TAG_NODE_TYPE |
+                     COMPILE_TAG_NODE_SPAN_SIZE, 0u,
+                     RESOLVE_EXPECT_TYPE);
+    }
+    compile_fields(field_list,
+                   COMPILE_TAG_NODE_TYPE |
+                   COMPILE_TAG_NODE_SPAN_SIZE, 0u, ctx);
+    if (!compile_continue(ctx)) {
         return -1;
     }
-    min_span_expr = NULL;
-    max_span_expr = NULL;
     user_min_span_size = 0;
     STATEMENT_FOREACH(
         named_expr, attr, scope_def->block_stmt_list.attribute_list, list) {
@@ -170,7 +177,6 @@ compile_span_size_composite(struct ast_node_hdl *item,
             assert(EXPR_VALUE_TYPE_INTEGER
                    == min_span_expr->ndat->u.rexpr.value_type_mask);
             if (AST_NODE_TYPE_REXPR_NATIVE == min_span_expr->ndat->type) {
-
                 user_min_span_size = MAX(
                     user_min_span_size,
                     min_span_expr->ndat->u.rexpr_native.value.integer);
@@ -199,10 +205,12 @@ compile_span_size_composite(struct ast_node_hdl *item,
                 /* only update min span size if field is not conditional */
                 assert(SPAN_SIZE_UNDEF != field_item->ndat->u.item.min_span_size);
                 if (COMPOSITE_TYPE_UNION == composite->type) {
-                    hard_min_span_size = MAX(hard_min_span_size,
-                                        field_item->ndat->u.item.min_span_size);
+                    hard_min_span_size =
+                        MAX(hard_min_span_size,
+                            field_item->ndat->u.item.min_span_size);
                 } else /* struct */ {
-                    hard_min_span_size += field_item->ndat->u.item.min_span_size;
+                    hard_min_span_size +=
+                        field_item->ndat->u.item.min_span_size;
                 }
             } else {
                 // if at least one conditional field is present, the

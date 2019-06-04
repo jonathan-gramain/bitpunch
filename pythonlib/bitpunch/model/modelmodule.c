@@ -2703,7 +2703,7 @@ box_get_attributes_dict(struct box *box)
         bt_ret = tracker_goto_next_item(tk, NULL);
     }
     tracker_delete(tk);
-    attr_iter = filter_iter_statements(box->filter, box,
+    attr_iter = filter_iter_statements_in_context(box->filter, box,
                                        STATEMENT_TYPE_NAMED_EXPR |
                                        STATEMENT_TYPE_ATTRIBUTE, NULL);
     bt_ret = filter_iter_statements_next(
@@ -3848,7 +3848,7 @@ Tracker_iter(TrackerObject *self)
     Py_INCREF((PyObject *)self);
     self->current_iter_mode = self->iter_mode;
     if (TRACKER_ITER_ATTRIBUTE_NAMES == self->iter_mode) {
-        self->attr_iter = filter_iter_statements(
+        self->attr_iter = filter_iter_statements_in_context(
             self->tk->box->filter, self->tk->box,
             STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_ATTRIBUTE, NULL);
     }
@@ -3867,7 +3867,7 @@ Tracker_iternext(TrackerObject *self)
                 PyErr_Clear();
                 if (TRACKER_ITER_MEMBER_NAMES == self->current_iter_mode) {
                     self->current_iter_mode = TRACKER_ITER_ATTRIBUTE_NAMES;
-                    self->attr_iter = filter_iter_statements(
+                    self->attr_iter = filter_iter_statements_in_context(
                         self->tk->box->filter, self->tk->box,
                         STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_ATTRIBUTE,
                         NULL);

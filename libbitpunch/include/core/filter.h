@@ -175,26 +175,31 @@ static inline const struct scope_def *
 filter_get_const_scope_def(const struct ast_node_hdl *filter);
 
 struct filter_iterator
-filter_iter_statements(
+filter_iter_statements_in_context(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier);
 
 struct filter_iterator
-filter_iter_statements_from(
+filter_iter_statements_in_context_from(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const struct statement *stmt,
     const char *identifier);
 
 struct filter_iterator
-filter_riter_statements(
+filter_riter_statements_in_context(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier);
 
 struct filter_iterator
-filter_riter_statements_from(
+filter_riter_statements_in_context_from(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const struct statement *stmt,
     const char *identifier);
+
+struct filter_iterator
+filter_iter_declared_statements(
+    struct ast_node_hdl *filter,
+    enum statement_type stmt_mask, const char *identifier);
 
 bitpunch_status_t
 filter_iter_statements_next_internal(

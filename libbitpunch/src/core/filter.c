@@ -389,35 +389,44 @@ filter_instance_get_data_source(
 }
 
 
-struct filter_iterator
-filter_iter_statements(
-    struct ast_node_hdl *filter, struct box *scope,
-    enum statement_type stmt_mask, const char *identifier)
+static void
+filter_iterator_setup_iter(
+    struct filter_iterator *fitp,
+    struct ast_node_hdl *filter)
 {
     struct ast_node_hdl *base_filter;
-    struct filter_iterator fit;
 
     assert(ast_node_is_filter(filter));
-    fit.filter = filter;
+    fitp->filter = filter;
     // start with the top-level base filter
-    fit.cur_base_filter = filter;
+    fitp->cur_base_filter = filter;
     while (TRUE) {
         base_filter =
-            fit.cur_base_filter->ndat->u.rexpr_filter.filter_def->base_filter;
+            fitp->cur_base_filter->ndat->u.rexpr_filter.filter_def->base_filter;
         if (NULL == base_filter) {
             break ;
         }
         assert(ast_node_is_filter(base_filter));
-        fit.cur_base_filter = base_filter;
+        fitp->cur_base_filter = base_filter;
     }
-    fit.scit = scope_iter_statements(
+}
+
+struct filter_iterator
+filter_iter_statements_in_context(
+    struct ast_node_hdl *filter, struct box *scope,
+    enum statement_type stmt_mask, const char *identifier)
+{
+    struct filter_iterator fit;
+
+    filter_iterator_setup_iter(&fit, filter);
+    fit.scit = scope_iter_statements_in_context(
         ast_node_get_scope_def(fit.cur_base_filter),
         scope, stmt_mask, identifier);
     return fit;
 }
 
 struct filter_iterator
-filter_iter_statements_from(
+filter_iter_statements_in_context_from(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const struct statement *stmt,
     const char *identifier)
@@ -441,13 +450,13 @@ filter_iter_statements_from(
         assert(ast_node_is_filter(base_filter));
         fit.cur_base_filter = base_filter;
     }
-    fit.scit = scope_iter_statements_from(
+    fit.scit = scope_iter_statements_in_context_from(
         ast_node_get_scope_def(fit.cur_base_filter), scope, stmt, identifier);
     return fit;
 }
 
 struct filter_iterator
-filter_riter_statements(
+filter_riter_statements_in_context(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const char *identifier)
 {
@@ -457,13 +466,13 @@ filter_riter_statements(
     fit.filter = filter;
     // start with the leaf filter
     fit.cur_base_filter = filter;
-    fit.scit = scope_riter_statements(
+    fit.scit = scope_riter_statements_in_context(
         ast_node_get_scope_def(filter), scope, stmt_mask, identifier);
     return fit;
 }
 
 struct filter_iterator
-filter_riter_statements_from(
+filter_riter_statements_in_context_from(
     struct ast_node_hdl *filter, struct box *scope,
     enum statement_type stmt_mask, const struct statement *stmt,
     const char *identifier)
@@ -487,8 +496,22 @@ filter_riter_statements_from(
         assert(ast_node_is_filter(base_filter));
         fit.cur_base_filter = base_filter;
     }
-    fit.scit = scope_riter_statements_from(
+    fit.scit = scope_riter_statements_in_context_from(
         ast_node_get_scope_def(fit.cur_base_filter), scope, stmt, identifier);
+    return fit;
+}
+
+struct filter_iterator
+filter_iter_declared_statements(
+    struct ast_node_hdl *filter,
+    enum statement_type stmt_mask, const char *identifier)
+{
+    struct filter_iterator fit;
+
+    filter_iterator_setup_iter(&fit, filter);
+    fit.scit = scope_iter_declared_statements(
+        ast_node_get_scope_def(fit.cur_base_filter),
+        stmt_mask, identifier);
     return fit;
 }
 
@@ -529,7 +552,7 @@ filter_iter_statements_next_internal(
                 cur_filter = base_filter;
             }
         }
-        fit->scit = scope_iter_statements(
+        fit->scit = scope_iter_statements_in_context(
             ast_node_get_scope_def(fit->cur_base_filter),
             fit->scit.scope, fit->scit.stmt_mask, fit->scit.identifier);
     }

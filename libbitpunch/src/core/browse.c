@@ -2683,10 +2683,10 @@ tracker_goto_field_int_recur(struct tracker *tk,
             return bt_ret;
         }
         if (0 != (tk->flags & TRACKER_REVERSED)) {
-            fit = filter_riter_statements(
+            fit = filter_riter_statements_in_context(
                 xtk->box->filter, xtk->box, STATEMENT_TYPE_FIELD, NULL);
         } else {
-            fit = filter_iter_statements(
+            fit = filter_iter_statements_in_context(
                 xtk->box->filter, xtk->box, STATEMENT_TYPE_FIELD, NULL);
         }
         bt_ret = filter_iter_statements_next_internal(&fit, NULL, &stmt, bst);
@@ -2782,10 +2782,10 @@ tracker_goto_first_field_internal(struct tracker *tk, int flat,
         }
     }
     if (0 != (tk->flags & TRACKER_REVERSED)) {
-        fit = filter_riter_statements(
+        fit = filter_riter_statements_in_context(
             tk->box->filter, tk->box, STATEMENT_TYPE_FIELD, NULL);
     } else {
-        fit = filter_iter_statements(
+        fit = filter_iter_statements_in_context(
             tk->box->filter, tk->box, STATEMENT_TYPE_FIELD, NULL);
     }
     bt_ret = filter_iter_statements_next_internal(&fit, NULL, &stmt, bst);
@@ -2834,11 +2834,11 @@ tracker_goto_next_field_internal(struct tracker *tk, int flat,
         }
         tracker_reset_item_cache(tk);
         if (reversed) {
-            fit = filter_riter_statements_from(
+            fit = filter_riter_statements_in_context_from(
                 tk->box->filter, tk->box, STATEMENT_TYPE_FIELD,
                 (const struct statement *)tk->cur.u.field, NULL);
         } else {
-            fit = filter_iter_statements_from(
+            fit = filter_iter_statements_in_context_from(
                 tk->box->filter, tk->box, STATEMENT_TYPE_FIELD,
                 (const struct statement *)tk->cur.u.field, NULL);
         }

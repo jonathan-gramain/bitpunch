@@ -150,7 +150,7 @@ scope_iter_get_current_statement_type(struct scope_iterator *it)
 }
 
 struct scope_iterator
-scope_iter_statements(
+scope_iter_statements_in_context(
     struct scope_def *scope_def, struct box *scope,
     enum statement_type stmt_mask, const char *identifier)
 {
@@ -158,6 +158,7 @@ scope_iter_statements(
 
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
+    it.it_flags = SCOPE_ITERATOR_FLAG_IN_CONTEXT;
     it.stmt_mask = stmt_mask;
     if (NULL != scope_def) {
         it.scope = scope;
@@ -169,7 +170,7 @@ scope_iter_statements(
 }
 
 struct scope_iterator
-scope_iter_statements_from(
+scope_iter_statements_in_context_from(
     struct scope_def *scope_def, struct box *scope,
     const struct statement *stmt, const char *identifier)
 {
@@ -178,12 +179,13 @@ scope_iter_statements_from(
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
     it.scope = scope;
+    it.it_flags = SCOPE_ITERATOR_FLAG_IN_CONTEXT;
     it.next_stmt = scope_iter_statements_advance_internal(&it, stmt);
     return it;
 }
 
 struct scope_iterator
-scope_riter_statements(
+scope_riter_statements_in_context(
     struct scope_def *scope_def, struct box *scope,
     enum statement_type stmt_mask, const char *identifier)
 {
@@ -191,7 +193,8 @@ scope_riter_statements(
 
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
-    it.it_flags = SCOPE_ITERATOR_FLAG_REVERSE;
+    it.it_flags = (SCOPE_ITERATOR_FLAG_REVERSE |
+                   SCOPE_ITERATOR_FLAG_IN_CONTEXT);
     it.stmt_mask = stmt_mask;
     if (NULL != scope_def) {
         it.scope = scope;
@@ -203,7 +206,7 @@ scope_riter_statements(
 }
 
 struct scope_iterator
-scope_riter_statements_from(
+scope_riter_statements_in_context_from(
     struct scope_def *scope_def, struct box *scope,
     const struct statement *stmt, const char *identifier)
 {
@@ -212,8 +215,27 @@ scope_riter_statements_from(
     memset(&it, 0, sizeof (it));
     it.identifier = identifier;
     it.scope = scope;
-    it.it_flags = SCOPE_ITERATOR_FLAG_REVERSE;
+    it.it_flags = (SCOPE_ITERATOR_FLAG_REVERSE |
+                   SCOPE_ITERATOR_FLAG_IN_CONTEXT);
     it.next_stmt = scope_iter_statements_advance_internal(&it, stmt);
+    return it;
+}
+
+struct scope_iterator
+scope_iter_declared_statements(
+    struct scope_def *scope_def,
+    enum statement_type stmt_mask, const char *identifier)
+{
+    struct scope_iterator it;
+
+    memset(&it, 0, sizeof (it));
+    it.identifier = identifier;
+    it.stmt_mask = stmt_mask;
+    if (NULL != scope_def) {
+        it.stmt_lists = &scope_def->block_stmt_list;
+        it.stmt_remaining = stmt_mask;
+        scope_iter_start_list_internal(&it);
+    }
     return it;
 }
 
@@ -230,12 +252,16 @@ scope_iter_statements_next_internal(
         int cond_eval;
         bitpunch_status_t bt_ret;
 
-        bt_ret = evaluate_conditional_internal(stmt->cond, it->scope,
-                                               &cond_eval, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            bitpunch_error_add_box_context(it->scope, bst,
-                                          "when evaluating condition");
-            return bt_ret;
+        if (0 != (it->it_flags & SCOPE_ITERATOR_FLAG_IN_CONTEXT)) {
+            bt_ret = evaluate_conditional_internal(stmt->cond, it->scope,
+                                                   &cond_eval, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                bitpunch_error_add_box_context(it->scope, bst,
+                                               "when evaluating condition");
+                return bt_ret;
+            }
+        } else {
+            cond_eval = TRUE;
         }
         if (cond_eval) {
             it->next_stmt = scope_iter_statements_advance_internal(it, stmt);
@@ -350,7 +376,7 @@ scope_get_first_statement_internal(
 {
     struct scope_iterator it;
 
-    it = scope_iter_statements(scope_def, scope, stmt_mask, identifier);
+    it = scope_iter_statements_in_context(scope_def, scope, stmt_mask, identifier);
     return scope_iter_statements_next_internal(&it, stmt_typep, stmtp, bst);
 }
 
@@ -426,7 +452,7 @@ scope_get_n_statements_internal(
     struct scope_iterator it;
     int64_t stmt_count;
 
-    it = scope_iter_statements(scope_def, scope, stmt_mask, identifier);
+    it = scope_iter_statements_in_context(scope_def, scope, stmt_mask, identifier);
     stmt_count = -1;
     do {
         ++stmt_count;
