@@ -96,6 +96,7 @@ compile_span_size_composite(struct ast_node_hdl *item,
     struct ast_node_hdl *min_span_expr;
     struct ast_node_hdl *max_span_expr;
     int new_min_span_expr;
+    struct filter_iterator fit;
     const struct statement_list *field_list;
     struct field *field;
     struct ast_node_hdl_array field_items;
@@ -150,8 +151,10 @@ compile_span_size_composite(struct ast_node_hdl *item,
         return -1;
     }
     user_min_span_size = 0;
-    STATEMENT_FOREACH(
-        named_expr, attr, scope_def->block_stmt_list.attribute_list, list) {
+    fit = filter_iter_declared_statements(item, STATEMENT_TYPE_ATTRIBUTE, NULL);
+    bt_ret = filter_iter_statements_next_internal(
+        &fit, NULL, (const struct statement **)&attr, NULL);
+    while (BITPUNCH_OK == bt_ret) {
         new_min_span_expr = FALSE;
         if (0 == strcmp(attr->nstmt.name, "@minspan")) {
             if (NULL == attr->nstmt.stmt.cond) {
@@ -184,11 +187,16 @@ compile_span_size_composite(struct ast_node_hdl *item,
                 var_span = TRUE;
             }
         }
+        bt_ret = filter_iter_statements_next_internal(
+            &fit, NULL, (const struct statement **)&attr, NULL);
     }
     last_slack_field = NULL;
     first_trailer_field = NULL;
     hard_min_span_size = 0;
-    STATEMENT_FOREACH(field, field, field_list, list) {
+    fit = filter_iter_declared_statements(item, STATEMENT_TYPE_FIELD, NULL);
+    bt_ret = filter_iter_statements_next_internal(
+        &fit, NULL, (const struct statement **)&field, NULL);
+    while (BITPUNCH_OK == bt_ret) {
         bt_ret = ast_node_filter_get_items(field->filter, &field_items);
         if (BITPUNCH_OK != bt_ret) {
             return -1;
@@ -259,11 +267,16 @@ compile_span_size_composite(struct ast_node_hdl *item,
             }
         }
         ast_node_hdl_array_destroy(&field_items);
+        bt_ret = filter_iter_statements_next_internal(
+            &fit, NULL, (const struct statement **)&field, NULL);
     }
     if (child_spreads_slack ||
         child_conditionally_spreads_slack) {
         field_flags = FIELD_FLAG_HEADER;
-        STATEMENT_FOREACH(field, field, field_list, list) {
+        fit = filter_iter_declared_statements(item, STATEMENT_TYPE_FIELD, NULL);
+        bt_ret = filter_iter_statements_next_internal(
+            &fit, NULL, (const struct statement **)&field, NULL);
+        while (BITPUNCH_OK == bt_ret) {
             bt_ret = ast_node_filter_get_items(field->filter, &field_items);
             if (BITPUNCH_OK != bt_ret) {
                 return -1;
@@ -282,6 +295,8 @@ compile_span_size_composite(struct ast_node_hdl *item,
                 field_flags |= FIELD_FLAG_TRAILER;
             }
             field->nstmt.stmt.stmt_flags |= field_flags;
+            bt_ret = filter_iter_statements_next_internal(
+                &fit, NULL, (const struct statement **)&field, NULL);
         }
     }
     min_span_size = MAX(hard_min_span_size, user_min_span_size);
