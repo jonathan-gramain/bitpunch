@@ -265,7 +265,7 @@ filter_get_first_declared_named_expr(
     const struct ast_node_hdl *filter,
     const char *name);
 
-struct ast_node_hdl *
+struct named_expr *
 filter_get_first_declared_attribute(
     const struct ast_node_hdl *filter,
     const char *attr_name);

@@ -206,33 +206,29 @@ string_build_generic(void)
 static struct filter_instance *
 string_filter_instance_build(struct ast_node_hdl *filter)
 {
-    const struct block_stmt_list *stmt_lists;
-    struct named_expr *attr;
+    struct named_expr *boundary_attr;
     struct expr_value_string boundary;
 
-    stmt_lists = &filter_get_scope_def(filter)->block_stmt_list;
-    STATEMENT_FOREACH(named_expr, attr, stmt_lists->attribute_list, list) {
-        if (0 == strcmp(attr->nstmt.name, "@boundary")) {
-            filter->ndat->u.item.flags &= ~ITEMFLAG_FILLS_SLACK;
-            if (AST_NODE_TYPE_REXPR_NATIVE == attr->expr->ndat->type
-                && NULL == attr->nstmt.stmt.cond) {
-                boundary = attr->expr->ndat->u.rexpr_native.value.string;
-                switch (boundary.len) {
-                case 0:
-                    return string_build_no_boundary();
-                case 1:
-                    return string_build_single_char_constant_boundary(
-                        boundary.str[0]);
-                default:
-                    /* two or more characters boundary: use generic
-                     * implementation */
-                    return string_build_generic();
-                }
-            } else {
-                /* dynamic boundary: use generic implementation */
+    boundary_attr = filter_get_first_declared_attribute(filter, "@boundary");
+    if (NULL != boundary_attr) {
+        filter->ndat->u.item.flags &= ~ITEMFLAG_FILLS_SLACK;
+        if (AST_NODE_TYPE_REXPR_NATIVE == boundary_attr->expr->ndat->type
+            && NULL == boundary_attr->nstmt.stmt.cond) {
+            boundary = boundary_attr->expr->ndat->u.rexpr_native.value.string;
+            switch (boundary.len) {
+            case 0:
+                return string_build_no_boundary();
+            case 1:
+                return string_build_single_char_constant_boundary(
+                    boundary.str[0]);
+            default:
+                /* two or more characters boundary: use generic
+                 * implementation */
                 return string_build_generic();
             }
-            break ;
+        } else {
+            /* dynamic boundary: use generic implementation */
+            return string_build_generic();
         }
     }
     return string_build_no_boundary();

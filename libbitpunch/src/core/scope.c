@@ -628,7 +628,7 @@ scope_get_first_declared_named_expr(
     }
     return NULL;
 }
-struct ast_node_hdl *
+struct named_expr *
 scope_get_first_declared_attribute(
     const struct scope_def *scope_def,
     const char *attr_name)
@@ -639,7 +639,7 @@ scope_get_first_declared_attribute(
         named_expr, attr_stmt,
         scope_def->block_stmt_list.attribute_list, list) {
         if (0 == strcmp(attr_stmt->nstmt.name, attr_name)) {
-            return attr_stmt->expr;
+            return attr_stmt;
         }
     }
     return NULL;

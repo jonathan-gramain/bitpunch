@@ -145,7 +145,7 @@ scope_get_first_declared_named_expr(
     const struct scope_def *scope_def,
     const char *name);
 
-struct ast_node_hdl *
+struct named_expr *
 scope_get_first_declared_attribute(
     const struct scope_def *scope_def,
     const char *attr_name);

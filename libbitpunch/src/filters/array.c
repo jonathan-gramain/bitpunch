@@ -45,28 +45,19 @@
 static struct filter_instance *
 array_filter_instance_build(struct ast_node_hdl *filter)
 {
-    struct named_expr *attr;
-    struct ast_node_hdl *item_type;
-    struct ast_node_hdl *item_count;
+    struct named_expr *item_type;
+    struct named_expr *item_count;
     struct filter_instance_array *array;
 
-    item_type = NULL;
-    item_count = NULL;
     // FIXME this does not support conditional attributes
-    STATEMENT_FOREACH(
-        named_expr, attr,
-        filter_get_scope_def(filter)->block_stmt_list.attribute_list,
-        list) {
-        if (0 == strcmp(attr->nstmt.name, "@item")) {
-            item_type = attr->expr;
-        } else if (0 == strcmp(attr->nstmt.name, "@length")) {
-            item_count = attr->expr;
-        }
-    }
+    item_type = filter_get_first_declared_attribute(filter, "@item");
+    assert(NULL != item_type);
+    item_count = filter_get_first_declared_attribute(filter, "@length");
+
     array = new_safe(struct filter_instance_array);
-    array->item_type = ast_node_get_named_expr_target(item_type);
+    array->item_type = ast_node_get_named_expr_target(item_type->expr);
     assert(ast_node_is_rexpr_filter(array->item_type));
-    array->item_count = item_count;
+    array->item_count = NULL != item_count ? item_count->expr : NULL;
     return (struct filter_instance *)array;
 }
 

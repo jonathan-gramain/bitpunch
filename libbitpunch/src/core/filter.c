@@ -719,20 +719,20 @@ filter_get_first_declared_named_expr(
     return filter_get_first_declared_named_expr(base_filter, name);
 }
 
-struct ast_node_hdl *
+struct named_expr *
 filter_get_first_declared_attribute(
     const struct ast_node_hdl *filter,
     const char *attr_name)
 {
     struct ast_node_hdl *base_filter;
-    struct ast_node_hdl *named_expr;
+    struct named_expr *attr;
 
     assert(ast_node_is_filter(filter));
     base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
-    named_expr = scope_get_first_declared_attribute(
+    attr = scope_get_first_declared_attribute(
         ast_node_get_const_scope_def(filter), attr_name);
-    if (NULL != named_expr || NULL == base_filter) {
-        return named_expr;
+    if (NULL != attr || NULL == base_filter) {
+        return attr;
     }
     return filter_get_first_declared_attribute(base_filter, attr_name);
 }

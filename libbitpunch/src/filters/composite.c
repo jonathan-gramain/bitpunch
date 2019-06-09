@@ -66,7 +66,7 @@ compile_type_composite(struct ast_node_hdl *item,
                        struct filter_instance_composite *composite,
                        struct compile_ctx *ctx)
 {
-    struct ast_node_hdl *last_attr;
+    struct named_expr *last_attr;
 
     last_attr = filter_get_first_declared_attribute(item, "@last");
     if (NULL != last_attr) {

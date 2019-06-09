@@ -4132,6 +4132,7 @@ ast_node_get_key_expr(const struct ast_node_hdl *node)
 {
     const struct ast_node_hdl *target;
     struct filter_instance_array *array;
+    struct named_expr *attr;
 
     switch (node->ndat->type) {
     case AST_NODE_TYPE_ARRAY:
@@ -4144,7 +4145,8 @@ ast_node_get_key_expr(const struct ast_node_hdl *node)
         // TODO: multiple or conditional key expressions currently not
         // supported (needs proper support in index cache)
 
-        return filter_get_first_declared_attribute(target, "@key");
+        attr = filter_get_first_declared_attribute(target, "@key");
+        return NULL != attr ? attr->expr : NULL;
     default:
         return NULL;
     }
