@@ -784,6 +784,7 @@ expr_eval_builtin_env(
     expr_value_t name_eval;
     char name_buf[256];
     struct ast_node_hdl *board_node;
+    struct named_expr *board_value_named_expr;
     struct ast_node_hdl *board_value_node = NULL;
     struct scope_def *scope_def;
 
@@ -806,8 +807,10 @@ expr_eval_builtin_env(
                 assert(AST_NODE_TYPE_REXPR_FILTER == board_node->ndat->type);
                 scope_def = filter_get_scope_def(board_node);
                 assert(NULL != scope_def);
-                board_value_node = scope_get_first_declared_named_expr(
+                board_value_named_expr = scope_get_first_declared_named_expr(
                     scope_def, name_buf);
+                board_value_node = NULL != board_value_named_expr ?
+                    board_value_named_expr->expr : NULL;
             } else {
                 board_value_node = NULL;
             }

@@ -168,9 +168,12 @@ struct filter_iterator {
 
 typedef struct filter_iterator tfilter_iterator;
 
+static inline struct filter_def *
+filter_get_filter_def(struct ast_node_hdl *filter);
 static inline struct scope_def *
 filter_get_scope_def(struct ast_node_hdl *filter);
-
+static inline const struct filter_def *
+filter_get_const_filter_def(const struct ast_node_hdl *filter);
 static inline const struct scope_def *
 filter_get_const_scope_def(const struct ast_node_hdl *filter);
 
@@ -260,10 +263,15 @@ filter_attach_native_attribute(
     struct ast_node_hdl *filter,
     const char *attr_name, expr_value_t value);
 
-struct ast_node_hdl *
+struct named_expr *
 filter_get_first_declared_named_expr(
     const struct ast_node_hdl *filter,
     const char *name);
+
+struct field *
+filter_get_first_declared_field(
+    const struct ast_node_hdl *filter,
+    const char *field_name);
 
 struct named_expr *
 filter_get_first_declared_attribute(

@@ -1769,11 +1769,8 @@ compile_field_cb(struct compile_ctx *ctx,
         as_type = ast_node_get_named_expr_target(
             ast_node_get_as_type(field->filter));
         if (ast_node_is_rexpr_filter(as_type)) {
-            const struct scope_def *scope_def;
-
-            scope_def = filter_get_const_scope_def(as_type);
-            if (TAILQ_EMPTY(scope_def->block_stmt_list.field_list) &&
-                TAILQ_EMPTY(scope_def->block_stmt_list.named_expr_list)) {
+            if (NULL == filter_get_first_declared_named_expr(as_type, NULL) &&
+                NULL == filter_get_first_declared_field(as_type, NULL)) {
                 field->nstmt.stmt.stmt_flags |= FIELD_FLAG_HIDDEN;
             }
         } else {

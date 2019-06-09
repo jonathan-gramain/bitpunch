@@ -32,16 +32,30 @@
 // DO NOT INCLUDE THIS FILE DIRECTLY
 // It shall only be included from filter.h
 
+static inline struct filter_def *
+filter_get_filter_def(struct ast_node_hdl *filter)
+{
+    assert(ast_node_is_filter(filter));
+    return filter->ndat->u.rexpr_filter.filter_def;
+}
+
 static inline struct scope_def *
 filter_get_scope_def(struct ast_node_hdl *filter)
 {
     assert(ast_node_is_filter(filter));
-    return (struct scope_def *)filter->ndat->u.rexpr_filter.filter_def;
+    return &filter_get_filter_def(filter)->scope_def;
+}
+
+static inline const struct filter_def *
+filter_get_const_filter_def(const struct ast_node_hdl *filter)
+{
+    assert(ast_node_is_filter(filter));
+    return filter->ndat->u.rexpr_filter.filter_def;
 }
 
 static inline const struct scope_def *
 filter_get_const_scope_def(const struct ast_node_hdl *filter)
 {
     assert(ast_node_is_filter(filter));
-    return (const struct scope_def *)filter->ndat->u.rexpr_filter.filter_def;
+    return &filter_get_const_filter_def(filter)->scope_def;
 }

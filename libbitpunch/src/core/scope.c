@@ -612,7 +612,7 @@ scope_attach_native_attribute(
     TAILQ_INSERT_TAIL(attribute_list, (struct statement *)attr, list);
 }
 
-struct ast_node_hdl *
+struct named_expr *
 scope_get_first_declared_named_expr(
     const struct scope_def *scope_def,
     const char *name)
@@ -622,12 +622,30 @@ scope_get_first_declared_named_expr(
     STATEMENT_FOREACH(
         named_expr, named_expr,
         scope_def->block_stmt_list.named_expr_list, list) {
-        if (0 == strcmp(named_expr->nstmt.name, name)) {
-            return named_expr->expr;
+        if (NULL == name || 0 == strcmp(named_expr->nstmt.name, name)) {
+            return named_expr;
         }
     }
     return NULL;
 }
+
+struct field *
+scope_get_first_declared_field(
+    const struct scope_def *scope_def,
+    const char *field_name)
+{
+    struct field *field;
+
+    STATEMENT_FOREACH(
+        field, field, scope_def->block_stmt_list.field_list, list) {
+        if (NULL == field_name ||
+            0 == strcmp(field->nstmt.name, field_name)) {
+            return field;
+        }
+    }
+    return NULL;
+}
+
 struct named_expr *
 scope_get_first_declared_attribute(
     const struct scope_def *scope_def,
@@ -638,7 +656,8 @@ scope_get_first_declared_attribute(
     STATEMENT_FOREACH(
         named_expr, attr_stmt,
         scope_def->block_stmt_list.attribute_list, list) {
-        if (0 == strcmp(attr_stmt->nstmt.name, attr_name)) {
+        if (NULL == attr_name ||
+            0 == strcmp(attr_stmt->nstmt.name, attr_name)) {
             return attr_stmt;
         }
     }

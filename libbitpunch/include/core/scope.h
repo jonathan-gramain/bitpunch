@@ -140,10 +140,15 @@ scope_attach_native_attribute(
     struct scope_def *scope_def,
     const char *attr_name, expr_value_t value);
 
-struct ast_node_hdl *
+struct named_expr *
 scope_get_first_declared_named_expr(
     const struct scope_def *scope_def,
     const char *name);
+
+struct field *
+scope_get_first_declared_field(
+    const struct scope_def *scope_def,
+    const char *field_name);
 
 struct named_expr *
 scope_get_first_declared_attribute(

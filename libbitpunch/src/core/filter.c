@@ -702,13 +702,13 @@ filter_attach_native_attribute(
       ast_node_get_scope_def(filter), attr_name, value);
 }
 
-struct ast_node_hdl *
+struct named_expr *
 filter_get_first_declared_named_expr(
     const struct ast_node_hdl *filter,
     const char *name)
 {
     struct ast_node_hdl *base_filter;
-    struct ast_node_hdl *named_expr;
+    struct named_expr *named_expr;
 
     assert(ast_node_is_filter(filter));
     base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
@@ -718,6 +718,24 @@ filter_get_first_declared_named_expr(
         return named_expr;
     }
     return filter_get_first_declared_named_expr(base_filter, name);
+}
+
+struct field *
+filter_get_first_declared_field(
+    const struct ast_node_hdl *filter,
+    const char *field_name)
+{
+    struct ast_node_hdl *base_filter;
+    struct field *field;
+
+    assert(ast_node_is_filter(filter));
+    base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
+    field = scope_get_first_declared_field(
+        ast_node_get_const_scope_def(filter), field_name);
+    if (NULL != field || NULL == base_filter) {
+        return field;
+    }
+    return filter_get_first_declared_field(base_filter, field_name);
 }
 
 struct named_expr *
