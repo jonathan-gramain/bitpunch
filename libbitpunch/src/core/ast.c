@@ -571,8 +571,10 @@ filter_exists_in_scope(
             filter_def = base_filter->ndat->u.rexpr_filter.filter_def;
         } else if (AST_NODE_TYPE_FILTER_DEF == base_filter->ndat->type) {
             filter_def = &base_filter->ndat->u.filter_def;
-        } else {
+        } else if (AST_NODE_TYPE_SCOPE_DEF == base_filter->ndat->type) {
             break ;
+        } else {
+            return FALSE;
         }
         base_filter = filter_def->base_filter;
     } while (NULL != base_filter);
@@ -4858,7 +4860,7 @@ dump_filter_recur(const struct ast_node_hdl *filter,
         &ast_node_get_const_scope_def(filter)->block_stmt_list,
         depth, outer_refs, out);
     filter_def = ast_node_get_const_filter_def(filter);
-    if (NULL != filter_def->base_filter) {
+    if (NULL != filter_def && NULL != filter_def->base_filter) {
         fprintf(out, "%*s\\_ base filter:\n",
                 depth * INDENT_N_SPACES, "");
         dump_filter_recur(filter_def->base_filter, depth + 1, outer_refs, out);
