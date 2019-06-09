@@ -497,7 +497,8 @@ let B64Message = Base64Line <> struct {
 let Schema = struct {
     base64 <> DecodedFile;
 
-    let ?first_message_data_3_chars = messages[0].data <> [3] byte <> string;
+    let ?first_message_data_3_chars =
+        messages[0].data <> [3] byte <> string;
 };
 
 let DecodedFile = struct {
