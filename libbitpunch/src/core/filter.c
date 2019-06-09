@@ -537,6 +537,9 @@ filter_iter_statements_next_internal(
             if (NULL == fit->cur_base_filter) {
                 return BITPUNCH_NO_ITEM;
             }
+            fit->scit = scope_riter_statements_in_context(
+                ast_node_get_scope_def(fit->cur_base_filter),
+                fit->scit.scope, fit->scit.stmt_mask, fit->scit.identifier);
         } else {
             if (fit->filter == fit->cur_base_filter) {
                 return BITPUNCH_NO_ITEM;
@@ -551,10 +554,10 @@ filter_iter_statements_next_internal(
                 }
                 cur_filter = base_filter;
             }
+            fit->scit = scope_iter_statements_in_context(
+                ast_node_get_scope_def(fit->cur_base_filter),
+                fit->scit.scope, fit->scit.stmt_mask, fit->scit.identifier);
         }
-        fit->scit = scope_iter_statements_in_context(
-            ast_node_get_scope_def(fit->cur_base_filter),
-            fit->scit.scope, fit->scit.stmt_mask, fit->scit.identifier);
     }
     return BITPUNCH_OK;
 }
