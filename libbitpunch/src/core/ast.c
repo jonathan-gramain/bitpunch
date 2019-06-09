@@ -562,16 +562,17 @@ filter_exists_in_scope(
     struct ast_node_hdl *base_filter;
     const struct filter_def *filter_def;
 
-    base_filter = lookup_filter;
+    base_filter = scope_node;
     do {
         if (base_filter->ndat == lookup_filter->ndat) {
             return TRUE;
         }
         if (ast_node_is_filter(base_filter)) {
             filter_def = base_filter->ndat->u.rexpr_filter.filter_def;
-        } else {
-            assert(AST_NODE_TYPE_FILTER_DEF == base_filter->ndat->type);
+        } else if (AST_NODE_TYPE_FILTER_DEF == base_filter->ndat->type) {
             filter_def = &base_filter->ndat->u.filter_def;
+        } else {
+            break ;
         }
         base_filter = filter_def->base_filter;
     } while (NULL != base_filter);
