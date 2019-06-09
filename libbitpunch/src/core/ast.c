@@ -447,19 +447,16 @@ lookup_visible_statements_in_lists(
 }
 
 static int
-lookup_visible_statements_in_filter(
-    enum statement_type stmt_mask, const char *lookup_identifier,
+lookup_visible_statements_in_filter_internal(
+    enum statement_type stmt_mask,
+    const char *lookup_identifier, struct ast_node_hdl *lookup_filter,
     const struct ast_node_hdl *filter,
-    struct named_statement_spec **visible_statementsp)
+    struct named_statement_spec **visible_statementsp,
+    int *visible_statements_indexp)
 {
     const struct scope_def *scope_def;
-    struct named_statement_spec *visible_statements;
-    int visible_statements_index;
     struct ast_node_hdl *base_filter;
     int ret;
-
-    visible_statements = NULL;
-    visible_statements_index = 0;
 
     if (ast_node_is_filter(filter)) {
         scope_def = &filter->ndat->u.rexpr_filter.filter_def->scope_def;
@@ -469,10 +466,10 @@ lookup_visible_statements_in_filter(
         scope_def = &filter->ndat->u.scope_def;
     }
     ret = lookup_visible_statements_in_lists_internal(
-        stmt_mask, lookup_identifier, NULL, &scope_def->block_stmt_list, FALSE,
-        &visible_statements, &visible_statements_index);
+        stmt_mask, lookup_identifier, lookup_filter,
+        &scope_def->block_stmt_list, FALSE,
+        visible_statementsp, visible_statements_indexp);
     if (-1 == ret) {
-        free(visible_statements);
         return -1;
     }
     if (ast_node_is_filter(filter)) {
@@ -480,15 +477,36 @@ lookup_visible_statements_in_filter(
         if (NULL != base_filter) {
             scope_def =
                 &base_filter->ndat->u.rexpr_filter.filter_def->scope_def;
-            ret = lookup_visible_statements_in_lists_internal(
-                stmt_mask, lookup_identifier, NULL,
-                &scope_def->block_stmt_list, FALSE,
-                &visible_statements, &visible_statements_index);
+            ret = lookup_visible_statements_in_filter_internal(
+                stmt_mask, lookup_identifier, lookup_filter, base_filter,
+                visible_statementsp, visible_statements_indexp);
             if (-1 == ret) {
-                free(visible_statements);
                 return -1;
             }
         }
+    }
+    return 0;
+}
+
+static int
+lookup_visible_statements_in_filter(
+    enum statement_type stmt_mask,
+    const char *lookup_identifier, struct ast_node_hdl *lookup_filter,
+    const struct ast_node_hdl *filter,
+    struct named_statement_spec **visible_statementsp)
+{
+    struct named_statement_spec *visible_statements;
+    int visible_statements_index;
+    int ret;
+    
+    visible_statements = NULL;
+    visible_statements_index = 0;
+    ret = lookup_visible_statements_in_filter_internal(
+        stmt_mask, lookup_identifier, lookup_filter, filter,
+        &visible_statements, &visible_statements_index);
+    if (-1 == ret) {
+        free(visible_statements);
+        return -1;
     }
     *visible_statementsp = visible_statements;
     return visible_statements_index;
@@ -541,20 +559,26 @@ filter_exists_in_scope(
     struct ast_node_hdl *scope_node,
     struct ast_node_hdl *lookup_filter)
 {
-    struct scope_def *scope_def;
+    struct ast_node_hdl *base_filter;
+    const struct filter_def *filter_def;
 
-    if (scope_node->ndat == lookup_filter->ndat) {
-        return TRUE;
-    }
-    scope_def = ast_node_get_scope_def(scope_node);
-    if (NULL == scope_def) {
-        return FALSE;
-    }
+    base_filter = lookup_filter;
+    do {
+        if (base_filter->ndat == lookup_filter->ndat) {
+            return TRUE;
+        }
+        if (ast_node_is_filter(base_filter)) {
+            filter_def = base_filter->ndat->u.rexpr_filter.filter_def;
+        } else {
+            assert(AST_NODE_TYPE_FILTER_DEF == base_filter->ndat->type);
+            filter_def = &base_filter->ndat->u.filter_def;
+        }
+        base_filter = filter_def->base_filter;
+    } while (NULL != base_filter);
     // -1 means that there was more names to lookup than the maximum
     // requested (0), so at least one.
-    return -1 == lookup_visible_statements_in_lists_internal(
-        STATEMENT_TYPE_FIELD,
-        NULL, lookup_filter, &scope_def->block_stmt_list, FALSE,
+    return -1 == lookup_visible_statements_in_filter_internal(
+        STATEMENT_TYPE_FIELD, NULL, lookup_filter, scope_node,
         NULL, NULL);
 }
 
@@ -3142,7 +3166,7 @@ compile_rexpr_member(
             lookup_mask = STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD;
         }
         n_visible_statements = lookup_visible_statements_in_filter(
-            lookup_mask, member->ndat->u.identifier, anchor_filter,
+            lookup_mask, member->ndat->u.identifier, NULL, anchor_filter,
             &visible_statements);
         if (-1 == n_visible_statements) {
             return -1;
