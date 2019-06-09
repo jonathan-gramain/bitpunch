@@ -66,19 +66,10 @@ compile_type_composite(struct ast_node_hdl *item,
                        struct filter_instance_composite *composite,
                        struct compile_ctx *ctx)
 {
-    struct scope_def *scope_def;
-    struct named_expr *attr;
-    int contains_last_attr;
+    struct ast_node_hdl *last_attr;
 
-    contains_last_attr = FALSE;
-    scope_def = filter_get_scope_def(item);
-    STATEMENT_FOREACH(
-        named_expr, attr, scope_def->block_stmt_list.attribute_list, list) {
-        if (0 == strcmp(attr->nstmt.name, "@last")) {
-            contains_last_attr = TRUE;
-        }
-    }
-    if (contains_last_attr) {
+    last_attr = filter_get_first_declared_attribute(item, "@last");
+    if (NULL != last_attr) {
         item->flags |= ASTFLAG_CONTAINS_LAST_ATTR;
     }
     item->ndat->u.item.flags |= ITEMFLAG_FILTER_MAPS_OBJECT;
