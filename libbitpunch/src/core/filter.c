@@ -584,11 +584,12 @@ filter_lookup_statement_internal(
     struct box **scopep,
     struct browse_state *bst)
 {
-    bitpunch_status_t bt_ret;
+    const struct filter_def *filter_def;
     struct ast_node_hdl *base_filter;
+    bitpunch_status_t bt_ret;
 
-    assert(ast_node_is_filter(filter));
-    base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
+    filter_def = ast_node_get_const_filter_def(filter);
+    base_filter = NULL != filter_def ? filter_def->base_filter : NULL;
     bt_ret = scope_lookup_statement_internal(
         ast_node_get_scope_def(filter), scope, stmt_mask, identifier,
         stmt_typep, stmtp, scopep, bst);
@@ -724,11 +725,12 @@ filter_get_first_declared_attribute(
     const struct ast_node_hdl *filter,
     const char *attr_name)
 {
+    const struct filter_def *filter_def;
     struct ast_node_hdl *base_filter;
     struct named_expr *attr;
 
-    assert(ast_node_is_filter(filter));
-    base_filter = filter->ndat->u.rexpr_filter.filter_def->base_filter;
+    filter_def = ast_node_get_const_filter_def(filter);
+    base_filter = NULL != filter_def ? filter_def->base_filter : NULL;
     attr = scope_get_first_declared_attribute(
         ast_node_get_const_scope_def(filter), attr_name);
     if (NULL != attr || NULL == base_filter) {

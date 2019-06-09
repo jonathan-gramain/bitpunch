@@ -243,6 +243,9 @@ bitpunch_eval_expr(
         board_refresh(board);
         goto end;
     }
+    if (-1 == compile_ast_node_all(expr_node, RESOLVE_EXPECT_EXPRESSION)) {
+        return -1;
+    }
     assert(ast_node_is_rexpr(expr_node));
     if (NULL != parsed_exprp) {
         *parsed_exprp = expr_node;
