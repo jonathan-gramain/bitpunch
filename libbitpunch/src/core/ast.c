@@ -1370,11 +1370,16 @@ static int
 resolve_expr_internal(struct ast_node_hdl *expr,
                       struct list_of_visible_refs *inmost_refs)
 {
-    if (-1 == resolve_identifiers_in_expression(expr, inmost_refs,
-                                                RESOLVE_ALL_IDENTIFIERS)) {
+    if (-1 == resolve_identifiers_in_expression(
+            expr, inmost_refs, RESOLVE_TYPE_IDENTIFIERS)) {
         return -1;
     }
-    /* if (-1 == compile_ast_node_all(expr, RESOLVE_EXPECT_EXPRESSION)) { */
+    if (-1 == resolve_identifiers_in_expression(
+            expr, inmost_refs, RESOLVE_EXPRESSION_IDENTIFIERS)) {
+        return -1;
+    }
+    /* if (-1 == compile_ast_node_all(expr, */
+    /*                                RESOLVE_EXPECT_EXPRESSION)) { */
     /*     return -1; */
     /* } */
     return 0;

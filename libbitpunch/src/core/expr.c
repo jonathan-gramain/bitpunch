@@ -2989,6 +2989,9 @@ expr_evaluate(struct ast_node_hdl *expr,
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
+    if (-1 == compile_ast_node_all(expr, RESOLVE_EXPECT_EXPRESSION)) {
+        return BITPUNCH_INVALID_PARAM;
+    }
     return transmit_error(
         expr_evaluate_internal(expr, scope, flags, valuep, dpathp, &bst),
         &bst, errp);
