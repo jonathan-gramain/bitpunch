@@ -126,7 +126,7 @@ def test_leveldb_log_empty(spec_log, data_log_empty):
     with pytest.raises(IndexError):
         dtree.tail_block.records[0]
 
-    with pytest.raises(ValueError):
+    with pytest.raises(model.OutOfBoundsError):
         dtree.eval_expr('tail_block.records[0]')
 
 
@@ -157,7 +157,7 @@ def test_leveldb_log_small(spec_log, data_log_small):
     with pytest.raises(IndexError):
         dummy = records[2]
 
-    with pytest.raises(ValueError):
+    with pytest.raises(model.OutOfBoundsError):
         dtree.eval_expr('tail_block.records[2]')
 
 
