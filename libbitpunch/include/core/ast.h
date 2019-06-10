@@ -101,6 +101,12 @@ identifier_is_visible_in_block_stmt_lists(
     const struct block_stmt_list *stmt_lists);
 
 int
+identifier_is_visible_in_filter(
+    enum statement_type stmt_mask,
+    const char *identifier,
+    struct ast_node_hdl *filter);
+
+int
 filter_exists_in_scope(
     struct ast_node_hdl *scope_node,
     struct ast_node_hdl *lookup_filter);

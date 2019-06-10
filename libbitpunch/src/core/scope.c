@@ -311,7 +311,6 @@ scope_lookup_statement_in_anonymous_field_recur(
 {
     bitpunch_status_t bt_ret;
     struct ast_node_hdl *field_filter_type;
-    struct scope_def *field_scope_def;
     int cond_eval;
     const struct field *field;
     struct box *anon_scope = NULL;
@@ -331,10 +330,9 @@ scope_lookup_statement_in_anonymous_field_recur(
     if (BITPUNCH_OK != bt_ret) {
         return bt_ret;
     }
-    field_scope_def = filter_get_scope_def(field_filter_type);
-    if (!identifier_is_visible_in_block_stmt_lists(
+    if (!identifier_is_visible_in_filter(
             STATEMENT_TYPE_NAMED_EXPR | STATEMENT_TYPE_FIELD,
-            identifier, &field_scope_def->block_stmt_list)) {
+            identifier, field_filter_type)) {
         return BITPUNCH_NO_ITEM;
     }
 
@@ -359,9 +357,9 @@ scope_lookup_statement_in_anonymous_field_recur(
     }
     tracker_delete(tk);
     if (BITPUNCH_OK == bt_ret) {
-        bt_ret = scope_lookup_statement_recur(
-            field_scope_def, anon_scope, &field_scope_def->block_stmt_list,
-            stmt_mask, identifier, stmt_typep, stmtp, scopep, bst);
+        bt_ret = filter_lookup_statement_internal(
+            field_filter_type, anon_scope, stmt_mask, identifier,
+            stmt_typep, stmtp, scopep, bst);
     }
     box_delete(anon_scope);
     return bt_ret;

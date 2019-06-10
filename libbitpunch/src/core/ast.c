@@ -509,7 +509,7 @@ identifier_is_visible_in_block_stmt_lists(
         NULL, NULL);
 }
 
-static int
+int
 identifier_is_visible_in_filter(
     enum statement_type stmt_mask,
     const char *identifier,
