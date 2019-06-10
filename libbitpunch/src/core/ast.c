@@ -589,7 +589,6 @@ resolve_identifier_as_scoped_statement(
     struct named_statement_spec *visible_statements;
     int n_visible_statements;
     struct named_statement_spec *stmt_spec;
-    struct ast_node_hdl *ref_expr;
     struct ast_node_data *resolved_type;
 
     n_visible_statements = lookup_all_visible_statements(
@@ -607,20 +606,9 @@ resolve_identifier_as_scoped_statement(
             switch (stmt_spec->stmt_type) {
             case STATEMENT_TYPE_NAMED_EXPR:
             case STATEMENT_TYPE_ATTRIBUTE:
-                ref_expr = ((struct named_expr *)stmt_spec->nstmt)->expr;
-                if (AST_NODE_TYPE_FILTER_DEF == ref_expr->ndat->type) {
-                    resolved_type = new_safe(struct ast_node_data);
-                    resolved_type->type = AST_NODE_TYPE_FILTER_DEF;
-                    resolved_type->u.filter_def.filter_type =
-                        node->ndat->u.identifier;
-                    init_block_stmt_list(
-                        &resolved_type->u.scope_def.block_stmt_list);
-                    resolved_type->u.filter_def.base_filter = ref_expr;
-                } else {
-                    resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
-                    resolved_type->u.rexpr_named_expr.named_expr =
-                        (struct named_expr *)stmt_spec->nstmt;
-                }
+                resolved_type->type = AST_NODE_TYPE_REXPR_NAMED_EXPR;
+                resolved_type->u.rexpr_named_expr.named_expr =
+                    (struct named_expr *)stmt_spec->nstmt;
                 break ;
             case STATEMENT_TYPE_FIELD:
                 resolved_type->type = AST_NODE_TYPE_REXPR_FIELD;
