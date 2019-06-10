@@ -3085,13 +3085,12 @@ tracker_goto_index_internal(struct tracker *tk,
                     return bt_ret;
                 }
                 if (item_index.integer + n_items < 0) {
-                    semantic_error(
-                        SEMANTIC_LOGLEVEL_ERROR, &index.key->loc,
+                    return bitpunch_error(
+                        BITPUNCH_OUT_OF_BOUNDS_ERROR, tk, index.key, bst,
                         "index %"PRIi64" points outside %s of size %"PRIu64,
                         item_index.integer,
                         (ast_node_is_slice_container(tk->box->filter) ?
                          "slice" : "array"), n_items);
-                    return BITPUNCH_OUT_OF_BOUNDS_ERROR;
                 }
                 item_index.integer += n_items;
             }
@@ -3104,8 +3103,8 @@ tracker_goto_index_internal(struct tracker *tk,
             }
             if (BITPUNCH_NO_ITEM == bt_ret) {
                 (void)box_get_n_items_internal(tk->box, NULL, bst);
-                semantic_error(
-                    SEMANTIC_LOGLEVEL_ERROR, &index.key->loc,
+                return bitpunch_error(
+                    BITPUNCH_OUT_OF_BOUNDS_ERROR, tk, index.key, bst,
                     "%s %"PRIi64" is past array size (%"PRIi64")",
                     index_desc, item_index.integer,
                     array_state->n_items);
