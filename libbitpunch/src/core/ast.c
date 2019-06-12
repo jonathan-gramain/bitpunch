@@ -394,7 +394,7 @@ lookup_visible_statements_in_filter_internal(
             return -1;
         }
     }
-    return 0;
+    return ret;
 }
 
 static int
