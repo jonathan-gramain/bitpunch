@@ -40,7 +40,7 @@ extern expr_dpath_t shared_expr_dpath_none;
 
 struct dpath_transform {
     expr_dpath_t dpath;
-    int dpath_is_data_source;
+    int filtered_item;
 };
 
 bitpunch_status_t

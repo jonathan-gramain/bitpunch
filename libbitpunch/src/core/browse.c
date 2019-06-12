@@ -1729,7 +1729,8 @@ tracker_get_filtered_dpath_internal(struct tracker *tk,
     // initialize work dpath with unfiltered tracked item
     transform.dpath.type = EXPR_DPATH_TYPE_ITEM;
     transform.dpath.tk = tracker_dup(tk);
-    transform.dpath_is_data_source = TRUE;
+    // start with unfiltered item, so that transform processes item filters
+    transform.filtered_item = FALSE;
     bt_ret = expr_transform_dpath_internal(
         tk->dpath.filter, tk->box, &transform, bst);
     if (BITPUNCH_OK == bt_ret) {

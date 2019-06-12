@@ -2350,7 +2350,6 @@ expr_evaluate_filter_chain(
     bitpunch_status_t bt_ret;
 
     transform.dpath.type = EXPR_DPATH_TYPE_NONE;
-    transform.dpath_is_data_source = FALSE;
     if (expr->ndat->u.rexpr.dpath_type_mask != EXPR_DPATH_TYPE_UNSET &&
         expr->ndat->u.rexpr.dpath_type_mask != EXPR_DPATH_TYPE_NONE) {
         bt_ret = expr_transform_dpath_internal(expr, NULL, &transform, bst);
@@ -2568,6 +2567,7 @@ expr_transform_dpath_polymorphic(
         }
         transformp->dpath.type = EXPR_DPATH_TYPE_ITEM;
         transformp->dpath.tk = tk;
+        transformp->filtered_item = TRUE;
         return BITPUNCH_OK;
     }
     case STATEMENT_TYPE_NAMED_EXPR: {
@@ -2625,10 +2625,23 @@ expr_transform_dpath_filter(
 
     switch (transformp->dpath.type) {
     case EXPR_DPATH_TYPE_ITEM:
-        bt_ret = tracker_create_item_box_internal(
-            transformp->dpath.tk, &filtered_data_box, bst);
-        if (BITPUNCH_OK != bt_ret) {
-            return bt_ret;
+        if (transformp->filtered_item) {
+            bt_ret = tracker_get_filtered_item_box_internal(
+                transformp->dpath.tk, &parent_box, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                return bt_ret;
+            }
+            filtered_data_box = box_new_filter_box(parent_box, expr, bst);
+            box_delete(parent_box);
+            if (NULL == filtered_data_box) {
+                return BITPUNCH_DATA_ERROR;
+            }
+        } else {
+            bt_ret = tracker_create_item_box_internal(
+                transformp->dpath.tk, &filtered_data_box, bst);
+            if (BITPUNCH_OK != bt_ret) {
+                return bt_ret;
+            }
         }
         break ;
 
